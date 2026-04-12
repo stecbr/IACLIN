@@ -232,6 +232,7 @@ export default function PatientDetail() {
           onOpenChange={setEditOpen}
           onSuccess={refetch}
           patient={patient}
+          clinicId={currentClinicId}
         />
       )}
     </div>
