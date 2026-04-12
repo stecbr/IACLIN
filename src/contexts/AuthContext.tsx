@@ -26,35 +26,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    const fetchUserData = async (userId: string) => {
-      const [{ data: rolesData }, { data: profileData }] = await Promise.all([
+    const fetchUserData = (userId: string) => {
+      Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
-      ]);
-      if (!mounted) return;
-      setRoles((rolesData ?? []).map(r => r.role as AppRole));
-      setProfile(profileData);
+      ]).then(([{ data: rolesData }, { data: profileData }]) => {
+        if (!mounted) return;
+        setRoles((rolesData ?? []).map(r => r.role as AppRole));
+        setProfile(profileData);
+      });
     };
 
-    // Get initial session
+    // Get initial session first
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserData(session.user.id).finally(() => mounted && setLoading(false));
-      } else {
-        setLoading(false);
+        fetchUserData(session.user.id);
       }
+      setLoading(false);
     });
 
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Listen for subsequent changes — no await to prevent deadlocks
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchUserData(session.user.id);
+        fetchUserData(session.user.id);
       } else {
         setRoles([]);
         setProfile(null);
