@@ -4,12 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 
 type AppRole = 'admin' | 'dentist' | 'secretary';
 
+interface ClinicMembership {
+  clinic_id: string;
+  role: AppRole;
+  is_owner: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   roles: AppRole[];
   profile: { full_name: string | null; avatar_url: string | null } | null;
+  currentClinicId: string | null;
+  clinicRole: AppRole | null;
+  isClinicOwner: boolean;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
 }
@@ -22,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+  const [clinicMembership, setClinicMembership] = useState<ClinicMembership | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -30,14 +40,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
-      ]).then(([{ data: rolesData }, { data: profileData }]) => {
+        supabase.from('clinic_members').select('clinic_id, role, is_owner').eq('user_id', userId).limit(1).maybeSingle(),
+      ]).then(([{ data: rolesData }, { data: profileData }, { data: memberData }]) => {
         if (!mounted) return;
         setRoles((rolesData ?? []).map(r => r.role as AppRole));
         setProfile(profileData);
+        if (memberData) {
+          setClinicMembership({
+            clinic_id: memberData.clinic_id,
+            role: memberData.role as AppRole,
+            is_owner: memberData.is_owner,
+          });
+        } else {
+          setClinicMembership(null);
+        }
       });
     };
 
-    // Get initial session first
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
@@ -48,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for subsequent changes — no await to prevent deadlocks
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setSession(session);
@@ -58,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setRoles([]);
         setProfile(null);
+        setClinicMembership(null);
       }
     });
 
@@ -74,7 +93,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (role: AppRole) => roles.includes(role);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, roles, profile, signOut, hasRole }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      roles,
+      profile,
+      currentClinicId: clinicMembership?.clinic_id ?? null,
+      clinicRole: clinicMembership?.role ?? null,
+      isClinicOwner: clinicMembership?.is_owner ?? false,
+      signOut,
+      hasRole,
+    }}>
       {children}
     </AuthContext.Provider>
   );
