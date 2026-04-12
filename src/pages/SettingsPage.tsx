@@ -58,7 +58,6 @@ export default function SettingsPage() {
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'appearance' && <AppearanceSection />}
           {activeSection === 'procedures' && <ProceduresSection />}
-          {activeSection === 'procedures' && <ProceduresSection />}
         </div>
       </div>
     </div>
