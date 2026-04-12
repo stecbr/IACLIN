@@ -246,6 +246,48 @@ export type Database = {
           },
         ]
       }
+      imported_transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          source_file_url: string
+          status: string
+          transaction_date: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          source_file_url: string
+          status?: string
+          transaction_date: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          source_file_url?: string
+          status?: string
+          transaction_date?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       odontogram_entries: {
         Row: {
           condition: string
