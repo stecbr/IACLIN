@@ -44,6 +44,10 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { profile, signOut, user } = useAuth();
+  const { filterNavItems } = useRoleAccess();
+
+  const filteredMainNav = filterNavItems(mainNav);
+  const filteredClinicNav = filterNavItems(clinicNav);
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({

@@ -19,6 +19,9 @@ const allMoreItems = [
 export function MobileBottomNav() {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
+  const { filterNavItems } = useRoleAccess();
+  const mainItems = filterNavItems(allMainItems);
+  const moreItems = filterNavItems(allMoreItems);
 
   const isActive = (url: string) => {
     if (url === '/') return location.pathname === '/';
