@@ -16,11 +16,12 @@ import Odontogram from "./pages/Odontogram";
 import Financial from "./pages/Financial";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, currentClinicId } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -33,14 +34,34 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  // Redirect to onboarding if user has no clinic
+  if (!currentClinicId) return <Navigate to="/onboarding" replace />;
   if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
 
   return <AppLayout>{children}</AppLayout>;
 }
 
+function OnboardingRoute() {
+  const { user, loading, currentClinicId } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
+  if (currentClinicId) return <Navigate to="/" replace />;
+
+  return <Onboarding />;
+}
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<Auth />} />
+    <Route path="/onboarding" element={<OnboardingRoute />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
