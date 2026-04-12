@@ -14,16 +14,557 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          dentist_id: string
+          end_time: string
+          id: string
+          notes: string | null
+          patient_id: string
+          procedure_id: string | null
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          dentist_id: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          procedure_id?: string | null
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          dentist_id?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          procedure_id?: string | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinics: {
+        Row: {
+          address: string | null
+          city: string | null
+          cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          phone: string | null
+          state: string | null
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_id?: string | null
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string | null
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          category: string | null
+          created_at: string
+          file_type: string | null
+          file_url: string
+          id: string
+          name: string
+          patient_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          file_type?: string | null
+          file_url: string
+          id?: string
+          name: string
+          patient_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          name?: string
+          patient_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_transactions: {
+        Row: {
+          amount: number
+          appointment_id: string | null
+          category: string
+          clinic_id: string | null
+          created_at: string
+          dentist_id: string | null
+          description: string | null
+          due_date: string
+          id: string
+          notes: string | null
+          paid_date: string | null
+          patient_id: string | null
+          payment_method: string | null
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          appointment_id?: string | null
+          category: string
+          clinic_id?: string | null
+          created_at?: string
+          dentist_id?: string | null
+          description?: string | null
+          due_date: string
+          id?: string
+          notes?: string | null
+          paid_date?: string | null
+          patient_id?: string | null
+          payment_method?: string | null
+          status?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string | null
+          category?: string
+          clinic_id?: string | null
+          created_at?: string
+          dentist_id?: string | null
+          description?: string | null
+          due_date?: string
+          id?: string
+          notes?: string | null
+          paid_date?: string | null
+          patient_id?: string | null
+          payment_method?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_transactions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      odontogram_entries: {
+        Row: {
+          condition: string
+          created_at: string
+          dentist_id: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          procedure_id: string | null
+          surface: string | null
+          tooth_number: number
+          updated_at: string
+        }
+        Insert: {
+          condition: string
+          created_at?: string
+          dentist_id?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          procedure_id?: string | null
+          surface?: string | null
+          tooth_number: number
+          updated_at?: string
+        }
+        Update: {
+          condition?: string
+          created_at?: string
+          dentist_id?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          procedure_id?: string | null
+          surface?: string | null
+          tooth_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "odontogram_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "odontogram_entries_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          address: string | null
+          city: string | null
+          clinic_id: string | null
+          cpf: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          insurance_number: string | null
+          insurance_provider: string | null
+          is_active: boolean
+          notes: string | null
+          phone: string | null
+          photo_url: string | null
+          state: string | null
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          clinic_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          insurance_number?: string | null
+          insurance_provider?: string | null
+          is_active?: boolean
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          clinic_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          insurance_number?: string | null
+          insurance_provider?: string | null
+          is_active?: boolean
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patients_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procedures: {
+        Row: {
+          category: string
+          code: string | null
+          color: string
+          created_at: string
+          default_duration: number
+          default_price: number
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          category: string
+          code?: string | null
+          color?: string
+          created_at?: string
+          default_duration?: number
+          default_price?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          category?: string
+          code?: string | null
+          color?: string
+          created_at?: string
+          default_duration?: number
+          default_price?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      treatment_plan_items: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          price: number
+          procedure_id: string
+          status: string
+          tooth_number: number | null
+          treatment_plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          procedure_id: string
+          status?: string
+          tooth_number?: number | null
+          treatment_plan_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          procedure_id?: string
+          status?: string
+          tooth_number?: number | null
+          treatment_plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_plan_items_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plan_items_treatment_plan_id_fkey"
+            columns: ["treatment_plan_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treatment_plans: {
+        Row: {
+          created_at: string
+          dentist_id: string
+          description: string | null
+          id: string
+          patient_id: string
+          status: string
+          title: string
+          total_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dentist_id: string
+          description?: string | null
+          id?: string
+          patient_id: string
+          status?: string
+          title: string
+          total_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dentist_id?: string
+          description?: string | null
+          id?: string
+          patient_id?: string
+          status?: string
+          title?: string
+          total_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "dentist" | "secretary"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +691,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "dentist", "secretary"],
+    },
   },
 } as const
