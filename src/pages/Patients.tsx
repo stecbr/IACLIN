@@ -109,7 +109,7 @@ export default function Patients() {
           <Input
             placeholder="Buscar por nome, CPF, telefone ou e-mail..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-9"
           />
         </div>
