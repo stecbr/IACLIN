@@ -27,6 +27,7 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Users } from 'lucide-react';
+import { SkeletonCards } from '@/components/SkeletonLoaders';
 
 const AVATAR_GRADIENTS = [
   'from-blue-400 to-blue-600',
@@ -48,6 +49,8 @@ export default function Patients() {
   const [insuranceFilter, setInsuranceFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const navigate = useNavigate();
   const { data: patients = [], isLoading, refetch } = useQuery({
     queryKey: ['patients'],
@@ -78,6 +81,12 @@ export default function Patients() {
     return matchesSearch && matchesStatus && matchesInsurance;
   });
 
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page when filters change
+  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+
   const getInitials = (name: string) =>
     name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -100,7 +109,7 @@ export default function Patients() {
           <Input
             placeholder="Buscar por nome, CPF, telefone ou e-mail..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -142,9 +151,7 @@ export default function Patients() {
 
       {/* Patient List */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <SkeletonCards count={6} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -166,7 +173,7 @@ export default function Patients() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((patient) => (
+              {paginated.map((patient) => (
                 <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/patients/${patient.id}`)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -199,7 +206,7 @@ export default function Patients() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {filtered.map((patient) => (
+          {paginated.map((patient) => (
             <Link key={patient.id} to={`/patients/${patient.id}`}>
               <Card className="p-4 shadow-card hover:shadow-card-hover transition-all border-border/50 cursor-pointer">
                 <div className="flex items-center gap-4">
@@ -240,6 +247,17 @@ export default function Patients() {
               </Card>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">{filtered.length} paciente{filtered.length !== 1 ? 's' : ''} • Página {page} de {totalPages}</p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Próxima</Button>
+          </div>
         </div>
       )}
 

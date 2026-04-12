@@ -226,14 +226,14 @@ export default function Odontogram() {
       ) : (
         <>
           {/* Dental Chart */}
-          <Card className="shadow-card border-border/50 p-6">
-            <div className="flex flex-col items-center gap-6">
+          <Card className="shadow-card border-border/50 p-4 md:p-6 overflow-x-auto">
+            <div className="flex flex-col items-center gap-4 md:gap-6 min-w-[320px]">
               {/* Upper jaw */}
-              <div className="flex items-end gap-1 flex-wrap justify-center">
+              <div className="flex items-end gap-0.5 md:gap-1 flex-wrap justify-center">
                 {UPPER_RIGHT.map((n) => (
                   <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
-                <div className="w-4" />
+                <div className="w-2 md:w-4" />
                 {UPPER_LEFT.map((n) => (
                   <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
@@ -242,11 +242,11 @@ export default function Odontogram() {
               <div className="w-full border-t border-dashed border-border" />
 
               {/* Lower jaw */}
-              <div className="flex items-start gap-1 flex-wrap justify-center">
+              <div className="flex items-start gap-0.5 md:gap-1 flex-wrap justify-center">
                 {LOWER_RIGHT.map((n) => (
                   <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
-                <div className="w-4" />
+                <div className="w-2 md:w-4" />
                 {LOWER_LEFT.map((n) => (
                   <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
