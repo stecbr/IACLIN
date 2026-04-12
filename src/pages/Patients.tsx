@@ -48,7 +48,7 @@ export default function Patients() {
   const [insuranceFilter, setInsuranceFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-
+  const navigate = useNavigate();
   const { data: patients = [], isLoading, refetch } = useQuery({
     queryKey: ['patients'],
     queryFn: async () => {
