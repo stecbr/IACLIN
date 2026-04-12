@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99%;
+    --background: 0 0% 98%;
     --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
@@ -40,16 +40,25 @@
     --input: 220 13% 91%;
     --ring: 215 80% 52%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
+
+    --chart-1: 215 80% 52%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 0 72% 51%;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 10% 40%;
     --sidebar-primary: 215 80% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 20% 10%;
+    --sidebar-accent: 215 80% 97%;
+    --sidebar-accent-foreground: 215 80% 40%;
     --sidebar-border: 220 13% 93%;
     --sidebar-ring: 215 80% 52%;
+
+    --shadow-card: 0 1px 3px 0 hsla(0, 0%, 0%, 0.04), 0 1px 2px -1px hsla(0, 0%, 0%, 0.04);
+    --shadow-card-hover: 0 4px 12px -2px hsla(0, 0%, 0%, 0.08), 0 2px 4px -2px hsla(0, 0%, 0%, 0.04);
   }
 
   .dark {
@@ -87,6 +96,12 @@
     --input: 220 14% 16%;
     --ring: 215 80% 56%;
 
+    --chart-1: 215 80% 56%;
+    --chart-2: 142 71% 35%;
+    --chart-3: 38 92% 40%;
+    --chart-4: 280 65% 50%;
+    --chart-5: 0 62% 40%;
+
     --sidebar-background: 224 20% 7%;
     --sidebar-foreground: 220 10% 60%;
     --sidebar-primary: 215 80% 56%;
@@ -95,6 +110,9 @@
     --sidebar-accent-foreground: 210 20% 95%;
     --sidebar-border: 220 14% 14%;
     --sidebar-ring: 215 80% 56%;
+
+    --shadow-card: 0 1px 3px 0 hsla(0, 0%, 0%, 0.2);
+    --shadow-card-hover: 0 4px 12px -2px hsla(0, 0%, 0%, 0.3);
   }
 }
 
@@ -106,5 +124,61 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation: fade-in 0.4s ease-out, slide-up 0.4s ease-out;
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-card-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fade-in-delay {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

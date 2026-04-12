@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Users, FileHeart } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
 
-// FDI tooth numbering
 const UPPER_RIGHT = [18, 17, 16, 15, 14, 13, 12, 11];
 const UPPER_LEFT = [21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_LEFT = [31, 32, 33, 34, 35, 36, 37, 38];
@@ -34,6 +36,10 @@ function getConditionColor(condition: string) {
   return CONDITIONS.find((c) => c.value === condition)?.color ?? '#22C55E';
 }
 
+function getConditionLabel(condition: string) {
+  return CONDITIONS.find((c) => c.value === condition)?.label ?? condition;
+}
+
 function ToothSVG({
   number,
   condition,
@@ -50,49 +56,76 @@ function ToothSVG({
   const isMolar = [16, 17, 18, 26, 27, 28, 36, 37, 38, 46, 47, 48].includes(number);
   const isPremolar = [14, 15, 24, 25, 34, 35, 44, 45].includes(number);
 
-  const w = isMolar ? 36 : isPremolar ? 30 : 26;
-  const h = 50;
+  const w = isMolar ? 38 : isPremolar ? 32 : 28;
+  const h = 52;
 
   return (
-    <div
-      className={`flex flex-col items-center gap-1 cursor-pointer group transition-transform hover:scale-110 ${
-        isSelected ? 'scale-110' : ''
-      }`}
-      onClick={onClick}
-    >
-      {isUpper && <span className="text-[10px] text-muted-foreground font-medium">{number}</span>}
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-        {/* Root */}
-        <rect
-          x={w / 2 - 3}
-          y={isUpper ? h - 18 : 0}
-          width={6}
-          height={18}
-          rx={2}
-          fill={condition === 'missing' ? '#D1D5DB' : '#FDE68A'}
-          opacity={0.6}
-        />
-        {/* Crown */}
-        <rect
-          x={2}
-          y={isUpper ? 2 : 18}
-          width={w - 4}
-          height={h - 22}
-          rx={isMolar ? 6 : 5}
-          fill={fill}
-          stroke={isSelected ? '#1D4ED8' : '#D1D5DB'}
-          strokeWidth={isSelected ? 2 : 1}
-          className="group-hover:stroke-primary transition-colors"
-        />
-        {condition === 'missing' && (
-          <>
-            <line x1={4} y1={isUpper ? 4 : 20} x2={w - 4} y2={isUpper ? h - 22 : h - 4} stroke="#9CA3AF" strokeWidth={2} />
-            <line x1={w - 4} y1={isUpper ? 4 : 20} x2={4} y2={isUpper ? h - 22 : h - 4} stroke="#9CA3AF" strokeWidth={2} />
-          </>
-        )}
-      </svg>
-      {!isUpper && <span className="text-[10px] text-muted-foreground font-medium">{number}</span>}
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={`flex flex-col items-center gap-1 cursor-pointer group transition-all duration-200 ${
+            isSelected ? 'scale-110 -translate-y-1' : 'hover:scale-105 hover:-translate-y-0.5'
+          }`}
+          onClick={onClick}
+        >
+          {isUpper && <span className="text-[10px] text-muted-foreground font-medium">{number}</span>}
+          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+            {/* Root */}
+            <rect
+              x={w / 2 - 3}
+              y={isUpper ? h - 16 : 0}
+              width={6}
+              height={16}
+              rx={2}
+              fill={condition === 'missing' ? '#D1D5DB' : '#FDE68A'}
+              opacity={0.5}
+            />
+            {/* Crown */}
+            <rect
+              x={2}
+              y={isUpper ? 2 : 16}
+              width={w - 4}
+              height={h - 20}
+              rx={isMolar ? 7 : 6}
+              fill={fill}
+              stroke={isSelected ? 'hsl(215, 80%, 52%)' : '#D1D5DB'}
+              strokeWidth={isSelected ? 2.5 : 1}
+              className="group-hover:stroke-primary transition-colors"
+              filter={isSelected ? 'url(#glow)' : undefined}
+            />
+            {/* Surfaces - cross pattern for anatomical detail */}
+            {!condition || condition === 'healthy' ? (
+              <>
+                <line x1={w * 0.35} y1={isUpper ? (h - 20) * 0.4 + 2 : 16 + (h - 20) * 0.4} x2={w * 0.65} y2={isUpper ? (h - 20) * 0.4 + 2 : 16 + (h - 20) * 0.4} stroke="#D1D5DB" strokeWidth={0.5} />
+                <line x1={w * 0.5} y1={isUpper ? (h - 20) * 0.3 + 2 : 16 + (h - 20) * 0.3} x2={w * 0.5} y2={isUpper ? (h - 20) * 0.7 + 2 : 16 + (h - 20) * 0.7} stroke="#D1D5DB" strokeWidth={0.5} />
+              </>
+            ) : null}
+            {condition === 'missing' && (
+              <>
+                <line x1={4} y1={isUpper ? 4 : 18} x2={w - 4} y2={isUpper ? h - 20 : h - 4} stroke="#9CA3AF" strokeWidth={2} />
+                <line x1={w - 4} y1={isUpper ? 4 : 18} x2={4} y2={isUpper ? h - 20 : h - 4} stroke="#9CA3AF" strokeWidth={2} />
+              </>
+            )}
+            {isSelected && (
+              <defs>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+            )}
+          </svg>
+          {!isUpper && <span className="text-[10px] text-muted-foreground font-medium">{number}</span>}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side={isUpper ? 'top' : 'bottom'} className="text-xs">
+        <p className="font-medium">Dente {number}</p>
+        {condition && <p className="text-muted-foreground">{getConditionLabel(condition)}</p>}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -126,7 +159,6 @@ export default function Odontogram() {
     enabled: !!selectedPatientId,
   });
 
-  // Get latest condition per tooth
   const toothConditions: Record<number, string> = {};
   entries.forEach((e) => {
     if (!toothConditions[e.tooth_number]) {
@@ -155,7 +187,7 @@ export default function Odontogram() {
         dentist_id: user.id,
       });
       if (error) throw error;
-      toast.success(`Dente ${selectedTooth}: ${CONDITIONS.find((c) => c.value === condition)?.label}`);
+      toast.success(`Dente ${selectedTooth}: ${getConditionLabel(condition)}`);
       setShowConditionDialog(false);
       refetch();
     } catch (error: any) {
@@ -165,12 +197,7 @@ export default function Odontogram() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Odontograma</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Prontuário odontológico visual</p>
-        </div>
-      </div>
+      <PageHeader title="Odontograma" description="Prontuário odontológico visual" />
 
       {/* Patient Selector */}
       <div className="flex items-center gap-4">
@@ -191,59 +218,37 @@ export default function Odontogram() {
       </div>
 
       {!selectedPatientId ? (
-        <div className="flex flex-col items-center justify-center h-64 rounded-xl border border-dashed border-border bg-muted/30">
-          <p className="text-sm text-muted-foreground">Selecione um paciente para visualizar o odontograma</p>
-        </div>
+        <EmptyState
+          icon={FileHeart}
+          title="Selecione um paciente"
+          description="Escolha um paciente acima para visualizar e editar o odontograma."
+        />
       ) : (
         <>
           {/* Dental Chart */}
-          <Card className="border-border/50 p-6">
+          <Card className="shadow-card border-border/50 p-6">
             <div className="flex flex-col items-center gap-6">
               {/* Upper jaw */}
-              <div className="flex items-end gap-1">
+              <div className="flex items-end gap-1 flex-wrap justify-center">
                 {UPPER_RIGHT.map((n) => (
-                  <ToothSVG
-                    key={n}
-                    number={n}
-                    condition={toothConditions[n]}
-                    onClick={() => handleToothClick(n)}
-                    isSelected={selectedTooth === n}
-                  />
+                  <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
                 <div className="w-4" />
                 {UPPER_LEFT.map((n) => (
-                  <ToothSVG
-                    key={n}
-                    number={n}
-                    condition={toothConditions[n]}
-                    onClick={() => handleToothClick(n)}
-                    isSelected={selectedTooth === n}
-                  />
+                  <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
               </div>
 
               <div className="w-full border-t border-dashed border-border" />
 
               {/* Lower jaw */}
-              <div className="flex items-start gap-1">
+              <div className="flex items-start gap-1 flex-wrap justify-center">
                 {LOWER_RIGHT.map((n) => (
-                  <ToothSVG
-                    key={n}
-                    number={n}
-                    condition={toothConditions[n]}
-                    onClick={() => handleToothClick(n)}
-                    isSelected={selectedTooth === n}
-                  />
+                  <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
                 <div className="w-4" />
                 {LOWER_LEFT.map((n) => (
-                  <ToothSVG
-                    key={n}
-                    number={n}
-                    condition={toothConditions[n]}
-                    onClick={() => handleToothClick(n)}
-                    isSelected={selectedTooth === n}
-                  />
+                  <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => handleToothClick(n)} isSelected={selectedTooth === n} />
                 ))}
               </div>
             </div>
@@ -261,17 +266,18 @@ export default function Odontogram() {
 
           {/* Recent entries */}
           {entries.length > 0 && (
-            <Card className="border-border/50">
+            <Card className="shadow-card border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Histórico Recente</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {entries.slice(0, 10).map((e) => (
-                    <div key={e.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border last:border-0">
+                    <div key={e.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">Dente {e.tooth_number}</Badge>
-                        <span className="font-medium">{CONDITIONS.find((c) => c.value === e.condition)?.label ?? e.condition}</span>
+                        <Badge variant="outline" className="text-xs font-mono">#{e.tooth_number}</Badge>
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getConditionColor(e.condition) }} />
+                        <span className="font-medium text-foreground">{getConditionLabel(e.condition)}</span>
                       </div>
                       {e.notes && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{e.notes}</span>}
                     </div>
@@ -287,7 +293,14 @@ export default function Odontogram() {
       <Dialog open={showConditionDialog} onOpenChange={setShowConditionDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Dente {selectedTooth}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              Dente {selectedTooth}
+              {selectedTooth && toothConditions[selectedTooth] && (
+                <Badge variant="outline" className="text-xs ml-2">
+                  {getConditionLabel(toothConditions[selectedTooth])}
+                </Badge>
+              )}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -297,7 +310,7 @@ export default function Odontogram() {
                   <button
                     key={c.value}
                     onClick={() => handleSaveCondition(c.value)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/50 transition-colors text-sm"
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border hover:bg-muted/50 hover:border-primary/30 transition-all text-sm"
                   >
                     <div className="h-3 w-3 rounded-sm flex-shrink-0" style={{ backgroundColor: c.color }} />
                     <span className="truncate">{c.label}</span>

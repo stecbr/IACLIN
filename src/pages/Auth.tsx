@@ -7,6 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { Calendar, Users, Shield, FileHeart } from 'lucide-react';
+
+const features = [
+  { icon: Calendar, text: 'Agenda inteligente com visualização dia, semana e mês' },
+  { icon: Users, text: 'Gestão completa de pacientes e prontuários' },
+  { icon: FileHeart, text: 'Odontograma interativo com planos de tratamento' },
+  { icon: Shield, text: 'Segurança e privacidade dos dados clínicos' },
+];
 
 export default function Auth() {
   const { user, loading } = useAuth();
@@ -52,73 +60,117 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">IACLIN</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gestão Clínica Odontológica</p>
+    <div className="flex min-h-screen">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/90 to-primary flex-col justify-between p-12 text-primary-foreground">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-10 w-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
+              <span className="text-sm font-bold">IA</span>
+            </div>
+            <span className="text-2xl font-semibold">IACLIN</span>
+          </div>
+          <p className="text-sm text-primary-foreground/70">Gestão Clínica Odontológica</p>
         </div>
 
-        <Card className="border-border/50 shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">{isLogin ? 'Entrar' : 'Criar conta'}</CardTitle>
-            <CardDescription>
-              {isLogin ? 'Acesse sua clínica' : 'Cadastre-se para começar'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome completo</Label>
-                  <Input
-                    id="name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Dr. João Silva"
-                    required={!isLogin}
-                  />
+        <div className="space-y-8">
+          <h2 className="text-3xl font-semibold leading-tight">
+            Sua clínica organizada,<br />do agendamento ao financeiro.
+          </h2>
+          <div className="space-y-4">
+            {features.map((f, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-primary-foreground/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <f.icon className="h-4 w-4" />
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="joao@clinica.com"
-                  required
-                />
+                <p className="text-sm text-primary-foreground/80 leading-relaxed">{f.text}</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar conta'}
-              </Button>
-            </form>
+            ))}
+          </div>
+        </div>
 
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
-                {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
-              </button>
+        <p className="text-xs text-primary-foreground/40">© 2026 IACLIN. Todos os direitos reservados.</p>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center px-6 bg-background">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center lg:text-left">
+            <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
+              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-xs font-bold text-primary-foreground">IA</span>
+              </div>
+              <span className="text-xl font-semibold text-foreground">IACLIN</span>
             </div>
-          </CardContent>
-        </Card>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              {isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isLogin ? 'Acesse sua clínica' : 'Cadastre-se para começar'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome completo</Label>
+                <Input
+                  id="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Dr. João Silva"
+                  required={!isLogin}
+                  className="h-10"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="joao@clinica.com"
+                required
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                {isLogin && (
+                  <button type="button" className="text-xs text-primary hover:underline">
+                    Esqueci minha senha
+                  </button>
+                )}
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+                className="h-10"
+              />
+            </div>
+            <Button type="submit" className="w-full h-10" disabled={submitting}>
+              {submitting ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar conta'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Link } from 'react-router-dom';
-import { Search, UserPlus, Filter, Phone, Mail } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, UserPlus, Phone, Mail, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,14 +15,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
+import { Users } from 'lucide-react';
+
+const AVATAR_GRADIENTS = [
+  'from-blue-400 to-blue-600',
+  'from-emerald-400 to-emerald-600',
+  'from-violet-400 to-violet-600',
+  'from-amber-400 to-amber-600',
+  'from-rose-400 to-rose-600',
+  'from-cyan-400 to-cyan-600',
+];
+
+function getGradient(name: string) {
+  const idx = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
+  return AVATAR_GRADIENTS[idx];
+}
 
 export default function Patients() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [insuranceFilter, setInsuranceFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
-
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const navigate = useNavigate();
   const { data: patients = [], isLoading, refetch } = useQuery({
     queryKey: ['patients'],
     queryFn: async () => {
@@ -52,20 +78,20 @@ export default function Patients() {
     return matchesSearch && matchesStatus && matchesInsurance;
   });
 
+  const getInitials = (name: string) =>
+    name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pacientes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {patients.length} paciente{patients.length !== 1 ? 's' : ''} cadastrado{patients.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+      <PageHeader
+        title="Pacientes"
+        description={`${patients.length} paciente${patients.length !== 1 ? 's' : ''} cadastrado${patients.length !== 1 ? 's' : ''}`}
+      >
         <Button onClick={() => setShowForm(true)} className="gap-2">
           <UserPlus className="h-4 w-4" />
           Novo Paciente
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -98,6 +124,20 @@ export default function Patients() {
             <SelectItem value="without">Particular</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'cards' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Patient List */}
@@ -106,63 +146,100 @@ export default function Patients() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 rounded-xl border border-dashed border-border bg-muted/30">
-          <p className="text-sm text-muted-foreground">Nenhum paciente encontrado</p>
-          <Button variant="link" onClick={() => setShowForm(true)} className="mt-2">
-            Cadastrar novo paciente
-          </Button>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Nenhum paciente encontrado"
+          description={search ? 'Tente ajustar os filtros ou termos de busca.' : 'Cadastre seu primeiro paciente para começar.'}
+          actionLabel="Cadastrar paciente"
+          onAction={() => setShowForm(true)}
+        />
+      ) : viewMode === 'table' ? (
+        <Card className="shadow-card border-border/50 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Paciente</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Convênio</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((patient) => (
+                <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/patients/${patient.id}`)}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className={`bg-gradient-to-br ${getGradient(patient.full_name)} text-white text-xs font-medium`}>
+                            {getInitials(patient.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-foreground">{patient.full_name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{patient.phone ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{patient.email ?? '—'}</TableCell>
+                    <TableCell>
+                      {patient.insurance_provider ? (
+                        <Badge variant="outline" className="text-xs">{patient.insurance_provider}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Particular</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={patient.is_active ? 'default' : 'secondary'} className="text-xs">
+                        {patient.is_active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       ) : (
         <div className="grid gap-3">
-          {filtered.map((patient) => {
-            const initials = patient.full_name
-              .split(' ')
-              .map((n) => n[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase();
-            return (
-              <Link key={patient.id} to={`/patients/${patient.id}`}>
-                <Card className="p-4 hover:shadow-md transition-shadow border-border/50 cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground truncate">{patient.full_name}</p>
-                        {!patient.is_active && (
-                          <Badge variant="secondary" className="text-xs">Inativo</Badge>
-                        )}
-                        {patient.insurance_provider && (
-                          <Badge variant="outline" className="text-xs">{patient.insurance_provider}</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 mt-1">
-                        {patient.phone && (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {patient.phone}
-                          </span>
-                        )}
-                        {patient.email && (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Mail className="h-3 w-3" />
-                            {patient.email}
-                          </span>
-                        )}
-                        {patient.cpf && (
-                          <span className="text-xs text-muted-foreground">CPF: {patient.cpf}</span>
-                        )}
-                      </div>
+          {filtered.map((patient) => (
+            <Link key={patient.id} to={`/patients/${patient.id}`}>
+              <Card className="p-4 shadow-card hover:shadow-card-hover transition-all border-border/50 cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className={`bg-gradient-to-br ${getGradient(patient.full_name)} text-white text-sm font-medium`}>
+                      {getInitials(patient.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground truncate">{patient.full_name}</p>
+                      {!patient.is_active && (
+                        <Badge variant="secondary" className="text-xs">Inativo</Badge>
+                      )}
+                      {patient.insurance_provider && (
+                        <Badge variant="outline" className="text-xs">{patient.insurance_provider}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 mt-1">
+                      {patient.phone && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {patient.phone}
+                        </span>
+                      )}
+                      {patient.email && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Mail className="h-3 w-3" />
+                          {patient.email}
+                        </span>
+                      )}
+                      {patient.cpf && (
+                        <span className="text-xs text-muted-foreground">CPF: {patient.cpf}</span>
+                      )}
                     </div>
                   </div>
-                </Card>
-              </Link>
-            );
-          })}
+                </div>
+              </Card>
+            </Link>
+          ))}
         </div>
       )}
 

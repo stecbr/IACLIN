@@ -1,19 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO, setHours, setMinutes } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog';
+import { PageHeader } from '@/components/PageHeader';
 
 type View = 'day' | 'week' | 'month';
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 7); // 7:00 - 19:00
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
 
 export default function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -21,6 +20,7 @@ export default function Agenda() {
   const [showForm, setShowForm] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; hour: number } | null>(null);
   const { user } = useAuth();
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const range = useMemo(() => {
     if (view === 'day') return { start: currentDate, end: currentDate };
@@ -44,6 +44,16 @@ export default function Agenda() {
     },
   });
 
+  // Scroll to current time on mount
+  useEffect(() => {
+    if (gridRef.current && view !== 'month') {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const scrollTo = Math.max(0, (currentHour - 7) * 60 - 60);
+      gridRef.current.scrollTop = scrollTo;
+    }
+  }, [view]);
+
   const navigate = (dir: 1 | -1) => {
     const fn = dir === 1
       ? (view === 'day' ? addDays : view === 'week' ? addWeeks : addMonths)
@@ -55,11 +65,11 @@ export default function Agenda() {
     appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
 
   const statusColors: Record<string, string> = {
-    scheduled: 'border-l-blue-400',
-    confirmed: 'border-l-emerald-400',
-    completed: 'border-l-green-400',
-    no_show: 'border-l-rose-400',
-    cancelled: 'border-l-gray-300',
+    scheduled: 'border-l-primary',
+    confirmed: 'border-l-success',
+    completed: 'border-l-success',
+    no_show: 'border-l-destructive',
+    cancelled: 'border-l-muted-foreground',
   };
 
   const handleSlotClick = (day: Date, hour: number) => {
@@ -73,18 +83,20 @@ export default function Agenda() {
     ? `${format(range.start, 'dd MMM', { locale: ptBR })} — ${format(range.end, 'dd MMM yyyy', { locale: ptBR })}`
     : format(currentDate, "MMMM 'de' yyyy", { locale: ptBR });
 
+  // Current time indicator position
+  const now = new Date();
+  const currentHourFrac = now.getHours() + now.getMinutes() / 60;
+  const showTimeLine = view !== 'month' && currentHourFrac >= 7 && currentHourFrac <= 20;
+  const timeLineTop = (currentHourFrac - 7) * 60; // 60px per hour
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Agenda</h1>
-        </div>
+      <PageHeader title="Agenda">
         <Button onClick={() => { setSelectedSlot(null); setShowForm(true); }} className="gap-2">
           <Plus className="h-4 w-4" />
           Nova Consulta
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
@@ -117,17 +129,17 @@ export default function Agenda() {
       {view === 'month' ? (
         <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} />
       ) : (
-        <div className="border border-border rounded-xl overflow-hidden bg-card">
+        <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
           {/* Day Headers */}
           <div className="grid border-b border-border" style={{ gridTemplateColumns: `60px repeat(${days.length}, 1fr)` }}>
             <div className="p-2 border-r border-border" />
             {days.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-2 text-center border-r border-border last:border-r-0 ${isToday(day) ? 'bg-primary/5' : ''}`}
+                className={`p-3 text-center border-r border-border last:border-r-0 ${isToday(day) ? 'bg-primary/5' : ''}`}
               >
                 <p className="text-xs text-muted-foreground capitalize">{format(day, 'EEE', { locale: ptBR })}</p>
-                <p className={`text-sm font-semibold ${isToday(day) ? 'text-primary' : 'text-foreground'}`}>
+                <p className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'dd')}
                 </p>
               </div>
@@ -135,14 +147,27 @@ export default function Agenda() {
           </div>
 
           {/* Time Grid */}
-          <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+          <div ref={gridRef} className="max-h-[calc(100vh-280px)] overflow-y-auto relative">
+            {/* Current time line */}
+            {showTimeLine && (
+              <div
+                className="absolute left-0 right-0 z-10 pointer-events-none"
+                style={{ top: `${timeLineTop}px` }}
+              >
+                <div className="flex items-center">
+                  <div className="h-2.5 w-2.5 rounded-full bg-destructive ml-[48px]" />
+                  <div className="flex-1 h-[2px] bg-destructive" />
+                </div>
+              </div>
+            )}
+
             {HOURS.map((hour) => (
               <div
                 key={hour}
                 className="grid border-b border-border last:border-b-0"
                 style={{ gridTemplateColumns: `60px repeat(${days.length}, 1fr)` }}
               >
-                <div className="p-2 text-xs text-muted-foreground text-right pr-3 border-r border-border">
+                <div className="p-2 text-xs text-muted-foreground text-right pr-3 border-r border-border h-[60px] flex items-start justify-end pt-1">
                   {`${hour}:00`}
                 </div>
                 {days.map((day) => {
@@ -158,9 +183,9 @@ export default function Agenda() {
                       {dayApts.map((apt: any) => (
                         <div
                           key={apt.id}
-                          className={`rounded-md px-2 py-1 mb-1 text-xs border-l-2 bg-card shadow-sm ${statusColors[apt.status] ?? 'border-l-blue-400'}`}
+                          className={`rounded-lg px-2 py-1.5 mb-1 text-xs border-l-[3px] bg-card shadow-card hover:shadow-card-hover transition-shadow ${statusColors[apt.status] ?? 'border-l-primary'}`}
                         >
-                          <p className="font-medium truncate">{(apt as any).patients?.full_name}</p>
+                          <p className="font-medium truncate text-foreground">{(apt as any).patients?.full_name}</p>
                           <p className="text-muted-foreground truncate">
                             {(apt as any).procedures?.name ?? 'Consulta'}
                           </p>
@@ -189,15 +214,13 @@ export default function Agenda() {
 function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointments: any[]; onDayClick: (d: Date) => void }) {
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-  // Pad start to Monday
   const firstDay = days[0];
   const startPad = (firstDay.getDay() + 6) % 7;
   const paddedDays: (Date | null)[] = [...Array(startPad).fill(null), ...days];
-  // Pad end to fill row
   while (paddedDays.length % 7 !== 0) paddedDays.push(null);
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden bg-card">
+    <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
       <div className="grid grid-cols-7">
         {weekDays.map((d) => (
           <div key={d} className="p-2 text-center text-xs font-medium text-muted-foreground border-b border-border">
@@ -207,7 +230,7 @@ function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointme
       </div>
       <div className="grid grid-cols-7">
         {paddedDays.map((day, i) => {
-          if (!day) return <div key={i} className="min-h-[80px] border-b border-r border-border bg-muted/20" />;
+          if (!day) return <div key={i} className="min-h-[80px] border-b border-r border-border bg-muted/10" />;
           const dayApts = appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
           return (
             <div
@@ -223,8 +246,8 @@ function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointme
               {dayApts.slice(0, 3).map((apt: any) => (
                 <div
                   key={apt.id}
-                  className="text-[10px] px-1 py-0.5 rounded mb-0.5 truncate"
-                  style={{ backgroundColor: ((apt as any).procedures?.color ?? '#3B82F6') + '20', color: (apt as any).procedures?.color ?? '#3B82F6' }}
+                  className="text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium"
+                  style={{ backgroundColor: ((apt as any).procedures?.color ?? '#3B82F6') + '15', color: (apt as any).procedures?.color ?? '#3B82F6' }}
                 >
                   {(apt as any).patients?.full_name?.split(' ')[0]}
                 </div>
