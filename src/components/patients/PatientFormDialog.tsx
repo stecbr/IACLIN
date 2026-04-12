@@ -24,9 +24,10 @@ interface PatientFormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   patient?: any;
+  clinicId?: string | null;
 }
 
-export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: PatientFormDialogProps) {
+export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clinicId }: PatientFormDialogProps) {
   const isEdit = !!patient;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -77,7 +78,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
         if (error) throw error;
         toast.success('Paciente atualizado!');
       } else {
-        const { error } = await supabase.from('patients').insert(payload);
+        const { error } = await supabase.from('patients').insert({ ...payload, clinic_id: clinicId ?? null });
         if (error) throw error;
         toast.success('Paciente cadastrado!');
       }

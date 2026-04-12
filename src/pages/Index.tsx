@@ -13,7 +13,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useMemo } from 'react';
 
 export default function Index() {
-  const { profile } = useAuth();
+  const { profile, currentClinicId } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -22,64 +22,77 @@ export default function Index() {
   const monthEnd = endOfMonth(now).toISOString();
 
   const { data: todayCount = 0 } = useQuery({
-    queryKey: ['kpi-today-count'],
+    queryKey: ['kpi-today-count', currentClinicId],
     queryFn: async () => {
-      const { count } = await supabase.from('appointments').select('id', { count: 'exact', head: true })
+      let query = supabase.from('appointments').select('id', { count: 'exact', head: true })
         .gte('start_time', todayStart).lt('start_time', todayEnd);
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { count } = await query;
       return count ?? 0;
     },
   });
 
   const { data: patientCount = 0 } = useQuery({
-    queryKey: ['kpi-patient-count'],
+    queryKey: ['kpi-patient-count', currentClinicId],
     queryFn: async () => {
-      const { count } = await supabase.from('patients').select('id', { count: 'exact', head: true }).eq('is_active', true);
+      let query = supabase.from('patients').select('id', { count: 'exact', head: true }).eq('is_active', true);
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { count } = await query;
       return count ?? 0;
     },
   });
 
   const { data: monthlyRevenue = 0 } = useQuery({
-    queryKey: ['kpi-monthly-revenue'],
+    queryKey: ['kpi-monthly-revenue', currentClinicId],
     queryFn: async () => {
-      const { data } = await supabase.from('financial_transactions')
+      let query = supabase.from('financial_transactions')
         .select('amount')
         .eq('type', 'income').eq('status', 'paid')
         .gte('paid_date', monthStart.slice(0, 10))
         .lte('paid_date', monthEnd.slice(0, 10));
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data } = await query;
       return data?.reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
     },
   });
 
   const { data: noShowRate = 0 } = useQuery({
-    queryKey: ['kpi-noshow'],
+    queryKey: ['kpi-noshow', currentClinicId],
     queryFn: async () => {
-      const { count: total } = await supabase.from('appointments').select('id', { count: 'exact', head: true })
+      let q1 = supabase.from('appointments').select('id', { count: 'exact', head: true })
         .gte('start_time', monthStart).lte('start_time', monthEnd);
-      const { count: noShow } = await supabase.from('appointments').select('id', { count: 'exact', head: true })
+      let q2 = supabase.from('appointments').select('id', { count: 'exact', head: true })
         .gte('start_time', monthStart).lte('start_time', monthEnd).eq('status', 'no_show');
+      if (currentClinicId) { q1 = q1.eq('clinic_id', currentClinicId); q2 = q2.eq('clinic_id', currentClinicId); }
+      const { count: total } = await q1;
+      const { count: noShow } = await q2;
       if (!total || total === 0) return 0;
       return Math.round(((noShow ?? 0) / total) * 100);
     },
   });
 
   const { data: upcoming = [] } = useQuery({
-    queryKey: ['upcoming-appointments'],
+    queryKey: ['upcoming-appointments', currentClinicId],
     queryFn: async () => {
-      const { data } = await supabase.from('appointments')
+      let query = supabase.from('appointments')
         .select('*, patients(full_name), procedures(name, color)')
         .gte('start_time', now.toISOString())
         .order('start_time').limit(5);
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data } = await query;
       return data ?? [];
     },
   });
 
   const { data: pendingPayments = [] } = useQuery({
-    queryKey: ['pending-payments'],
+    queryKey: ['pending-payments', currentClinicId],
     queryFn: async () => {
-      const { data } = await supabase.from('financial_transactions')
+      let query = supabase.from('financial_transactions')
         .select('*, patients(full_name)')
         .eq('status', 'pending').eq('type', 'income')
         .order('due_date').limit(5);
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data } = await query;
       return data ?? [];
     },
   });
@@ -87,13 +100,15 @@ export default function Index() {
   // Revenue chart (last 6 months)
   const sixMonthsAgo = subMonths(now, 5);
   const { data: revenueTxs = [] } = useQuery({
-    queryKey: ['revenue-chart-6m'],
+    queryKey: ['revenue-chart-6m', currentClinicId],
     queryFn: async () => {
-      const { data } = await supabase.from('financial_transactions')
+      let query = supabase.from('financial_transactions')
         .select('amount, paid_date, type')
         .eq('status', 'paid')
         .gte('paid_date', format(startOfMonth(sixMonthsAgo), 'yyyy-MM-dd'))
         .lte('paid_date', format(endOfMonth(now), 'yyyy-MM-dd'));
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data } = await query;
       return data ?? [];
     },
   });
@@ -121,12 +136,14 @@ export default function Index() {
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   const { data: weekApts = [] } = useQuery({
-    queryKey: ['week-chart'],
+    queryKey: ['week-chart', currentClinicId],
     queryFn: async () => {
-      const { data } = await supabase.from('appointments')
+      let query = supabase.from('appointments')
         .select('start_time')
         .gte('start_time', weekStart.toISOString())
         .lte('start_time', weekEnd.toISOString());
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data } = await query;
       return data ?? [];
     },
   });

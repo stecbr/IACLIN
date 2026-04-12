@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, UserPlus, Phone, Mail, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -52,13 +53,13 @@ export default function Patients() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const navigate = useNavigate();
+  const { currentClinicId } = useAuth();
   const { data: patients = [], isLoading, refetch } = useQuery({
-    queryKey: ['patients'],
+    queryKey: ['patients', currentClinicId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*')
-        .order('full_name');
+      let query = supabase.from('patients').select('*').order('full_name');
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -261,7 +262,7 @@ export default function Patients() {
         </div>
       )}
 
-      <PatientFormDialog open={showForm} onOpenChange={setShowForm} onSuccess={refetch} />
+      <PatientFormDialog open={showForm} onOpenChange={setShowForm} onSuccess={refetch} clinicId={currentClinicId} />
     </div>
   );
 }

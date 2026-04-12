@@ -31,7 +31,7 @@ interface Props {
 }
 
 export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultHour }: Props) {
-  const { user } = useAuth();
+  const { user, currentClinicId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patientId, setPatientId] = useState('');
   const [procedureId, setProcedureId] = useState('');
@@ -41,9 +41,11 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [notes, setNotes] = useState('');
 
   const { data: patients = [] } = useQuery({
-    queryKey: ['patients-list'],
+    queryKey: ['patients-list', currentClinicId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('patients').select('id, full_name').eq('is_active', true).order('full_name');
+      let query = supabase.from('patients').select('id, full_name').eq('is_active', true).order('full_name');
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -79,6 +81,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         start_time: startDt.toISOString(),
         end_time: endDt.toISOString(),
         notes: notes || null,
+        clinic_id: currentClinicId ?? null,
       });
       if (error) throw error;
       toast.success('Consulta agendada!');
