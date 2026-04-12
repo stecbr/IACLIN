@@ -2,15 +2,16 @@ import { useLocation, Link } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
-const mainItems = [
+const allMainItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Agenda', url: '/agenda', icon: Calendar },
   { title: 'Pacientes', url: '/patients', icon: Users },
   { title: 'Financeiro', url: '/financial', icon: DollarSign },
 ];
 
-const moreItems = [
+const allMoreItems = [
   { title: 'Odontograma', url: '/odontogram', icon: FileHeart },
   { title: 'Configurações', url: '/settings', icon: Settings },
 ];
