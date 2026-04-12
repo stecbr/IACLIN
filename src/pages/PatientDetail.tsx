@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
