@@ -173,7 +173,7 @@ export default function Patients() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((patient) => (
+              {paginated.map((patient) => (
                 <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/patients/${patient.id}`)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -206,7 +206,7 @@ export default function Patients() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {filtered.map((patient) => (
+          {paginated.map((patient) => (
             <Link key={patient.id} to={`/patients/${patient.id}`}>
               <Card className="p-4 shadow-card hover:shadow-card-hover transition-all border-border/50 cursor-pointer">
                 <div className="flex items-center gap-4">
@@ -247,6 +247,17 @@ export default function Patients() {
               </Card>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">{filtered.length} paciente{filtered.length !== 1 ? 's' : ''} • Página {page} de {totalPages}</p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Próxima</Button>
+          </div>
         </div>
       )}
 
