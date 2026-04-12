@@ -30,15 +30,19 @@ export default function Agenda() {
 
   const days = useMemo(() => eachDayOfInterval(range), [range]);
 
+  const { currentClinicId } = useAuth();
+
   const { data: appointments = [], refetch } = useQuery({
-    queryKey: ['appointments', range.start.toISOString(), range.end.toISOString()],
+    queryKey: ['appointments', range.start.toISOString(), range.end.toISOString(), currentClinicId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('appointments')
         .select('*, patients(full_name), procedures(name, color)')
         .gte('start_time', range.start.toISOString())
         .lte('start_time', addDays(range.end, 1).toISOString())
         .order('start_time');
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },

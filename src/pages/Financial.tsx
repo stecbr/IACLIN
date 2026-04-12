@@ -44,15 +44,19 @@ export default function Financial() {
   const period = getPeriodRange();
 
   // Transactions
+  const { currentClinicId } = useAuth();
+
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ['financial-transactions', period.start.toISOString(), period.end.toISOString()],
+    queryKey: ['financial-transactions', period.start.toISOString(), period.end.toISOString(), currentClinicId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('financial_transactions')
         .select('*, patients(full_name)')
         .gte('due_date', format(period.start, 'yyyy-MM-dd'))
         .lte('due_date', format(period.end, 'yyyy-MM-dd'))
         .order('due_date', { ascending: false });
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -349,6 +353,7 @@ function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean
         payment_method: form.payment_method || null,
         notes: form.notes || null,
         dentist_id: user.id,
+        clinic_id: currentClinicId ?? null,
       });
       if (error) throw error;
       toast.success('Transação registrada!');
