@@ -112,6 +112,7 @@ function ProfileSection() {
 
 function ClinicSection() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: clinic, isLoading } = useQuery({
     queryKey: ['clinic-settings'],
     queryFn: async () => {
@@ -122,15 +123,30 @@ function ClinicSection() {
   });
 
   const [form, setForm] = useState({
-    name: clinic?.name ?? '',
-    phone: clinic?.phone ?? '',
-    email: clinic?.email ?? '',
-    address: clinic?.address ?? '',
-    city: clinic?.city ?? '',
-    state: clinic?.state ?? '',
-    cnpj: clinic?.cnpj ?? '',
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
+    state: '',
+    cnpj: '',
   });
   const [saving, setSaving] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  // Sync form with loaded clinic data
+  if (clinic && !initialized) {
+    setForm({
+      name: clinic.name ?? '',
+      phone: clinic.phone ?? '',
+      email: clinic.email ?? '',
+      address: clinic.address ?? '',
+      city: clinic.city ?? '',
+      state: clinic.state ?? '',
+      cnpj: clinic.cnpj ?? '',
+    });
+    setInitialized(true);
+  }
 
   const handleSave = async () => {
     if (!user) return;
@@ -142,6 +158,10 @@ function ClinicSection() {
       } else {
         const { error } = await supabase.from('clinics').insert({ ...form, owner_id: user.id });
         if (error) throw error;
+        // Invalidate clinic query & refresh auth context to pick up new clinic membership
+        queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
+        // Small delay for trigger to create clinic_members row, then reload to refresh AuthContext
+        setTimeout(() => window.location.reload(), 500);
       }
       toast.success('Clínica atualizada!');
     } catch (err: any) {
