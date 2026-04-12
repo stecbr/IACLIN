@@ -55,7 +55,9 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'clinic' && <ClinicSection />}
+          {activeSection === 'team' && <TeamSection />}
           {activeSection === 'appearance' && <AppearanceSection />}
+          {activeSection === 'procedures' && <ProceduresSection />}
           {activeSection === 'procedures' && <ProceduresSection />}
         </div>
       </div>
