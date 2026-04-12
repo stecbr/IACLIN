@@ -27,6 +27,7 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Users } from 'lucide-react';
+import { SkeletonCards } from '@/components/SkeletonLoaders';
 
 const AVATAR_GRADIENTS = [
   'from-blue-400 to-blue-600',
