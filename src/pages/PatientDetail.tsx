@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { ptBR } from 'date-fns/locale';
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
+  const { currentClinicId } = useAuth();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -230,6 +232,7 @@ export default function PatientDetail() {
           onOpenChange={setEditOpen}
           onSuccess={refetch}
           patient={patient}
+          clinicId={currentClinicId}
         />
       )}
     </div>
