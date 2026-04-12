@@ -49,6 +49,8 @@ export default function Patients() {
   const [insuranceFilter, setInsuranceFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const navigate = useNavigate();
   const { data: patients = [], isLoading, refetch } = useQuery({
     queryKey: ['patients'],
@@ -77,6 +79,13 @@ export default function Patients() {
       (insuranceFilter === 'with' && p.insurance_provider) ||
       (insuranceFilter === 'without' && !p.insurance_provider);
     return matchesSearch && matchesStatus && matchesInsurance;
+  });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page when filters change
+  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
   });
 
   const getInitials = (name: string) =>
