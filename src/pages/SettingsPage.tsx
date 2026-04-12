@@ -12,10 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/components/PageHeader';
+import TeamSection from '@/components/settings/TeamSection';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
+  { id: 'team', label: 'Equipe', icon: Users },
   { id: 'appearance', label: 'Aparência', icon: Palette },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
 ];
