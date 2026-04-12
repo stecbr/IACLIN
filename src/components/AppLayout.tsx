@@ -1,8 +1,15 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Sun, Moon, Bell } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { useTheme } from '@/components/ThemeProvider';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -15,6 +22,7 @@ const breadcrumbMap: Record<string, string> = {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const { resolved, setTheme } = useTheme();
 
   const getBreadcrumb = () => {
     const path = location.pathname;
@@ -25,14 +33,41 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const crumbs = getBreadcrumb();
 
+  // Notification count: today appointments + overdue payments
+  const { data: notifCount = 0 } = useQuery({
+    queryKey: ['notif-count'],
+    queryFn: async () => {
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      const [{ count: aptCount }, { count: overdueCount }] = await Promise.all([
+        supabase.from('appointments').select('id', { count: 'exact', head: true }).gte('start_time', start).lt('start_time', end),
+        supabase.from('financial_transactions').select('id', { count: 'exact', head: true }).eq('status', 'overdue'),
+      ]);
+      return (aptCount ?? 0) + (overdueCount ?? 0);
+    },
+    refetchInterval: 60000,
+  });
+
+  const toggleTheme = () => setTheme(resolved === 'dark' ? 'light' : 'dark');
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        <div className="hidden md:block">
+          <AppSidebar />
+        </div>
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
             <div className="flex items-center gap-3">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
+              {/* Mobile logo */}
+              <div className="flex md:hidden items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-primary-foreground">IA</span>
+                </div>
+                <span className="text-sm font-semibold text-foreground">IACLIN</span>
+              </div>
               <div className="hidden sm:flex items-center gap-1.5 text-sm">
                 {crumbs.map((crumb, i) => (
                   <span key={i} className="flex items-center gap-1.5">
@@ -44,17 +79,41 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <CommandPalette />
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title={resolved === 'dark' ? 'Modo claro' : 'Modo escuro'}
+              >
+                {resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative">
+                <Bell className="h-4 w-4" />
+                {notifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground px-1">
+                    {notifCount > 9 ? '9+' : notifCount}
+                  </span>
+                )}
+              </button>
             </div>
           </header>
-          <main className="flex-1 p-6">
-            <div className="animate-in">
-              {children}
-            </div>
+          <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
       </div>
+      <MobileBottomNav />
     </SidebarProvider>
   );
 }
