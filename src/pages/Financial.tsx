@@ -325,7 +325,7 @@ export default function Financial() {
 
 // ---- New Transaction Dialog ----
 function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
-  const { user } = useAuth();
+  const { user, currentClinicId } = useAuth();
   const [form, setForm] = useState({
     type: 'income',
     category: 'consultation',
