@@ -167,7 +167,7 @@ export default function Patients() {
             </TableHeader>
             <TableBody>
               {filtered.map((patient) => (
-                <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/50" onClick={() => window.location.href = `/patients/${patient.id}`}>
+                <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/patients/${patient.id}`)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
