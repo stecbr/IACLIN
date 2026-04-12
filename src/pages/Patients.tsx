@@ -192,7 +192,6 @@ export default function Patients() {
                         {patient.is_active ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>
-                  </Link>
                 </TableRow>
               ))}
             </TableBody>
