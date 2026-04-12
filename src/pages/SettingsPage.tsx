@@ -4,7 +4,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save } from 'lucide-react';
+import { User, Building2, Palette, Stethoscope, Save, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/components/PageHeader';
+import TeamSection from '@/components/settings/TeamSection';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
+  { id: 'team', label: 'Equipe', icon: Users },
   { id: 'appearance', label: 'Aparência', icon: Palette },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
 ];
@@ -53,7 +55,9 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'clinic' && <ClinicSection />}
+          {activeSection === 'team' && <TeamSection />}
           {activeSection === 'appearance' && <AppearanceSection />}
+          {activeSection === 'procedures' && <ProceduresSection />}
           {activeSection === 'procedures' && <ProceduresSection />}
         </div>
       </div>
