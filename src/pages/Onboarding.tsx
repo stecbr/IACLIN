@@ -2,16 +2,26 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, ArrowRight } from 'lucide-react';
+import { Building2, ArrowRight, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 
+function formatCnpj(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
 export default function Onboarding() {
   const { user, signOut } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -19,6 +29,32 @@ export default function Onboarding() {
     city: '',
     state: '',
   });
+
+  const fetchCnpj = async () => {
+    const digits = form.cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      toast.error('CNPJ deve ter 14 dígitos');
+      return;
+    }
+    setFetching(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!res.ok) throw new Error('CNPJ não encontrado');
+      const data = await res.json();
+      setForm(prev => ({
+        ...prev,
+        name: data.nome_fantasia || data.razao_social || prev.name,
+        phone: data.ddd_telefone_1 ? `(${data.ddd_telefone_1.slice(0, 2)}) ${data.ddd_telefone_1.slice(2)}` : prev.phone,
+        city: data.municipio || prev.city,
+        state: data.uf || prev.state,
+      }));
+      toast.success('Dados preenchidos automaticamente!');
+    } catch {
+      toast.error('Não foi possível buscar o CNPJ. Verifique e tente novamente.');
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
@@ -82,11 +118,25 @@ export default function Onboarding() {
                 </div>
                 <div className="space-y-2">
                   <Label>CNPJ</Label>
-                  <Input
-                    value={form.cnpj}
-                    onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
-                    placeholder="00.000.000/0000-00"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.cnpj}
+                      onChange={(e) => setForm({ ...form, cnpj: formatCnpj(e.target.value) })}
+                      placeholder="00.000.000/0000-00"
+                      maxLength={18}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={fetchCnpj}
+                      disabled={fetching || form.cnpj.replace(/\D/g, '').length !== 14}
+                      title="Buscar dados pelo CNPJ"
+                    >
+                      {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Digite o CNPJ e clique na lupa para preencher automaticamente</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Telefone</Label>
