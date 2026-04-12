@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Agenda from "./pages/Agenda";
 import Patients from "./pages/Patients";
+import PatientDetail from "./pages/PatientDetail";
 import Odontogram from "./pages/Odontogram";
 import Financial from "./pages/Financial";
 import SettingsPage from "./pages/SettingsPage";
@@ -38,6 +39,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+    <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
