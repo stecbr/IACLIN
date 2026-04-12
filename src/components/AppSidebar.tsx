@@ -132,7 +132,7 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1">Principal</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNav.map((item) =>
+              {filteredMainNav.map((item) =>
                 renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
               )}
             </SidebarMenu>
@@ -143,7 +143,7 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1 mt-2">Clínica</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {clinicNav.map((item) => renderNavItem(item))}
+              {filteredClinicNav.map((item) => renderNavItem(item))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
