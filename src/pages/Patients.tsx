@@ -142,9 +142,7 @@ export default function Patients() {
 
       {/* Patient List */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <SkeletonCards count={6} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Users}
