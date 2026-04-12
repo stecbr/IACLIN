@@ -10,6 +10,7 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -43,6 +44,10 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { profile, signOut, user } = useAuth();
+  const { filterNavItems } = useRoleAccess();
+
+  const filteredMainNav = filterNavItems(mainNav);
+  const filteredClinicNav = filterNavItems(clinicNav);
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({
@@ -127,7 +132,7 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1">Principal</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNav.map((item) =>
+              {filteredMainNav.map((item) =>
                 renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
               )}
             </SidebarMenu>
@@ -138,7 +143,7 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1 mt-2">Clínica</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {clinicNav.map((item) => renderNavItem(item))}
+              {filteredClinicNav.map((item) => renderNavItem(item))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
