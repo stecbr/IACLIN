@@ -1,108 +1,85 @@
 
 
-# IACLIN — Polish para "cara de software profissional"
+# Multi-Tenant Clinic + Team Management
 
-Analisei todos os arquivos do projeto. O app ja tem uma boa base (sidebar com grupos, dashboard com KPIs reais, charts Recharts, command palette), mas varios detalhes ainda dão "cara de template" em vez de produto. Aqui esta o que precisa mudar:
+## Context
+Currently all data is "loose" — no `clinic_id` isolation, roles are global (`admin|dentist|secretary`), and there's no way to manage team members. We need to make the clinic the central tenant, with the creator as owner who can directly register staff.
 
----
+## Database Changes (3 migrations)
 
-## Problemas Atuais
+### Migration 1: Clinic Members table
+Create a `clinic_members` table that links users to clinics with roles:
+```sql
+CREATE TABLE public.clinic_members (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  role app_role NOT NULL DEFAULT 'dentist',
+  is_owner boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(clinic_id, user_id)
+);
+ALTER TABLE public.clinic_members ENABLE ROW LEVEL SECURITY;
+-- Members can view their own clinic's members
+CREATE POLICY "Members can view own clinic members" ON public.clinic_members
+  FOR SELECT TO authenticated USING (
+    clinic_id IN (SELECT clinic_id FROM public.clinic_members WHERE user_id = auth.uid())
+  );
+-- Only owners can insert/update/delete members
+-- (use security definer function to avoid recursion)
+```
 
-1. **Mobile sem navegacao propria** — no mobile a sidebar esconde e nao ha bottom navigation (padrao de apps como Linear mobile, Cal.com)
-2. **Settings e vazio** — placeholder "em breve" quebra a sensacao de produto completo
-3. **Sem loading skeletons** — tudo mostra spinner generico; apps profissionais usam skeleton placeholders
-4. **Sem dark mode toggle** — o CSS ja tem tokens dark, mas nao ha como o usuario alternar
-5. **Header subutilizado** — so breadcrumb + Cmd+K, sem notificacoes ou acoes contextuais
-6. **Transicoes de pagina abruptas** — o `animate-in` e basico, sem page transitions suaves
-7. **Tabelas sem paginacao** — listas de pacientes e transacoes crescem infinitamente
-8. **Formularios em dialogs pequenos** — dialogs de cadastro ficam apertados em mobile
-9. **Sem feedback visual de estado** — nao ha toast de confirmacao com undo, nao ha indicators de sync
-10. **Odontograma nao e responsivo** — SVGs de tamanho fixo quebram em telas menores
+### Migration 2: Auto-link owner on clinic creation
+- Trigger: when a row is inserted into `clinics`, auto-insert a `clinic_members` row with `is_owner = true` for the `owner_id`.
 
----
+### Migration 3: Add `clinic_id` context
+- Ensure existing tables (patients, appointments, financial_transactions) properly reference clinic context for future RLS scoping. (Data won't break — `clinic_id` is already nullable on most tables.)
 
-## Mudancas Planejadas
+## Code Changes
 
-### 1. Bottom Navigation para Mobile
-- Criar `MobileBottomNav.tsx` com 5 icones (Dashboard, Agenda, Pacientes, Financeiro, Mais)
-- Mostrar apenas em `< 768px`, esconder sidebar completamente no mobile
-- Estilo iOS tab bar: backdrop blur, borda top sutil, icone ativo com label
+### 1. AuthContext — add `currentClinicId`
+- After fetching roles, also fetch the user's `clinic_members` record to get their `clinic_id` and clinic-level role.
+- Expose `currentClinicId` and `clinicRole` in context.
 
-### 2. Loading Skeletons
-- Criar `SkeletonCard.tsx`, `SkeletonTable.tsx`, `SkeletonChart.tsx`
-- Substituir todos os spinners (`animate-spin rounded-full border`) por skeletons contextuais
-- Dashboard: 4 skeleton KPI cards + skeleton chart area
-- Pacientes: skeleton rows/cards
-- Financeiro: skeleton table + skeleton chart
+### 2. Settings → New "Equipe" (Team) section
+Add a 5th section to `SettingsPage.tsx`:
+- **List members**: Table showing name, email, role, badge for owner
+- **"Adicionar Membro" form**: Owner fills in email, full name, password, and role (dentist/secretary)
+- On submit: call `supabase.auth.admin` — but since we can't use admin API from client, create an **Edge Function** `invite-member` that:
+  1. Uses service role key to `supabase.auth.admin.createUser({ email, password, email_confirm: true })`
+  2. Creates profile record
+  3. Inserts `clinic_members` row with the chosen role
+  4. Inserts `user_roles` row
+- **Remove member**: Owner can remove (but not themselves)
 
-### 3. Dark Mode Toggle
-- Criar `ThemeProvider` context com localStorage persistence
-- Adicionar toggle no header (sol/lua) e na Settings
-- Aplicar classe `dark` no `<html>` (ja tem tokens CSS prontos)
+### 3. Edge Function: `invite-member`
+```
+POST /invite-member
+Body: { email, full_name, password, role, clinic_id }
+Auth: Bearer token (verified, must be owner of clinic_id)
+```
+- Validates caller is owner of the clinic
+- Creates user via admin API
+- Inserts profile, clinic_members, user_roles
 
-### 4. Settings Page Completa
-- Secoes: Perfil (nome, email, avatar), Clinica (nome, endereco, horarios), Aparencia (dark mode), Procedimentos (listar/editar tabela procedures)
-- Layout com sidebar de secoes + conteudo (tipo Notion settings)
+### 4. UI for Team Management
+- Section icon: `Users` from lucide
+- Table with columns: Nome, E-mail, Papel, Ações
+- Role displayed as colored Badge (Admin/Dentista/Secretária)
+- "Adicionar" button opens inline form or dialog
+- Only visible to clinic owner (check `is_owner` from clinic_members)
 
-### 5. Header Contextual Melhorado
-- Adicionar botao de acao contextual por pagina (ex: "Nova Consulta" na Agenda, "Novo Paciente" em Pacientes)
-- Notification bell com badge de contagem (consultas hoje + pagamentos vencidos)
-- Dark mode toggle no header
-
-### 6. Page Transitions + Micro-interacoes
-- Usar `framer-motion` para `AnimatePresence` nas rotas (fade + slide sutil)
-- Hover scale sutil em cards (1.01)
-- Tooltip nos icones da sidebar quando colapsada (ja existe via SidebarMenuButton tooltip)
-- Smooth scroll no grid da agenda
-
-### 7. Paginacao + Busca Melhorada
-- Paginacao na tabela de pacientes (20 por pagina)
-- Paginacao nas transacoes financeiras
-- Debounce no input de busca (300ms)
-
-### 8. Responsividade do Odontograma
-- Tornar o SVG grid responsivo com `viewBox` e `max-w` constraints
-- Em mobile: empilhar arcadas (superior em cima, inferior embaixo) ao inves de lado a lado
-- Aumentar area de toque dos dentes em mobile
-
-### 9. Toasts + Feedback
-- Usar toast com acao de undo para delecoes
-- Adicionar indicador de "salvando..." em formularios inline
-- Badge de "ao vivo" pulsando no header quando conectado ao realtime
-
-### 10. Refinamentos Visuais Finais
-- Trocar o logo "IA" por um SVG real (dente estilizado)
-- Cards com `ring-1 ring-border/50` ao inves de `border` para visual mais clean
-- Tabela com rows alternadas sutis (`even:bg-muted/30`)
-- Inputs com `focus-visible:ring-2 focus-visible:ring-primary/20` consistente
-- Avatar com imagem real quando disponivel (upload no perfil)
-
----
-
-## Arquivos a Criar/Modificar
-
-| Arquivo | Acao |
+## Files to Create/Modify
+| File | Action |
 |---|---|
-| `src/components/MobileBottomNav.tsx` | Novo — bottom tab bar |
-| `src/components/ThemeProvider.tsx` | Novo — dark mode context |
-| `src/components/SkeletonLoaders.tsx` | Novo — skeleton components |
-| `src/components/AppLayout.tsx` | Modificar — add bottom nav, theme toggle, notification bell |
-| `src/components/AppSidebar.tsx` | Modificar — esconder em mobile |
-| `src/pages/SettingsPage.tsx` | Reescrever — settings completa |
-| `src/pages/Index.tsx` | Modificar — skeletons, micro-animacoes |
-| `src/pages/Patients.tsx` | Modificar — paginacao, skeletons |
-| `src/pages/Financial.tsx` | Modificar — paginacao, skeletons |
-| `src/pages/Odontogram.tsx` | Modificar — responsividade mobile |
-| `src/pages/Agenda.tsx` | Modificar — mobile layout |
-| `src/index.css` | Modificar — refinamentos visuais |
-| `src/App.tsx` | Modificar — wrap com ThemeProvider |
+| `supabase/functions/invite-member/index.ts` | New — edge function |
+| `src/contexts/AuthContext.tsx` | Modify — add currentClinicId |
+| `src/pages/SettingsPage.tsx` | Modify — add Team section |
+| 1 migration | clinic_members table + trigger + RLS |
 
-## Ordem de Implementacao
-
-1. ThemeProvider + dark mode toggle + refinamentos CSS
-2. Loading skeletons + micro-animacoes
-3. Mobile bottom navigation + responsividade
-4. Header contextual (notificacoes + acoes por pagina)
-5. Settings page completa
-6. Paginacao + odontograma responsivo
+## Implementation Order
+1. Database migration (clinic_members + trigger + RLS)
+2. Edge function for member creation
+3. AuthContext updates
+4. Settings Team UI
 
