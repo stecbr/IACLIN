@@ -24,38 +24,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    let mounted = true;
+
+    const fetchUserData = async (userId: string) => {
+      const [{ data: rolesData }, { data: profileData }] = await Promise.all([
+        supabase.from('user_roles').select('role').eq('user_id', userId),
+        supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
+      ]);
+      if (!mounted) return;
+      setRoles((rolesData ?? []).map(r => r.role as AppRole));
+      setProfile(profileData);
+    };
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
-
       if (session?.user) {
-        // Fetch roles
-        const { data: rolesData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id);
-        setRoles((rolesData ?? []).map(r => r.role as AppRole));
+        fetchUserData(session.user.id).finally(() => mounted && setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    });
 
-        // Fetch profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', session.user.id)
-          .single();
-        setProfile(profileData);
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchUserData(session.user.id);
       } else {
         setRoles([]);
         setProfile(null);
       }
-
-      setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
