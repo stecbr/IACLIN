@@ -16,6 +16,7 @@ import { ptBR } from 'date-fns/locale';
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
+  const { currentClinicId } = useAuth();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
