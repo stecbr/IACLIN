@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { PatientTimeline } from '@/components/patients/PatientTimeline';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -127,6 +128,10 @@ export default function PatientDetail() {
           <TabsTrigger value="info">Informações</TabsTrigger>
           <TabsTrigger value="appointments">Consultas</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
+          <TabsTrigger value="timeline" className="gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            Timeline
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="info">
@@ -223,6 +228,9 @@ export default function PatientDetail() {
               ))}
             </div>
           )}
+        </TabsContent>
+        <TabsContent value="timeline">
+          <PatientTimeline patientId={id!} />
         </TabsContent>
       </Tabs>
 
