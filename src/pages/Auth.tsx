@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
 import logoLight from '@/assets/logo-light.png';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente';
