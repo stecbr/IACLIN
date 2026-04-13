@@ -30,6 +30,14 @@ interface Props {
   defaultHour?: number;
 }
 
+const LABELS = [
+  { value: 'primeira_consulta', label: 'Primeira Consulta', color: '#6366f1' },
+  { value: 'retorno', label: 'Retorno', color: '#f59e0b' },
+  { value: 'urgencia', label: 'Urgência', color: '#ef4444' },
+  { value: 'preventivo', label: 'Preventivo', color: '#22c55e' },
+  { value: 'estetico', label: 'Estético', color: '#ec4899' },
+];
+
 export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultHour }: Props) {
   const { user, currentClinicId } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -39,6 +47,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState('');
+  const [label, setLabel] = useState('');
 
   const buildLocalDateTime = (dateValue: string, timeValue: string) => {
     const [year, month, day] = dateValue.split('-').map(Number);
@@ -95,6 +104,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         start_time: startDt.toISOString(),
         end_time: endDt.toISOString(),
         notes: notes || null,
+        label: label || null,
         clinic_id: currentClinicId ?? null,
       });
       if (error) throw error;
@@ -105,6 +115,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       setPatientId('');
       setProcedureId('');
       setNotes('');
+      setLabel('');
     } catch (error: any) {
       toast.error(error.message);
     } finally {
