@@ -143,6 +143,10 @@ export default function PatientDetail() {
         <TabsList>
           <TabsTrigger value="info">Informações</TabsTrigger>
           <TabsTrigger value="appointments">Consultas</TabsTrigger>
+          <TabsTrigger value="budgets" className="gap-1.5">
+            <ClipboardList className="h-3.5 w-3.5" />
+            Orçamentos
+          </TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="timeline" className="gap-1.5">
             <Clock className="h-3.5 w-3.5" />
