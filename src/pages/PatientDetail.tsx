@@ -309,6 +309,12 @@ export default function PatientDetail() {
           clinicId={currentClinicId}
         />
       )}
+      <BudgetFormDialog
+        open={budgetOpen}
+        onOpenChange={setBudgetOpen}
+        onSuccess={() => refetchPlans()}
+        preselectedPatientId={id}
+      />
     </div>
   );
 }
