@@ -4,6 +4,7 @@ import {
   Users,
   FileHeart,
   DollarSign,
+  ClipboardList,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ const clinicNav = [
   { title: 'Pacientes', url: '/patients', icon: Users },
   { title: 'Odontograma', url: '/odontogram', icon: FileHeart },
   { title: 'Financeiro', url: '/financial', icon: DollarSign },
+  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
 ];
 
 export function AppSidebar() {

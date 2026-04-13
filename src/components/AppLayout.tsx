@@ -1,14 +1,13 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sun, Moon, Bell } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
+import { NotificationBell } from '@/components/NotificationBell';
+import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { useTheme } from '@/components/ThemeProvider';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const breadcrumbMap: Record<string, string> = {
@@ -17,6 +16,7 @@ const breadcrumbMap: Record<string, string> = {
   '/patients': 'Pacientes',
   '/odontogram': 'Odontograma',
   '/financial': 'Financeiro',
+  '/budgets': 'Orçamentos',
   '/settings': 'Configurações',
 };
 
@@ -32,23 +32,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const crumbs = getBreadcrumb();
-
-  // Notification count: today appointments + overdue payments
-  const { data: notifCount = 0 } = useQuery({
-    queryKey: ['notif-count'],
-    queryFn: async () => {
-      const today = new Date();
-      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-      const [{ count: aptCount }, { count: overdueCount }] = await Promise.all([
-        supabase.from('appointments').select('id', { count: 'exact', head: true }).gte('start_time', start).lt('start_time', end),
-        supabase.from('financial_transactions').select('id', { count: 'exact', head: true }).eq('status', 'overdue'),
-      ]);
-      return (aptCount ?? 0) + (overdueCount ?? 0);
-    },
-    refetchInterval: 60000,
-  });
-
   const toggleTheme = () => setTheme(resolved === 'dark' ? 'light' : 'dark');
 
   return (
@@ -88,14 +71,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               >
                 {resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
-              <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative">
-                <Bell className="h-4 w-4" />
-                {notifCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground px-1">
-                    {notifCount > 9 ? '9+' : notifCount}
-                  </span>
-                )}
-              </button>
+              <NotificationBell />
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">
@@ -114,6 +90,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <MobileBottomNav />
+      <WelcomeTour />
     </SidebarProvider>
   );
 }

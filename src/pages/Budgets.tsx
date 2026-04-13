@@ -1,0 +1,178 @@
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { BudgetCard } from '@/components/budgets/BudgetCard';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
+import { ClipboardList } from 'lucide-react';
+import { toast } from 'sonner';
+
+const COLUMNS = [
+  { id: 'pending', label: 'Pendente', color: 'border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10' },
+  { id: 'negotiating', label: 'Em Negociação', color: 'border-blue-400/50 bg-blue-50/30 dark:bg-blue-950/10' },
+  { id: 'approved', label: 'Aprovado', color: 'border-emerald-400/50 bg-emerald-50/30 dark:bg-emerald-950/10' },
+  { id: 'lost', label: 'Perdido', color: 'border-rose-400/50 bg-rose-50/30 dark:bg-rose-950/10' },
+];
+
+export default function Budgets() {
+  const queryClient = useQueryClient();
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const { data: plans = [], isLoading } = useQuery({
+    queryKey: ['treatment-plans-kanban'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .select('*, patients(full_name), treatment_plan_items(id)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase.from('treatment_plans').update({ status }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
+      toast.success('Status atualizado');
+    },
+  });
+
+  const columnData = useMemo(() => {
+    const result: Record<string, any[]> = {};
+    COLUMNS.forEach(c => { result[c.id] = []; });
+    plans.forEach((p: any) => {
+      const col = result[p.status] ?? result['pending'];
+      col.push(p);
+    });
+    return result;
+  }, [plans]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const overId = over.id as string;
+    const activeItem = plans.find((p: any) => p.id === active.id);
+    if (!activeItem) return;
+
+    // Check if dropped on a column
+    const targetColumn = COLUMNS.find(c => c.id === overId);
+    if (targetColumn && activeItem.status !== targetColumn.id) {
+      updateStatus.mutate({ id: activeItem.id, status: targetColumn.id });
+      return;
+    }
+
+    // Check if dropped on another card - find the column of that card
+    const targetCard = plans.find((p: any) => p.id === overId);
+    if (targetCard && activeItem.status !== targetCard.status) {
+      updateStatus.mutate({ id: activeItem.id, status: targetCard.status });
+    }
+  };
+
+  const activePlan = activeId ? plans.find((p: any) => p.id === activeId) : null;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Orçamentos" description="Pipeline de orçamentos" />
+        <div className="flex items-center justify-center h-64">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  if (plans.length === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Orçamentos" description="Pipeline de orçamentos" />
+        <EmptyState
+          icon={ClipboardList}
+          title="Nenhum orçamento ainda"
+          description="Os orçamentos criados nos planos de tratamento dos pacientes aparecerão aqui no formato Kanban."
+          illustration="tooth"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Orçamentos" description={`${plans.length} orçamentos no pipeline`} />
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {COLUMNS.map(col => {
+            const items = columnData[col.id] ?? [];
+            const total = items.reduce((s: number, p: any) => s + Number(p.total_cost), 0);
+            return (
+              <div key={col.id} id={col.id} className={`rounded-xl border-2 border-dashed p-3 min-h-[300px] ${col.color} transition-colors`}>
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
+                    <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5">{items.length}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    R$ {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  </span>
+                </div>
+                <SortableContext items={items.map((p: any) => p.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {items.map((plan: any) => (
+                      <BudgetCard
+                        key={plan.id}
+                        id={plan.id}
+                        title={plan.title}
+                        patientName={plan.patients?.full_name ?? 'Paciente'}
+                        totalCost={Number(plan.total_cost)}
+                        itemCount={plan.treatment_plan_items?.length ?? 0}
+                        createdAt={plan.created_at}
+                        status={plan.status}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+                {items.length === 0 && (
+                  <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-border/40">
+                    <p className="text-xs text-muted-foreground">Arraste aqui</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <DragOverlay>
+          {activePlan && (
+            <div className="w-64 opacity-90">
+              <BudgetCard
+                id={activePlan.id}
+                title={activePlan.title}
+                patientName={activePlan.patients?.full_name ?? 'Paciente'}
+                totalCost={Number(activePlan.total_cost)}
+                itemCount={activePlan.treatment_plan_items?.length ?? 0}
+                createdAt={activePlan.created_at}
+                status={activePlan.status}
+              />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    </div>
+  );
+}
