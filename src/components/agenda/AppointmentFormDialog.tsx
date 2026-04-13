@@ -16,7 +16,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Search, CalendarPlus } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Clock, Search, CalendarPlus, MessageCircle, Armchair } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -46,6 +47,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [label, setLabel] = useState('');
   const [showFreeSlots, setShowFreeSlots] = useState(false);
   const [returnDays, setReturnDays] = useState<number | null>(null);
+  const [roomId, setRoomId] = useState('');
+  const [sendConfirmation, setSendConfirmation] = useState(false);
 
   const buildLocalDateTime = (dateValue: string, timeValue: string) => {
     const [year, month, day] = dateValue.split('-').map(Number);
