@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      anamneses: {
+        Row: {
+          allergies: string | null
+          blood_type: string | null
+          clinic_id: string | null
+          created_at: string
+          filled_by: string | null
+          habits: string | null
+          id: string
+          medical_conditions: string | null
+          medications: string | null
+          notes: string | null
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          allergies?: string | null
+          blood_type?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          filled_by?: string | null
+          habits?: string | null
+          id?: string
+          medical_conditions?: string | null
+          medications?: string | null
+          notes?: string | null
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          allergies?: string | null
+          blood_type?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          filled_by?: string | null
+          habits?: string | null
+          id?: string
+          medical_conditions?: string | null
+          medications?: string | null
+          notes?: string | null
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anamneses_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anamneses_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           clinic_id: string | null
@@ -21,6 +81,7 @@ export type Database = {
           dentist_id: string
           end_time: string
           id: string
+          label: string | null
           notes: string | null
           patient_id: string
           procedure_id: string | null
@@ -34,6 +95,7 @@ export type Database = {
           dentist_id: string
           end_time: string
           id?: string
+          label?: string | null
           notes?: string | null
           patient_id: string
           procedure_id?: string | null
@@ -47,6 +109,7 @@ export type Database = {
           dentist_id?: string
           end_time?: string
           id?: string
+          label?: string | null
           notes?: string | null
           patient_id?: string
           procedure_id?: string | null
