@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { PatientTimeline } from '@/components/patients/PatientTimeline';
+import { PatientAnamnese } from '@/components/patients/PatientAnamnese';
+import { PatientDocuments } from '@/components/patients/PatientDocuments';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -132,20 +134,38 @@ export default function PatientDetail() {
             </div>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
-          <Edit className="h-4 w-4" />
-          Editar
-        </Button>
+        <div className="flex gap-2">
+          {patient.phone && (
+            <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50" asChild>
+              <a href={`https://wa.me/55${patient.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
+            <Edit className="h-4 w-4" />
+            Editar
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="info" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="info">Informações</TabsTrigger>
+          <TabsTrigger value="anamnese" className="gap-1.5">
+            <Heart className="h-3.5 w-3.5" />
+            Anamnese
+          </TabsTrigger>
           <TabsTrigger value="appointments">Consultas</TabsTrigger>
           <TabsTrigger value="budgets" className="gap-1.5">
             <ClipboardList className="h-3.5 w-3.5" />
             Orçamentos
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-1.5">
+            <Image className="h-3.5 w-3.5" />
+            Imagens
           </TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="timeline" className="gap-1.5">
@@ -188,6 +208,14 @@ export default function PatientDetail() {
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="anamnese">
+          <PatientAnamnese patientId={id!} />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <PatientDocuments patientId={id!} />
         </TabsContent>
 
         <TabsContent value="appointments">

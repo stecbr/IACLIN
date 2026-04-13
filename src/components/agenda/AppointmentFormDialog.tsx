@@ -30,6 +30,14 @@ interface Props {
   defaultHour?: number;
 }
 
+const LABELS = [
+  { value: 'primeira_consulta', label: 'Primeira Consulta', color: '#6366f1' },
+  { value: 'retorno', label: 'Retorno', color: '#f59e0b' },
+  { value: 'urgencia', label: 'Urgência', color: '#ef4444' },
+  { value: 'preventivo', label: 'Preventivo', color: '#22c55e' },
+  { value: 'estetico', label: 'Estético', color: '#ec4899' },
+];
+
 export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultHour }: Props) {
   const { user, currentClinicId } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -39,6 +47,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState('');
+  const [label, setLabel] = useState('');
 
   const buildLocalDateTime = (dateValue: string, timeValue: string) => {
     const [year, month, day] = dateValue.split('-').map(Number);
@@ -95,6 +104,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         start_time: startDt.toISOString(),
         end_time: endDt.toISOString(),
         notes: notes || null,
+        label: label || null,
         clinic_id: currentClinicId ?? null,
       });
       if (error) throw error;
@@ -105,6 +115,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       setPatientId('');
       setProcedureId('');
       setNotes('');
+      setLabel('');
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -166,6 +177,24 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             <div className="space-y-2">
               <Label>Duração (min)</Label>
               <Input type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} min={15} step={15} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Rótulo</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {LABELS.map(l => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLabel(label === l.value ? '' : l.value)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${label === l.value ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-60 hover:opacity-100'}`}
+                  style={{ borderColor: l.color, color: l.color, backgroundColor: label === l.value ? `${l.color}15` : 'transparent' }}
+                >
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: l.color }} />
+                  {l.label}
+                </button>
+              ))}
             </div>
           </div>
 
