@@ -474,8 +474,9 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
       const { error: uploadError } = await supabase.storage.from('statements').upload(path, file);
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from('statements').getPublicUrl(path);
-      const fileUrl = urlData.publicUrl;
+      const { data: urlData, error: urlError } = await supabase.storage.from('statements').createSignedUrl(path, 600);
+      if (urlError || !urlData?.signedUrl) throw urlError || new Error('Failed to create signed URL');
+      const fileUrl = urlData.signedUrl;
 
       // Call AI edge function
       const { data, error } = await supabase.functions.invoke('parse-statement', {
