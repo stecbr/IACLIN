@@ -9,6 +9,8 @@ import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
+import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -45,11 +47,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
               {/* Mobile logo */}
-              <div className="flex md:hidden items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-primary-foreground">IA</span>
-                </div>
-                <span className="text-sm font-semibold text-foreground">IACLIN</span>
+              <div className="flex md:hidden items-center">
+                <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-7 object-contain" />
               </div>
               <div className="hidden sm:flex items-center gap-1.5 text-sm">
                 {crumbs.map((crumb, i) => (

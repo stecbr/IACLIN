@@ -11,6 +11,9 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/components/ThemeProvider';
+import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +54,7 @@ export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
+  const { resolved } = useTheme();
   const { profile, signOut, user } = useAuth();
   const { filterNavItems } = useRoleAccess();
 
@@ -129,14 +133,10 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-xs font-bold text-primary-foreground">IA</span>
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-base font-semibold text-foreground truncate">IACLIN</span>
-              <span className="text-[10px] text-muted-foreground truncate">Gestão Odontológica</span>
-            </div>
+          {collapsed ? (
+            <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-8 w-8 object-contain flex-shrink-0" />
+          ) : (
+            <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-8 object-contain" />
           )}
         </div>
       </SidebarHeader>
