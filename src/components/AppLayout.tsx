@@ -16,6 +16,7 @@ const breadcrumbMap: Record<string, string> = {
   '/patients': 'Pacientes',
   '/odontogram': 'Odontograma',
   '/financial': 'Financeiro',
+  '/budgets': 'Orçamentos',
   '/settings': 'Configurações',
 };
 
