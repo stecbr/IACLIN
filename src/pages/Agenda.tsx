@@ -126,7 +126,7 @@ export default function Agenda() {
 
         {/* Calendar Grid */}
         {view === 'month' ? (
-          <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} />
+          <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} onAppointmentClick={(apt) => setSelectedAppointment(apt)} />
         ) : (
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
             {/* Day Headers */}
@@ -279,8 +279,7 @@ function MonthView({ days, appointments, onDayClick, onAppointmentClick }: { day
                 <div
                   key={apt.id}
                   className="text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium cursor-pointer"
-                  onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
-                  // @ts-ignore handled via prop
+                  onClick={(e) => { e.stopPropagation(); onAppointmentClick(apt); }}
                   style={{ backgroundColor: ((apt as any).procedures?.color ?? '#3B82F6') + '15', color: (apt as any).procedures?.color ?? '#3B82F6' }}
                 >
                   {(apt as any).patients?.full_name?.split(' ')[0]}
