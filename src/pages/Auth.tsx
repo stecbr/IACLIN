@@ -95,11 +95,8 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center px-6 bg-background">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center lg:text-left">
-            <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
-              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-xs font-bold text-primary-foreground">IA</span>
-              </div>
-              <span className="text-xl font-semibold text-foreground">IACLIN</span>
+            <div className="lg:hidden flex items-center justify-center mb-4">
+              <img src={logoLight} alt="IACLIN" className="h-10" />
             </div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
               {isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}
