@@ -4,7 +4,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera } from 'lucide-react';
+import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,14 @@ import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
+import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
+import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'team', label: 'Equipe', icon: Users },
+  { id: 'rooms', label: 'Salas', icon: Armchair },
   { id: 'insurance', label: 'Convênios', icon: Shield },
   { id: 'appearance', label: 'Aparência', icon: Palette },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
@@ -53,9 +56,10 @@ export default function SettingsPage() {
           {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'clinic' && <ClinicSection />}
           {activeSection === 'team' && <TeamSection />}
+          {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'appearance' && <AppearanceSection />}
-          {activeSection === 'procedures' && <ProceduresSection />}
+          {activeSection === 'procedures' && <ProceduresCrudSection />}
         </div>
       </div>
     </div>
@@ -300,59 +304,3 @@ function AppearanceSection() {
   );
 }
 
-function ProceduresSection() {
-  const { data: procedures = [], isLoading } = useQuery({
-    queryKey: ['procedures-settings'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('procedures').select('*').order('category, name');
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const categories = [...new Set(procedures.map((p) => p.category))];
-
-  return (
-    <Card className="shadow-card border-border/50">
-      <CardHeader>
-        <CardTitle className="text-base">Procedimentos</CardTitle>
-        <CardDescription>Procedimentos cadastrados no sistema.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        ) : procedures.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Nenhum procedimento cadastrado.</p>
-        ) : (
-          <div className="space-y-6">
-            {categories.map((cat) => (
-              <div key={cat}>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{cat}</h3>
-                <div className="space-y-1">
-                  {procedures.filter((p) => p.category === cat).map((p) => (
-                    <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
-                        <span className="text-sm font-medium text-foreground">{p.name}</span>
-                        {p.code && <Badge variant="outline" className="text-[10px]">{p.code}</Badge>}
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{p.default_duration}min</span>
-                        <span>R$ {Number(p.default_price).toFixed(2)}</span>
-                        <Badge variant={p.is_active ? 'default' : 'secondary'} className="text-[10px]">
-                          {p.is_active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}

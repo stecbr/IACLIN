@@ -16,7 +16,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Search, CalendarPlus } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Clock, Search, CalendarPlus, MessageCircle, Armchair } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -46,6 +47,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [label, setLabel] = useState('');
   const [showFreeSlots, setShowFreeSlots] = useState(false);
   const [returnDays, setReturnDays] = useState<number | null>(null);
+  const [roomId, setRoomId] = useState('');
+  const [sendConfirmation, setSendConfirmation] = useState(false);
 
   const buildLocalDateTime = (dateValue: string, timeValue: string) => {
     const [year, month, day] = dateValue.split('-').map(Number);
@@ -82,6 +85,21 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       return data;
     },
     enabled: open,
+  });
+
+  const { data: rooms = [] } = useQuery({
+    queryKey: ['clinic-rooms-select', currentClinicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clinic_rooms')
+        .select('id, name')
+        .eq('clinic_id', currentClinicId!)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!currentClinicId,
   });
 
   // Fetch appointments for the selected date to find free slots
@@ -139,6 +157,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         end_time: endDt.toISOString(),
         notes: notes || null,
         label: label || null,
+        room_id: roomId || null,
+        send_confirmation: sendConfirmation,
         clinic_id: currentClinicId ?? null,
       });
       if (error) throw error;
@@ -155,6 +175,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           end_time: returnEnd.toISOString(),
           notes: `Retorno de ${returnDays} dias`,
           label: 'retorno',
+          room_id: roomId || null,
           clinic_id: currentClinicId ?? null,
         });
         toast.success(`Consulta agendada + retorno em ${returnDays} dias!`);
@@ -164,7 +185,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
       onSuccess();
       onOpenChange(false);
-      setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null);
+      setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null); setRoomId(''); setSendConfirmation(false);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -211,6 +232,24 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
               </SelectContent>
             </Select>
           </div>
+
+          {/* Room selector */}
+          {rooms.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
+                Sala / Cadeira
+              </Label>
+              <Select value={roomId} onValueChange={setRoomId}>
+                <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
@@ -323,6 +362,18 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           <div className="space-y-2">
             <Label>Observações</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          </div>
+
+          {/* WhatsApp confirmation */}
+          <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-emerald-500" />
+              <div>
+                <p className="text-sm font-medium">Confirmação via WhatsApp</p>
+                <p className="text-xs text-muted-foreground">Enviar lembrete ao paciente</p>
+              </div>
+            </div>
+            <Switch checked={sendConfirmation} onCheckedChange={setSendConfirmation} />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

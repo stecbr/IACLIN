@@ -85,6 +85,8 @@ export type Database = {
           notes: string | null
           patient_id: string
           procedure_id: string | null
+          room_id: string | null
+          send_confirmation: boolean | null
           start_time: string
           status: string
           updated_at: string
@@ -99,6 +101,8 @@ export type Database = {
           notes?: string | null
           patient_id: string
           procedure_id?: string | null
+          room_id?: string | null
+          send_confirmation?: boolean | null
           start_time: string
           status?: string
           updated_at?: string
@@ -113,6 +117,8 @@ export type Database = {
           notes?: string | null
           patient_id?: string
           procedure_id?: string | null
+          room_id?: string | null
+          send_confirmation?: boolean | null
           start_time?: string
           status?: string
           updated_at?: string
@@ -137,6 +143,13 @@ export type Database = {
             columns: ["procedure_id"]
             isOneToOne: false
             referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -169,6 +182,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "clinic_members_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_rooms: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_rooms_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
