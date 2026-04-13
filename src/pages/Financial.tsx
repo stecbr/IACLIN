@@ -274,28 +274,38 @@ export default function Financial() {
             <Card className="shadow-card border-border/50 overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Paciente</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="font-semibold">Data</TableHead>
+                    <TableHead className="font-semibold">Descrição</TableHead>
+                    <TableHead className="font-semibold">Paciente</TableHead>
+                    <TableHead className="font-semibold">Tipo</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="text-right font-semibold">Valor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((tx: any) => (
-                    <TableRow key={tx.id}>
+                    <TableRow key={tx.id} className="hover:bg-muted/40 transition-colors duration-150">
                       <TableCell className="text-muted-foreground">{format(parseISO(tx.due_date), 'dd/MM/yyyy')}</TableCell>
                       <TableCell className="font-medium text-foreground">{tx.description ?? tx.category}</TableCell>
                       <TableCell className="text-muted-foreground">{tx.patients?.full_name ?? '—'}</TableCell>
                       <TableCell>
-                        <Badge variant={tx.type === 'income' ? 'default' : 'secondary'} className={`text-xs ${tx.type === 'income' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                        <Badge variant={tx.type === 'income' ? 'default' : 'secondary'} className={`text-xs rounded-full gap-1 ${tx.type === 'income' ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-destructive/10 text-destructive hover:bg-destructive/20'}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${tx.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
                           {tx.type === 'income' ? 'Receita' : 'Despesa'}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className={`text-xs rounded-full gap-1 ${
+                          tx.status === 'paid' ? 'border-success/30 text-success' :
+                          tx.status === 'overdue' ? 'border-destructive/30 text-destructive' :
+                          'border-warning/30 text-warning'
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            tx.status === 'paid' ? 'bg-success' :
+                            tx.status === 'overdue' ? 'bg-destructive' :
+                            'bg-warning'
+                          }`} />
                           {tx.status === 'paid' ? 'Pago' : tx.status === 'overdue' ? 'Vencido' : 'Pendente'}
                         </Badge>
                       </TableCell>
