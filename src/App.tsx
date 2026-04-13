@@ -16,6 +16,7 @@ import Odontogram from "./pages/Odontogram";
 import Financial from "./pages/Financial";
 import SettingsPage from "./pages/SettingsPage";
 import Budgets from "./pages/Budgets";
+import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
 
@@ -70,6 +71,7 @@ const AppRoutes = () => (
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
+    <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>

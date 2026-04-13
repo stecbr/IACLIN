@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog';
+import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -18,6 +19,7 @@ export default function Agenda() {
   const [view, setView] = useState<View>('week');
   const [showForm, setShowForm] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; hour: number } | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const { user } = useAuth();
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -124,7 +126,7 @@ export default function Agenda() {
 
         {/* Calendar Grid */}
         {view === 'month' ? (
-          <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} />
+          <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} onAppointmentClick={(apt) => setSelectedAppointment(apt)} />
         ) : (
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
             {/* Day Headers */}
@@ -187,6 +189,7 @@ export default function Agenda() {
                               <TooltipTrigger asChild>
                                 <div
                                   className="rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   style={{
                                     backgroundColor: `${procedureColor}15`,
                                     borderLeft: `3px solid ${procedureColor}`,
@@ -226,12 +229,18 @@ export default function Agenda() {
           defaultDate={selectedSlot?.date}
           defaultHour={selectedSlot?.hour}
         />
+        <AppointmentDetailDialog
+          open={!!selectedAppointment}
+          onOpenChange={(open) => { if (!open) setSelectedAppointment(null); }}
+          appointment={selectedAppointment}
+          onStatusChange={refetch}
+        />
       </div>
     </TooltipProvider>
   );
 }
 
-function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointments: any[]; onDayClick: (d: Date) => void }) {
+function MonthView({ days, appointments, onDayClick, onAppointmentClick }: { days: Date[]; appointments: any[]; onDayClick: (d: Date) => void; onAppointmentClick: (apt: any) => void }) {
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const firstDay = days[0];
   const startPad = (firstDay.getDay() + 6) % 7;
@@ -269,7 +278,8 @@ function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointme
               {dayApts.slice(0, 3).map((apt: any) => (
                 <div
                   key={apt.id}
-                  className="text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium"
+                  className="text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); onAppointmentClick(apt); }}
                   style={{ backgroundColor: ((apt as any).procedures?.color ?? '#3B82F6') + '15', color: (apt as any).procedures?.color ?? '#3B82F6' }}
                 >
                   {(apt as any).patients?.full_name?.split(' ')[0]}
