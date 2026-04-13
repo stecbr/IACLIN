@@ -103,7 +103,7 @@ export default function Onboarding() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Bem-vindo ao IACLIN</h1>
           <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-            Para começar, configure sua clínica odontológica. Você poderá editar essas informações depois.
+            Para começar, configure sua clínica. Você poderá editar essas informações depois.
           </p>
         </div>
 
@@ -111,6 +111,7 @@ export default function Onboarding() {
         <div className="flex items-center gap-2 justify-center">
           <div className={`h-2 w-16 rounded-full transition-colors ${step >= 1 ? 'bg-primary' : 'bg-muted'}`} />
           <div className={`h-2 w-16 rounded-full transition-colors ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
+          <div className={`h-2 w-16 rounded-full transition-colors ${step >= 3 ? 'bg-primary' : 'bg-muted'}`} />
         </div>
 
         <Card className="shadow-card border-border/50">
