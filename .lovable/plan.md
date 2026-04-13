@@ -1,85 +1,74 @@
 
 
-# Multi-Tenant Clinic + Team Management
+# Plano: Melhorias visuais inspiradas no 21st.dev
 
-## Context
-Currently all data is "loose" — no `clinic_id` isolation, roles are global (`admin|dentist|secretary`), and there's no way to manage team members. We need to make the clinic the central tenant, with the creator as owner who can directly register staff.
+## Contexto
+O projeto usa shadcn/ui (Radix + Tailwind). Em vez de importar componentes externos do 21st.dev (que sao para Next.js e teriam problemas de compatibilidade), vou aplicar os **padroes visuais** que eles usam diretamente nos componentes existentes, mantendo shadcn/ui como base.
 
-## Database Changes (3 migrations)
+---
 
-### Migration 1: Clinic Members table
-Create a `clinic_members` table that links users to clinics with roles:
-```sql
-CREATE TABLE public.clinic_members (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  clinic_id uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL,
-  role app_role NOT NULL DEFAULT 'dentist',
-  is_owner boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(clinic_id, user_id)
-);
-ALTER TABLE public.clinic_members ENABLE ROW LEVEL SECURITY;
--- Members can view their own clinic's members
-CREATE POLICY "Members can view own clinic members" ON public.clinic_members
-  FOR SELECT TO authenticated USING (
-    clinic_id IN (SELECT clinic_id FROM public.clinic_members WHERE user_id = auth.uid())
-  );
--- Only owners can insert/update/delete members
--- (use security definer function to avoid recursion)
-```
+## 1. Dashboard / KPI Cards (Index.tsx)
 
-### Migration 2: Auto-link owner on clinic creation
-- Trigger: when a row is inserted into `clinics`, auto-insert a `clinic_members` row with `is_owner = true` for the `owner_id`.
+**O que muda:**
+- Cards de KPI com numeros animados (contagem progressiva com CSS/JS)
+- Micro-sparkline inline nos cards (mini grafico de tendencia dos ultimos 7 dias)
+- Efeito de hover com elevacao suave e borda gradiente sutil
+- Icones com background gradiente em vez de cor solida
+- Saudacao com hora do dia ("Bom dia", "Boa tarde", "Boa noite")
 
-### Migration 3: Add `clinic_id` context
-- Ensure existing tables (patients, appointments, financial_transactions) properly reference clinic context for future RLS scoping. (Data won't break — `clinic_id` is already nullable on most tables.)
+**Arquivos:** `src/pages/Index.tsx`, novo componente `src/components/dashboard/AnimatedNumber.tsx`
 
-## Code Changes
+---
 
-### 1. AuthContext — add `currentClinicId`
-- After fetching roles, also fetch the user's `clinic_members` record to get their `clinic_id` and clinic-level role.
-- Expose `currentClinicId` and `clinicRole` in context.
+## 2. Calendario / Agenda (Agenda.tsx)
 
-### 2. Settings → New "Equipe" (Team) section
-Add a 5th section to `SettingsPage.tsx`:
-- **List members**: Table showing name, email, role, badge for owner
-- **"Adicionar Membro" form**: Owner fills in email, full name, password, and role (dentist/secretary)
-- On submit: call `supabase.auth.admin` — but since we can't use admin API from client, create an **Edge Function** `invite-member` that:
-  1. Uses service role key to `supabase.auth.admin.createUser({ email, password, email_confirm: true })`
-  2. Creates profile record
-  3. Inserts `clinic_members` row with the chosen role
-  4. Inserts `user_roles` row
-- **Remove member**: Owner can remove (but not themselves)
+**O que muda:**
+- Cards de consulta com cor de fundo derivada do procedimento (em vez de so borda esquerda)
+- Avatar do paciente nos slots da agenda
+- Tooltip on hover mostrando detalhes da consulta
+- Header do dia com indicador visual mais destacado para "hoje" (circulo preenchido azul)
+- Transicoes suaves ao trocar de semana/mes
 
-### 3. Edge Function: `invite-member`
-```
-POST /invite-member
-Body: { email, full_name, password, role, clinic_id }
-Auth: Bearer token (verified, must be owner of clinic_id)
-```
-- Validates caller is owner of the clinic
-- Creates user via admin API
-- Inserts profile, clinic_members, user_roles
+**Arquivos:** `src/pages/Agenda.tsx`
 
-### 4. UI for Team Management
-- Section icon: `Users` from lucide
-- Table with columns: Nome, E-mail, Papel, Ações
-- Role displayed as colored Badge (Admin/Dentista/Secretária)
-- "Adicionar" button opens inline form or dialog
-- Only visible to clinic owner (check `is_owner` from clinic_members)
+---
 
-## Files to Create/Modify
-| File | Action |
-|---|---|
-| `supabase/functions/invite-member/index.ts` | New — edge function |
-| `src/contexts/AuthContext.tsx` | Modify — add currentClinicId |
-| `src/pages/SettingsPage.tsx` | Modify — add Team section |
-| 1 migration | clinic_members table + trigger + RLS |
+## 3. Tabelas de Dados (Patients.tsx, Financial.tsx)
 
-## Implementation Order
-1. Database migration (clinic_members + trigger + RLS)
-2. Edge function for member creation
-3. AuthContext updates
-4. Settings Team UI
+**O que muda:**
+- Header da tabela com background sutil e bordas arredondadas
+- Rows com hover mais pronunciado e transicao suave
+- Coluna de status com badges coloridos estilo pill (mais arredondados, com ponto indicador)
+- Avatares com anel de status (online/ativo = anel verde)
+- Filtros inline com chips selecionaveis em vez de dropdowns
+- Contagem animada no header ("47 pacientes")
+
+**Arquivos:** `src/pages/Patients.tsx`, `src/pages/Financial.tsx`
+
+---
+
+## 4. Sidebar / Navegacao (AppSidebar.tsx)
+
+**O que muda:**
+- Logo IACLIN com icone mais elaborado (gradiente azul)
+- Indicador de rota ativa com background gradiente sutil em vez de barra lateral
+- Separadores de secao com linhas finas e labels mais elegantes
+- Footer do usuario com card hover mostrando email/papel
+- Badge de notificacao com animacao pulse no icone da Agenda
+- Icone de clinica ativa com nome truncado no header (quando expandido)
+
+**Arquivos:** `src/components/AppSidebar.tsx`
+
+---
+
+## Detalhes tecnicos
+
+- Nenhuma dependencia nova sera adicionada
+- Todas as melhorias usam Tailwind CSS (animacoes, gradientes, transicoes)
+- Componente `AnimatedNumber` usa `useEffect` + `requestAnimationFrame` para contagem progressiva
+- Tooltips usam o componente existente do shadcn/ui
+- Mantemos 100% de compatibilidade com dark mode
+
+## Estimativa
+~4 arquivos editados, 1 componente novo. Mudancas puramente visuais, sem alteracao de logica de dados.
 
