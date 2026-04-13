@@ -134,10 +134,20 @@ export default function PatientDetail() {
             </div>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
-          <Edit className="h-4 w-4" />
-          Editar
-        </Button>
+        <div className="flex gap-2">
+          {patient.phone && (
+            <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50" asChild>
+              <a href={`https://wa.me/55${patient.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
+            <Edit className="h-4 w-4" />
+            Editar
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
