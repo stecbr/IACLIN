@@ -55,11 +55,13 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { resolved } = useTheme();
-  const { profile, signOut, user } = useAuth();
+  const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems } = useRoleAccess();
 
   const filteredMainNav = filterNavItems(mainNav);
-  const filteredClinicNav = filterNavItems(clinicNav);
+  const filteredClinicNav = filterNavItems(
+    clinicNav.filter((item) => item.categories.includes(clinicCategory))
+  );
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({
