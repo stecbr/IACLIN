@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,9 @@ import { PatientTimeline } from '@/components/patients/PatientTimeline';
 import { PatientAnamnese } from '@/components/patients/PatientAnamnese';
 import { PatientDocuments } from '@/components/patients/PatientDocuments';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
+import { generateBudgetPdf, fetchClinicForPdf } from '@/lib/generateBudgetPdf';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 
 export default function PatientDetail() {
@@ -281,6 +283,22 @@ export default function PatientDetail() {
                           </p>
                         </div>
                         <div className="text-right flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            title="Gerar PDF"
+                            onClick={async () => {
+                              try {
+                                const clinic = await fetchClinicForPdf(currentClinicId);
+                                await generateBudgetPdf({ plan, patient, clinic });
+                              } catch (e: any) {
+                                toast.error(e.message ?? 'Erro ao gerar PDF');
+                              }
+                            }}
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </Button>
                           <span className="text-sm font-semibold">R$ {Number(plan.total_cost).toFixed(2).replace('.', ',')}</span>
                           <Badge className={`text-xs ${statusColor[plan.status] ?? ''}`}>
                             {statusLabel[plan.status] ?? plan.status}
