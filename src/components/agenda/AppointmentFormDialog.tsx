@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,10 +35,18 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [loading, setLoading] = useState(false);
   const [patientId, setPatientId] = useState('');
   const [procedureId, setProcedureId] = useState('');
-  const [date, setDate] = useState(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
-  const [startTime, setStartTime] = useState(defaultHour ? `${String(defaultHour).padStart(2, '0')}:00` : '09:00');
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [startTime, setStartTime] = useState('09:00');
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState('');
+
+  // Sync date/time when dialog opens or props change
+  useEffect(() => {
+    if (open) {
+      setDate(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+      setStartTime(defaultHour != null ? `${String(defaultHour).padStart(2, '0')}:00` : '09:00');
+    }
+  }, [open, defaultDate, defaultHour]);
 
   const { data: patients = [] } = useQuery({
     queryKey: ['patients-list', currentClinicId],
