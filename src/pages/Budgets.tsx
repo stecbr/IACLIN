@@ -191,6 +191,7 @@ export default function Budgets() {
           )}
         </DragOverlay>
       </DndContext>
+      <BudgetFormDialog open={formOpen} onOpenChange={setFormOpen} />
     </div>
   );
 }
