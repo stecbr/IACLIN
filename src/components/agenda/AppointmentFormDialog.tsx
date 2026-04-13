@@ -157,6 +157,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         end_time: endDt.toISOString(),
         notes: notes || null,
         label: label || null,
+        room_id: roomId || null,
+        send_confirmation: sendConfirmation,
         clinic_id: currentClinicId ?? null,
       });
       if (error) throw error;
@@ -173,6 +175,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           end_time: returnEnd.toISOString(),
           notes: `Retorno de ${returnDays} dias`,
           label: 'retorno',
+          room_id: roomId || null,
           clinic_id: currentClinicId ?? null,
         });
         toast.success(`Consulta agendada + retorno em ${returnDays} dias!`);
@@ -182,7 +185,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
       onSuccess();
       onOpenChange(false);
-      setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null);
+      setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null); setRoomId(''); setSendConfirmation(false);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
