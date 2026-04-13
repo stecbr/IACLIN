@@ -296,6 +296,9 @@ export default function PatientDetail() {
             </div>
           )}
         </TabsContent>
+        <TabsContent value="timeline">
+          <PatientTimeline patientId={id!} />
+        </TabsContent>
       </Tabs>
 
       {editOpen && (
