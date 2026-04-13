@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
 import logoLight from '@/assets/logo-light.png';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente';
@@ -97,9 +97,9 @@ export default function Auth() {
         : 'signup-form';
 
   const typeCards = [
-    { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro' },
-    { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio' },
-    { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar' },
+    { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro', locked: false },
+    { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
+    { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: true },
   ];
 
   const profSubCards = [
@@ -191,8 +191,9 @@ export default function Auth() {
                       key={card.key}
                       variants={item}
                       type="button"
-                      onClick={() => setUserType(card.key)}
-                      className="w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card transition-all duration-200 text-left hover:border-primary/40 hover:shadow-sm active:scale-[0.98]"
+                      onClick={() => !card.locked && setUserType(card.key)}
+                      disabled={card.locked}
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border border-border bg-card transition-all duration-200 text-left ${card.locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/40 hover:shadow-sm active:scale-[0.98]'}`}
                     >
                       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
                         <Icon className="h-5 w-5" />
@@ -201,7 +202,14 @@ export default function Auth() {
                         <p className="text-sm font-medium text-foreground">{card.label}</p>
                         <p className="text-xs text-muted-foreground">{card.desc}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      {card.locked ? (
+                        <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                          <Lock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">Em breve</span>
+                        </div>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      )}
                     </motion.button>
                   );
                 })}
