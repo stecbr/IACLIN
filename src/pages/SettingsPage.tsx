@@ -56,9 +56,10 @@ export default function SettingsPage() {
           {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'clinic' && <ClinicSection />}
           {activeSection === 'team' && <TeamSection />}
+          {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'appearance' && <AppearanceSection />}
-          {activeSection === 'procedures' && <ProceduresSection />}
+          {activeSection === 'procedures' && <ProceduresCrudSection />}
         </div>
       </div>
     </div>
