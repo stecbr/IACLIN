@@ -89,6 +89,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <MobileBottomNav />
+      <WelcomeTour />
     </SidebarProvider>
   );
 }

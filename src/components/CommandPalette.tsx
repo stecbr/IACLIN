@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { LayoutDashboard, Calendar, Users, FileHeart, DollarSign, Settings, Search } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, FileHeart, DollarSign, ClipboardList, Settings, Search } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -18,6 +18,7 @@ const pages = [
   { name: 'Pacientes', url: '/patients', icon: Users },
   { name: 'Odontograma', url: '/odontogram', icon: FileHeart },
   { name: 'Financeiro', url: '/financial', icon: DollarSign },
+  { name: 'Orçamentos', url: '/budgets', icon: ClipboardList },
   { name: 'Configurações', url: '/settings', icon: Settings },
 ];
 
