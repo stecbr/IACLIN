@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { BudgetCard } from '@/components/budgets/BudgetCard';
+import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { ClipboardList } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ClipboardList, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const COLUMNS = [
@@ -19,6 +21,7 @@ const COLUMNS = [
 export default function Budgets() {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -86,13 +89,23 @@ export default function Budgets() {
 
   const activePlan = activeId ? plans.find((p: any) => p.id === activeId) : null;
 
+  const headerButton = (
+    <Button onClick={() => setFormOpen(true)} className="gap-2">
+      <Plus className="h-4 w-4" />
+      Novo Orçamento
+    </Button>
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Orçamentos" description="Pipeline de orçamentos" />
+        <PageHeader title="Orçamentos" description="Pipeline de orçamentos">
+          {headerButton}
+        </PageHeader>
         <div className="flex items-center justify-center h-64">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
+        <BudgetFormDialog open={formOpen} onOpenChange={setFormOpen} />
       </div>
     );
   }
@@ -100,20 +113,25 @@ export default function Budgets() {
   if (plans.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Orçamentos" description="Pipeline de orçamentos" />
+        <PageHeader title="Orçamentos" description="Pipeline de orçamentos">
+          {headerButton}
+        </PageHeader>
         <EmptyState
           icon={ClipboardList}
           title="Nenhum orçamento ainda"
-          description="Os orçamentos criados nos planos de tratamento dos pacientes aparecerão aqui no formato Kanban."
+          description="Crie seu primeiro orçamento clicando no botão acima."
           illustration="tooth"
         />
+        <BudgetFormDialog open={formOpen} onOpenChange={setFormOpen} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Orçamentos" description={`${plans.length} orçamentos no pipeline`} />
+      <PageHeader title="Orçamentos" description={`${plans.length} orçamentos no pipeline`}>
+        {headerButton}
+      </PageHeader>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -173,6 +191,7 @@ export default function Budgets() {
           )}
         </DragOverlay>
       </DndContext>
+      <BudgetFormDialog open={formOpen} onOpenChange={setFormOpen} />
     </div>
   );
 }

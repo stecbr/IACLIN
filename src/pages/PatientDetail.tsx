@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { PatientTimeline } from '@/components/patients/PatientTimeline';
+import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const { currentClinicId } = useAuth();
 
   const { data: patient, isLoading, refetch } = useQuery({
@@ -51,6 +53,20 @@ export default function PatientDetail() {
         .select('*')
         .eq('patient_id', id!)
         .order('due_date', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: treatmentPlans = [], refetch: refetchPlans } = useQuery({
+    queryKey: ['patient-treatment-plans', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .select('*, treatment_plan_items(id, procedure_id, price, tooth_number, procedures(name))')
+        .eq('patient_id', id!)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -127,6 +143,10 @@ export default function PatientDetail() {
         <TabsList>
           <TabsTrigger value="info">Informações</TabsTrigger>
           <TabsTrigger value="appointments">Consultas</TabsTrigger>
+          <TabsTrigger value="budgets" className="gap-1.5">
+            <ClipboardList className="h-3.5 w-3.5" />
+            Orçamentos
+          </TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="timeline" className="gap-1.5">
             <Clock className="h-3.5 w-3.5" />
@@ -200,6 +220,53 @@ export default function PatientDetail() {
           )}
         </TabsContent>
 
+        <TabsContent value="budgets">
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <Button size="sm" className="gap-1.5" onClick={() => setBudgetOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                Novo Orçamento
+              </Button>
+            </div>
+            {treatmentPlans.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
+                <ClipboardList className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum orçamento para este paciente</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {treatmentPlans.map((plan: any) => {
+                  const statusLabel: Record<string, string> = { pending: 'Pendente', negotiating: 'Em Negociação', approved: 'Aprovado', lost: 'Perdido' };
+                  const statusColor: Record<string, string> = {
+                    pending: 'bg-amber-100 text-amber-700',
+                    negotiating: 'bg-blue-100 text-blue-700',
+                    approved: 'bg-emerald-100 text-emerald-700',
+                    lost: 'bg-rose-100 text-rose-700',
+                  };
+                  return (
+                    <Card key={plan.id} className="p-4 border-border/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{plan.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {plan.treatment_plan_items?.length ?? 0} procedimentos · {format(new Date(plan.created_at), 'dd/MM/yyyy')}
+                          </p>
+                        </div>
+                        <div className="text-right flex items-center gap-2">
+                          <span className="text-sm font-semibold">R$ {Number(plan.total_cost).toFixed(2).replace('.', ',')}</span>
+                          <Badge className={`text-xs ${statusColor[plan.status] ?? ''}`}>
+                            {statusLabel[plan.status] ?? plan.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
         <TabsContent value="financial">
           {transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
@@ -243,6 +310,12 @@ export default function PatientDetail() {
           clinicId={currentClinicId}
         />
       )}
+      <BudgetFormDialog
+        open={budgetOpen}
+        onOpenChange={setBudgetOpen}
+        onSuccess={() => refetchPlans()}
+        preselectedPatientId={id}
+      />
     </div>
   );
 }
