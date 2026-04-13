@@ -87,6 +87,21 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     enabled: open,
   });
 
+  const { data: rooms = [] } = useQuery({
+    queryKey: ['clinic-rooms-select', currentClinicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clinic_rooms')
+        .select('id, name')
+        .eq('clinic_id', currentClinicId!)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!currentClinicId,
+  });
+
   // Fetch appointments for the selected date to find free slots
   const { data: dayAppointments = [] } = useQuery({
     queryKey: ['day-appointments-slots', date, currentClinicId],
