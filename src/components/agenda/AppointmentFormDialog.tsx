@@ -181,6 +181,24 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           </div>
 
           <div className="space-y-2">
+            <Label>Rótulo</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {LABELS.map(l => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLabel(label === l.value ? '' : l.value)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${label === l.value ? 'ring-2 ring-offset-1 ring-primary' : 'opacity-60 hover:opacity-100'}`}
+                  style={{ borderColor: l.color, color: l.color, backgroundColor: label === l.value ? `${l.color}15` : 'transparent' }}
+                >
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: l.color }} />
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label>Observações</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
