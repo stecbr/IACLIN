@@ -283,6 +283,22 @@ export default function PatientDetail() {
                           </p>
                         </div>
                         <div className="text-right flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            title="Gerar PDF"
+                            onClick={async () => {
+                              try {
+                                const clinic = await fetchClinicForPdf(currentClinicId);
+                                await generateBudgetPdf({ plan, patient, clinic });
+                              } catch (e: any) {
+                                toast.error(e.message ?? 'Erro ao gerar PDF');
+                              }
+                            }}
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </Button>
                           <span className="text-sm font-semibold">R$ {Number(plan.total_cost).toFixed(2).replace('.', ',')}</span>
                           <Badge className={`text-xs ${statusColor[plan.status] ?? ''}`}>
                             {statusLabel[plan.status] ?? plan.status}
