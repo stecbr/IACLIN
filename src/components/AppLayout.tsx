@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sun, Moon, Bell } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -8,7 +8,6 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { useTheme } from '@/components/ThemeProvider';
-import { motion, AnimatePresence } from 'framer-motion';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const breadcrumbMap: Record<string, string> = {
