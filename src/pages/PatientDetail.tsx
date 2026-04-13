@@ -267,7 +267,7 @@ export default function PatientDetail() {
           </div>
         </TabsContent>
 
-          {transactions.length === 0 ? (
+          <TabsContent value="financial">
             <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
               <CreditCard className="h-8 w-8 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">Nenhuma transação registrada</p>
