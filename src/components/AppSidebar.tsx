@@ -54,6 +54,7 @@ export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
+  const { resolved } = useTheme();
   const { profile, signOut, user } = useAuth();
   const { filterNavItems } = useRoleAccess();
 
