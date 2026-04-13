@@ -233,6 +233,24 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             </Select>
           </div>
 
+          {/* Room selector */}
+          {rooms.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
+                Sala / Cadeira
+              </Label>
+              <Select value={roomId} onValueChange={setRoomId}>
+                <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label>Data</Label>
@@ -344,6 +362,18 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           <div className="space-y-2">
             <Label>Observações</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          </div>
+
+          {/* WhatsApp confirmation */}
+          <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-emerald-500" />
+              <div>
+                <p className="text-sm font-medium">Confirmação via WhatsApp</p>
+                <p className="text-xs text-muted-foreground">Enviar lembrete ao paciente</p>
+              </div>
+            </div>
+            <Switch checked={sendConfirmation} onCheckedChange={setSendConfirmation} />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
