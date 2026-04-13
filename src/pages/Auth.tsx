@@ -67,10 +67,7 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/90 to-primary flex-col justify-between p-12 text-primary-foreground">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-10 w-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
-              <span className="text-sm font-bold">IA</span>
-            </div>
-            <span className="text-2xl font-semibold">IACLIN</span>
+            <img src={logoDark} alt="IACLIN" className="h-10" />
           </div>
           <p className="text-sm text-primary-foreground/70">Gestão Clínica Odontológica</p>
         </div>
