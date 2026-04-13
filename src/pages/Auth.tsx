@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Calendar, Users, Shield, FileHeart } from 'lucide-react';
+import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
 
 const features = [
   { icon: Calendar, text: 'Agenda inteligente com visualização dia, semana e mês' },
