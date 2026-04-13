@@ -1,22 +1,16 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
 interface PatientFormDialogProps {
@@ -44,6 +38,21 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
     insurance_provider: patient?.insurance_provider ?? '',
     insurance_number: patient?.insurance_number ?? '',
     notes: patient?.notes ?? '',
+  });
+
+  const { data: insurancePlans = [] } = useQuery({
+    queryKey: ['insurance-plans-select', clinicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('insurance_plans')
+        .select('id, name')
+        .eq('clinic_id', clinicId!)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!clinicId,
   });
 
   const update = (field: string, value: string) =>
@@ -149,7 +158,19 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
             </div>
             <div className="space-y-2">
               <Label>Convênio</Label>
-              <Input value={form.insurance_provider} onChange={(e) => update('insurance_provider', e.target.value)} />
+              {insurancePlans.length > 0 ? (
+                <Select value={form.insurance_provider} onValueChange={(v) => update('insurance_provider', v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhum (Particular)</SelectItem>
+                    {insurancePlans.map((p) => (
+                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={form.insurance_provider} onChange={(e) => update('insurance_provider', e.target.value)} placeholder="Ex: Amil, Unimed..." />
+              )}
             </div>
             <div className="space-y-2">
               <Label>Nº Convênio</Label>
