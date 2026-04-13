@@ -225,6 +225,7 @@ export type Database = {
       clinics: {
         Row: {
           address: string | null
+          category: Database["public"]["Enums"]["clinic_category"]
           city: string | null
           cnpj: string | null
           created_at: string
@@ -240,6 +241,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category?: Database["public"]["Enums"]["clinic_category"]
           city?: string | null
           cnpj?: string | null
           created_at?: string
@@ -255,6 +257,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category?: Database["public"]["Enums"]["clinic_category"]
           city?: string | null
           cnpj?: string | null
           created_at?: string
@@ -807,6 +810,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "dentist" | "secretary"
+      clinic_category:
+        | "odonto"
+        | "medico"
+        | "estetica"
+        | "veterinario"
+        | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -935,6 +944,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "dentist", "secretary"],
+      clinic_category: ["odonto", "medico", "estetica", "veterinario", "outro"],
     },
   },
 } as const
