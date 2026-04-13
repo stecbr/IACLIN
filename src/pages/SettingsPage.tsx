@@ -1,39 +1,38 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save, Users } from 'lucide-react';
+import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
+import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
+import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'team', label: 'Equipe', icon: Users },
+  { id: 'insurance', label: 'Convênios', icon: Shield },
   { id: 'appearance', label: 'Aparência', icon: Palette },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
 ];
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('profile');
-  const { user, profile } = useAuth();
-  const { theme, setTheme, resolved } = useTheme();
-  const queryClient = useQueryClient();
 
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações" description="Gerencie seu perfil, clínica e preferências." />
-
       <div className="flex flex-col md:flex-row gap-6">
-        {/* Sidebar navigation */}
         <nav className="flex md:flex-col gap-1 md:w-48 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
           {sections.map((s) => (
             <button
@@ -50,12 +49,11 @@ export default function SettingsPage() {
             </button>
           ))}
         </nav>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-6">
           {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'clinic' && <ClinicSection />}
           {activeSection === 'team' && <TeamSection />}
+          {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'appearance' && <AppearanceSection />}
           {activeSection === 'procedures' && <ProceduresSection />}
         </div>
@@ -112,6 +110,9 @@ function ProfileSection() {
 function ClinicSection() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const logoRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   const { data: clinic, isLoading } = useQuery({
     queryKey: ['clinic-settings'],
     queryFn: async () => {
@@ -122,44 +123,54 @@ function ClinicSection() {
   });
 
   const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    address: '',
-    city: '',
-    state: '',
-    cnpj: '',
+    name: '', phone: '', email: '', address: '', city: '', state: '', cnpj: '',
   });
+  const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  // Sync form with loaded clinic data
   if (clinic && !initialized) {
     setForm({
-      name: clinic.name ?? '',
-      phone: clinic.phone ?? '',
-      email: clinic.email ?? '',
-      address: clinic.address ?? '',
-      city: clinic.city ?? '',
-      state: clinic.state ?? '',
-      cnpj: clinic.cnpj ?? '',
+      name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
+      address: clinic.address ?? '', city: clinic.city ?? '', state: clinic.state ?? '', cnpj: clinic.cnpj ?? '',
     });
+    setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
     setInitialized(true);
   }
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !clinic) return;
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${clinic.id}/logo.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('clinic-assets').upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+      const { error } = await supabase.from('clinics').update({ logo_url: publicUrl }).eq('id', clinic.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
+      toast.success('Logo atualizada!');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
     try {
+      const payload = { ...form, business_hours: businessHours as any };
       if (clinic) {
-        const { error } = await supabase.from('clinics').update(form).eq('id', clinic.id);
+        const { error } = await supabase.from('clinics').update(payload).eq('id', clinic.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('clinics').insert({ ...form, owner_id: user.id });
+        const { error } = await supabase.from('clinics').insert({ ...payload, owner_id: user.id });
         if (error) throw error;
-        // Invalidate clinic query & refresh auth context to pick up new clinic membership
         queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
-        // Small delay for trigger to create clinic_members row, then reload to refresh AuthContext
         setTimeout(() => window.location.reload(), 500);
       }
       toast.success('Clínica atualizada!');
@@ -171,48 +182,78 @@ function ClinicSection() {
   };
 
   return (
-    <Card className="shadow-card border-border/50">
-      <CardHeader>
-        <CardTitle className="text-base">Clínica</CardTitle>
-        <CardDescription>Dados da clínica odontológica.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Nome da Clínica</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Clínica Sorriso" />
+    <div className="space-y-6">
+      <Card className="shadow-card border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base">Clínica</CardTitle>
+          <CardDescription>Dados da clínica.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Logo Upload */}
+          <div className="flex items-center gap-4">
+            <div className="relative group cursor-pointer" onClick={() => logoRef.current?.click()}>
+              <Avatar className="h-20 w-20 border-2 border-border">
+                {clinic?.logo_url ? (
+                  <AvatarImage src={clinic.logo_url} alt="Logo" />
+                ) : null}
+                <AvatarFallback className="bg-muted text-muted-foreground text-lg">
+                  {form.name?.[0]?.toUpperCase() ?? 'C'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="h-5 w-5 text-white" />
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Logo da Clínica</p>
+              <p className="text-xs text-muted-foreground">Clique na imagem para alterar</p>
+              {uploadingLogo && <p className="text-xs text-primary mt-1">Enviando…</p>}
+            </div>
+            <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
           </div>
-          <div className="space-y-2">
-            <Label>CNPJ</Label>
-            <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+
+          {/* Form fields */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Nome da Clínica</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Clínica Sorriso" />
+            </div>
+            <div className="space-y-2">
+              <Label>CNPJ</Label>
+              <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Telefone</Label>
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contato@clinica.com" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Endereço</Label>
+              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Rua..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Cidade</Label>
+              <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Telefone</Label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" />
-          </div>
-          <div className="space-y-2">
-            <Label>E-mail</Label>
-            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contato@clinica.com" />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Endereço</Label>
-            <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Rua..." />
-          </div>
-          <div className="space-y-2">
-            <Label>Cidade</Label>
-            <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>Estado</Label>
-            <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" />
-          </div>
-        </div>
-        <Button onClick={handleSave} disabled={saving} className="gap-2">
-          <Save className="h-4 w-4" />
-          {saving ? 'Salvando...' : 'Salvar'}
-        </Button>
-      </CardContent>
-    </Card>
+
+          {/* Business Hours */}
+          <ClinicHoursSection value={businessHours} onChange={setBusinessHours} />
+
+          <Button onClick={handleSave} disabled={saving} className="gap-2">
+            <Save className="h-4 w-4" />
+            {saving ? 'Salvando...' : 'Salvar'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
