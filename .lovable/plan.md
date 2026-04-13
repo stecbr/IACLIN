@@ -1,74 +1,65 @@
 
 
-# Plano: Melhorias visuais inspiradas no 21st.dev
+# Plano: 4 Features Premium com padroes visuais 21st.dev
 
-## Contexto
-O projeto usa shadcn/ui (Radix + Tailwind). Em vez de importar componentes externos do 21st.dev (que sao para Next.js e teriam problemas de compatibilidade), vou aplicar os **padroes visuais** que eles usam diretamente nos componentes existentes, mantendo shadcn/ui como base.
-
----
-
-## 1. Dashboard / KPI Cards (Index.tsx)
-
+## 1. Onboarding Tour / Empty States Premium
 **O que muda:**
-- Cards de KPI com numeros animados (contagem progressiva com CSS/JS)
-- Micro-sparkline inline nos cards (mini grafico de tendencia dos ultimos 7 dias)
-- Efeito de hover com elevacao suave e borda gradiente sutil
-- Icones com background gradiente em vez de cor solida
-- Saudacao com hora do dia ("Bom dia", "Boa tarde", "Boa noite")
+- Componente `EmptyState` redesenhado com ilustracoes SVG inline (dente, calendario, cifrao), gradientes sutis e animacao fade-in
+- Cada pagina (Pacientes, Agenda, Financeiro) mostra um empty state unico com CTA contextual ("Cadastre seu primeiro paciente", "Agende sua primeira consulta")
+- Primeiro acesso pos-onboarding: modal de boas-vindas com 3 passos animados (tour rapido)
 
-**Arquivos:** `src/pages/Index.tsx`, novo componente `src/components/dashboard/AnimatedNumber.tsx`
+**Arquivos:** `src/components/EmptyState.tsx` (redesign), novo `src/components/WelcomeTour.tsx`
 
 ---
 
-## 2. Calendario / Agenda (Agenda.tsx)
-
+## 2. Notificacoes / Activity Feed
 **O que muda:**
-- Cards de consulta com cor de fundo derivada do procedimento (em vez de so borda esquerda)
-- Avatar do paciente nos slots da agenda
-- Tooltip on hover mostrando detalhes da consulta
-- Header do dia com indicador visual mais destacado para "hoje" (circulo preenchido azul)
-- Transicoes suaves ao trocar de semana/mes
+- Icone de sino no header (AppLayout) com badge animado (pulse) mostrando contagem
+- Dropdown/popover com lista de atividades recentes: consultas confirmadas, pagamentos registrados, novos pacientes
+- Cada item com icone, timestamp relativo ("ha 5 min"), e link para o recurso
+- Tabela `notifications` no banco com tipo, mensagem, referencia e flag `read`
+- Trigger no banco para gerar notificacoes automaticas ao inserir consulta ou pagamento
 
-**Arquivos:** `src/pages/Agenda.tsx`
+**Arquivos:** novo `src/components/NotificationBell.tsx`, migration para tabela `notifications`, editar `src/components/AppLayout.tsx`
+
+**Banco:** Nova tabela `notifications` (id, clinic_id, user_id, type, title, message, reference_id, reference_type, read, created_at) com RLS por clinic_member
 
 ---
 
-## 3. Tabelas de Dados (Patients.tsx, Financial.tsx)
-
+## 3. Timeline do Paciente
 **O que muda:**
-- Header da tabela com background sutil e bordas arredondadas
-- Rows com hover mais pronunciado e transicao suave
-- Coluna de status com badges coloridos estilo pill (mais arredondados, com ponto indicador)
-- Avatares com anel de status (online/ativo = anel verde)
-- Filtros inline com chips selecionaveis em vez de dropdowns
-- Contagem animada no header ("47 pacientes")
+- Na pagina PatientDetail, adicionar uma tab "Timeline" com linha vertical cronologica
+- Cada evento (consulta, pagamento, documento, anotacao) como um card na timeline com icone colorido, data e descricao
+- Dados puxados de appointments, financial_transactions e documents do paciente
+- Animacao stagger (cada item aparece com delay) usando CSS
 
-**Arquivos:** `src/pages/Patients.tsx`, `src/pages/Financial.tsx`
+**Arquivos:** novo `src/components/patients/PatientTimeline.tsx`, editar `src/pages/PatientDetail.tsx`
 
 ---
 
-## 4. Sidebar / Navegacao (AppSidebar.tsx)
-
+## 4. Kanban de Orcamentos
 **O que muda:**
-- Logo IACLIN com icone mais elaborado (gradiente azul)
-- Indicador de rota ativa com background gradiente sutil em vez de barra lateral
-- Separadores de secao com linhas finas e labels mais elegantes
-- Footer do usuario com card hover mostrando email/papel
-- Badge de notificacao com animacao pulse no icone da Agenda
-- Icone de clinica ativa com nome truncado no header (quando expandido)
+- Nova pagina `/budgets` com board Kanban de 4 colunas: Pendente, Em Negociacao, Aprovado, Perdido
+- Cards draggable usando a lib `@dnd-kit` (leve, React-native)
+- Cada card mostra paciente, valor total, procedimentos resumidos e data
+- Usa a tabela `treatment_plans` existente (campo `status` ja tem pending/approved, adicionar `negotiating` e `lost`)
+- Nova rota no App.tsx, item no sidebar e command palette
 
-**Arquivos:** `src/components/AppSidebar.tsx`
+**Arquivos:** novo `src/pages/Budgets.tsx`, novo `src/components/budgets/BudgetCard.tsx`, migration para adicionar status values, editar `App.tsx`, `AppSidebar.tsx`, `CommandPalette.tsx`, `MobileBottomNav.tsx`
+
+**Banco:** Migration para permitir novos valores de status em treatment_plans
 
 ---
+
+## Ordem de implementacao sugerida
+1. Empty States Premium (visual, sem banco)
+2. Timeline do Paciente (visual, dados existentes)
+3. Notificacoes (novo componente + tabela)
+4. Kanban de Orcamentos (nova pagina + drag-and-drop + migration)
 
 ## Detalhes tecnicos
-
-- Nenhuma dependencia nova sera adicionada
-- Todas as melhorias usam Tailwind CSS (animacoes, gradientes, transicoes)
-- Componente `AnimatedNumber` usa `useEffect` + `requestAnimationFrame` para contagem progressiva
-- Tooltips usam o componente existente do shadcn/ui
-- Mantemos 100% de compatibilidade com dark mode
-
-## Estimativa
-~4 arquivos editados, 1 componente novo. Mudancas puramente visuais, sem alteracao de logica de dados.
+- `@dnd-kit/core` e `@dnd-kit/sortable` para o Kanban (~15kb gzipped)
+- Notificacoes usam realtime do banco para updates instantaneos
+- Nenhuma outra dependencia nova necessaria
+- Todos os componentes seguem dark mode e responsividade existentes
 
