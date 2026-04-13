@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Calendar, Users, Shield, FileHeart } from 'lucide-react';
+import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
 
 const features = [
   { icon: Calendar, text: 'Agenda inteligente com visualização dia, semana e mês' },
@@ -65,10 +67,7 @@ export default function Auth() {
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/90 to-primary flex-col justify-between p-12 text-primary-foreground">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-10 w-10 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
-              <span className="text-sm font-bold">IA</span>
-            </div>
-            <span className="text-2xl font-semibold">IACLIN</span>
+            <img src={logoDark} alt="IACLIN" className="h-10" />
           </div>
           <p className="text-sm text-primary-foreground/70">Gestão Clínica Odontológica</p>
         </div>
@@ -96,11 +95,8 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center px-6 bg-background">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center lg:text-left">
-            <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
-              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-xs font-bold text-primary-foreground">IA</span>
-              </div>
-              <span className="text-xl font-semibold text-foreground">IACLIN</span>
+            <div className="lg:hidden flex items-center justify-center mb-4">
+              <img src={logoLight} alt="IACLIN" className="h-10" />
             </div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
               {isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}
