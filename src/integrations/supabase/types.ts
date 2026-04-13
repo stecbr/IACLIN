@@ -288,6 +288,7 @@ export type Database = {
       clinics: {
         Row: {
           address: string | null
+          business_hours: Json | null
           category: Database["public"]["Enums"]["clinic_category"]
           city: string | null
           cnpj: string | null
@@ -304,6 +305,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          business_hours?: Json | null
           category?: Database["public"]["Enums"]["clinic_category"]
           city?: string | null
           cnpj?: string | null
@@ -320,6 +322,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          business_hours?: Json | null
           category?: Database["public"]["Enums"]["clinic_category"]
           city?: string | null
           cnpj?: string | null
@@ -497,6 +500,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      insurance_plans: {
+        Row: {
+          ans_code: string | null
+          clinic_id: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          ans_code?: string | null
+          clinic_id: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          ans_code?: string | null
+          clinic_id?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_plans_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
