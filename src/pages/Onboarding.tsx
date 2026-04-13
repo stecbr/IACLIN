@@ -118,6 +118,47 @@ export default function Onboarding() {
           <CardContent className="pt-6 space-y-5">
             {step === 1 && (
               <>
+                <div className="space-y-3">
+                  <Label className="text-base font-medium">Tipo de Clínica</Label>
+                  <p className="text-sm text-muted-foreground">Selecione a categoria para personalizar os módulos do sistema.</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {categories.map((cat) => {
+                      const Icon = cat.icon;
+                      const selected = form.category === cat.value;
+                      return (
+                        <button
+                          key={cat.value}
+                          type="button"
+                          onClick={() => setForm({ ...form, category: cat.value })}
+                          className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                            selected
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border hover:border-primary/40 hover:bg-muted/30'
+                          }`}
+                        >
+                          <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-medium ${selected ? 'text-primary' : 'text-foreground'}`}>{cat.label}</p>
+                            <p className="text-xs text-muted-foreground">{cat.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <Button onClick={() => setStep(2)} className="w-full gap-2">
+                  Continuar
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
                 <div className="space-y-2">
                   <Label>Nome da Clínica *</Label>
                   <Input
@@ -157,23 +198,28 @@ export default function Onboarding() {
                     placeholder="(11) 99999-9999"
                   />
                 </div>
-                <Button
-                  onClick={() => {
-                    if (!form.name.trim()) {
-                      toast.error('Nome da clínica é obrigatório');
-                      return;
-                    }
-                    setStep(2);
-                  }}
-                  className="w-full gap-2"
-                >
-                  Continuar
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                    Voltar
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!form.name.trim()) {
+                        toast.error('Nome da clínica é obrigatório');
+                        return;
+                      }
+                      setStep(3);
+                    }}
+                    className="flex-1 gap-2"
+                  >
+                    Continuar
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -197,6 +243,11 @@ export default function Onboarding() {
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-4 space-y-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                      {categories.find(c => c.value === form.category)?.label}
+                    </span>
+                  </div>
                   <p className="text-sm font-medium text-foreground">{form.name}</p>
                   {form.cnpj && <p className="text-xs text-muted-foreground">CNPJ: {form.cnpj}</p>}
                   {form.phone && <p className="text-xs text-muted-foreground">Tel: {form.phone}</p>}
@@ -208,7 +259,7 @@ export default function Onboarding() {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                  <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
                     Voltar
                   </Button>
                   <Button onClick={handleCreate} disabled={saving} className="flex-1">

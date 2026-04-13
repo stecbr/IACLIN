@@ -44,10 +44,10 @@ const mainNav = [
 ];
 
 const clinicNav = [
-  { title: 'Pacientes', url: '/patients', icon: Users },
-  { title: 'Odontograma', url: '/odontogram', icon: FileHeart },
-  { title: 'Financeiro', url: '/financial', icon: DollarSign },
-  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+  { title: 'Pacientes', url: '/patients', icon: Users, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
+  { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
 ];
 
 export function AppSidebar() {
