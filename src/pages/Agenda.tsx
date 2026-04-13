@@ -240,7 +240,7 @@ export default function Agenda() {
   );
 }
 
-function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointments: any[]; onDayClick: (d: Date) => void }) {
+function MonthView({ days, appointments, onDayClick, onAppointmentClick }: { days: Date[]; appointments: any[]; onDayClick: (d: Date) => void; onAppointmentClick: (apt: any) => void }) {
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const firstDay = days[0];
   const startPad = (firstDay.getDay() + 6) % 7;
@@ -280,6 +280,7 @@ function MonthView({ days, appointments, onDayClick }: { days: Date[]; appointme
                   key={apt.id}
                   className="text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
+                  // @ts-ignore handled via prop
                   style={{ backgroundColor: ((apt as any).procedures?.color ?? '#3B82F6') + '15', color: (apt as any).procedures?.color ?? '#3B82F6' }}
                 >
                   {(apt as any).patients?.full_name?.split(' ')[0]}
