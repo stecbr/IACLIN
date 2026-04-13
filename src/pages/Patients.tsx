@@ -165,24 +165,29 @@ export default function Patients() {
         <Card className="shadow-card border-border/50 overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Paciente</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>E-mail</TableHead>
-                <TableHead>Convênio</TableHead>
-                <TableHead>Status</TableHead>
+              <TableRow className="hover:bg-transparent bg-muted/30">
+                <TableHead className="font-semibold">Paciente</TableHead>
+                <TableHead className="font-semibold">Telefone</TableHead>
+                <TableHead className="font-semibold">E-mail</TableHead>
+                <TableHead className="font-semibold">Convênio</TableHead>
+                <TableHead className="font-semibold">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginated.map((patient) => (
-                <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/patients/${patient.id}`)}>
+                <TableRow key={patient.id} className="cursor-pointer hover:bg-muted/40 transition-colors duration-150" onClick={() => navigate(`/patients/${patient.id}`)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className={`bg-gradient-to-br ${getGradient(patient.full_name)} text-white text-xs font-medium`}>
-                            {getInitials(patient.full_name)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="relative">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className={`bg-gradient-to-br ${getGradient(patient.full_name)} text-white text-xs font-medium`}>
+                              {getInitials(patient.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {patient.is_active && (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success border-2 border-card" />
+                          )}
+                        </div>
                         <span className="font-medium text-foreground">{patient.full_name}</span>
                       </div>
                     </TableCell>
@@ -190,13 +195,17 @@ export default function Patients() {
                     <TableCell className="text-muted-foreground">{patient.email ?? '—'}</TableCell>
                     <TableCell>
                       {patient.insurance_provider ? (
-                        <Badge variant="outline" className="text-xs">{patient.insurance_provider}</Badge>
+                        <Badge variant="outline" className="text-xs rounded-full">{patient.insurance_provider}</Badge>
                       ) : (
                         <span className="text-xs text-muted-foreground">Particular</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={patient.is_active ? 'default' : 'secondary'} className="text-xs">
+                      <Badge
+                        variant={patient.is_active ? 'default' : 'secondary'}
+                        className={`text-xs rounded-full gap-1 ${patient.is_active ? 'bg-success/10 text-success hover:bg-success/20' : ''}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${patient.is_active ? 'bg-success' : 'bg-muted-foreground'}`} />
                         {patient.is_active ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </TableCell>
