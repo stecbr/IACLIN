@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { PatientTimeline } from '@/components/patients/PatientTimeline';
+import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const [editOpen, setEditOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const { currentClinicId } = useAuth();
 
   const { data: patient, isLoading, refetch } = useQuery({
@@ -51,6 +53,20 @@ export default function PatientDetail() {
         .select('*')
         .eq('patient_id', id!)
         .order('due_date', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: treatmentPlans = [], refetch: refetchPlans } = useQuery({
+    queryKey: ['patient-treatment-plans', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .select('*, treatment_plan_items(id, procedure_id, price, tooth_number, procedures(name))')
+        .eq('patient_id', id!)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
