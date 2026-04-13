@@ -40,6 +40,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState('');
 
+  const buildLocalDateTime = (dateValue: string, timeValue: string) => {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    const [hours, minutes] = timeValue.split(':').map(Number);
+
+    return setMinutes(setHours(new Date(year, month - 1, day), hours), minutes);
+  };
+
   // Sync date/time when dialog opens or props change
   useEffect(() => {
     if (open) {
@@ -78,8 +85,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     }
     setLoading(true);
     try {
-      const [h, m] = startTime.split(':').map(Number);
-      const startDt = setMinutes(setHours(new Date(date), h), m);
+      const startDt = buildLocalDateTime(date, startTime);
       const endDt = new Date(startDt.getTime() + duration * 60000);
 
       const { error } = await supabase.from('appointments').insert({
