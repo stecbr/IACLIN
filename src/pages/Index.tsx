@@ -1,16 +1,25 @@
-import { Calendar, Users, DollarSign, AlertTriangle, Plus, UserPlus, CreditCard, Clock } from 'lucide-react';
+import { Calendar, Users, DollarSign, AlertTriangle, Plus, UserPlus, CreditCard, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfMonth, endOfMonth, subMonths, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, subDays, eachDayOfInterval as eachDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo } from 'react';
+import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
+import { MiniSparkline } from '@/components/dashboard/MiniSparkline';
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
 
 export default function Index() {
   const { profile, currentClinicId } = useAuth();
@@ -68,6 +77,20 @@ export default function Index() {
       const { count: noShow } = await q2;
       if (!total || total === 0) return 0;
       return Math.round(((noShow ?? 0) / total) * 100);
+    },
+  });
+
+  // Last 7 days appointment counts for sparkline
+  const { data: last7DayCounts = [] } = useQuery({
+    queryKey: ['sparkline-7d', currentClinicId],
+    queryFn: async () => {
+      const days = eachDayOfInterval({ start: subDays(now, 6), end: now });
+      const start = subDays(now, 6).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      let query = supabase.from('appointments').select('start_time').gte('start_time', start).lt('start_time', end);
+      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      const { data } = await query;
+      return days.map(d => (data ?? []).filter(a => isSameDay(parseISO(a.start_time), d)).length);
     },
   });
 
@@ -157,10 +180,52 @@ export default function Index() {
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const kpiCards = [
-    { title: 'Consultas Hoje', value: String(todayCount), description: 'agendadas para hoje', icon: Calendar, color: 'text-primary', bgColor: 'bg-primary/10' },
-    { title: 'Pacientes Ativos', value: String(patientCount), description: 'cadastrados', icon: Users, color: 'text-success', bgColor: 'bg-success/10' },
-    { title: 'Receita do Mês', value: fmt(monthlyRevenue), description: 'recebido este mês', icon: DollarSign, color: 'text-warning', bgColor: 'bg-warning/10' },
-    { title: 'Taxa No-Show', value: `${noShowRate}%`, description: 'faltas no mês', icon: AlertTriangle, color: 'text-destructive', bgColor: 'bg-destructive/10' },
+    {
+      title: 'Consultas Hoje',
+      value: todayCount,
+      description: 'agendadas para hoje',
+      icon: Calendar,
+      color: 'text-primary',
+      gradientFrom: 'from-primary/10',
+      gradientTo: 'to-primary/5',
+      iconBg: 'bg-gradient-to-br from-primary/20 to-primary/10',
+      sparkColor: 'hsl(var(--primary))',
+    },
+    {
+      title: 'Pacientes Ativos',
+      value: patientCount,
+      description: 'cadastrados',
+      icon: Users,
+      color: 'text-success',
+      gradientFrom: 'from-success/10',
+      gradientTo: 'to-success/5',
+      iconBg: 'bg-gradient-to-br from-success/20 to-success/10',
+      sparkColor: 'hsl(var(--success))',
+    },
+    {
+      title: 'Receita do Mês',
+      value: monthlyRevenue,
+      description: 'recebido este mês',
+      icon: DollarSign,
+      color: 'text-warning',
+      gradientFrom: 'from-warning/10',
+      gradientTo: 'to-warning/5',
+      iconBg: 'bg-gradient-to-br from-warning/20 to-warning/10',
+      sparkColor: 'hsl(var(--warning))',
+      isCurrency: true,
+    },
+    {
+      title: 'Taxa No-Show',
+      value: noShowRate,
+      description: 'faltas no mês',
+      icon: AlertTriangle,
+      color: 'text-destructive',
+      gradientFrom: 'from-destructive/10',
+      gradientTo: 'to-destructive/5',
+      iconBg: 'bg-gradient-to-br from-destructive/20 to-destructive/10',
+      sparkColor: 'hsl(var(--destructive))',
+      isPercentage: true,
+    },
   ];
 
   const statusLabels: Record<string, string> = { scheduled: 'Agendada', confirmed: 'Confirmada', completed: 'Concluída', no_show: 'Faltou', cancelled: 'Cancelada' };
@@ -168,19 +233,36 @@ export default function Index() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title={`Olá, ${firstName} 👋`} description="Aqui está o resumo da sua clínica hoje." />
+      <PageHeader title={`${getGreeting()}, ${firstName} 👋`} description="Aqui está o resumo da sua clínica hoje." />
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((kpi, i) => (
-          <Card key={kpi.title} className="shadow-card hover:shadow-card-hover transition-shadow border-border/50" style={{ animationDelay: `${i * 80}ms`, animation: 'slide-up 0.4s ease-out backwards' }}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Card
+            key={kpi.title}
+            className="group relative overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-border/50 hover:-translate-y-0.5"
+            style={{ animationDelay: `${i * 80}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
+          >
+            {/* Subtle gradient background on hover */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${kpi.gradientFrom} ${kpi.gradientTo} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+            <CardHeader className="relative flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
-              <div className={`h-8 w-8 rounded-lg ${kpi.bgColor} flex items-center justify-center`}><kpi.icon className={`h-4 w-4 ${kpi.color}`} /></div>
+              <div className={`h-9 w-9 rounded-xl ${kpi.iconBg} flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
+                <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-foreground">{kpi.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{kpi.description}</p>
+            <CardContent className="relative">
+              <div className="flex items-end justify-between">
+                <div>
+                  <AnimatedNumber
+                    value={kpi.value}
+                    className="text-2xl font-semibold text-foreground"
+                    formatter={kpi.isCurrency ? (v) => fmt(v) : kpi.isPercentage ? (v) => `${Math.round(v)}%` : undefined}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">{kpi.description}</p>
+                </div>
+                <MiniSparkline data={last7DayCounts.length > 0 ? last7DayCounts : [0, 0]} color={kpi.sparkColor} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -225,7 +307,10 @@ export default function Index() {
               {weekData.map((d) => (
                 <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-[10px] font-medium text-muted-foreground">{d.count}</span>
-                  <div className="w-full rounded-t-md bg-primary/20 transition-all hover:bg-primary/30" style={{ height: `${Math.max((d.count / maxWeek) * 100, 4)}%` }} />
+                  <div
+                    className="w-full rounded-t-md bg-gradient-to-t from-primary/30 to-primary/10 transition-all hover:from-primary/40 hover:to-primary/20"
+                    style={{ height: `${Math.max((d.count / maxWeek) * 100, 4)}%` }}
+                  />
                   <span className="text-[10px] text-muted-foreground capitalize">{d.day}</span>
                 </div>
               ))}
@@ -247,17 +332,23 @@ export default function Index() {
             {upcoming.length === 0 ? (
               <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma consulta agendada</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {upcoming.map((apt: any) => (
-                  <div key={apt.id} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+                  <div key={apt.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 hover:bg-muted/40 transition-colors">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-[64px]">
                       <Clock className="h-3 w-3" />{format(parseISO(apt.start_time), 'HH:mm')}
                     </div>
+                    <div
+                      className="w-1 h-8 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: (apt as any).procedures?.color ?? 'hsl(var(--primary))' }}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
                       <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? 'Consulta'}</p>
                     </div>
-                    <Badge variant="secondary" className={`text-[10px] ${statusColors[apt.status] ?? ''}`}>{statusLabels[apt.status] ?? apt.status}</Badge>
+                    <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
+                      {statusLabels[apt.status] ?? apt.status}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -274,9 +365,9 @@ export default function Index() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {pendingPayments.map((tx: any) => (
-                  <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                  <div key={tx.id} className="flex items-center justify-between py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 hover:bg-muted/40 transition-colors">
                     <div>
                       <p className="text-sm font-medium text-foreground">{tx.patients?.full_name ?? tx.description}</p>
                       <p className="text-xs text-muted-foreground">Venc: {format(parseISO(tx.due_date), 'dd/MM/yyyy')}</p>
@@ -299,7 +390,7 @@ export default function Index() {
             { label: 'Novo Paciente', icon: UserPlus, href: '/patients' },
             { label: 'Registrar Pagamento', icon: CreditCard, href: '/financial' },
           ].map((action) => (
-            <Button key={action.label} variant="outline" className="gap-2 border-border/50 hover:bg-accent shadow-card" asChild>
+            <Button key={action.label} variant="outline" className="gap-2 border-border/50 hover:bg-accent shadow-card hover:shadow-card-hover transition-all" asChild>
               <Link to={action.href}><action.icon className="h-4 w-4" />{action.label}</Link>
             </Button>
           ))}
