@@ -4,7 +4,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera } from 'lucide-react';
+import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,14 @@ import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
+import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
+import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'team', label: 'Equipe', icon: Users },
+  { id: 'rooms', label: 'Salas', icon: Armchair },
   { id: 'insurance', label: 'Convênios', icon: Shield },
   { id: 'appearance', label: 'Aparência', icon: Palette },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
