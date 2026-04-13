@@ -44,10 +44,10 @@ const mainNav = [
 ];
 
 const clinicNav = [
-  { title: 'Pacientes', url: '/patients', icon: Users },
-  { title: 'Odontograma', url: '/odontogram', icon: FileHeart },
-  { title: 'Financeiro', url: '/financial', icon: DollarSign },
-  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+  { title: 'Pacientes', url: '/patients', icon: Users, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
+  { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
 ];
 
 export function AppSidebar() {
@@ -55,11 +55,13 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { resolved } = useTheme();
-  const { profile, signOut, user } = useAuth();
+  const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems } = useRoleAccess();
 
   const filteredMainNav = filterNavItems(mainNav);
-  const filteredClinicNav = filterNavItems(clinicNav);
+  const filteredClinicNav = filterNavItems(
+    clinicNav.filter((item) => item.categories.includes(clinicCategory))
+  );
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({

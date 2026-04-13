@@ -3,11 +3,13 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 type AppRole = 'admin' | 'dentist' | 'secretary';
+type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
 
 interface ClinicMembership {
   clinic_id: string;
   role: AppRole;
   is_owner: boolean;
+  category: ClinicCategory;
 }
 
 interface AuthContextType {
@@ -19,6 +21,7 @@ interface AuthContextType {
   currentClinicId: string | null;
   clinicRole: AppRole | null;
   isClinicOwner: boolean;
+  clinicCategory: ClinicCategory;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
 }
@@ -41,15 +44,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
         supabase.from('clinic_members').select('clinic_id, role, is_owner').eq('user_id', userId).limit(1).maybeSingle(),
-      ]).then(([{ data: rolesData }, { data: profileData }, { data: memberData }]) => {
+      ]).then(async ([{ data: rolesData }, { data: profileData }, { data: memberData }]) => {
         if (!mounted) return;
         setRoles((rolesData ?? []).map(r => r.role as AppRole));
         setProfile(profileData);
         if (memberData) {
+          // Fetch clinic category
+          let category: ClinicCategory = 'odonto';
+          const { data: clinicData } = await supabase
+            .from('clinics')
+            .select('category')
+            .eq('id', memberData.clinic_id)
+            .single();
+          if (clinicData?.category) {
+            category = clinicData.category as ClinicCategory;
+          }
+          if (!mounted) return;
           setClinicMembership({
             clinic_id: memberData.clinic_id,
             role: memberData.role as AppRole,
             is_owner: memberData.is_owner,
+            category,
           });
         } else {
           setClinicMembership(null);
@@ -102,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentClinicId: clinicMembership?.clinic_id ?? null,
       clinicRole: clinicMembership?.role ?? null,
       isClinicOwner: clinicMembership?.is_owner ?? false,
+      clinicCategory: clinicMembership?.category ?? 'odonto',
       signOut,
       hasRole,
     }}>

@@ -3,6 +3,7 @@ import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, Clipboard
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useAuth } from '@/contexts/AuthContext';
 
 const allMainItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
@@ -12,7 +13,7 @@ const allMainItems = [
 ];
 
 const allMoreItems = [
-  { title: 'Odontograma', url: '/odontogram', icon: FileHeart },
+  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
   { title: 'Configurações', url: '/settings', icon: Settings },
 ];
@@ -21,8 +22,11 @@ export function MobileBottomNav() {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
   const { filterNavItems } = useRoleAccess();
+  const { clinicCategory } = useAuth();
   const mainItems = filterNavItems(allMainItems);
-  const moreItems = filterNavItems(allMoreItems);
+  const moreItems = filterNavItems(
+    allMoreItems.filter((item) => !('categories' in item) || item.categories.includes(clinicCategory))
+  );
 
   const isActive = (url: string) => {
     if (url === '/') return location.pathname === '/';
