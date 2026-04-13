@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,37 +17,55 @@ serve(async (req) => {
     if (!fileUrl) throw new Error("fileUrl is required");
 
     const systemPrompt = `You are a financial document parser for a dental clinic management system.
-Analyze the uploaded bank statement (image or PDF text) and extract ALL transactions.
+Analyze the uploaded bank statement and extract ALL transactions you can find. Be thorough - do not skip any.
 
 For each transaction, return:
 - description: the description/memo of the transaction
 - amount: the absolute numeric value (always positive)
 - date: the date in YYYY-MM-DD format
-- type: "income" if money received, "expense" if money paid out
+- type: "income" if money received (crédito), "expense" if money paid out (débito)
 
 Return ONLY a JSON array of transactions. No other text.
-Example: [{"description":"Pagamento consulta","amount":250.00,"date":"2026-04-01","type":"income"}]
+Example: [{"description":"Pagamento consulta","amount":250.00,"date":"2024-03-01","type":"income"}]
 
+IMPORTANT: Extract EVERY single transaction from the document. Do not summarize or skip any rows.
 If you cannot parse the document or it's not a financial statement, return an empty array [].`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt },
     ];
 
-    if (fileType?.startsWith("image/")) {
+    // Download the file and send as inline base64 data
+    const fileResponse = await fetch(fileUrl);
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to download file: ${fileResponse.status}`);
+    }
+    const fileBytes = new Uint8Array(await fileResponse.arrayBuffer());
+    const fileBase64 = base64Encode(fileBytes);
+
+    const detectedMime = fileType || "application/pdf";
+    const isImage = detectedMime.startsWith("image/");
+
+    if (isImage) {
       messages.push({
         role: "user",
         content: [
-          { type: "text", text: "Extract all transactions from this bank statement image." },
-          { type: "image_url", image_url: { url: fileUrl } },
+          { type: "text", text: "Extract ALL transactions from this bank statement image. Do not skip any row." },
+          { type: "image_url", image_url: { url: `data:${detectedMime};base64,${fileBase64}` } },
         ],
       });
     } else {
+      // PDF - send as inline document via image_url with pdf mime
       messages.push({
         role: "user",
-        content: `Extract all transactions from this bank statement. The file is available at: ${fileUrl}\n\nPlease analyze and extract the transaction data.`,
+        content: [
+          { type: "text", text: "Extract ALL transactions from this bank statement PDF. Be thorough - extract every single transaction row. Do not skip any." },
+          { type: "image_url", image_url: { url: `data:application/pdf;base64,${fileBase64}` } },
+        ],
       });
     }
+
+    console.log(`Sending ${isImage ? 'image' : 'PDF'} to AI, size: ${fileBytes.length} bytes`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -125,6 +144,8 @@ If you cannot parse the document or it's not a financial statement, return an em
         if (match) transactions = JSON.parse(match[0]);
       }
     }
+
+    console.log(`Extracted ${transactions.length} transactions`);
 
     return new Response(JSON.stringify({ transactions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
