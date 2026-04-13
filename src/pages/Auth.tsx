@@ -97,9 +97,9 @@ export default function Auth() {
         : 'signup-form';
 
   const typeCards = [
-    { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro' },
-    { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio' },
-    { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar' },
+    { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro', locked: false },
+    { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
+    { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: true },
   ];
 
   const profSubCards = [
