@@ -113,6 +113,115 @@ export type Database = {
           },
         ]
       }
+      clinical_record_procedures: {
+        Row: {
+          clinical_record_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          price: number
+          procedure_id: string
+          surface: string | null
+          tooth_number: number | null
+        }
+        Insert: {
+          clinical_record_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          procedure_id: string
+          surface?: string | null
+          tooth_number?: number | null
+        }
+        Update: {
+          clinical_record_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          procedure_id?: string
+          surface?: string | null
+          tooth_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_record_procedures_clinical_record_id_fkey"
+            columns: ["clinical_record_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_record_procedures_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_records: {
+        Row: {
+          appointment_id: string | null
+          clinic_id: string | null
+          created_at: string
+          dentist_id: string
+          diagnosis: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          dentist_id: string
+          diagnosis?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          dentist_id?: string
+          diagnosis?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_records_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_records_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           address: string | null
