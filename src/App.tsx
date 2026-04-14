@@ -19,6 +19,8 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
+import Marketplace from "./pages/Marketplace";
+import MarketplaceBooking from "./pages/MarketplaceBooking";
 
 const queryClient = new QueryClient();
 
