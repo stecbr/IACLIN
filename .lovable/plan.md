@@ -1,90 +1,80 @@
 
 
-# Comparação: IACLIN vs SimplesDental
+# Marketplace de Agendamento — Plano Final
 
-Baseado nas screenshots do concorrente e no código atual do IACLIN, aqui está o que o SimplesDental tem que vocês **ainda não têm**:
+## 1. Migration SQL (apenas RLS para acesso público)
 
-## O que o SimplesDental tem e o IACLIN não
+Adicionar políticas SELECT para `anon` nas tabelas necessárias para a página de busca:
 
-### Módulos/Páginas inteiras que faltam
-| Feature | SimplesDental | IACLIN |
-|---------|:---:|:---:|
-| **Vendas** (módulo separado) | ✅ | ❌ |
-| **Controle de Prótese** | ✅ | ❌ |
-| **Marketing** (campanhas) | ✅ | ❌ |
-| **Estoque** | ✅ | ❌ |
-| **Loja** (marketplace interno) | ✅ | ❌ |
-| **Inteligência** (BI/analytics) | ✅ | ❌ |
+```sql
+-- profiles: nome e foto dos profissionais
+CREATE POLICY "Anon can view profiles" ON public.profiles FOR SELECT TO anon USING (true);
 
-### Na ficha do Paciente
-| Feature | SimplesDental | IACLIN |
-|---------|:---:|:---:|
-| Tab **Anamnese** | ✅ | ❌ |
-| Tab **Imagens** (fotos/raio-x) | ✅ | ❌ |
-| Tab **Documentos** | ✅ | ❌ |
-| Tab **Débitos** | ✅ | ❌ |
-| Tab **Tratamentos** (separada de orçamentos) | ✅ | ❌ |
-| **WhatsApp integrado** (mensagens no perfil) | ✅ | ❌ |
-| Ícones de ação rápida (sticker, upload, alerta, WhatsApp) | ✅ | ❌ |
+-- clinics: nome, endereço, cidade, business_hours
+CREATE POLICY "Anon can view clinics" ON public.clinics FOR SELECT TO anon USING (true);
 
-### No Agendamento (modal)
-| Feature | SimplesDental | IACLIN |
-|---------|:---:|:---:|
-| Toggle **Consulta vs Compromisso** | ✅ | ❌ |
-| Campo **Duração da consulta** | ✅ | ❌ |
-| **Encontrar horário livre** | ✅ | ❌ |
-| **Retornar em** (agendamento de retorno) | ✅ | ❌ |
-| Toggle **Enviar confirmação automática** | ✅ | ❌ |
-| **Rótulos/Labels** nas consultas | ✅ | ❌ |
+-- clinic_members: vincular profissional à clínica
+CREATE POLICY "Anon can view clinic members" ON public.clinic_members FOR SELECT TO anon USING (true);
 
-### Nas Configurações
-| Feature | SimplesDental | IACLIN |
-|---------|:---:|:---:|
-| **Nota Fiscal** | ✅ | ❌ |
-| **Planos/Convênios** (gestão) | ✅ | ❌ |
-| **Anamnese** (templates) | ✅ | ❌ |
-| **Contrato** (modelos) | ✅ | ❌ |
-| **Categorias** de procedimentos | ✅ | ❌ |
-| **Cadeiras/Salas** | ✅ | ❌ |
-| **Copiloto IA** | ✅ | ❌ |
-| Upload de **logo da clínica** | ✅ | ❌ |
-| **Horário de funcionamento** | ✅ | ❌ (parcial, sem fuso) |
+-- appointments: calcular slots ocupados
+CREATE POLICY "Anon can view appointments" ON public.appointments FOR SELECT TO anon USING (true);
 
-### UX/Infraestrutura
-| Feature | SimplesDental | IACLIN |
-|---------|:---:|:---:|
-| **Breadcrumb** na header | ✅ | ❌ |
-| **Migração de dados** (importar de outro sistema) | ✅ | ❌ |
-| **Gamificação/onboarding** (barra de progresso) | ✅ | ❌ |
+-- insurance_plans: listar convênios na confirmação
+CREATE POLICY "Anon can view insurance plans" ON public.insurance_plans FOR SELECT TO anon USING (true);
 
----
+-- procedures: nome do procedimento no card
+CREATE POLICY "Anon can view procedures" ON public.procedures FOR SELECT TO anon USING (true);
+```
 
-## O que o IACLIN já tem que compete bem
-- ✅ Dashboard com métricas
-- ✅ Agenda
-- ✅ Pacientes (CRUD completo)
-- ✅ Odontograma (SVG interativo)
-- ✅ Financeiro (importação de extratos)
-- ✅ Orçamentos (Kanban)
-- ✅ Timeline do paciente
-- ✅ Notificações
-- ✅ Multi-categoria de clínica (médico, odonto, etc.) — **diferencial**
-- ✅ Dark mode
-- ✅ Equipe/membros
-- ✅ Configurações (perfil, clínica, aparência, procedimentos)
+Nenhuma coluna sensível é exposta (profiles tem apenas full_name, avatar_url, phone; clinics não tem dados críticos).
 
----
+## 2. Instalar dependência
 
-## Priorização sugerida (maior impacto no MVP)
+- `react-leaflet` + `leaflet` para o mapa
 
-Por relevância para o produto e para impressionar o cliente:
+## 3. Arquivos a criar
 
-1. **Anamnese** — formulário clínico essencial, todo concorrente tem
-2. **Documentos/Imagens do paciente** — upload de raio-x, fotos intra-orais
-3. **Melhorias no agendamento** — duração, retorno, confirmação automática, busca de horário livre
-4. **WhatsApp no perfil do paciente** — mensagens enviadas/recebidas
-5. **Horário de funcionamento e logo** nas configurações
-6. **Cadeiras/Salas** — gestão de recursos da clínica
+| Arquivo | Descrição |
+|---|---|
+| `src/pages/Marketplace.tsx` | Página pública de busca: header, filtros, split lista+mapa |
+| `src/pages/MarketplaceBooking.tsx` | Confirmação de agendamento (requer auth) |
+| `src/components/marketplace/MarketplaceHeader.tsx` | Logo, barra de pesquisa, filtros visuais |
+| `src/components/marketplace/MarketplaceFilters.tsx` | Chips de especialidade (vazio com "Em breve") + filtro por cidade funcional |
+| `src/components/marketplace/DoctorCard.tsx` | Card: foto, nome, clínica, cidade + grid de horários reais |
+| `src/components/marketplace/MarketplaceMap.tsx` | Leaflet centrado em Fortaleza, sem pinos, botão ampliar |
+| `src/components/marketplace/BookingConfirmation.tsx` | Resumo, convênio, tipo visita, primeira consulta |
 
-Os módulos de Estoque, Loja e Controle de Prótese são secundários e podem ficar para depois do MVP.
+## 4. Modificar `src/App.tsx`
+
+- Rota pública `/marketplace` → `<Marketplace />` (sem ProtectedRoute)
+- Rota `/marketplace/agendar` → `<MarketplaceBooking />` (sem ProtectedRoute, mas componente faz redirect interno se não logado)
+
+## 5. Lógica de dados
+
+**Lista de profissionais:**
+- Query `clinic_members` (role = dentist) → JOIN `profiles` (nome, foto) + `clinics` (nome, cidade, estado, phone, business_hours)
+- Filtro por nome (pesquisa) e cidade
+
+**Grid de horários:**
+- Para cada profissional, buscar `appointments` dos próximos 4 dias com status != cancelled
+- Calcular slots de 30min baseados em `business_hours` da clínica menos appointments ocupados
+- Slots clicáveis navegam para `/marketplace/agendar?dentistId=X&clinicId=Y&date=Z&time=W`
+
+**Confirmação:**
+- Buscar `insurance_plans` da clínica do dentista
+- Checkbox "Sem convênio (particular)"
+- Se não logado → redirect `/auth`
+- Botão "Continuar" → INSERT em `appointments`
+
+## 6. Responsividade
+
+- Mobile: mapa oculto, botão "Ver mapa" abre overlay fullscreen
+- Desktop: split 60% lista / 40% mapa
+
+## 7. Sem dados mockados
+
+- Cards sem especialidade, CRM, preço, avaliações
+- Mapa sem pinos
+- Filtros de especialidade vazios
+- Tudo alimentado exclusivamente pelo banco existente
 
