@@ -1,0 +1,230 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { format, parse } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarDays, Clock, MapPin, ArrowLeft, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+
+interface InsurancePlan {
+  id: string;
+  name: string;
+}
+
+interface BookingConfirmationProps {
+  dentistId: string;
+  clinicId: string;
+  date: string;
+  time: string;
+  dentistName: string;
+  dentistAvatar: string | null;
+  clinicName: string;
+  clinicCity: string | null;
+  insurancePlans: InsurancePlan[];
+}
+
+export function BookingConfirmation({
+  dentistId,
+  clinicId,
+  date,
+  time,
+  dentistName,
+  dentistAvatar,
+  clinicName,
+  clinicCity,
+  insurancePlans,
+}: BookingConfirmationProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isParticular, setIsParticular] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [firstVisit, setFirstVisit] = useState<string>("yes");
+  const [submitting, setSubmitting] = useState(false);
+
+  const dateObj = parse(date, "yyyy-MM-dd", new Date());
+  const formattedDate = format(dateObj, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
+  const initials = dentistName
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const handleSubmit = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado para agendar.");
+      navigate("/auth");
+      return;
+    }
+
+    // Check if user is a patient (has patient record) or create one
+    setSubmitting(true);
+    try {
+      // Find or create patient record for this user
+      let { data: patient } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("email", user.email)
+        .eq("clinic_id", clinicId)
+        .maybeSingle();
+
+      if (!patient) {
+        const { data: newPatient, error: patientErr } = await supabase
+          .from("patients")
+          .insert({
+            full_name: user.user_metadata?.full_name || user.email || "Paciente",
+            email: user.email,
+            clinic_id: clinicId,
+          })
+          .select("id")
+          .single();
+        if (patientErr) throw patientErr;
+        patient = newPatient;
+      }
+
+      const startTime = new Date(`${date}T${time}:00`);
+      const endTime = new Date(startTime.getTime() + 30 * 60 * 1000);
+
+      const { error } = await supabase.from("appointments").insert({
+        patient_id: patient.id,
+        dentist_id: dentistId,
+        clinic_id: clinicId,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        status: "scheduled",
+        notes: `Agendado via marketplace. ${firstVisit === "yes" ? "Primeira consulta." : ""} ${
+          isParticular ? "Particular" : selectedPlanId ? `Convênio: ${insurancePlans.find((p) => p.id === selectedPlanId)?.name}` : ""
+        }`.trim(),
+      });
+
+      if (error) throw error;
+
+      toast.success("Consulta agendada com sucesso!");
+      navigate("/marketplace");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao agendar consulta.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
+      </Button>
+
+      <div className="grid gap-6 md:grid-cols-5">
+        {/* Form */}
+        <div className="md:col-span-3 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Selecione as opções da consulta</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Insurance */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Convênio médico</Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="particular"
+                    checked={isParticular}
+                    onCheckedChange={(v) => {
+                      setIsParticular(!!v);
+                      if (v) setSelectedPlanId("");
+                    }}
+                  />
+                  <Label htmlFor="particular" className="text-sm">Sem convênio (particular)</Label>
+                </div>
+                {!isParticular && insurancePlans.length > 0 && (
+                  <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o convênio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {insurancePlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!isParticular && insurancePlans.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum convênio cadastrado para esta clínica.
+                  </p>
+                )}
+              </div>
+
+              {/* First visit */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">É a sua primeira consulta com este profissional?</Label>
+                <RadioGroup value={firstVisit} onValueChange={setFirstVisit} className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="yes" id="first-yes" />
+                    <Label htmlFor="first-yes">Sim</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="no" id="first-no" />
+                    <Label htmlFor="first-no">Não</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Button className="w-full" size="lg" onClick={handleSubmit} disabled={submitting}>
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Continuar
+          </Button>
+        </div>
+
+        {/* Summary */}
+        <div className="md:col-span-2">
+          <Card className="sticky top-24">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={dentistAvatar ?? undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-semibold text-sm">{dentistName}</p>
+                  <p className="text-xs text-muted-foreground">{clinicName}</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  <span className="capitalize">{formattedDate}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>{time} (Horário de Brasília)</span>
+                </div>
+                {clinicCity && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>{clinicCity}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
