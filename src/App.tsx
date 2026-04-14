@@ -66,6 +66,8 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<Auth />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
+    <Route path="/marketplace" element={<Marketplace />} />
+    <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
