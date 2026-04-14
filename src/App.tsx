@@ -19,6 +19,8 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
+import Marketplace from "./pages/Marketplace";
+import MarketplaceBooking from "./pages/MarketplaceBooking";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +66,8 @@ const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<Auth />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
+    <Route path="/marketplace" element={<Marketplace />} />
+    <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
