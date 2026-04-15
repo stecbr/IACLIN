@@ -39,7 +39,7 @@ export default function Marketplace() {
       // 2. Fetch profiles and clinics in parallel
       const [{ data: profiles }, { data: clinics }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
-        supabase.from("clinics").select("id, name, city, state, phone, business_hours").in("id", clinicIds),
+        supabase.from("clinics").select("id, name, city, state, phone, address, business_hours").in("id", clinicIds),
       ]);
 
       // 3. Fetch appointments for next 7 days
