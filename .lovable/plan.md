@@ -1,80 +1,76 @@
 
 
-# Marketplace de Agendamento — Plano Final
+# Refinamentos Visuais do Marketplace
 
-## 1. Migration SQL (apenas RLS para acesso público)
+## 1. Logo Oficial no Header
+Substituir o texto "IACLIN" no `MarketplaceHeader` pelas imagens oficiais `logo-light.png` / `logo-dark.png` de `src/assets/`, usando o hook `useTheme` para alternar entre elas (mesmo padrão do `AppLayout`).
 
-Adicionar políticas SELECT para `anon` nas tabelas necessárias para a página de busca:
+## 2. Mapa Interativo com Pinos via Geocoding (Nominatim)
 
-```sql
--- profiles: nome e foto dos profissionais
-CREATE POLICY "Anon can view profiles" ON public.profiles FOR SELECT TO anon USING (true);
+**Problema anterior**: `react-leaflet` causava erro `render2 is not a function` com React 18, forçando uso de iframe.
 
--- clinics: nome, endereço, cidade, business_hours
-CREATE POLICY "Anon can view clinics" ON public.clinics FOR SELECT TO anon USING (true);
+**Nova abordagem**: Usar Leaflet diretamente (API imperativa `L.map()`, `L.marker()`) dentro de um `useEffect` com ref do div, evitando completamente os componentes React do `react-leaflet`. Isso contorna o bug de Context.Consumer.
 
--- clinic_members: vincular profissional à clínica
-CREATE POLICY "Anon can view clinic members" ON public.clinic_members FOR SELECT TO anon USING (true);
+**Geocoding**: Criar função utilitária `geocodeAddress(address, city, state)` que chama `https://nominatim.openstreetmap.org/search?format=json&q=...` e retorna `{lat, lng}`. Cache em memória para evitar chamadas repetidas. Respeitar rate-limit do Nominatim (1 req/s) com delay sequencial.
 
--- appointments: calcular slots ocupados
-CREATE POLICY "Anon can view appointments" ON public.appointments FOR SELECT TO anon USING (true);
+**Pinos verdes**: Usar `L.divIcon` com HTML inline (círculo verde `bg-primary` com borda branca) para criar marcadores customizados no estilo médico.
 
--- insurance_plans: listar convênios na confirmação
-CREATE POLICY "Anon can view insurance plans" ON public.insurance_plans FOR SELECT TO anon USING (true);
+**Dados necessários**: Buscar `address`, `city`, `state` das clínicas (já disponíveis na query de `clinics` — só precisa incluir `address` no select).
 
--- procedures: nome do procedimento no card
-CREATE POLICY "Anon can view procedures" ON public.procedures FOR SELECT TO anon USING (true);
+**Componente MarketplaceMap**: Receberá prop `clinics` com dados de endereço. No mount, faz geocoding de cada clínica, renderiza markers. Popup ao clicar no pin mostra nome da clínica.
+
+## 3. UX do Mapa Fullscreen
+
+- Manter botão "Reduzir" existente, mas adicionar ícone `X` flutuante no canto superior direito
+- No modo expandido, mostrar sidebar esquerda com lista compacta de médicos (com scroll via `ScrollArea`)
+- A `MarketplaceMap` receberá props `doctors` e `expanded` + `onClose`
+
+## Arquivos Modificados
+
+| Arquivo | Mudanças |
+|---|---|
+| `src/components/marketplace/MarketplaceHeader.tsx` | Importar logos e useTheme, substituir texto por `<img>` |
+| `src/components/marketplace/MarketplaceMap.tsx` | Reescrever com Leaflet imperativo, geocoding Nominatim, pinos verdes, fullscreen com sidebar scrollável |
+| `src/pages/Marketplace.tsx` | Passar dados de clínicas (com address) e doctors para o mapa; incluir `address` no select de clinics |
+| `src/components/marketplace/DoctorCard.tsx` | Adicionar `clinicAddress` ao tipo `DoctorData` |
+| `src/lib/geocode.ts` | Nova função utilitária de geocoding com cache |
+
+## Dependência
+- `leaflet` já está instalado (veio junto com `react-leaflet`). Usaremos apenas `leaflet` diretamente, sem `react-leaflet`.
+
+## Detalhes Técnicos
+
+**Leaflet imperativo** (evita o bug de React 18):
+```typescript
+const mapRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  const map = L.map(mapRef.current).setView([-3.7172, -38.5433], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  // Add markers after geocoding...
+  return () => map.remove();
+}, []);
 ```
 
-Nenhuma coluna sensível é exposta (profiles tem apenas full_name, avatar_url, phone; clinics não tem dados críticos).
+**Geocoding com Nominatim**:
+```typescript
+const cache = new Map<string, {lat: number, lng: number}>();
+export async function geocodeAddress(address: string, city: string, state: string) {
+  const query = [address, city, state].filter(Boolean).join(', ');
+  if (cache.has(query)) return cache.get(query)!;
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+  const data = await res.json();
+  if (data[0]) { cache.set(query, {lat: +data[0].lat, lng: +data[0].lon}); return cache.get(query)!; }
+  return null;
+}
+```
 
-## 2. Instalar dependência
-
-- `react-leaflet` + `leaflet` para o mapa
-
-## 3. Arquivos a criar
-
-| Arquivo | Descrição |
-|---|---|
-| `src/pages/Marketplace.tsx` | Página pública de busca: header, filtros, split lista+mapa |
-| `src/pages/MarketplaceBooking.tsx` | Confirmação de agendamento (requer auth) |
-| `src/components/marketplace/MarketplaceHeader.tsx` | Logo, barra de pesquisa, filtros visuais |
-| `src/components/marketplace/MarketplaceFilters.tsx` | Chips de especialidade (vazio com "Em breve") + filtro por cidade funcional |
-| `src/components/marketplace/DoctorCard.tsx` | Card: foto, nome, clínica, cidade + grid de horários reais |
-| `src/components/marketplace/MarketplaceMap.tsx` | Leaflet centrado em Fortaleza, sem pinos, botão ampliar |
-| `src/components/marketplace/BookingConfirmation.tsx` | Resumo, convênio, tipo visita, primeira consulta |
-
-## 4. Modificar `src/App.tsx`
-
-- Rota pública `/marketplace` → `<Marketplace />` (sem ProtectedRoute)
-- Rota `/marketplace/agendar` → `<MarketplaceBooking />` (sem ProtectedRoute, mas componente faz redirect interno se não logado)
-
-## 5. Lógica de dados
-
-**Lista de profissionais:**
-- Query `clinic_members` (role = dentist) → JOIN `profiles` (nome, foto) + `clinics` (nome, cidade, estado, phone, business_hours)
-- Filtro por nome (pesquisa) e cidade
-
-**Grid de horários:**
-- Para cada profissional, buscar `appointments` dos próximos 4 dias com status != cancelled
-- Calcular slots de 30min baseados em `business_hours` da clínica menos appointments ocupados
-- Slots clicáveis navegam para `/marketplace/agendar?dentistId=X&clinicId=Y&date=Z&time=W`
-
-**Confirmação:**
-- Buscar `insurance_plans` da clínica do dentista
-- Checkbox "Sem convênio (particular)"
-- Se não logado → redirect `/auth`
-- Botão "Continuar" → INSERT em `appointments`
-
-## 6. Responsividade
-
-- Mobile: mapa oculto, botão "Ver mapa" abre overlay fullscreen
-- Desktop: split 60% lista / 40% mapa
-
-## 7. Sem dados mockados
-
-- Cards sem especialidade, CRM, preço, avaliações
-- Mapa sem pinos
-- Filtros de especialidade vazios
-- Tudo alimentado exclusivamente pelo banco existente
+**Pino verde customizado**:
+```typescript
+L.divIcon({
+  className: '',
+  html: '<div style="width:28px;height:28px;background:#16a34a;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+})
+```
 
