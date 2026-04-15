@@ -6,6 +6,7 @@ import { Maximize2, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { geocodeAddress } from "@/lib/geocode";
+import { cn } from "@/lib/utils";
 import type { DoctorData } from "./DoctorCard";
 
 const FORTALEZA_CENTER: [number, number] = [-3.7172, -38.5433];
@@ -34,20 +35,22 @@ function createGreenIcon() {
   });
 }
 
-function useLeafletMap(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  clinics: ClinicGeoData[]
-) {
+export function MarketplaceMap({ className, clinics = [], doctors = [] }: MarketplaceMapProps) {
+  const [expanded, setExpanded] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
+  // Initialize and update Leaflet map
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!mapContainerRef.current) return;
+
+    // Clean up previous instance
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
     }
 
-    const map = L.map(containerRef.current, {
+    const map = L.map(mapContainerRef.current, {
       center: FORTALEZA_CENTER,
       zoom: 13,
       zoomControl: true,
@@ -90,60 +93,68 @@ function useLeafletMap(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinics]);
 
-  return mapInstanceRef;
-}
+  // Invalidate map size when toggling expanded
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+      }, 100);
+    }
+  }, [expanded]);
 
-export function MarketplaceMap({ className, clinics = [], doctors = [] }: MarketplaceMapProps) {
-  const [expanded, setExpanded] = useState(false);
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-
-  useLeafletMap(mapContainerRef, clinics);
-
-  if (expanded) {
-    return (
-      <div className="fixed inset-0 z-50 flex bg-background">
-        {/* Sidebar with doctors */}
-        {doctors.length > 0 && (
-          <div className="hidden w-80 flex-col border-r md:flex">
-            <div className="border-b px-4 py-3">
-              <p className="text-sm font-medium text-foreground">
-                {doctors.length} profissional{doctors.length !== 1 ? "is" : ""}
-              </p>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="space-y-2 p-3">
-                {doctors.map((d) => {
-                  const initials = d.fullName
-                    .split(" ")
-                    .map((w) => w[0])
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase();
-                  return (
-                    <div
-                      key={`${d.userId}_${d.clinicId}`}
-                      className="flex items-center gap-3 rounded-lg border p-2 text-sm"
-                    >
-                      <Avatar className="h-9 w-9 shrink-0">
-                        <AvatarImage src={d.avatarUrl ?? undefined} />
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">{d.fullName}</p>
-                        <p className="truncate text-xs text-muted-foreground">{d.clinicName}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+  return (
+    <div
+      className={cn(
+        expanded
+          ? "fixed inset-0 z-50 flex bg-background"
+          : className
+      )}
+    >
+      {/* Sidebar with doctors — only in expanded mode */}
+      {expanded && doctors.length > 0 && (
+        <div className="hidden w-80 flex-col border-r md:flex">
+          <div className="border-b px-4 py-3">
+            <p className="text-sm font-medium text-foreground">
+              {doctors.length} profissional{doctors.length !== 1 ? "is" : ""}
+            </p>
           </div>
-        )}
+          <ScrollArea className="flex-1">
+            <div className="space-y-2 p-3">
+              {doctors.map((d) => {
+                const initials = d.fullName
+                  .split(" ")
+                  .map((w) => w[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+                return (
+                  <div
+                    key={`${d.userId}_${d.clinicId}`}
+                    className="flex items-center gap-3 rounded-lg border p-2 text-sm"
+                  >
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarImage src={d.avatarUrl ?? undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">{d.fullName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{d.clinicName}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
 
-        {/* Map area */}
-        <div className="relative flex-1">
+      {/* Map area */}
+      <div className={cn("relative", expanded ? "flex-1" : "h-full min-h-[400px] overflow-hidden rounded-lg border")}>
+        <div ref={mapContainerRef} className="h-full w-full" />
+
+        {expanded ? (
           <Button
             variant="secondary"
             size="icon"
@@ -152,25 +163,17 @@ export function MarketplaceMap({ className, clinics = [], doctors = [] }: Market
           >
             <X className="h-5 w-5" />
           </Button>
-          <div ref={mapContainerRef} className="h-full w-full" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={className}>
-      <div className="relative h-full min-h-[400px] overflow-hidden rounded-lg border">
-        <div ref={mapContainerRef} className="h-full w-full" />
-        <Button
-          size="sm"
-          variant="secondary"
-          className="absolute bottom-3 right-3 z-[1000] shadow-md"
-          onClick={() => setExpanded(true)}
-        >
-          <Maximize2 className="mr-1 h-4 w-4" />
-          Ampliar mapa
-        </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="absolute bottom-3 right-3 z-[1000] shadow-md"
+            onClick={() => setExpanded(true)}
+          >
+            <Maximize2 className="mr-1 h-4 w-4" />
+            Ampliar mapa
+          </Button>
+        )}
       </div>
     </div>
   );

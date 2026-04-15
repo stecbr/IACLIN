@@ -47,11 +47,8 @@ export function MarketplaceHeader({
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Button variant="ghost" size="sm" asChild>
-            <a href="/auth">Entrar</a>
-          </Button>
           <Button size="sm" asChild>
-            <a href="/auth">Cadastrar</a>
+            <a href="/auth">Acesse a plataforma</a>
           </Button>
         </div>
       </div>
