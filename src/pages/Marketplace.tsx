@@ -7,7 +7,7 @@ import { MarketplaceMap } from "@/components/marketplace/MarketplaceMap";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, List, Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { startOfDay, addDays, format } from "date-fns";
+import { startOfDay, addDays } from "date-fns";
 
 export default function Marketplace() {
   const isMobile = useIsMobile();
@@ -39,7 +39,7 @@ export default function Marketplace() {
       // 2. Fetch profiles and clinics in parallel
       const [{ data: profiles }, { data: clinics }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
-        supabase.from("clinics").select("id, name, city, state, phone, business_hours").in("id", clinicIds),
+        supabase.from("clinics").select("id, name, city, state, phone, address, business_hours").in("id", clinicIds),
       ]);
 
       // 3. Fetch appointments for next 7 days
@@ -70,6 +70,7 @@ export default function Marketplace() {
           clinicCity: clinic?.city ?? null,
           clinicState: clinic?.state ?? null,
           clinicPhone: clinic?.phone ?? null,
+          clinicAddress: clinic?.address ?? null,
           businessHours: (clinic?.business_hours as any) ?? null,
           appointments: appts.map((a) => ({
             start_time: a.start_time,
@@ -110,6 +111,23 @@ export default function Marketplace() {
       return nameMatch && cityMatch;
     });
   }, [doctors, searchName, searchCity, selectedCity]);
+
+  const clinicsGeo = useMemo(() => {
+    const seen = new Set<string>();
+    return filtered
+      .filter((d) => {
+        if (seen.has(d.clinicId)) return false;
+        seen.add(d.clinicId);
+        return true;
+      })
+      .map((d) => ({
+        clinicId: d.clinicId,
+        clinicName: d.clinicName,
+        address: d.clinicAddress,
+        city: d.clinicCity,
+        state: d.clinicState,
+      }));
+  }, [filtered]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -155,7 +173,7 @@ export default function Marketplace() {
       <div className="mx-auto flex w-full max-w-7xl flex-1 gap-4 px-4 py-4">
         {/* Mobile: show one at a time */}
         {isMobile && showMapMobile ? (
-          <MarketplaceMap className="w-full" />
+          <MarketplaceMap className="w-full" clinics={clinicsGeo} doctors={filtered} />
         ) : (
           <>
             {/* Doctor list */}
@@ -184,7 +202,7 @@ export default function Marketplace() {
             {/* Desktop map */}
             {!isMobile && (
               <div className="sticky top-[130px] h-[calc(100vh-160px)] w-2/5">
-                <MarketplaceMap className="h-full" />
+                <MarketplaceMap className="h-full" clinics={clinicsGeo} doctors={filtered} />
               </div>
             )}
           </>

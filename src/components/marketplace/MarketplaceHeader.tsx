@@ -1,6 +1,9 @@
 import { Search, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/ThemeProvider";
+import logoLight from "@/assets/logo-light.png";
+import logoDark from "@/assets/logo-dark.png";
 
 interface MarketplaceHeaderProps {
   searchName: string;
@@ -15,15 +18,16 @@ export function MarketplaceHeader({
   onSearchNameChange,
   onSearchCityChange,
 }: MarketplaceHeaderProps) {
+  const { resolved } = useTheme();
+  const logo = resolved === "dark" ? logoDark : logoLight;
+
   return (
     <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        {/* Logo */}
-        <a href="/marketplace" className="shrink-0 text-xl font-bold text-primary">
-          IACLIN
+        <a href="/marketplace" className="shrink-0">
+          <img src={logo} alt="IACLIN" className="h-8 w-auto" />
         </a>
 
-        {/* Search bar */}
         <div className="flex flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-1.5 shadow-sm">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <Input
@@ -42,7 +46,6 @@ export function MarketplaceHeader({
           />
         </div>
 
-        {/* Auth links */}
         <div className="hidden items-center gap-2 md:flex">
           <Button variant="ghost" size="sm" asChild>
             <a href="/auth">Entrar</a>
