@@ -1,13 +1,25 @@
 import { useState } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Maximize2, Minimize2 } from "lucide-react";
-import "leaflet/dist/leaflet.css";
 
-const FORTALEZA_CENTER: [number, number] = [-3.7172, -38.5433];
+const FORTALEZA_CENTER = { lat: -3.7172, lng: -38.5433 };
 
 interface MarketplaceMapProps {
   className?: string;
+}
+
+function MapEmbed({ className }: { className?: string }) {
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${FORTALEZA_CENTER.lng - 0.05}%2C${FORTALEZA_CENTER.lat - 0.03}%2C${FORTALEZA_CENTER.lng + 0.05}%2C${FORTALEZA_CENTER.lat + 0.03}&layer=mapnik`;
+  return (
+    <iframe
+      title="Mapa"
+      src={src}
+      className={className}
+      style={{ border: 0, width: "100%", height: "100%" }}
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+    />
+  );
 }
 
 export function MarketplaceMap({ className }: MarketplaceMapProps) {
@@ -24,17 +36,7 @@ export function MarketplaceMap({ className }: MarketplaceMapProps) {
           </Button>
         </div>
         <div className="flex-1">
-          <MapContainer
-            center={FORTALEZA_CENTER}
-            zoom={13}
-            className="h-full w-full"
-            scrollWheelZoom
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          </MapContainer>
+          <MapEmbed className="h-full w-full" />
         </div>
       </div>
     );
@@ -43,17 +45,7 @@ export function MarketplaceMap({ className }: MarketplaceMapProps) {
   return (
     <div className={className}>
       <div className="relative h-full min-h-[400px] overflow-hidden rounded-lg border">
-        <MapContainer
-          center={FORTALEZA_CENTER}
-          zoom={12}
-          className="h-full w-full"
-          scrollWheelZoom={false}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-        </MapContainer>
+        <MapEmbed className="h-full w-full" />
         <Button
           size="sm"
           variant="secondary"
