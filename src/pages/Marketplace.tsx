@@ -173,7 +173,7 @@ export default function Marketplace() {
       <div className="mx-auto flex w-full max-w-7xl flex-1 gap-4 px-4 py-4">
         {/* Mobile: show one at a time */}
         {isMobile && showMapMobile ? (
-          <MarketplaceMap className="w-full" />
+          <MarketplaceMap className="w-full" clinics={clinicsGeo} doctors={filtered} />
         ) : (
           <>
             {/* Doctor list */}
@@ -202,7 +202,7 @@ export default function Marketplace() {
             {/* Desktop map */}
             {!isMobile && (
               <div className="sticky top-[130px] h-[calc(100vh-160px)] w-2/5">
-                <MarketplaceMap className="h-full" />
+                <MarketplaceMap className="h-full" clinics={clinicsGeo} doctors={filtered} />
               </div>
             )}
           </>
