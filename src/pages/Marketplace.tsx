@@ -7,7 +7,7 @@ import { MarketplaceMap } from "@/components/marketplace/MarketplaceMap";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, List, Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { startOfDay, addDays, format } from "date-fns";
+import { startOfDay, addDays } from "date-fns";
 
 export default function Marketplace() {
   const isMobile = useIsMobile();
