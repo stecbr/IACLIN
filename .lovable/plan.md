@@ -1,76 +1,53 @@
 
 
-# Refinamentos Visuais do Marketplace
+# Ajustes Completos do Marketplace
 
-## 1. Logo Oficial no Header
-Substituir o texto "IACLIN" no `MarketplaceHeader` pelas imagens oficiais `logo-light.png` / `logo-dark.png` de `src/assets/`, usando o hook `useTheme` para alternar entre elas (mesmo padrão do `AppLayout`).
+## 1. Botão "Acesse a plataforma"
+**Arquivo:** `src/components/marketplace/MarketplaceHeader.tsx`
+- Substituir os dois botões "Entrar" e "Cadastrar" por um único botão **"Acesse a plataforma"** que leva para `/auth`.
 
-## 2. Mapa Interativo com Pinos via Geocoding (Nominatim)
+## 2. Migration SQL — RLS para usuários logados
+**Problema:** `clinic_members` tem policy `authenticated` que filtra apenas clínicas do próprio usuário. `appointments` idem. Quando logado, o marketplace mostra apenas os profissionais da própria clínica.
 
-**Problema anterior**: `react-leaflet` causava erro `render2 is not a function` com React 18, forçando uso de iframe.
+**Solução:** Adicionar policies SELECT abertas para `authenticated`:
 
-**Nova abordagem**: Usar Leaflet diretamente (API imperativa `L.map()`, `L.marker()`) dentro de um `useEffect` com ref do div, evitando completamente os componentes React do `react-leaflet`. Isso contorna o bug de Context.Consumer.
+```sql
+CREATE POLICY "Authenticated can view all clinic members"
+ON public.clinic_members FOR SELECT TO authenticated USING (true);
 
-**Geocoding**: Criar função utilitária `geocodeAddress(address, city, state)` que chama `https://nominatim.openstreetmap.org/search?format=json&q=...` e retorna `{lat, lng}`. Cache em memória para evitar chamadas repetidas. Respeitar rate-limit do Nominatim (1 req/s) com delay sequencial.
+CREATE POLICY "Authenticated can view all appointments"
+ON public.appointments FOR SELECT TO authenticated USING (true);
+```
 
-**Pinos verdes**: Usar `L.divIcon` com HTML inline (círculo verde `bg-primary` com borda branca) para criar marcadores customizados no estilo médico.
+> As tabelas `profiles`, `clinics` e `procedures` já têm policies `authenticated USING (true)`. A tabela `insurance_plans` tem policy restritiva para `authenticated` mas isso só afeta a tela de booking (onde o usuário já estará logado e vinculado a uma clínica como paciente — ajuste futuro se necessário).
 
-**Dados necessários**: Buscar `address`, `city`, `state` das clínicas (já disponíveis na query de `clinics` — só precisa incluir `address` no select).
+## 3. Mapa fullscreen não renderiza
+**Arquivo:** `src/components/marketplace/MarketplaceMap.tsx`
 
-**Componente MarketplaceMap**: Receberá prop `clinics` com dados de endereço. No mount, faz geocoding de cada clínica, renderiza markers. Popup ao clicar no pin mostra nome da clínica.
+**Causa:** Quando `expanded` muda, o JSX renderiza condicionalmente um layout diferente. O `ref` do container do mapa é atribuído a um novo `<div>`, mas o Leaflet já foi destruído pelo unmount do div anterior, e o `useLeafletMap` não re-executa porque `clinics` não mudou.
 
-## 3. UX do Mapa Fullscreen
+**Solução:** Reestruturar para que o `<div ref={mapContainerRef}>` esteja **sempre montado no DOM**. O layout muda apenas com CSS (classes para fullscreen overlay). Assim o Leaflet nunca é destruído ao ampliar/reduzir.
 
-- Manter botão "Reduzir" existente, mas adicionar ícone `X` flutuante no canto superior direito
-- No modo expandido, mostrar sidebar esquerda com lista compacta de médicos (com scroll via `ScrollArea`)
-- A `MarketplaceMap` receberá props `doctors` e `expanded` + `onClose`
+```text
+Antes (quebra):
+  if (expanded) return <FullscreenLayout><div ref={mapRef} /></FullscreenLayout>
+  return <NormalLayout><div ref={mapRef} /></NormalLayout>
 
-## Arquivos Modificados
+Depois (funciona):
+  <div className={expanded ? "fixed inset-0 z-50 flex" : "relative"}>
+    {expanded && <Sidebar com ScrollArea />}
+    <div ref={mapRef} className="h-full w-full" />  ← sempre no DOM
+    <Botões flutuantes />
+  </div>
+```
 
-| Arquivo | Mudanças |
+## Resumo de mudanças
+
+| Arquivo | O que muda |
 |---|---|
-| `src/components/marketplace/MarketplaceHeader.tsx` | Importar logos e useTheme, substituir texto por `<img>` |
-| `src/components/marketplace/MarketplaceMap.tsx` | Reescrever com Leaflet imperativo, geocoding Nominatim, pinos verdes, fullscreen com sidebar scrollável |
-| `src/pages/Marketplace.tsx` | Passar dados de clínicas (com address) e doctors para o mapa; incluir `address` no select de clinics |
-| `src/components/marketplace/DoctorCard.tsx` | Adicionar `clinicAddress` ao tipo `DoctorData` |
-| `src/lib/geocode.ts` | Nova função utilitária de geocoding com cache |
+| `src/components/marketplace/MarketplaceHeader.tsx` | 2 botões → 1 "Acesse a plataforma" |
+| `src/components/marketplace/MarketplaceMap.tsx` | Container do mapa sempre no DOM; CSS para fullscreen |
+| Migration SQL | 2 policies SELECT `authenticated USING (true)` em `clinic_members` e `appointments` |
 
-## Dependência
-- `leaflet` já está instalado (veio junto com `react-leaflet`). Usaremos apenas `leaflet` diretamente, sem `react-leaflet`.
-
-## Detalhes Técnicos
-
-**Leaflet imperativo** (evita o bug de React 18):
-```typescript
-const mapRef = useRef<HTMLDivElement>(null);
-useEffect(() => {
-  const map = L.map(mapRef.current).setView([-3.7172, -38.5433], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  // Add markers after geocoding...
-  return () => map.remove();
-}, []);
-```
-
-**Geocoding com Nominatim**:
-```typescript
-const cache = new Map<string, {lat: number, lng: number}>();
-export async function geocodeAddress(address: string, city: string, state: string) {
-  const query = [address, city, state].filter(Boolean).join(', ');
-  if (cache.has(query)) return cache.get(query)!;
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-  const data = await res.json();
-  if (data[0]) { cache.set(query, {lat: +data[0].lat, lng: +data[0].lon}); return cache.get(query)!; }
-  return null;
-}
-```
-
-**Pino verde customizado**:
-```typescript
-L.divIcon({
-  className: '',
-  html: '<div style="width:28px;height:28px;background:#16a34a;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-})
-```
+Nenhum outro arquivo precisa ser alterado.
 
