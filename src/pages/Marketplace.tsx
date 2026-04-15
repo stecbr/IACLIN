@@ -70,6 +70,7 @@ export default function Marketplace() {
           clinicCity: clinic?.city ?? null,
           clinicState: clinic?.state ?? null,
           clinicPhone: clinic?.phone ?? null,
+          clinicAddress: clinic?.address ?? null,
           businessHours: (clinic?.business_hours as any) ?? null,
           appointments: appts.map((a) => ({
             start_time: a.start_time,
