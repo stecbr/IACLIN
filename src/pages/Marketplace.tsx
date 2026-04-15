@@ -112,6 +112,23 @@ export default function Marketplace() {
     });
   }, [doctors, searchName, searchCity, selectedCity]);
 
+  const clinicsGeo = useMemo(() => {
+    const seen = new Set<string>();
+    return filtered
+      .filter((d) => {
+        if (seen.has(d.clinicId)) return false;
+        seen.add(d.clinicId);
+        return true;
+      })
+      .map((d) => ({
+        clinicId: d.clinicId,
+        clinicName: d.clinicName,
+        address: d.clinicAddress,
+        city: d.clinicCity,
+        state: d.clinicState,
+      }));
+  }, [filtered]);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <MarketplaceHeader
