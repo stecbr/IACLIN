@@ -1,42 +1,158 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { geocodeAddress } from "@/lib/geocode";
+import type { DoctorData } from "./DoctorCard";
 
-const FORTALEZA_CENTER = { lat: -3.7172, lng: -38.5433 };
+const FORTALEZA_CENTER: [number, number] = [-3.7172, -38.5433];
+
+interface ClinicGeoData {
+  clinicId: string;
+  clinicName: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+}
 
 interface MarketplaceMapProps {
   className?: string;
+  clinics?: ClinicGeoData[];
+  doctors?: DoctorData[];
 }
 
-function MapEmbed({ className }: { className?: string }) {
-  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${FORTALEZA_CENTER.lng - 0.05}%2C${FORTALEZA_CENTER.lat - 0.03}%2C${FORTALEZA_CENTER.lng + 0.05}%2C${FORTALEZA_CENTER.lat + 0.03}&layer=mapnik`;
-  return (
-    <iframe
-      title="Mapa"
-      src={src}
-      className={className}
-      style={{ border: 0, width: "100%", height: "100%" }}
-      loading="lazy"
-      referrerPolicy="no-referrer-when-downgrade"
-    />
-  );
+function createGreenIcon() {
+  return L.divIcon({
+    className: "",
+    html: '<div style="width:24px;height:24px;background:hsl(142,71%,45%);border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -14],
+  });
 }
 
-export function MarketplaceMap({ className }: MarketplaceMapProps) {
+function useLeafletMap(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  clinics: ClinicGeoData[]
+) {
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const map = L.map(containerRef.current, {
+      center: FORTALEZA_CENTER,
+      zoom: 13,
+      zoomControl: true,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    mapInstanceRef.current = map;
+
+    const icon = createGreenIcon();
+    let cancelled = false;
+
+    (async () => {
+      const bounds: L.LatLng[] = [];
+      for (const clinic of clinics) {
+        if (cancelled) break;
+        const coords = await geocodeAddress(clinic.address, clinic.city, clinic.state);
+        if (coords && mapInstanceRef.current) {
+          const latlng = L.latLng(coords.lat, coords.lng);
+          bounds.push(latlng);
+          L.marker(latlng, { icon })
+            .addTo(mapInstanceRef.current)
+            .bindPopup(`<strong>${clinic.clinicName}</strong>`);
+        }
+      }
+      if (!cancelled && bounds.length > 0 && mapInstanceRef.current) {
+        mapInstanceRef.current.fitBounds(L.latLngBounds(bounds).pad(0.15));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinics]);
+
+  return mapInstanceRef;
+}
+
+export function MarketplaceMap({ className, clinics = [], doctors = [] }: MarketplaceMapProps) {
   const [expanded, setExpanded] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useLeafletMap(mapContainerRef, clinics);
 
   if (expanded) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background">
-        <div className="flex items-center justify-between border-b px-4 py-2">
-          <span className="text-sm font-medium">Mapa</span>
-          <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>
-            <Minimize2 className="mr-1 h-4 w-4" />
-            Reduzir
+      <div className="fixed inset-0 z-50 flex bg-background">
+        {/* Sidebar with doctors */}
+        {doctors.length > 0 && (
+          <div className="hidden w-80 flex-col border-r md:flex">
+            <div className="border-b px-4 py-3">
+              <p className="text-sm font-medium text-foreground">
+                {doctors.length} profissional{doctors.length !== 1 ? "is" : ""}
+              </p>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="space-y-2 p-3">
+                {doctors.map((d) => {
+                  const initials = d.fullName
+                    .split(" ")
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase();
+                  return (
+                    <div
+                      key={`${d.userId}_${d.clinicId}`}
+                      className="flex items-center gap-3 rounded-lg border p-2 text-sm"
+                    >
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarImage src={d.avatarUrl ?? undefined} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{d.fullName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{d.clinicName}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Map area */}
+        <div className="relative flex-1">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute right-3 top-3 z-[1000] shadow-md"
+            onClick={() => setExpanded(false)}
+          >
+            <X className="h-5 w-5" />
           </Button>
-        </div>
-        <div className="flex-1">
-          <MapEmbed className="h-full w-full" />
+          <div ref={mapContainerRef} className="h-full w-full" />
         </div>
       </div>
     );
@@ -45,7 +161,7 @@ export function MarketplaceMap({ className }: MarketplaceMapProps) {
   return (
     <div className={className}>
       <div className="relative h-full min-h-[400px] overflow-hidden rounded-lg border">
-        <MapEmbed className="h-full w-full" />
+        <div ref={mapContainerRef} className="h-full w-full" />
         <Button
           size="sm"
           variant="secondary"
