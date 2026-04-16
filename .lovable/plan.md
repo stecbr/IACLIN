@@ -1,24 +1,29 @@
 
 
-# Corrigir pinos que não aparecem no mapa
+# Busca funcional + trocar filtro de cidades por especialidades
 
-## Causa raiz
-O Nominatim (OpenStreetMap) **não encontra** o endereço "Rua 02 Conjunto Jardim Das Flores, Fortaleza, CE" — nem com parâmetros estruturados, nem com busca livre. Testei várias combinações e todas retornam array vazio. Isso significa que o geocoding falha silenciosamente e nenhum pino é criado.
+## O que muda
 
-## Solução
-Implementar uma **estratégia de fallback em cascata** no `geocode.ts`:
+### 1. Barra de pesquisa no header — já funciona
+A busca por nome (`searchName`) e cidade (`searchCity`) já filtra os resultados corretamente no `Marketplace.tsx` (linhas 103-110). O campo de cidade no header já está conectado ao filtro. Se o usuário digitar "Fortaleza" no campo cidade, os resultados são filtrados. Nenhuma mudança necessária aqui.
 
-1. **Tentativa 1**: Busca estruturada completa (street + city + state + postalcode) — como está hoje
-2. **Tentativa 2**: Busca livre com `q` (concatena tudo numa string) — pega endereços que o modo estruturado não encontra
-3. **Tentativa 3**: Apenas cidade + estado — garante que **sempre** aparece um pino, mesmo que na localização aproximada da cidade
+### 2. Trocar barra de filtro por cidade → filtro por especialidades
+Remover a barra de badges com cidades (`MarketplaceFilters`) e substituir por badges de especialidades (ex: "Ortodontia", "Implantodontia", "Endodontia", "Clínico Geral", "Periodontia", "Prótese", "Cirurgia").
 
-Isso garante que mesmo endereços não mapeados pelo OpenStreetMap apareçam no mapa (com precisão de cidade no pior caso).
+Como ainda não temos dados de especialidade no banco, a implementação será:
+- Lista fixa de especialidades odontológicas como badges clicáveis
+- Filtro visual funcional (seleciona/deseleciona)
+- Mensagem sutil de "em breve" indicando que o cruzamento com dados reais virá depois
+- Remover o `selectedCity` state e a lógica de `cities` do `Marketplace.tsx`
 
-## Mudanças
+### 3. Limpar código de filtro por cidade
+- Remover `selectedCity` state e `cities` memo do `Marketplace.tsx`
+- Manter apenas `searchCity` do header (que já funciona como filtro de texto livre)
+
+## Mudanças por arquivo
 
 | Arquivo | O que muda |
 |---|---|
-| `src/lib/geocode.ts` | Adicionar fallback em cascata: structured → free-text → city-only |
-
-Apenas 1 arquivo precisa ser alterado. O restante do fluxo (MarketplaceMap, Marketplace, DoctorCard) já está correto.
+| `src/components/marketplace/MarketplaceFilters.tsx` | Trocar badges de cidades por badges de especialidades (visual, sem dados reais ainda) |
+| `src/pages/Marketplace.tsx` | Remover `selectedCity`, `cities`, simplificar filtro. Passar especialidades selecionadas ao filtro |
 
