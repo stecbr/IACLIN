@@ -1,27 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MarketplaceHeader } from "@/components/marketplace/MarketplaceHeader";
 import { MarketplaceFilters } from "@/components/marketplace/MarketplaceFilters";
 import { DoctorCard, type DoctorData } from "@/components/marketplace/DoctorCard";
-import { MarketplaceMap } from "@/components/marketplace/MarketplaceMap";
+import { MarketplaceMap, type MarketplaceMapHandle, type MapBounds } from "@/components/marketplace/MarketplaceMap";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, List, Loader2 } from "lucide-react";
+import { Map as MapIcon, List, Loader2, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { startOfDay, addDays } from "date-fns";
 
 export default function Marketplace() {
   const isMobile = useIsMobile();
+  const mapRef = useRef<MarketplaceMapHandle>(null);
   const [doctors, setDoctors] = useState<DoctorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchName, setSearchName] = useState("");
   const [searchCity, setSearchCity] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
   const [showMapMobile, setShowMapMobile] = useState(false);
+  const [clinicCoords, setClinicCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
 
   useEffect(() => {
     async function fetchDoctors() {
       setLoading(true);
-      // 1. Get all clinic members with role dentist
       const { data: members } = await supabase
         .from("clinic_members")
         .select("user_id, clinic_id, role")
@@ -36,13 +38,11 @@ export default function Marketplace() {
       const userIds = [...new Set(members.map((m) => m.user_id))];
       const clinicIds = [...new Set(members.map((m) => m.clinic_id))];
 
-      // 2. Fetch profiles and clinics in parallel
       const [{ data: profiles }, { data: clinics }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
         supabase.from("clinics").select("id, name, city, state, phone, address, business_hours, zip_code").in("id", clinicIds),
       ]);
 
-      // 3. Fetch appointments for next 7 days
       const today = startOfDay(new Date());
       const endRange = addDays(today, 7);
       const { data: appointments } = await supabase
@@ -53,7 +53,6 @@ export default function Marketplace() {
         .lte("start_time", endRange.toISOString())
         .neq("status", "cancelled");
 
-      // 4. Build doctor data
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
       const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
 
@@ -81,7 +80,6 @@ export default function Marketplace() {
         };
       });
 
-      // Deduplicate by unique user+clinic
       const seen = new Set<string>();
       const unique = doctorList.filter((d) => {
         const key = `${d.userId}_${d.clinicId}`;
@@ -109,13 +107,29 @@ export default function Marketplace() {
       const cityFilter = selectedCity || searchCity;
       const cityMatch =
         !cityFilter || (d.clinicCity ?? "").toLowerCase().includes(cityFilter.toLowerCase());
-      return nameMatch && cityMatch;
+
+      // Map bounds filter
+      let boundsMatch = true;
+      if (mapBounds) {
+        const coords = clinicCoords.get(d.clinicId);
+        if (coords) {
+          boundsMatch =
+            coords.lat >= mapBounds.south &&
+            coords.lat <= mapBounds.north &&
+            coords.lng >= mapBounds.west &&
+            coords.lng <= mapBounds.east;
+        } else {
+          boundsMatch = false;
+        }
+      }
+
+      return nameMatch && cityMatch && boundsMatch;
     });
-  }, [doctors, searchName, searchCity, selectedCity]);
+  }, [doctors, searchName, searchCity, selectedCity, mapBounds, clinicCoords]);
 
   const clinicsGeo = useMemo(() => {
     const seen = new Set<string>();
-    return filtered
+    return doctors
       .filter((d) => {
         if (seen.has(d.clinicId)) return false;
         seen.add(d.clinicId);
@@ -129,7 +143,20 @@ export default function Marketplace() {
         state: d.clinicState,
         zipCode: d.clinicZipCode,
       }));
-  }, [filtered]);
+  }, [doctors]);
+
+  const handleBoundsSearch = useCallback((bounds: MapBounds) => {
+    setMapBounds(bounds);
+  }, []);
+
+  const handleCoordsReady = useCallback((coords: Map<string, { lat: number; lng: number }>) => {
+    setClinicCoords(coords);
+  }, []);
+
+  const handleShowOnMap = useCallback((clinicId: string) => {
+    if (isMobile) setShowMapMobile(true);
+    setTimeout(() => mapRef.current?.focusClinic(clinicId), 200);
+  }, [isMobile]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -150,6 +177,20 @@ export default function Marketplace() {
           setSearchCity("");
         }}
       />
+
+      {/* Map bounds active badge */}
+      {mapBounds && (
+        <div className="flex justify-center border-b px-4 py-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setMapBounds(null)}
+          >
+            <X className="mr-1 h-3 w-3" />
+            Limpar filtro do mapa
+          </Button>
+        </div>
+      )}
 
       {/* Mobile map toggle */}
       {isMobile && (
@@ -173,12 +214,17 @@ export default function Marketplace() {
       )}
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 gap-4 px-4 py-4">
-        {/* Mobile: show one at a time */}
         {isMobile && showMapMobile ? (
-          <MarketplaceMap className="w-full" clinics={clinicsGeo} doctors={filtered} />
+          <MarketplaceMap
+            ref={mapRef}
+            className="w-full"
+            clinics={clinicsGeo}
+            doctors={filtered}
+            onBoundsSearch={handleBoundsSearch}
+            onCoordsReady={handleCoordsReady}
+          />
         ) : (
           <>
-            {/* Doctor list */}
             <div className={isMobile ? "w-full" : "w-3/5"}>
               {loading ? (
                 <div className="flex items-center justify-center py-20">
@@ -195,16 +241,26 @@ export default function Marketplace() {
                     {filtered.length} profissional{filtered.length !== 1 ? "is" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
                   </p>
                   {filtered.map((doctor) => (
-                    <DoctorCard key={`${doctor.userId}_${doctor.clinicId}`} doctor={doctor} />
+                    <DoctorCard
+                      key={`${doctor.userId}_${doctor.clinicId}`}
+                      doctor={doctor}
+                      onShowOnMap={handleShowOnMap}
+                    />
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Desktop map */}
             {!isMobile && (
               <div className="sticky top-[130px] h-[calc(100vh-160px)] w-2/5">
-                <MarketplaceMap className="h-full" clinics={clinicsGeo} doctors={filtered} />
+                <MarketplaceMap
+                  ref={mapRef}
+                  className="h-full"
+                  clinics={clinicsGeo}
+                  doctors={filtered}
+                  onBoundsSearch={handleBoundsSearch}
+                  onCoordsReady={handleCoordsReady}
+                />
               </div>
             )}
           </>

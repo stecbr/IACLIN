@@ -50,12 +50,10 @@ function generateSlots(date: Date, bh: BusinessHours | null, appointments: Appoi
   let cursor = openTime;
   while (isBefore(cursor, closeTime)) {
     const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
-    // Skip past slots
     if (isSameDay(date, now) && isBefore(cursor, now)) {
       cursor = slotEnd;
       continue;
     }
-    // Check conflicts
     const hasConflict = appointments.some((apt) => {
       if (apt.status === "cancelled") return false;
       const aptStart = new Date(apt.start_time);
@@ -70,7 +68,12 @@ function generateSlots(date: Date, bh: BusinessHours | null, appointments: Appoi
   return slots;
 }
 
-export function DoctorCard({ doctor }: { doctor: DoctorData }) {
+interface DoctorCardProps {
+  doctor: DoctorData;
+  onShowOnMap?: (clinicId: string) => void;
+}
+
+export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
   const navigate = useNavigate();
   const [showMore, setShowMore] = useState(false);
 
@@ -114,6 +117,15 @@ export function DoctorCard({ doctor }: { doctor: DoctorData }) {
               <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3" />
                 <span>{[doctor.clinicCity, doctor.clinicState].filter(Boolean).join(", ")}</span>
+                {onShowOnMap && (
+                  <button
+                    type="button"
+                    className="ml-1 text-primary hover:underline"
+                    onClick={() => onShowOnMap(doctor.clinicId)}
+                  >
+                    Ver no mapa
+                  </button>
+                )}
               </div>
             )}
             {doctor.clinicPhone && (
