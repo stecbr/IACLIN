@@ -16,7 +16,7 @@ export default function Marketplace() {
   const [loading, setLoading] = useState(true);
   const [searchName, setSearchName] = useState("");
   const [searchCity, setSearchCity] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [showMapMobile, setShowMapMobile] = useState(false);
   const [clinicCoords, setClinicCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
@@ -95,18 +95,18 @@ export default function Marketplace() {
     fetchDoctors();
   }, []);
 
-  const cities = useMemo(() => {
-    const set = new Set(doctors.map((d) => d.clinicCity).filter(Boolean) as string[]);
-    return [...set].sort();
-  }, [doctors]);
+  const handleToggleSpecialty = useCallback((spec: string) => {
+    setSelectedSpecialties((prev) =>
+      prev.includes(spec) ? prev.filter((s) => s !== spec) : [...prev, spec]
+    );
+  }, []);
 
   const filtered = useMemo(() => {
     return doctors.filter((d) => {
       const nameMatch =
         !searchName || d.fullName.toLowerCase().includes(searchName.toLowerCase());
-      const cityFilter = selectedCity || searchCity;
       const cityMatch =
-        !cityFilter || (d.clinicCity ?? "").toLowerCase().includes(cityFilter.toLowerCase());
+        !searchCity || (d.clinicCity ?? "").toLowerCase().includes(searchCity.toLowerCase());
 
       // Map bounds filter
       let boundsMatch = true;
@@ -125,7 +125,7 @@ export default function Marketplace() {
 
       return nameMatch && cityMatch && boundsMatch;
     });
-  }, [doctors, searchName, searchCity, selectedCity, mapBounds, clinicCoords]);
+  }, [doctors, searchName, searchCity, mapBounds, clinicCoords]);
 
   const clinicsGeo = useMemo(() => {
     const seen = new Set<string>();
@@ -164,18 +164,11 @@ export default function Marketplace() {
         searchName={searchName}
         searchCity={searchCity}
         onSearchNameChange={setSearchName}
-        onSearchCityChange={(v) => {
-          setSearchCity(v);
-          setSelectedCity("");
-        }}
+        onSearchCityChange={setSearchCity}
       />
       <MarketplaceFilters
-        cities={cities}
-        selectedCity={selectedCity}
-        onCitySelect={(c) => {
-          setSelectedCity(c);
-          setSearchCity("");
-        }}
+        selectedSpecialties={selectedSpecialties}
+        onToggleSpecialty={handleToggleSpecialty}
       />
 
       {/* Map bounds active badge */}
