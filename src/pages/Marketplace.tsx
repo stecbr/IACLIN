@@ -39,7 +39,7 @@ export default function Marketplace() {
       // 2. Fetch profiles and clinics in parallel
       const [{ data: profiles }, { data: clinics }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
-        supabase.from("clinics").select("id, name, city, state, phone, address, business_hours").in("id", clinicIds),
+        supabase.from("clinics").select("id, name, city, state, phone, address, business_hours, zip_code").in("id", clinicIds),
       ]);
 
       // 3. Fetch appointments for next 7 days
@@ -71,6 +71,7 @@ export default function Marketplace() {
           clinicState: clinic?.state ?? null,
           clinicPhone: clinic?.phone ?? null,
           clinicAddress: clinic?.address ?? null,
+          clinicZipCode: clinic?.zip_code ?? null,
           businessHours: (clinic?.business_hours as any) ?? null,
           appointments: appts.map((a) => ({
             start_time: a.start_time,
@@ -126,6 +127,7 @@ export default function Marketplace() {
         address: d.clinicAddress,
         city: d.clinicCity,
         state: d.clinicState,
+        zipCode: d.clinicZipCode,
       }));
   }, [filtered]);
 

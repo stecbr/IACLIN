@@ -28,6 +28,7 @@ export interface DoctorData {
   clinicState: string | null;
   clinicPhone: string | null;
   clinicAddress: string | null;
+  clinicZipCode: string | null;
   businessHours: BusinessHours | null;
   appointments: Appointment[];
 }

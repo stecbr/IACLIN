@@ -17,6 +17,7 @@ interface ClinicGeoData {
   address?: string | null;
   city?: string | null;
   state?: string | null;
+  zipCode?: string | null;
 }
 
 interface MarketplaceMapProps {
@@ -69,7 +70,7 @@ export function MarketplaceMap({ className, clinics = [], doctors = [] }: Market
       const bounds: L.LatLng[] = [];
       for (const clinic of clinics) {
         if (cancelled) break;
-        const coords = await geocodeAddress(clinic.address, clinic.city, clinic.state);
+        const coords = await geocodeAddress(clinic.address, clinic.city, clinic.state, clinic.zipCode);
         if (coords && mapInstanceRef.current) {
           const latlng = L.latLng(coords.lat, coords.lng);
           bounds.push(latlng);
