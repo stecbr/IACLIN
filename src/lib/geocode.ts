@@ -1,5 +1,19 @@
 const cache = new Map<string, { lat: number; lng: number }>();
 
+async function fetchNominatim(params: Record<string, string>): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const qs = new URLSearchParams({ format: "json", limit: "1", countrycodes: "br", ...params });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${qs.toString()}`);
+    const data = await res.json();
+    if (data?.[0]) {
+      return { lat: +data[0].lat, lng: +data[0].lon };
+    }
+  } catch {
+    // silent fail
+  }
+  return null;
+}
+
 export async function geocodeAddress(
   address?: string | null,
   city?: string | null,
@@ -10,22 +24,29 @@ export async function geocodeAddress(
   if (!key) return null;
   if (cache.has(key)) return cache.get(key)!;
 
-  try {
-    const params = new URLSearchParams({ format: "json", limit: "1", country: "Brazil" });
-    if (address) params.set("street", address);
-    if (city) params.set("city", city);
-    if (state) params.set("state", state);
-    if (zipCode) params.set("postalcode", zipCode);
+  // 1. Structured search
+  const structured: Record<string, string> = {};
+  if (address) structured.street = address;
+  if (city) structured.city = city;
+  if (state) structured.state = state;
+  if (zipCode) structured.postalcode = zipCode;
 
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    const data = await res.json();
-    if (data?.[0]) {
-      const coords = { lat: +data[0].lat, lng: +data[0].lon };
-      cache.set(key, coords);
-      return coords;
-    }
-  } catch {
-    // silent fail
+  let coords = await fetchNominatim(structured);
+
+  // 2. Free-text fallback
+  if (!coords) {
+    coords = await fetchNominatim({ q: key });
   }
-  return null;
+
+  // 3. City + state fallback
+  if (!coords && city) {
+    const cityParams: Record<string, string> = { city };
+    if (state) cityParams.state = state;
+    coords = await fetchNominatim(cityParams);
+  }
+
+  if (coords) {
+    cache.set(key, coords);
+  }
+  return coords;
 }
