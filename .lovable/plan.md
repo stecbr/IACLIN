@@ -1,33 +1,61 @@
 
 
-# Adicionar CEP nas Configurações e no Geocoding
+# Buscar nesta área + Mostrar no mapa
 
-## O que já existe
-A tabela `clinics` **já possui** a coluna `zip_code` (text, nullable). Não precisa de migration SQL.
+## Visão geral
+Duas funcionalidades interativas para conectar a lista de profissionais ao mapa:
 
-## Mudanças
+1. **"Buscar nesta área"** — botão flutuante no mapa que filtra os cards da lista mostrando apenas clínicas visíveis na área atual do mapa
+2. **"Mostrar no mapa"** — botão em cada DoctorCard que centraliza o mapa na localização daquela clínica com zoom e destaque no pino
 
-### 1. Formulário de Configurações (`src/pages/SettingsPage.tsx`)
-- Adicionar campo `zip_code` ao estado `form` (já existe no banco, só falta no formulário)
-- Adicionar um `<Input>` de CEP ao lado do campo Estado, com placeholder "00000-000"
-- Incluir `zip_code` no payload de save
+## Pré-requisito: corrigir geocoding e cor dos pinos
+Antes de implementar as novas features, aplicar os ajustes pendentes:
+- Geocoding com parâmetros estruturados (`street`, `city`, `postalcode`) no Nominatim
+- Cor dos pinos de verde para azul (`#2563EB`, cor primary da plataforma)
+- Geocodificação paralela com `Promise.allSettled` para evitar cancelamento
 
-### 2. Geocoding mais preciso (`src/lib/geocode.ts`)
-- Adicionar parâmetro opcional `zipCode` à função `geocodeAddress`
-- Incluir o CEP na query do Nominatim para melhorar a precisão da localização no mapa
+## Mudanças por arquivo
 
-### 3. Marketplace (`src/pages/Marketplace.tsx`)
-- Incluir `zip_code` no select de clínicas
-- Passar `zip_code` para a função de geocoding no `MarketplaceMap`
+### 1. `src/lib/geocode.ts`
+- Usar parâmetros estruturados no Nominatim (`street`, `city`, `state`, `postalcode`, `country=Brazil`)
+- Reduzir rate limit de 1100ms para 200ms
+
+### 2. `src/components/marketplace/MarketplaceMap.tsx`
+- **Cor do pino**: trocar verde por azul `#2563EB`
+- **Geocoding paralelo**: `Promise.allSettled` em vez de loop sequencial
+- **Cache de coordenadas**: armazenar coords geocodificadas em um `Map<clinicId, LatLng>` via ref, expor via callback
+- **Botão "Buscar nesta área"**: aparece sobre o mapa quando o usuário arrasta/zoom. Ao clicar, chama um callback `onBoundsSearch(bounds)` passando os limites visíveis do mapa
+- **Método `focusClinic(clinicId)`**: expor via `useImperativeHandle` (ou callback prop) para que o DoctorCard possa centralizar o mapa numa clínica específica com zoom 16 e popup aberto
+- Adicionar prop `onBoundsSearch?: (bounds: {north, south, east, west}) => void`
+- Adicionar prop `onCoordsReady?: (coords: Map<string, {lat, lng}>) => void` para compartilhar coordenadas geocodificadas
+
+### 3. `src/components/marketplace/DoctorCard.tsx`
+- Adicionar prop `onShowOnMap?: (clinicId: string) => void`
+- Renderizar botão "Mostrar no mapa" (ícone MapPin) ao lado das informações de localização
+- Ao clicar, chama `onShowOnMap(doctor.clinicId)`
+
+### 4. `src/pages/Marketplace.tsx`
+- Manter ref para o mapa (`mapRef`) e um state com as coordenadas geocodificadas (`clinicCoords`)
+- Implementar `handleBoundsSearch`: filtra `doctors` mantendo apenas os que têm coordenadas dentro dos bounds do mapa visível
+- Implementar `handleShowOnMap(clinicId)`: chama `mapRef.current.focusClinic(clinicId)`
+- Passar `onShowOnMap` para cada `DoctorCard`
+- Adicionar botão "Limpar filtro do mapa" quando o filtro de bounds estiver ativo
+
+## Fluxo do usuário
+
+```text
+1. Usuário abre /marketplace → vê lista + mapa com pinos azuis
+2. Arrasta o mapa → botão "Buscar nesta área" aparece
+3. Clica → lista filtra mostrando só clínicas visíveis no mapa
+4. No card, clica "Mostrar no mapa" → mapa centraliza naquela clínica com zoom
+```
 
 ## Resumo
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/SettingsPage.tsx` | Adicionar campo CEP no formulário da clínica |
-| `src/lib/geocode.ts` | Aceitar `zipCode` como parâmetro adicional |
-| `src/pages/Marketplace.tsx` | Incluir `zip_code` no select e passar ao mapa |
-| `src/components/marketplace/MarketplaceMap.tsx` | Passar `zip_code` ao geocoding |
-
-Nenhuma migration necessária — a coluna já existe.
+| `src/lib/geocode.ts` | Parâmetros estruturados, rate limit menor |
+| `MarketplaceMap.tsx` | Pinos azuis, geocoding paralelo, botão "Buscar nesta área", método focusClinic |
+| `DoctorCard.tsx` | Botão "Mostrar no mapa" |
+| `Marketplace.tsx` | Orquestração: bounds filter, focusClinic, coordenadas compartilhadas |
 
