@@ -127,7 +127,7 @@ function ClinicSection() {
   });
 
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', address: '', city: '', state: '', cnpj: '',
+    name: '', phone: '', email: '', address: '', city: '', state: '', cnpj: '', zip_code: '',
   });
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
@@ -136,7 +136,7 @@ function ClinicSection() {
   if (clinic && !initialized) {
     setForm({
       name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
-      address: clinic.address ?? '', city: clinic.city ?? '', state: clinic.state ?? '', cnpj: clinic.cnpj ?? '',
+      address: clinic.address ?? '', city: clinic.city ?? '', state: clinic.state ?? '', cnpj: clinic.cnpj ?? '', zip_code: clinic.zip_code ?? '',
     });
     setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
     setInitialized(true);
@@ -245,6 +245,10 @@ function ClinicSection() {
             <div className="space-y-2">
               <Label>Estado</Label>
               <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" />
+            </div>
+            <div className="space-y-2">
+              <Label>CEP</Label>
+              <Input value={form.zip_code} onChange={(e) => setForm({ ...form, zip_code: e.target.value })} placeholder="00000-000" />
             </div>
           </div>
 

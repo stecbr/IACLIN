@@ -14,9 +14,10 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 export async function geocodeAddress(
   address?: string | null,
   city?: string | null,
-  state?: string | null
+  state?: string | null,
+  zipCode?: string | null
 ): Promise<{ lat: number; lng: number } | null> {
-  const query = [address, city, state].filter(Boolean).join(", ");
+  const query = [address, city, state, zipCode].filter(Boolean).join(", ");
   if (!query) return null;
   if (cache.has(query)) return cache.get(query)!;
 
