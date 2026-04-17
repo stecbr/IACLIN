@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'dentist' | 'secretary';
+type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
 
 interface ClinicMembership {
@@ -22,6 +22,7 @@ interface AuthContextType {
   clinicRole: AppRole | null;
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
+  isPatient: boolean;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
 }
@@ -106,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
+  const isPatient = roles.includes('patient');
 
   return (
     <AuthContext.Provider value={{
@@ -118,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clinicRole: clinicMembership?.role ?? null,
       isClinicOwner: clinicMembership?.is_owner ?? false,
       clinicCategory: clinicMembership?.category ?? 'odonto',
+      isPatient,
       signOut,
       hasRole,
     }}>

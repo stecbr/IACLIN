@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +14,7 @@ import { CalendarDays, Clock, MapPin, ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { formatCpf, isValidCpf, unmaskCpf } from "@/lib/cpf";
 
 interface InsurancePlan {
   id: string;
@@ -43,11 +45,37 @@ export function BookingConfirmation({
   insurancePlans,
 }: BookingConfirmationProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isPatient } = useAuth();
   const [isParticular, setIsParticular] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [firstVisit, setFirstVisit] = useState<string>("yes");
   const [submitting, setSubmitting] = useState(false);
+  const [patientName, setPatientName] = useState("");
+  const [patientCpf, setPatientCpf] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
+
+  // Pre-fill from patient_account if logged-in patient
+  useEffect(() => {
+    if (!user || !isPatient) return;
+    supabase
+      .from("patient_accounts")
+      .select("full_name, cpf, phone, insurance_provider")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setPatientName(data.full_name);
+          setPatientCpf(formatCpf(data.cpf));
+          setPatientPhone(data.phone ?? "");
+          if (data.insurance_provider) {
+            const match = insurancePlans.find(
+              (p) => p.name.toLowerCase() === data.insurance_provider!.toLowerCase()
+            );
+            if (match) setSelectedPlanId(match.id);
+          }
+        }
+      });
+  }, [user, isPatient, insurancePlans]);
 
   const dateObj = parse(date, "yyyy-MM-dd", new Date());
   const formattedDate = format(dateObj, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
@@ -66,23 +94,36 @@ export function BookingConfirmation({
       return;
     }
 
-    // Check if user is a patient (has patient record) or create one
+    if (!patientName.trim()) {
+      toast.error("Informe seu nome completo");
+      return;
+    }
+    if (!isValidCpf(patientCpf)) {
+      toast.error("CPF inválido");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // Find or create patient record for this user
+      const cpfDigits = unmaskCpf(patientCpf);
+
+      // 1. Find existing patient by CPF in this clinic
       let { data: patient } = await supabase
         .from("patients")
         .select("id")
-        .eq("email", user.email)
         .eq("clinic_id", clinicId)
+        .eq("cpf", cpfDigits)
         .maybeSingle();
 
+      // 2. If not found, create one (trigger will link patient_user_id by CPF)
       if (!patient) {
         const { data: newPatient, error: patientErr } = await supabase
           .from("patients")
           .insert({
-            full_name: user.user_metadata?.full_name || user.email || "Paciente",
+            full_name: patientName,
+            cpf: cpfDigits,
             email: user.email,
+            phone: patientPhone || null,
             clinic_id: clinicId,
           })
           .select("id")
@@ -109,7 +150,7 @@ export function BookingConfirmation({
       if (error) throw error;
 
       toast.success("Consulta agendada com sucesso!");
-      navigate("/marketplace");
+      navigate(isPatient ? "/paciente" : "/marketplace");
     } catch (err: any) {
       toast.error(err.message || "Erro ao agendar consulta.");
     } finally {
@@ -126,6 +167,28 @@ export function BookingConfirmation({
       <div className="grid gap-6 md:grid-cols-5">
         {/* Form */}
         <div className="md:col-span-3 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Dados do paciente</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nome completo</Label>
+                <Input value={patientName} onChange={(e) => setPatientName(e.target.value)} placeholder="Seu nome completo" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>CPF</Label>
+                  <Input value={patientCpf} onChange={(e) => setPatientCpf(formatCpf(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone</Label>
+                  <Input value={patientPhone} onChange={(e) => setPatientPhone(e.target.value)} placeholder="(11) 99999-9999" inputMode="tel" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Selecione as opções da consulta</CardTitle>
@@ -185,7 +248,7 @@ export function BookingConfirmation({
 
           <Button className="w-full" size="lg" onClick={handleSubmit} disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Continuar
+            Confirmar agendamento
           </Button>
         </div>
 

@@ -703,6 +703,45 @@ export type Database = {
           },
         ]
       }
+      patient_accounts: {
+        Row: {
+          cpf: string
+          created_at: string
+          date_of_birth: string | null
+          full_name: string
+          id: string
+          insurance_number: string | null
+          insurance_provider: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          date_of_birth?: string | null
+          full_name: string
+          id?: string
+          insurance_number?: string | null
+          insurance_provider?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string
+          id?: string
+          insurance_number?: string | null
+          insurance_provider?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           address: string | null
@@ -719,6 +758,7 @@ export type Database = {
           insurance_provider: string | null
           is_active: boolean
           notes: string | null
+          patient_user_id: string | null
           phone: string | null
           photo_url: string | null
           state: string | null
@@ -740,6 +780,7 @@ export type Database = {
           insurance_provider?: string | null
           is_active?: boolean
           notes?: string | null
+          patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
           state?: string | null
@@ -761,6 +802,7 @@ export type Database = {
           insurance_provider?: string | null
           is_active?: boolean
           notes?: string | null
+          patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
           state?: string | null
@@ -976,7 +1018,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "dentist" | "secretary"
+      app_role: "admin" | "dentist" | "secretary" | "patient"
       clinic_category:
         | "odonto"
         | "medico"
@@ -1110,7 +1152,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "dentist", "secretary"],
+      app_role: ["admin", "dentist", "secretary", "patient"],
       clinic_category: ["odonto", "medico", "estetica", "veterinario", "outro"],
     },
   },

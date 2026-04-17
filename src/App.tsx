@@ -21,11 +21,12 @@ import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
+import PatientDashboard from "./pages/PatientDashboard";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId } = useAuth();
+  const { user, loading, currentClinicId, isPatient } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -38,6 +39,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  // Patient users go to their own area
+  if (isPatient) return <Navigate to="/paciente" replace />;
   // Redirect to onboarding if user has no clinic
   if (!currentClinicId) return <Navigate to="/onboarding" replace />;
   if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
@@ -45,8 +48,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
-function OnboardingRoute() {
-  const { user, loading, currentClinicId } = useAuth();
+function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading, isPatient } = useAuth();
 
   if (loading) {
     return (
@@ -57,6 +60,24 @@ function OnboardingRoute() {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  if (!isPatient) return <Navigate to="/" replace />;
+
+  return <>{children}</>;
+}
+
+function OnboardingRoute() {
+  const { user, loading, currentClinicId, isPatient } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
+  if (isPatient) return <Navigate to="/paciente" replace />;
   if (currentClinicId) return <Navigate to="/" replace />;
 
   return <Onboarding />;
@@ -68,6 +89,7 @@ const AppRoutes = () => (
     <Route path="/onboarding" element={<OnboardingRoute />} />
     <Route path="/marketplace" element={<Marketplace />} />
     <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
+    <Route path="/paciente" element={<PatientProtectedRoute><PatientDashboard /></PatientProtectedRoute>} />
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />

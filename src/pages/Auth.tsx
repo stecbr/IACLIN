@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
+import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente';
@@ -30,11 +31,19 @@ const item = {
 };
 
 export default function Auth() {
-  const { user, loading } = useAuth();
+  const { user, loading, isPatient } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl');
+
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [phone, setPhone] = useState('');
+  const [insuranceProvider, setInsuranceProvider] = useState('');
+  const [insuranceNumber, setInsuranceNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
@@ -51,7 +60,11 @@ export default function Auth() {
     );
   }
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) {
+    if (returnUrl) return <Navigate to={returnUrl} replace />;
+    if (isPatient) return <Navigate to="/paciente" replace />;
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,16 +75,32 @@ export default function Auth() {
         if (error) throw error;
         toast.success('Login realizado com sucesso!');
       } else {
+        // Validate patient-specific fields
+        if (userType === 'cliente') {
+          if (!isValidCpf(cpf)) {
+            toast.error('CPF inválido');
+            setSubmitting(false);
+            return;
+          }
+        }
+
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}/`,
             data: {
               full_name: fullName,
               user_type: userType,
               professional_subtype: profSubType,
               clinic_category: clinicCategory,
+              ...(userType === 'cliente' && {
+                cpf: unmaskCpf(cpf),
+                phone,
+                insurance_provider: insuranceProvider || null,
+                insurance_number: insuranceNumber || null,
+              }),
             },
           },
         });
@@ -85,7 +114,9 @@ export default function Auth() {
     }
   };
 
-  const signupReady = userType !== null && (userType !== 'profissional' || profSubType !== null);
+  const signupReady =
+    userType !== null &&
+    (userType !== 'profissional' || profSubType !== null);
 
   // Determine current step key for AnimatePresence
   const stepKey = isLogin
@@ -99,7 +130,7 @@ export default function Auth() {
   const typeCards = [
     { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro', locked: false },
     { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
-    { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: true },
+    { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: false },
   ];
 
   const profSubCards = [
@@ -107,8 +138,10 @@ export default function Auth() {
     { key: 'dentista' as const, icon: FileHeart, label: 'Dentista', desc: 'Clínica odontológica' },
   ];
 
+  const isPatientSignup = userType === 'cliente';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <motion.div
         className="w-full max-w-sm"
         initial={{ opacity: 0, scale: 0.96 }}
@@ -144,14 +177,14 @@ export default function Auth() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
                 >
-                  Acesse sua clínica
+                  Acesse sua conta
                 </motion.p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="email">E-mail</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="joao@clinica.com" required className="h-10" autoFocus />
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required className="h-10" autoFocus />
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.25 }}>
                   <div className="flex items-center justify-between">
@@ -291,15 +324,55 @@ export default function Auth() {
                     required className="h-10" autoFocus
                   />
                 </motion.div>
+
+                {isPatientSignup && (
+                  <>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.12 }}>
+                      <Label htmlFor="cpf">CPF</Label>
+                      <Input
+                        id="cpf" value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))}
+                        placeholder="000.000.000-00" required className="h-10" inputMode="numeric"
+                      />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.14 }}>
+                      <Label htmlFor="phone">Telefone</Label>
+                      <Input
+                        id="phone" value={phone} onChange={(e) => setPhone(e.target.value)}
+                        placeholder="(11) 99999-9999" className="h-10" inputMode="tel"
+                      />
+                    </motion.div>
+                  </>
+                )}
+
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.15 }}>
                   <Label htmlFor="signup-email">E-mail</Label>
-                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="joao@clinica.com" required className="h-10" />
+                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : 'joao@clinica.com'} required className="h-10" />
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="signup-password">Senha</Label>
                   <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10" />
                 </motion.div>
-                <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.25 }}>
+
+                {isPatientSignup && (
+                  <>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
+                      <Label htmlFor="insurance-provider" className="text-xs text-muted-foreground">Convênio (opcional)</Label>
+                      <Input
+                        id="insurance-provider" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
+                        placeholder="Ex: Amil, Unimed..." className="h-10"
+                      />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.24 }}>
+                      <Label htmlFor="insurance-number" className="text-xs text-muted-foreground">Nº carteirinha (opcional)</Label>
+                      <Input
+                        id="insurance-number" value={insuranceNumber} onChange={(e) => setInsuranceNumber(e.target.value)}
+                        placeholder="000000000000" className="h-10"
+                      />
+                    </motion.div>
+                  </>
+                )}
+
+                <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.28 }}>
                   <Button type="submit" className="w-full h-10" disabled={submitting}>
                     {submitting ? 'Aguarde...' : 'Criar conta'}
                   </Button>

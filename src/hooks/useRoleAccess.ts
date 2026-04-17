@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 
-type AppRole = 'admin' | 'dentist' | 'secretary';
+type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient';
 
 interface RouteAccess {
   path: string;
@@ -15,13 +15,14 @@ const routePermissions: RouteAccess[] = [
   { path: '/odontogram', allowedRoles: ['admin', 'dentist'] },
   { path: '/financial', allowedRoles: ['admin', 'secretary'] },
   { path: '/settings', allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { path: '/paciente', allowedRoles: ['patient'] },
 ];
 
 export function useRoleAccess() {
-  const { clinicRole } = useAuth();
+  const { clinicRole, isPatient } = useAuth();
   
-  // Default to admin if no clinic role (owner / solo user)
-  const effectiveRole: AppRole = clinicRole ?? 'admin';
+  // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
+  const effectiveRole: AppRole = isPatient ? 'patient' : (clinicRole ?? 'admin');
 
   const canAccess = (path: string): boolean => {
     const rule = routePermissions.find((r) => {
