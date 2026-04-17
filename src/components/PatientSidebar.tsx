@@ -36,7 +36,7 @@ import {
 const mainNav = [
   { title: 'Dashboard', url: '/paciente', icon: LayoutDashboard, end: true },
   { title: 'Plano de Saúde', url: '/paciente/plano', icon: CreditCard },
-  { title: 'Minhas Agendas', url: '/paciente/agendas', icon: Calendar },
+  { title: 'Minhas Consultas', url: '/paciente/agendas', icon: Calendar },
   { title: 'Meus Exames', url: '/paciente/exames', icon: FileText },
 ];
 
