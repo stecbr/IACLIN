@@ -1,7 +1,8 @@
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, LayoutDashboard, LogIn } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import logoLight from "@/assets/logo-light.png";
 import logoDark from "@/assets/logo-dark.png";
 
@@ -19,7 +20,10 @@ export function MarketplaceHeader({
   onSearchCityChange,
 }: MarketplaceHeaderProps) {
   const { resolved } = useTheme();
+  const { user, isPatient, profile } = useAuth();
   const logo = resolved === "dark" ? logoDark : logoLight;
+
+  const firstName = (profile?.full_name ?? '').split(' ')[0];
 
   return (
     <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -47,9 +51,18 @@ export function MarketplaceHeader({
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Button size="sm" asChild>
-            <a href="/auth">Acesse a plataforma</a>
-          </Button>
+          {user && isPatient ? (
+            <>
+              <span className="text-sm text-muted-foreground">Olá, {firstName || 'paciente'}</span>
+              <Button size="sm" variant="outline" asChild className="gap-1.5">
+                <a href="/paciente"><LayoutDashboard className="h-4 w-4" /> Meu painel</a>
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" asChild className="gap-1.5">
+              <a href="/auth"><LogIn className="h-4 w-4" /> Acesse a plataforma</a>
+            </Button>
+          )}
         </div>
       </div>
     </header>
