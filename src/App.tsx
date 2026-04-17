@@ -21,7 +21,12 @@ import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
-import PatientDashboard from "./pages/PatientDashboard";
+import { PatientLayout } from "./components/PatientLayout";
+import PatientHome from "./pages/patient/PatientHome";
+import PatientPlan from "./pages/patient/PatientPlan";
+import PatientAppointments from "./pages/patient/PatientAppointments";
+import PatientExams from "./pages/patient/PatientExams";
+import PatientSettings from "./pages/patient/PatientSettings";
 
 const queryClient = new QueryClient();
 
@@ -89,7 +94,13 @@ const AppRoutes = () => (
     <Route path="/onboarding" element={<OnboardingRoute />} />
     <Route path="/marketplace" element={<Marketplace />} />
     <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
-    <Route path="/paciente" element={<PatientProtectedRoute><PatientDashboard /></PatientProtectedRoute>} />
+    <Route path="/paciente" element={<PatientProtectedRoute><PatientLayout /></PatientProtectedRoute>}>
+      <Route index element={<PatientHome />} />
+      <Route path="plano" element={<PatientPlan />} />
+      <Route path="agendas" element={<PatientAppointments />} />
+      <Route path="exames" element={<PatientExams />} />
+      <Route path="configuracoes" element={<PatientSettings />} />
+    </Route>
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />

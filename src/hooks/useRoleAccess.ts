@@ -16,6 +16,10 @@ const routePermissions: RouteAccess[] = [
   { path: '/financial', allowedRoles: ['admin', 'secretary'] },
   { path: '/settings', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/paciente', allowedRoles: ['patient'] },
+  { path: '/paciente/plano', allowedRoles: ['patient'] },
+  { path: '/paciente/agendas', allowedRoles: ['patient'] },
+  { path: '/paciente/exames', allowedRoles: ['patient'] },
+  { path: '/paciente/configuracoes', allowedRoles: ['patient'] },
 ];
 
 export function useRoleAccess() {
