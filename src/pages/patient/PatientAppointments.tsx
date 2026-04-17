@@ -48,7 +48,7 @@ export default function PatientAppointments() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Minhas Agendas</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Minhas Consultas</h1>
           <p className="text-sm text-muted-foreground mt-1">Suas consultas próximas e histórico.</p>
         </div>
         <Button onClick={() => navigate('/marketplace')} className="gap-2">
