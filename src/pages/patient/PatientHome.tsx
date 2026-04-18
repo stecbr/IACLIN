@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
@@ -5,20 +6,22 @@ import { format, parseISO, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Calendar, Clock, MapPin, Phone, FileText, Plus, Stethoscope,
-  CheckCircle2, XCircle, CreditCard, Loader2, Building2,
+  CreditCard, Loader2, Building2, History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { usePatientData, appointmentStatusMap } from '@/hooks/usePatientData';
+import { usePatientData, appointmentStatusMap, type AppointmentRow } from '@/hooks/usePatientData';
+import { AppointmentDetailDrawer } from '@/components/patient/AppointmentDetailDrawer';
+import { PatientTimelineMulti } from '@/components/patient/PatientTimelineMulti';
 
 export default function PatientHome() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
-  const { account, appointments, documents, loading, refetch } = usePatientData();
+  const { account, appointments, documents, patientIds, loading, refetch } = usePatientData();
+  const [selected, setSelected] = useState<AppointmentRow | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const upcoming = appointments.filter(
     (a) => isFuture(parseISO(a.start_time)) && a.status !== 'cancelled'
@@ -35,18 +38,9 @@ export default function PatientHome() {
 
   const firstName = (profile?.full_name ?? account?.full_name ?? '').split(' ')[0] || 'paciente';
 
-  const handleConfirm = async (id: string) => {
-    const { error } = await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', id);
-    if (error) return toast.error(error.message);
-    toast.success('Presença confirmada');
-    refetch();
-  };
-
-  const handleCancel = async (id: string) => {
-    const { error } = await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', id);
-    if (error) return toast.error(error.message);
-    toast.success('Consulta cancelada');
-    refetch();
+  const openDrawer = (a: AppointmentRow) => {
+    setSelected(a);
+    setDrawerOpen(true);
   };
 
   if (loading) {
@@ -73,66 +67,62 @@ export default function PatientHome() {
 
       {next ? (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
-          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium uppercase tracking-wide text-primary">Próxima consulta</p>
-                <Badge variant={appointmentStatusMap[next.status]?.variant ?? 'default'}>
-                  {appointmentStatusMap[next.status]?.label ?? next.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={next.dentist_avatar ?? undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                    {next.dentist_name?.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-semibold">{next.dentist_name}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Building2 className="h-3 w-3" /> {next.clinic_name}
-                  </p>
+          <button
+            onClick={() => openDrawer(next)}
+            className="block w-full text-left"
+          >
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-primary">Próxima consulta</p>
+                  <Badge variant={appointmentStatusMap[next.status]?.variant ?? 'default'}>
+                    {appointmentStatusMap[next.status]?.label ?? next.status}
+                  </Badge>
                 </div>
-              </div>
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span className="capitalize">
-                    {format(parseISO(next.start_time), "EEEE, dd 'de' MMMM", { locale: ptBR })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>{format(parseISO(next.start_time), 'HH:mm')}</span>
-                </div>
-                {(next.clinic_address || next.clinic_city) && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>{[next.clinic_address, next.clinic_city].filter(Boolean).join(' - ')}</span>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={next.dentist_avatar ?? undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      {next.dentist_name?.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">{next.dentist_name}</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Building2 className="h-3 w-3" /> {next.clinic_name}
+                    </p>
                   </div>
-                )}
-                {next.clinic_phone && (
+                </div>
+                <div className="grid gap-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span>{next.clinic_phone}</span>
+                    <Calendar className="h-4 w-4" />
+                    <span className="capitalize">
+                      {format(parseISO(next.start_time), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                    </span>
                   </div>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {next.status !== 'confirmed' && (
-                  <Button size="sm" onClick={() => handleConfirm(next.id)} className="gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" /> Confirmar presença
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={() => handleCancel(next.id)} className="gap-1.5">
-                  <XCircle className="h-4 w-4" /> Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>{format(parseISO(next.start_time), 'HH:mm')}</span>
+                  </div>
+                  {(next.clinic_address || next.clinic_city) && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>{[next.clinic_address, next.clinic_city].filter(Boolean).join(' - ')}</span>
+                    </div>
+                  )}
+                  {next.clinic_phone && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-4 w-4" />
+                      <span>{next.clinic_phone}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-primary font-medium pt-1">Toque para ver detalhes →</p>
+              </CardContent>
+            </Card>
+          </button>
         </motion.div>
       ) : (
         <Card>
@@ -228,7 +218,11 @@ export default function PatientHome() {
                 {upcoming.slice(0, 3).map((a) => {
                   const status = appointmentStatusMap[a.status] ?? { label: a.status, variant: 'outline' as const };
                   return (
-                    <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors">
+                    <button
+                      key={a.id}
+                      onClick={() => openDrawer(a)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 hover:border-primary/30 transition-all text-left"
+                    >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={a.dentist_avatar ?? undefined} />
                         <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
@@ -242,7 +236,7 @@ export default function PatientHome() {
                         </p>
                       </div>
                       <Badge variant={status.variant} className="flex-shrink-0">{status.label}</Badge>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -250,6 +244,33 @@ export default function PatientHome() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {patientIds.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.35 }}>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                  <History className="h-4 w-4" /> Atividade recente
+                </CardTitle>
+                <Button size="sm" variant="ghost" onClick={() => navigate('/paciente/historico')}>
+                  Ver tudo
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PatientTimelineMulti patientIds={patientIds} limit={3} compact />
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      <AppointmentDetailDrawer
+        appointment={selected}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onChanged={refetch}
+      />
     </div>
   );
 }

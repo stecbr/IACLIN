@@ -1,19 +1,21 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, isFuture, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Plus, CheckCircle2, XCircle, Loader2, Stethoscope } from 'lucide-react';
+import { Calendar, Plus, Loader2, Stethoscope, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { usePatientData, appointmentStatusMap, type AppointmentRow } from '@/hooks/usePatientData';
+import { AppointmentDetailDrawer } from '@/components/patient/AppointmentDetailDrawer';
 
 export default function PatientAppointments() {
   const navigate = useNavigate();
   const { appointments, loading, refetch } = usePatientData();
+  const [selected, setSelected] = useState<AppointmentRow | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const upcoming = appointments.filter(
     (a) => isFuture(parseISO(a.start_time)) && a.status !== 'cancelled'
@@ -22,18 +24,9 @@ export default function PatientAppointments() {
     (a) => isPast(parseISO(a.start_time)) || a.status === 'cancelled'
   );
 
-  const handleConfirm = async (id: string) => {
-    const { error } = await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', id);
-    if (error) return toast.error(error.message);
-    toast.success('Presença confirmada');
-    refetch();
-  };
-
-  const handleCancel = async (id: string) => {
-    const { error } = await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', id);
-    if (error) return toast.error(error.message);
-    toast.success('Consulta cancelada');
-    refetch();
+  const open = (a: AppointmentRow) => {
+    setSelected(a);
+    setDrawerOpen(true);
   };
 
   if (loading) {
@@ -72,15 +65,7 @@ export default function PatientAppointments() {
               onAction={() => navigate('/marketplace')}
             />
           ) : (
-            upcoming.map((a) => (
-              <AppointmentItem
-                key={a.id}
-                a={a}
-                onConfirm={() => handleConfirm(a.id)}
-                onCancel={() => handleCancel(a.id)}
-                showActions
-              />
-            ))
+            upcoming.map((a) => <AppointmentItem key={a.id} a={a} onClick={() => open(a)} />)
           )}
         </TabsContent>
 
@@ -88,28 +73,28 @@ export default function PatientAppointments() {
           {past.length === 0 ? (
             <EmptyState icon={Stethoscope} title="Sem histórico" description="Suas consultas anteriores aparecerão aqui." />
           ) : (
-            past.map((a) => <AppointmentItem key={a.id} a={a} />)
+            past.map((a) => <AppointmentItem key={a.id} a={a} onClick={() => open(a)} />)
           )}
         </TabsContent>
       </Tabs>
+
+      <AppointmentDetailDrawer
+        appointment={selected}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        onChanged={refetch}
+      />
     </div>
   );
 }
 
-function AppointmentItem({
-  a,
-  onConfirm,
-  onCancel,
-  showActions = false,
-}: {
-  a: AppointmentRow;
-  onConfirm?: () => void;
-  onCancel?: () => void;
-  showActions?: boolean;
-}) {
+function AppointmentItem({ a, onClick }: { a: AppointmentRow; onClick: () => void }) {
   const status = appointmentStatusMap[a.status] ?? { label: a.status, variant: 'outline' as const };
   return (
-    <Card>
+    <Card
+      className="cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all"
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <Avatar className="h-12 w-12">
@@ -129,19 +114,8 @@ function AppointmentItem({
             <p className="text-sm mt-2 capitalize">
               {format(parseISO(a.start_time), "EEEE, dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
             </p>
-            {showActions && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {a.status !== 'confirmed' && (
-                  <Button size="sm" onClick={onConfirm} className="gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" /> Confirmar
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={onCancel} className="gap-1.5">
-                  <XCircle className="h-4 w-4" /> Cancelar
-                </Button>
-              </div>
-            )}
           </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground self-center flex-shrink-0" />
         </div>
       </CardContent>
     </Card>

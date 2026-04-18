@@ -18,6 +18,7 @@ const routePermissions: RouteAccess[] = [
   { path: '/paciente', allowedRoles: ['patient'] },
   { path: '/paciente/plano', allowedRoles: ['patient'] },
   { path: '/paciente/agendas', allowedRoles: ['patient'] },
+  { path: '/paciente/historico', allowedRoles: ['patient'] },
   { path: '/paciente/exames', allowedRoles: ['patient'] },
   { path: '/paciente/configuracoes', allowedRoles: ['patient'] },
 ];

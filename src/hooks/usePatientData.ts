@@ -21,6 +21,8 @@ export interface AppointmentRow {
   dentist_id: string;
   clinic_id: string | null;
   patient_id: string;
+  procedure_id: string | null;
+  procedure_name?: string | null;
   dentist_name?: string;
   dentist_avatar?: string | null;
   clinic_name?: string;
@@ -65,13 +67,14 @@ export function usePatientData() {
           account: account as PatientAccount | null,
           appointments: [] as AppointmentRow[],
           documents: [] as DocumentRow[],
+          patientIds,
         };
       }
 
       const [{ data: appts }, { data: docs }] = await Promise.all([
         supabase
           .from('appointments')
-          .select('id, start_time, end_time, status, notes, dentist_id, clinic_id, patient_id')
+          .select('id, start_time, end_time, status, notes, dentist_id, clinic_id, patient_id, procedure_id, procedures(name)')
           .in('patient_id', patientIds)
           .order('start_time', { ascending: false }),
         supabase
@@ -96,8 +99,17 @@ export function usePatientData() {
         const profMap = new Map((profs ?? []).map((p) => [p.id, p]));
         const clinMap = new Map((clinicsRes.data ?? []).map((c: any) => [c.id, c]));
 
-        hydrated = appts.map((a) => ({
-          ...a,
+        hydrated = appts.map((a: any) => ({
+          id: a.id,
+          start_time: a.start_time,
+          end_time: a.end_time,
+          status: a.status,
+          notes: a.notes,
+          dentist_id: a.dentist_id,
+          clinic_id: a.clinic_id,
+          patient_id: a.patient_id,
+          procedure_id: a.procedure_id,
+          procedure_name: a.procedures?.name ?? null,
           dentist_name: profMap.get(a.dentist_id)?.full_name ?? 'Profissional',
           dentist_avatar: profMap.get(a.dentist_id)?.avatar_url ?? null,
           clinic_name: a.clinic_id ? (clinMap.get(a.clinic_id) as any)?.name ?? 'Clínica' : 'Clínica',
@@ -111,6 +123,7 @@ export function usePatientData() {
         account: account as PatientAccount | null,
         appointments: hydrated,
         documents: (docs ?? []) as DocumentRow[],
+        patientIds,
       };
     },
   });
@@ -121,6 +134,7 @@ export function usePatientData() {
     account: query.data?.account ?? null,
     appointments: query.data?.appointments ?? [],
     documents: query.data?.documents ?? [],
+    patientIds: query.data?.patientIds ?? [],
     loading: query.isLoading,
     refetch,
   };

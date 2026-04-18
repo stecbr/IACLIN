@@ -25,6 +25,7 @@ import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
 import PatientAppointments from "./pages/patient/PatientAppointments";
+import PatientHistory from "./pages/patient/PatientHistory";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientSettings from "./pages/patient/PatientSettings";
 
@@ -98,6 +99,7 @@ const AppRoutes = () => (
       <Route index element={<PatientHome />} />
       <Route path="plano" element={<PatientPlan />} />
       <Route path="agendas" element={<PatientAppointments />} />
+      <Route path="historico" element={<PatientHistory />} />
       <Route path="exames" element={<PatientExams />} />
       <Route path="configuracoes" element={<PatientSettings />} />
     </Route>
