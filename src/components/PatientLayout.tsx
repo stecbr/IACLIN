@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { PatientSidebar } from '@/components/PatientSidebar';
+import { PatientNotificationBell } from '@/components/patient/PatientNotificationBell';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
@@ -10,7 +11,8 @@ import logoDark from '@/assets/logo-dark.png';
 const breadcrumbMap: Record<string, string> = {
   '/paciente': 'Dashboard',
   '/paciente/plano': 'Plano de Saúde',
-  '/paciente/agendas': 'Minhas Agendas',
+  '/paciente/agendas': 'Minhas Consultas',
+  '/paciente/historico': 'Histórico',
   '/paciente/exames': 'Meus Exames',
   '/paciente/configuracoes': 'Configurações',
 };
@@ -46,6 +48,7 @@ export function PatientLayout() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <PatientNotificationBell />
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
