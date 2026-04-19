@@ -9,6 +9,13 @@ import { Map as MapIcon, List, Loader2, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { startOfDay, addDays } from "date-fns";
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function Marketplace() {
   const isMobile = useIsMobile();
   const mapRef = useRef<MarketplaceMapHandle>(null);
@@ -26,7 +33,7 @@ export default function Marketplace() {
       setLoading(true);
       const { data: members } = await supabase
         .from("clinic_members")
-        .select("user_id, clinic_id, role")
+        .select("user_id, clinic_id, role, specialty")
         .in("role", ["dentist", "admin"]);
 
       if (!members || members.length === 0) {
@@ -38,47 +45,71 @@ export default function Marketplace() {
       const userIds = [...new Set(members.map((m) => m.user_id))];
       const clinicIds = [...new Set(members.map((m) => m.clinic_id))];
 
-      const [{ data: profiles }, { data: clinics }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
-        supabase.from("clinics").select("id, name, city, state, phone, address, business_hours, zip_code").in("id", clinicIds),
-      ]);
-
       const today = startOfDay(new Date());
-      const endRange = addDays(today, 7);
-      const { data: appointments } = await supabase
-        .from("appointments")
-        .select("dentist_id, start_time, end_time, status")
-        .in("dentist_id", userIds)
-        .gte("start_time", today.toISOString())
-        .lte("start_time", endRange.toISOString())
-        .neq("status", "cancelled");
+      const endRange = addDays(today, 30);
+      const todayKey = toLocalDateStr(today);
+      const endKey = toLocalDateStr(endRange);
+
+      const [{ data: profiles }, { data: clinics }, { data: avails }, { data: appointments }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
+        supabase.from("clinics").select("id, name, city, state, phone, address, zip_code").in("id", clinicIds),
+        supabase
+          .from("professional_availability")
+          .select("user_id, clinic_id, work_date, start_time, end_time")
+          .in("user_id", userIds)
+          .gte("work_date", todayKey)
+          .lte("work_date", endKey),
+        supabase
+          .from("appointments")
+          .select("dentist_id, start_time, end_time, status")
+          .in("dentist_id", userIds)
+          .gte("start_time", today.toISOString())
+          .lte("start_time", addDays(today, 7).toISOString())
+          .neq("status", "cancelled"),
+      ]);
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
       const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
 
-      const doctorList: DoctorData[] = members.map((m) => {
-        const profile = profileMap.get(m.user_id);
-        const clinic = clinicMap.get(m.clinic_id);
-        const appts = (appointments ?? []).filter((a) => a.dentist_id === m.user_id);
-        return {
-          userId: m.user_id,
-          fullName: profile?.full_name ?? "Profissional",
-          avatarUrl: profile?.avatar_url ?? null,
-          clinicId: m.clinic_id,
-          clinicName: clinic?.name ?? "Clínica",
-          clinicCity: clinic?.city ?? null,
-          clinicState: clinic?.state ?? null,
-          clinicPhone: clinic?.phone ?? null,
-          clinicAddress: clinic?.address ?? null,
-          clinicZipCode: clinic?.zip_code ?? null,
-          businessHours: (clinic?.business_hours as any) ?? null,
-          appointments: appts.map((a) => ({
-            start_time: a.start_time,
-            end_time: a.end_time,
-            status: a.status,
-          })),
-        };
-      });
+      // Group availability by user|clinic
+      const availMap = new Map<string, { date: string; start: string; end: string }[]>();
+      for (const a of (avails ?? []) as any[]) {
+        const k = `${a.user_id}|${a.clinic_id}`;
+        const arr = availMap.get(k) ?? [];
+        arr.push({ date: a.work_date, start: a.start_time, end: a.end_time });
+        availMap.set(k, arr);
+      }
+
+      const doctorList: DoctorData[] = members
+        .filter((m) => availMap.has(`${m.user_id}|${m.clinic_id}`))
+        .map((m: any) => {
+          const profile = profileMap.get(m.user_id);
+          const clinic = clinicMap.get(m.clinic_id);
+          const appts = (appointments ?? []).filter((a) => a.dentist_id === m.user_id);
+          const shifts = (availMap.get(`${m.user_id}|${m.clinic_id}`) ?? []).sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.start.localeCompare(b.start);
+          });
+          return {
+            userId: m.user_id,
+            specialty: m.specialty ?? null,
+            fullName: profile?.full_name ?? "Profissional",
+            avatarUrl: profile?.avatar_url ?? null,
+            clinicId: m.clinic_id,
+            clinicName: clinic?.name ?? "Clínica",
+            clinicCity: clinic?.city ?? null,
+            clinicState: clinic?.state ?? null,
+            clinicPhone: clinic?.phone ?? null,
+            clinicAddress: clinic?.address ?? null,
+            clinicZipCode: clinic?.zip_code ?? null,
+            shifts,
+            appointments: appts.map((a) => ({
+              start_time: a.start_time,
+              end_time: a.end_time,
+              status: a.status,
+            })),
+          };
+        });
 
       const seen = new Set<string>();
       const unique = doctorList.filter((d) => {
@@ -108,6 +139,10 @@ export default function Marketplace() {
       const cityMatch =
         !searchCity || (d.clinicCity ?? "").toLowerCase().includes(searchCity.toLowerCase());
 
+      const specMatch =
+        selectedSpecialties.length === 0 ||
+        (d.specialty && selectedSpecialties.includes(d.specialty));
+
       // Map bounds filter
       let boundsMatch = true;
       if (mapBounds) {
@@ -123,9 +158,9 @@ export default function Marketplace() {
         }
       }
 
-      return nameMatch && cityMatch && boundsMatch;
+      return nameMatch && cityMatch && specMatch && boundsMatch;
     });
-  }, [doctors, searchName, searchCity, mapBounds, clinicCoords]);
+  }, [doctors, searchName, searchCity, selectedSpecialties, mapBounds, clinicCoords]);
 
   const clinicsGeo = useMemo(() => {
     const seen = new Set<string>();
