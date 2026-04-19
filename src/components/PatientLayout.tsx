@@ -12,6 +12,7 @@ const breadcrumbMap: Record<string, string> = {
   '/paciente': 'Dashboard',
   '/paciente/plano': 'Plano de Saúde',
   '/paciente/agendas': 'Minhas Consultas',
+  '/paciente/agendar': 'Agendar consulta',
   '/paciente/historico': 'Histórico',
   '/paciente/exames': 'Meus Exames',
   '/paciente/configuracoes': 'Configurações',
