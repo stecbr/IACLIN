@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
+import SecretariaIA from "./pages/SecretariaIA";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
@@ -111,6 +112,7 @@ const AppRoutes = () => (
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+    <Route path="/secretaria-ia" element={<ProtectedRoute><SecretariaIA /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
