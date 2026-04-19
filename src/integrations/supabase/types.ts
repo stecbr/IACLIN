@@ -188,6 +188,7 @@ export type Database = {
           id: string
           is_owner: boolean
           role: Database["public"]["Enums"]["app_role"]
+          specialty: string | null
           user_id: string
         }
         Insert: {
@@ -196,6 +197,7 @@ export type Database = {
           id?: string
           is_owner?: boolean
           role?: Database["public"]["Enums"]["app_role"]
+          specialty?: string | null
           user_id: string
         }
         Update: {
@@ -204,6 +206,7 @@ export type Database = {
           id?: string
           is_owner?: boolean
           role?: Database["public"]["Enums"]["app_role"]
+          specialty?: string | null
           user_id?: string
         }
         Relationships: [
@@ -882,6 +885,42 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+        }
+        Relationships: []
+      }
+      professional_availability: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          end_time: string
+          id: string
+          is_holiday_override: boolean
+          start_time: string
+          updated_at: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          end_time: string
+          id?: string
+          is_holiday_override?: boolean
+          start_time: string
+          updated_at?: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_holiday_override?: boolean
+          start_time?: string
+          updated_at?: string
+          user_id?: string
+          work_date?: string
         }
         Relationships: []
       }
