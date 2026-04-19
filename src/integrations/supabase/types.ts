@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_secretary_config: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          custom_prompt: string | null
+          enabled: boolean
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          custom_prompt?: string | null
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          custom_prompt?: string | null
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       anamneses: {
         Row: {
           allergies: string | null
