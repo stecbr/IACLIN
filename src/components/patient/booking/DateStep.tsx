@@ -15,7 +15,14 @@ interface DateStepProps {
   onBack: () => void;
 }
 
-const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+// removed: dayKey (now using professional_availability)
+
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStepProps) {
   const [date, setDate] = useState<Date | undefined>(selectedDate ?? undefined);
@@ -30,34 +37,45 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
     let cancelled = false;
     setLoadingPreview(true);
     (async () => {
-      const dow = dayKey[date.getDay()];
+      const dateKey = toLocalDateStr(date);
 
-      // Fetch clinics that match category
-      const targetCategory = specialty.category;
-      let clinicsQuery = supabase.from('clinics').select('id, business_hours, category');
-      if (targetCategory) {
-        clinicsQuery = clinicsQuery.eq('category', targetCategory);
+      // Find members with this specialty
+      const { data: members } = await supabase
+        .from('clinic_members')
+        .select('user_id, clinic_id')
+        .eq('specialty' as any, specialty.id)
+        .in('role', ['dentist', 'admin']);
+
+      if (!members || members.length === 0) {
+        if (!cancelled) { setPreview({ clinics: 0, pros: 0 }); setLoadingPreview(false); }
+        return;
       }
-      const { data: clinics } = await clinicsQuery;
 
-      const openClinics = (clinics ?? []).filter((c: any) => {
-        const bh = c.business_hours?.[dow];
-        return bh?.enabled === true;
-      });
+      const userIds = [...new Set(members.map((m: any) => m.user_id))];
+      const clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
 
-      const clinicIds = openClinics.map((c: any) => c.id);
-      let pros = 0;
-      if (clinicIds.length > 0) {
-        const { data: members } = await supabase
-          .from('clinic_members')
-          .select('user_id, role')
-          .in('clinic_id', clinicIds)
-          .in('role', ['dentist', 'admin']);
-        pros = members?.length ?? 0;
+      const { data: avails } = await supabase
+        .from('professional_availability')
+        .select('user_id, clinic_id')
+        .in('user_id', userIds)
+        .in('clinic_id', clinicIds)
+        .eq('work_date', dateKey);
+
+      const activeUsers = new Set<string>();
+      const activeClinics = new Set<string>();
+      for (const a of (avails ?? []) as any[]) {
+        // Only count combinations that match a member with this specialty
+        const matched = members.find(
+          (m: any) => m.user_id === a.user_id && m.clinic_id === a.clinic_id
+        );
+        if (matched) {
+          activeUsers.add(a.user_id);
+          activeClinics.add(a.clinic_id);
+        }
       }
 
       if (!cancelled) {
-        setPreview({ clinics: openClinics.length, pros });
+        setPreview({ clinics: activeClinics.size, pros: activeUsers.size });
         setLoadingPreview(false);
       }
     })();
