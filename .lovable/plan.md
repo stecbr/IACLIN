@@ -1,91 +1,55 @@
 
 
-User wants the first 3 items implemented together:
-1. Agendamento direto pelo painel + detalhe da consulta com mapa/WhatsApp
-2. Notificações em tempo real (sino + toasts)
-3. Timeline de histórico clínico
+## Nova área "Agendar consulta" dentro do painel do paciente
 
-## Plano: 3 melhorias na área do paciente
+Fluxo independente do Marketplace, com 4 etapas progressivas em uma única rota: `/paciente/agendar`.
 
-### 1. Agendamento direto + Detalhe da consulta
+### Etapa 1 — Escolha de especialidade
+- Cards grandes com ícones: Clínico Geral, Dentista, Cardiologista, Dermatologista, Pediatra, Ginecologista, etc. (deriva da `category` da clínica + especialidades comuns)
+- Barra de busca no topo (filtra cards em tempo real)
+- Seção "Mais procurados" acima (atalhos rápidos: Clínico Geral, Renovação de receita, Limpeza dental, Avaliação)
+- Animação de entrada suave (Framer Motion stagger)
 
-**Novo:** `src/components/patient/AppointmentDetailDrawer.tsx`
-- Drawer (Sheet) que abre ao clicar numa consulta em `PatientAppointments` ou no card "Próxima consulta" do `PatientHome`
-- Mostra: dentista (avatar + nome), clínica (nome, endereço, telefone), data/hora formatada, status, procedimento, observações
-- Mini-mapa Leaflet (reusa padrão de `MarketplaceMap` — imperativo via ref) com marcador na clínica
-- Botões: "Abrir no Google Maps" (link externo), "WhatsApp da clínica" (`https://wa.me/...`), "Cancelar consulta", "Confirmar presença"
+### Etapa 2 — Escolha de dia
+- Calendário (`shadcn/ui Calendar`) com `pointer-events-auto`
+- Datas passadas e domingos desabilitados
+- Mostra prévia de quantas clínicas/profissionais estão disponíveis na data selecionada
 
-**Modificar:** `src/hooks/usePatientData.ts`
-- Adicionar `procedure_id` + `procedure_name` ao select de appointments (join com `procedures`)
-- Adicionar `latitude`/`longitude` ao select de clinics (se existir; senão geocode via `lib/geocode.ts` no drawer)
+### Etapa 3 — Clínica + profissional + horário
+- Lista de clínicas que oferecem a especialidade escolhida (filtra `clinics` pela `category` ou via `clinic_members.role`)
+- Cada clínica expande mostrando os profissionais (`clinic_members` + `profiles`)
+- Para cada profissional, gera **slots de 30 min** baseados em:
+  - `clinics.business_hours` do dia escolhido
+  - menos `appointments` já marcados naquele intervalo
+- Slots clicáveis em grid (estilo Doctoralia)
 
-**Modificar:** `src/pages/patient/PatientHome.tsx` + `PatientAppointments.tsx`
-- Tornar cards de consulta clicáveis → abrem o drawer
-- Botão "Agendar consulta" já existe → garantir que `MarketplaceHeader` reconhece o paciente logado e o `BookingConfirmation` pré-preenche dados (já feito anteriormente)
+### Etapa 4 — Resumo e confirmação
+- Card com: especialidade, clínica (nome + endereço), profissional (avatar + nome), data/hora formatada
+- Campo opcional "Motivo da consulta" (vai pra `appointments.notes`)
+- Botões: **Voltar** (volta etapa) e **Confirmar agendamento**
+- Ao confirmar: cria registro em `appointments` com status `pending`, vincula `patient_id` (busca/cria patient via CPF do `patient_account`), dispara notificação pra clínica (trigger já existente), redireciona pra `/paciente/agendas` com toast de sucesso
 
-### 2. Notificações em tempo real
+### Componentes a criar
+- `src/pages/patient/PatientBooking.tsx` — página orquestradora com state machine das 4 etapas
+- `src/components/patient/booking/SpecialtyStep.tsx`
+- `src/components/patient/booking/DateStep.tsx`
+- `src/components/patient/booking/ClinicDoctorStep.tsx`
+- `src/components/patient/booking/SummaryStep.tsx`
+- `src/components/patient/booking/BookingProgress.tsx` — indicador de etapa (1/4)
 
-**Novo:** `src/hooks/usePatientNotifications.ts`
-- Query `notifications` filtrando por `user_id = auth.uid()` (RLS já permite)
-- Subscription Supabase Realtime no canal `notifications` para INSERT
-- Ao receber: `toast.success/info` + invalidar query
-- Retorna: `{ notifications, unreadCount, markAsRead, markAllAsRead }`
+### Integração no painel
+- `PatientHome.tsx`: botão "Agendar nova consulta" passa a navegar pra `/paciente/agendar` (não mais `/marketplace`)
+- `PatientSidebar.tsx`: novo item "Agendar" com ícone `CalendarPlus`
+- `App.tsx`: nova rota `/paciente/agendar` dentro do `PatientLayout`
+- Mantém o Marketplace público intacto (B2C separado do painel logado)
 
-**Migration necessária:**
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.appointments;
--- Trigger novo: notificar paciente quando appointment muda status
-CREATE OR REPLACE FUNCTION notify_patient_appointment_change() ...
--- INSERT em notifications com user_id = patients.patient_user_id
-```
+### Banco de dados
+- Nenhuma alteração de schema. Usa tabelas existentes: `clinics`, `clinic_members`, `profiles`, `appointments`, `patients`, `patient_accounts`, `procedures`
+- Lógica de "garantir patient na clínica" no momento de confirmar: se não existe `patients` com `cpf` do paciente naquela `clinic_id`, insere; senão reutiliza
 
-**Modificar:** `src/components/PatientLayout.tsx`
-- Adicionar `<PatientNotificationBell />` ao header (espelha `NotificationBell` da clínica, mas com hook próprio)
-
-**Novo:** `src/components/patient/PatientNotificationBell.tsx`
-- Popover com lista de notificações, badge animado de não lidas, "marcar todas como lidas"
-
-**Bonus:** Subscription também em `appointments` (filtro `patient_id`) para invalidar `usePatientData` em tempo real
-
-### 3. Timeline de histórico clínico
-
-**Novo:** `src/pages/patient/PatientHistory.tsx`
-- Reusa `PatientTimeline` (já existe em `src/components/patients/PatientTimeline.tsx`)
-- MAS: o componente atual recebe `patientId` (clinic patient row). Precisamos passar todos os `patient.id` vinculados ao `patient_user_id` (paciente pode ter prontuário em várias clínicas)
-- Solução: criar `PatientTimelineMulti` que aceita `patientIds: string[]` e faz `.in('patient_id', ids)` nas queries
-
-**Novo:** `src/components/patient/PatientTimelineMulti.tsx`
-- Cópia adaptada de `PatientTimeline` aceitando array de IDs
-- Mesmo design (linha vertical, dots coloridos, cards com hover)
-
-**Modificar:** `src/components/PatientSidebar.tsx`
-- Adicionar item "Histórico" entre "Minhas Consultas" e "Meus Exames" — ícone `History` (lucide)
-
-**Modificar:** `src/App.tsx`
-- Nova rota `/paciente/historico` → `<PatientHistory />`
-
-**Modificar:** `src/hooks/useRoleAccess.ts`
-- Permitir `/paciente/historico` para role `patient`
-
-**Modificar:** `src/pages/patient/PatientHome.tsx`
-- Adicionar mini-preview da timeline (últimos 3 eventos) com link "Ver tudo"
-
-### Resumo de arquivos
-
-**Novos (6):**
-- `src/components/patient/AppointmentDetailDrawer.tsx`
-- `src/components/patient/PatientNotificationBell.tsx`
-- `src/components/patient/PatientTimelineMulti.tsx`
-- `src/hooks/usePatientNotifications.ts`
-- `src/pages/patient/PatientHistory.tsx`
-- 1 migration SQL (realtime + trigger paciente)
-
-**Modificados (6):**
-- `src/hooks/usePatientData.ts` (+ procedure, + lat/lng, + lista de patientIds exposta)
-- `src/pages/patient/PatientHome.tsx` (drawer + mini-timeline)
-- `src/pages/patient/PatientAppointments.tsx` (drawer)
-- `src/components/PatientLayout.tsx` (+ bell)
-- `src/components/PatientSidebar.tsx` (+ Histórico)
-- `src/App.tsx` + `src/hooks/useRoleAccess.ts` (rota nova)
+### UX details
+- Transições suaves entre etapas (slide horizontal sutil + fade)
+- Mobile-first (bottom nav continua visível)
+- Empty states ilustrados ("Nenhum horário disponível neste dia — tente outra data")
+- Loading skeletons em cada etapa enquanto busca
 
