@@ -3,7 +3,7 @@
 
 const BASE_URL =
   (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.replace(/\/$/, '') ||
-  'http://localhost:3333';
+  'https://bitter-oranges-battle.loca.lt';
 
 export interface WhatsAppStatus {
   connected: boolean;
