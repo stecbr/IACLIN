@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   Bot,
+  CalendarClock,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -42,6 +43,7 @@ import {
 const mainNav = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Agenda', url: '/agenda', icon: Calendar },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
 ];
 
 const clinicNav = [

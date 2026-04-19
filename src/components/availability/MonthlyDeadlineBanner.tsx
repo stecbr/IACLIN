@@ -1,5 +1,5 @@
 import { AlertTriangle, CalendarClock, CheckCircle2 } from 'lucide-react';
-import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 

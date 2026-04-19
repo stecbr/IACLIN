@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ptBR } from 'date-fns/locale';
-import { isSameDay, startOfDay } from 'date-fns';
+import { startOfDay } from 'date-fns';
 import { getHolidaysForMonth, toLocalDateStr, type HolidayInfo } from '@/lib/holidays';
 import { useState } from 'react';
 
