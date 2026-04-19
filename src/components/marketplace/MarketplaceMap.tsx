@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { geocodeAddress } from "@/lib/geocode";
 import { cn } from "@/lib/utils";
-import { format, addDays, parse, isAfter, isBefore, startOfDay, isSameDay } from "date-fns";
+import { format, parseISO, isAfter, isBefore, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import type { DoctorData } from "./DoctorCard";
