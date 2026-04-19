@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 
@@ -47,6 +47,7 @@ export default function Auth() {
   const [submitting, setSubmitting] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   if (loading) {
     return (
@@ -191,7 +192,18 @@ export default function Auth() {
                     <Label htmlFor="password">Senha</Label>
                     <button type="button" className="text-xs text-primary hover:underline">Esqueci minha senha</button>
                   </div>
-                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10" />
+                  <div className="relative">
+                    <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10 pr-10" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-md"
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </motion.div>
                 <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.3 }}>
                   <Button type="submit" className="w-full h-10" disabled={submitting}>
@@ -350,7 +362,18 @@ export default function Auth() {
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="signup-password">Senha</Label>
-                  <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10" />
+                  <div className="relative">
+                    <Input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10 pr-10" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-md"
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </motion.div>
 
                 {isPatientSignup && (
