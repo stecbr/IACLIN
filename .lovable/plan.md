@@ -1,55 +1,56 @@
 
 
-## Nova área "Agendar consulta" dentro do painel do paciente
+## Update SpecialtyStep with full alphabetical list + help modal
 
-Fluxo independente do Marketplace, com 4 etapas progressivas em uma única rota: `/paciente/agendar`.
+### Changes to `src/components/patient/booking/SpecialtyStep.tsx`
 
-### Etapa 1 — Escolha de especialidade
-- Cards grandes com ícones: Clínico Geral, Dentista, Cardiologista, Dermatologista, Pediatra, Ginecologista, etc. (deriva da `category` da clínica + especialidades comuns)
-- Barra de busca no topo (filtra cards em tempo real)
-- Seção "Mais procurados" acima (atalhos rápidos: Clínico Geral, Renovação de receita, Limpeza dental, Avaliação)
-- Animação de entrada suave (Framer Motion stagger)
+**1. Replace `SPECIALTIES` constant** with the full list (~70 items) from the user, each with an appropriate Lucide icon and starting letter for grouping. Categories kept (`medico`, `odonto`, `estetica`).
 
-### Etapa 2 — Escolha de dia
-- Calendário (`shadcn/ui Calendar`) com `pointer-events-auto`
-- Datas passadas e domingos desabilitados
-- Mostra prévia de quantas clínicas/profissionais estão disponíveis na data selecionada
+**2. Keep popular shortcuts** (Clínico Geral, Dentista, Limpeza Dental, Renovação de Receita, Avaliação) — remove the 🔥 emoji from the heading; keep just "Mais procurados".
 
-### Etapa 3 — Clínica + profissional + horário
-- Lista de clínicas que oferecem a especialidade escolhida (filtra `clinics` pela `category` ou via `clinic_members.role`)
-- Cada clínica expande mostrando os profissionais (`clinic_members` + `profiles`)
-- Para cada profissional, gera **slots de 30 min** baseados em:
-  - `clinics.business_hours` do dia escolhido
-  - menos `appointments` já marcados naquele intervalo
-- Slots clicáveis em grid (estilo Doctoralia)
+**3. Keep existing card structure** (current grid + hover lift + icon tile) exactly as-is.
 
-### Etapa 4 — Resumo e confirmação
-- Card com: especialidade, clínica (nome + endereço), profissional (avatar + nome), data/hora formatada
-- Campo opcional "Motivo da consulta" (vai pra `appointments.notes`)
-- Botões: **Voltar** (volta etapa) e **Confirmar agendamento**
-- Ao confirmar: cria registro em `appointments` com status `pending`, vincula `patient_id` (busca/cria patient via CPF do `patient_account`), dispara notificação pra clínica (trigger já existente), redireciona pra `/paciente/agendas` com toast de sucesso
+**4. Group rendering**: When no search query, after "Mais procurados" section, render specialties grouped by first letter:
+   - Compute `useMemo` that groups `SPECIALTIES` by `name[0].toUpperCase()` and sorts alphabetically.
+   - Render each letter as a section: small uppercase header "Letra A" / "Letra B" etc. (matches user's wording), then the same card grid below.
+   - When searching, keep current flat filtered grid.
 
-### Componentes a criar
-- `src/pages/patient/PatientBooking.tsx` — página orquestradora com state machine das 4 etapas
-- `src/components/patient/booking/SpecialtyStep.tsx`
-- `src/components/patient/booking/DateStep.tsx`
-- `src/components/patient/booking/ClinicDoctorStep.tsx`
-- `src/components/patient/booking/SummaryStep.tsx`
-- `src/components/patient/booking/BookingProgress.tsx` — indicador de etapa (1/4)
+**5. Help button + modal** at the bottom of the list:
+   - Button (full width, outlined, with `HelpCircle` icon): "Não encontrei a especialidade desejada".
+   - Opens a `Dialog` (`@/components/ui/dialog`) — already in the project and respects the global fade-only animation rule.
+   - Modal content:
+     - Centered circular icon tile with `HelpCircle` (?) in primary color.
+     - Title: "Não encontrou a especialidade?"
+     - Body: "Verifique com a sua rede de atendimento. Fale com o atendimento."
+     - Button: "Falar com atendimento" (layout only, no handler yet — `onClick` is a no-op placeholder).
 
-### Integração no painel
-- `PatientHome.tsx`: botão "Agendar nova consulta" passa a navegar pra `/paciente/agendar` (não mais `/marketplace`)
-- `PatientSidebar.tsx`: novo item "Agendar" com ícone `CalendarPlus`
-- `App.tsx`: nova rota `/paciente/agendar` dentro do `PatientLayout`
-- Mantém o Marketplace público intacto (B2C separado do painel logado)
+### Icon mapping plan (Lucide)
+Reuse existing icons where possible; map new ones sensibly:
+- Acupuntura → `Sparkle`, Alergologia → `Wind`, Anestesiologia → `Syringe`, Angiologia → `Activity`, Avaliação Bariátrica → `Scale`, Avaliação Risco Cirúrgico → `ClipboardCheck`
+- Cardiologia → `Heart`, Cirurgias → `Scissors` (variants), Clínico Geral → `Stethoscope`
+- Dermatologia → `Hand`, Dor de Cabeça → `Brain`, Dor Costas → `PersonStanding`, Refluxo → `Flame`
+- Endocrinologia → `Droplet`, Enfermagem → `HeartHandshake`
+- Fisioterapia → `Dumbbell`, Fonoaudiologia → `Mic`
+- Gastroenterologia → `Soup`, Genética → `Dna`
+- Hematologia → `Droplets`, Homeopatia → `Leaf`
+- Infectologia → `Bug`
+- Mastologia → `Ribbon` (fallback `Heart`)
+- Nefrologia → `Droplet`, Neurocirurgia/Neurologia → `Brain`, Nutrição/Nutrologia → `Apple`
+- Oftalmologia → `Eye`, Oncologia → `Ribbon`/`Activity`, Ortopedia → `Bone`, Otorrino → `Ear`
+- Pneumologia → `Wind`, Proctologia → `Stethoscope`, Psicologia/Psiquiatria/Psico* → `Brain`
+- Renovação Receitas → `Pill`, Reumatologia → `Bone`
+- Terapia Ocupacional → `HandHeart` (fallback `Hand`), Triagem Fono → `Mic`
+- Urologia → `Droplet`
+- Dentista → `Smile`, Limpeza Dental → `Sparkles`, Estética → `Sparkles`
 
-### Banco de dados
-- Nenhuma alteração de schema. Usa tabelas existentes: `clinics`, `clinic_members`, `profiles`, `appointments`, `patients`, `patient_accounts`, `procedures`
-- Lógica de "garantir patient na clínica" no momento de confirmar: se não existe `patients` com `cpf` do paciente naquela `clinic_id`, insere; senão reutiliza
+Will verify each icon name exists in `lucide-react` before writing (fall back to `Stethoscope` if a name is missing).
 
-### UX details
-- Transições suaves entre etapas (slide horizontal sutil + fade)
-- Mobile-first (bottom nav continua visível)
-- Empty states ilustrados ("Nenhum horário disponível neste dia — tente outra data")
-- Loading skeletons em cada etapa enquanto busca
+### What stays the same
+- Card visual treatment (icon tile + name + category subtitle).
+- Search behavior, popular shortcuts logic, animations.
+- Parent flow in `PatientBooking.tsx` — no changes needed.
+
+### Out of scope
+- "Falar com atendimento" action wiring (button is layout-only per user request).
+- New routes, DB or schema changes.
 
