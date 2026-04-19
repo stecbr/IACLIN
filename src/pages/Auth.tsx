@@ -47,6 +47,7 @@ export default function Auth() {
   const [submitting, setSubmitting] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   if (loading) {
     return (
