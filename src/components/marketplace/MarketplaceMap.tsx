@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { geocodeAddress } from "@/lib/geocode";
 import { cn } from "@/lib/utils";
-import { format, addDays, parse, isAfter, isBefore, startOfDay, isSameDay } from "date-fns";
+import { format, isAfter, isBefore, isSameDay, parseISO, addDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import type { DoctorData } from "./DoctorCard";
@@ -62,30 +62,37 @@ function createHighlightIcon() {
   });
 }
 
-const DAY_MAP: Record<number, string> = {
-  0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat",
-};
+import type { AvailabilityShift } from "./DoctorCard";
 
-function generateSlots(date: Date, bh: any, appointments: any[]): string[] {
-  const dayKey = DAY_MAP[date.getDay()];
-  const dayConfig = bh?.[dayKey];
-  if (!dayConfig?.enabled) return [];
-  const openTime = parse(dayConfig.open, "HH:mm", date);
-  const closeTime = parse(dayConfig.close, "HH:mm", date);
+function generateSlots(date: Date, shifts: AvailabilityShift[], appointments: any[]): string[] {
+  const dateKey = format(date, "yyyy-MM-dd");
+  const dayShifts = shifts.filter((s) => s.date === dateKey);
+  if (dayShifts.length === 0) return [];
+
   const now = new Date();
   const slots: string[] = [];
-  let cursor = openTime;
-  while (isBefore(cursor, closeTime)) {
-    const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
-    if (isSameDay(date, now) && isBefore(cursor, now)) { cursor = slotEnd; continue; }
-    const hasConflict = appointments.some((apt) => {
-      if (apt.status === "cancelled") return false;
-      const aptStart = new Date(apt.start_time);
-      const aptEnd = new Date(apt.end_time);
-      return isBefore(cursor, aptEnd) && isAfter(slotEnd, aptStart);
-    });
-    if (!hasConflict) slots.push(format(cursor, "HH:mm"));
-    cursor = slotEnd;
+
+  for (const sh of dayShifts) {
+    const [oh, om] = sh.start.split(":").map(Number);
+    const [ch, cm] = sh.end.split(":").map(Number);
+    const start = new Date(date);
+    start.setHours(oh, om, 0, 0);
+    const end = new Date(date);
+    end.setHours(ch, cm, 0, 0);
+
+    let cursor = new Date(start);
+    while (cursor < end) {
+      const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
+      if (isSameDay(date, now) && isBefore(cursor, now)) { cursor = slotEnd; continue; }
+      const hasConflict = appointments.some((apt) => {
+        if (apt.status === "cancelled") return false;
+        const aptStart = new Date(apt.start_time);
+        const aptEnd = new Date(apt.end_time);
+        return isBefore(cursor, aptEnd) && isAfter(slotEnd, aptStart);
+      });
+      if (!hasConflict) slots.push(format(cursor, "HH:mm"));
+      cursor = slotEnd;
+    }
   }
   return slots;
 }
@@ -110,7 +117,7 @@ function SidebarDoctorItem({ doctor, onFocus }: SidebarDoctorItemProps) {
     return Array.from({ length: 4 }, (_, i) => {
       const date = addDays(today, i);
       const dayAppts = doctor.appointments.filter((a) => isSameDay(new Date(a.start_time), date));
-      const slots = generateSlots(date, doctor.businessHours, dayAppts);
+      const slots = generateSlots(date, doctor.shifts, dayAppts);
       return { date, slots };
     });
   }, [doctor]);
