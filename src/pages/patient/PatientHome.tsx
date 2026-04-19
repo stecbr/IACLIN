@@ -59,7 +59,7 @@ export default function PatientHome() {
       </motion.div>
 
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => navigate('/marketplace')} className="gap-2">
+        <Button onClick={() => navigate('/paciente/agendar')} className="gap-2">
           <Plus className="h-4 w-4" />
           Agendar nova consulta
         </Button>
@@ -134,7 +134,7 @@ export default function PatientHome() {
               <p className="font-medium">Nenhuma consulta agendada</p>
               <p className="text-sm text-muted-foreground">Encontre profissionais e marque sua próxima consulta.</p>
             </div>
-            <Button onClick={() => navigate('/marketplace')} size="sm" className="gap-1.5">
+            <Button onClick={() => navigate('/paciente/agendar')} size="sm" className="gap-1.5">
               <Plus className="h-4 w-4" /> Agendar agora
             </Button>
           </CardContent>
