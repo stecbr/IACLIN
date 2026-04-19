@@ -1022,6 +1022,30 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_instances: {
+        Row: {
+          clinic_id: string
+          created_at: string | null
+          id: string
+          instance_name: string
+          qr_code_url: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string | null
+          id?: string
+          instance_name: string
+          qr_code_url?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string | null
+          id?: string
+          instance_name?: string
+          qr_code_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
