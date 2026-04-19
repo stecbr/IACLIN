@@ -3,7 +3,7 @@
 
 const BASE_URL =
   (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.replace(/\/$/, '') ||
-  'https://bitter-oranges-battle.loca.lt';
+  'https://turtle-employee-switching-bid.trycloudflare.com';
 
 export interface WhatsAppStatus {
   connected: boolean;
