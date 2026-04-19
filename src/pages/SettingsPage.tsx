@@ -18,9 +18,11 @@ import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
+import SpecialtySection from '@/components/settings/SpecialtySection';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
+  { id: 'specialty', label: 'Especialidade', icon: Stethoscope },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'team', label: 'Equipe', icon: Users },
   { id: 'rooms', label: 'Salas', icon: Armchair },
@@ -54,6 +56,7 @@ export default function SettingsPage() {
         </nav>
         <div className="flex-1 min-w-0 space-y-6">
           {activeSection === 'profile' && <ProfileSection />}
+          {activeSection === 'specialty' && <SpecialtySection />}
           {activeSection === 'clinic' && <ClinicSection />}
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'rooms' && <ClinicRoomsSection />}

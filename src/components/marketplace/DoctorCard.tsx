@@ -1,12 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, addDays, parse, isAfter, isBefore, startOfDay, isSameDay } from "date-fns";
+import { format, parseISO, isAfter, isBefore, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { MapPin, Phone, ChevronRight, Sparkles } from "lucide-react";
 
 interface Appointment {
   start_time: string;
@@ -14,12 +13,15 @@ interface Appointment {
   status: string;
 }
 
-interface BusinessHours {
-  [key: string]: { open: string; close: string; enabled: boolean };
+export interface AvailabilityShift {
+  date: string; // YYYY-MM-DD
+  start: string; // HH:MM:SS
+  end: string;
 }
 
 export interface DoctorData {
   userId: string;
+  specialty: string | null;
   fullName: string;
   avatarUrl: string | null;
   clinicId: string;
@@ -29,41 +31,48 @@ export interface DoctorData {
   clinicPhone: string | null;
   clinicAddress: string | null;
   clinicZipCode: string | null;
-  businessHours: BusinessHours | null;
+  shifts: AvailabilityShift[];
   appointments: Appointment[];
 }
 
-const DAY_MAP: Record<number, string> = {
-  0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat",
-};
+function generateSlotsForDate(
+  shifts: AvailabilityShift[],
+  date: Date,
+  appointments: Appointment[]
+): string[] {
+  const dateKey = format(date, "yyyy-MM-dd");
+  const dayShifts = shifts.filter((s) => s.date === dateKey);
+  if (dayShifts.length === 0) return [];
 
-function generateSlots(date: Date, bh: BusinessHours | null, appointments: Appointment[]): string[] {
-  const dayKey = DAY_MAP[date.getDay()];
-  const dayConfig = bh?.[dayKey];
-  if (!dayConfig?.enabled) return [];
-
-  const openTime = parse(dayConfig.open, "HH:mm", date);
-  const closeTime = parse(dayConfig.close, "HH:mm", date);
   const now = new Date();
   const slots: string[] = [];
 
-  let cursor = openTime;
-  while (isBefore(cursor, closeTime)) {
-    const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
-    if (isSameDay(date, now) && isBefore(cursor, now)) {
+  for (const sh of dayShifts) {
+    const [oh, om] = sh.start.split(":").map(Number);
+    const [ch, cm] = sh.end.split(":").map(Number);
+    const start = new Date(date);
+    start.setHours(oh, om, 0, 0);
+    const end = new Date(date);
+    end.setHours(ch, cm, 0, 0);
+
+    let cursor = new Date(start);
+    while (cursor < end) {
+      const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
+      if (isSameDay(date, now) && isBefore(cursor, now)) {
+        cursor = slotEnd;
+        continue;
+      }
+      const conflict = appointments.some((apt) => {
+        if (apt.status === "cancelled") return false;
+        const aptStart = new Date(apt.start_time);
+        const aptEnd = new Date(apt.end_time);
+        return isBefore(cursor, aptEnd) && isAfter(slotEnd, aptStart);
+      });
+      if (!conflict) {
+        slots.push(format(cursor, "HH:mm"));
+      }
       cursor = slotEnd;
-      continue;
     }
-    const hasConflict = appointments.some((apt) => {
-      if (apt.status === "cancelled") return false;
-      const aptStart = new Date(apt.start_time);
-      const aptEnd = new Date(apt.end_time);
-      return isBefore(cursor, aptEnd) && isAfter(slotEnd, aptStart);
-    });
-    if (!hasConflict) {
-      slots.push(format(cursor, "HH:mm"));
-    }
-    cursor = slotEnd;
   }
   return slots;
 }
@@ -77,16 +86,26 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
   const navigate = useNavigate();
   const [showMore, setShowMore] = useState(false);
 
+  // Group days from shifts
   const days = useMemo(() => {
-    const today = startOfDay(new Date());
-    const numDays = showMore ? 7 : 4;
-    return Array.from({ length: numDays }, (_, i) => {
-      const date = addDays(today, i);
+    const uniqueDates = [...new Set(doctor.shifts.map((s) => s.date))].sort();
+    const limit = showMore ? 7 : 4;
+    return uniqueDates.slice(0, limit).map((dateStr) => {
+      const date = parseISO(dateStr);
       const dayAppts = doctor.appointments.filter((a) => isSameDay(new Date(a.start_time), date));
-      const slots = generateSlots(date, doctor.businessHours, dayAppts);
+      const slots = generateSlotsForDate(doctor.shifts, date, dayAppts);
       return { date, slots };
     });
   }, [doctor, showMore]);
+
+  const nextSlot = useMemo(() => {
+    for (const day of days) {
+      if (day.slots.length > 0) {
+        return { date: day.date, time: day.slots[0] };
+      }
+    }
+    return null;
+  }, [days]);
 
   const initials = doctor.fullName
     .split(" ")
@@ -134,53 +153,63 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
                 <span>{doctor.clinicPhone}</span>
               </div>
             )}
+            {nextSlot && (
+              <div className="mt-1.5 flex items-center gap-1 text-xs text-primary font-medium">
+                <Sparkles className="h-3 w-3" />
+                <span>
+                  Próximo horário: {format(nextSlot.date, "dd/MM", { locale: ptBR })} às {nextSlot.time}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Schedule grid */}
-        <div className="mt-4">
-          <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(days.length, 4)}, 1fr)` }}>
-            {days.map(({ date, slots }) => (
-              <div key={date.toISOString()} className="min-w-0">
-                <p className="mb-1.5 text-center text-xs font-medium capitalize text-muted-foreground">
-                  {format(date, "EEE, dd/MM", { locale: ptBR })}
-                </p>
-                <div className="flex flex-col gap-1">
-                  {slots.length === 0 ? (
-                    <span className="py-2 text-center text-[11px] text-muted-foreground/60">—</span>
-                  ) : (
-                    slots.slice(0, 4).map((time) => (
-                      <Button
-                        key={time}
-                        variant="outline"
-                        size="sm"
-                        className="h-7 w-full text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground"
-                        onClick={() => handleSlotClick(date, time)}
-                      >
-                        {time}
-                      </Button>
-                    ))
-                  )}
-                  {slots.length > 4 && (
-                    <span className="text-center text-[11px] text-muted-foreground">
-                      +{slots.length - 4} horários
-                    </span>
-                  )}
+        {days.length > 0 && (
+          <div className="mt-4">
+            <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(days.length, 4)}, 1fr)` }}>
+              {days.map(({ date, slots }) => (
+                <div key={date.toISOString()} className="min-w-0">
+                  <p className="mb-1.5 text-center text-xs font-medium capitalize text-muted-foreground">
+                    {format(date, "EEE, dd/MM", { locale: ptBR })}
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {slots.length === 0 ? (
+                      <span className="py-2 text-center text-[11px] text-muted-foreground/60">—</span>
+                    ) : (
+                      slots.slice(0, 4).map((time) => (
+                        <Button
+                          key={time}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 w-full text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => handleSlotClick(date, time)}
+                        >
+                          {time}
+                        </Button>
+                      ))
+                    )}
+                    {slots.length > 4 && (
+                      <span className="text-center text-[11px] text-muted-foreground">
+                        +{slots.length - 4} horários
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            {!showMore && doctor.shifts.length > 4 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 w-full text-xs text-primary"
+                onClick={() => setShowMore(true)}
+              >
+                Mostrar mais horários <ChevronRight className="h-3 w-3" />
+              </Button>
+            )}
           </div>
-          {!showMore && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2 w-full text-xs text-primary"
-              onClick={() => setShowMore(true)}
-            >
-              Mostrar mais horários <ChevronRight className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Loader2, Building2, MapPin, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { Building2, MapPin, Clock, Calendar as CalendarIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,8 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { Specialty } from './SpecialtyStep';
-
-const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 export interface BookingSelection {
   clinicId: string;
@@ -32,29 +30,43 @@ interface ClinicDoctorStepProps {
   onBack: () => void;
 }
 
+interface DoctorWithShifts {
+  id: string;
+  name: string;
+  avatar: string | null;
+  shifts: { start: string; end: string }[]; // HH:MM
+}
+
 interface ClinicWithDoctors {
   id: string;
   name: string;
   address: string | null;
   city: string | null;
-  open: string;
-  close: string;
-  doctors: { id: string; name: string; avatar: string | null }[];
-  bookedSlots: Set<string>; // ISO string of start_time per dentist: `${dentistId}|${iso}`
+  doctors: DoctorWithShifts[];
+  bookedSlots: Set<string>; // `${dentistId}|${iso}`
 }
 
-function generateSlots(open: string, close: string, date: Date): Date[] {
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function generateSlots(shifts: { start: string; end: string }[], date: Date): Date[] {
   const slots: Date[] = [];
-  const [oh, om] = open.split(':').map(Number);
-  const [ch, cm] = close.split(':').map(Number);
-  const start = new Date(date);
-  start.setHours(oh, om, 0, 0);
-  const end = new Date(date);
-  end.setHours(ch, cm, 0, 0);
-  const cur = new Date(start);
-  while (cur < end) {
-    slots.push(new Date(cur));
-    cur.setMinutes(cur.getMinutes() + 30);
+  for (const sh of shifts) {
+    const [oh, om] = sh.start.split(':').map(Number);
+    const [ch, cm] = sh.end.split(':').map(Number);
+    const start = new Date(date);
+    start.setHours(oh, om, 0, 0);
+    const end = new Date(date);
+    end.setHours(ch, cm, 0, 0);
+    const cur = new Date(start);
+    while (cur < end) {
+      slots.push(new Date(cur));
+      cur.setMinutes(cur.getMinutes() + 30);
+    }
   }
   return slots;
 }
@@ -69,77 +81,102 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
     setLoading(true);
 
     (async () => {
-      const dow = dayKey[date.getDay()];
+      const dateKey = toLocalDateStr(date);
 
-      let clinicsQuery = supabase.from('clinics').select('id, name, address, city, business_hours, category');
-      if (specialty.category) clinicsQuery = clinicsQuery.eq('category', specialty.category);
-      const { data: clinicsData } = await clinicsQuery;
+      // 1. Fetch all members with this specialty
+      const { data: members } = await supabase
+        .from('clinic_members')
+        .select('clinic_id, user_id, role, specialty')
+        .filter('specialty', 'eq', specialty.id)
+        .in('role', ['dentist', 'admin']);
 
-      const openClinics = (clinicsData ?? []).filter((c: any) => c.business_hours?.[dow]?.enabled === true);
-      const clinicIds = openClinics.map((c: any) => c.id);
-
-      if (clinicIds.length === 0) {
-        if (!cancelled) {
-          setClinics([]);
-          setLoading(false);
-        }
+      if (!members || members.length === 0) {
+        if (!cancelled) { setClinics([]); setLoading(false); }
         return;
       }
 
-      const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
+      const userIds = [...new Set(members.map((m: any) => m.user_id))];
+      const clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
 
-      const [{ data: members }, { data: appts }] = await Promise.all([
-        supabase
-          .from('clinic_members')
-          .select('clinic_id, user_id, role')
-          .in('clinic_id', clinicIds)
-          .in('role', ['dentist', 'admin']),
+      // 2. Fetch availability shifts for those users on the date
+      const { data: avails } = await supabase
+        .from('professional_availability')
+        .select('user_id, clinic_id, start_time, end_time, work_date')
+        .in('user_id', userIds)
+        .in('clinic_id', clinicIds)
+        .eq('work_date', dateKey);
+
+      const shiftsByUserClinic = new Map<string, { start: string; end: string }[]>();
+      for (const a of (avails ?? []) as any[]) {
+        const k = `${a.user_id}|${a.clinic_id}`;
+        const arr = shiftsByUserClinic.get(k) ?? [];
+        arr.push({ start: (a.start_time as string).slice(0, 5), end: (a.end_time as string).slice(0, 5) });
+        shiftsByUserClinic.set(k, arr);
+      }
+
+      // Filter members down to those that actually have shifts on this date
+      const membersWithShifts = members.filter((m: any) => shiftsByUserClinic.has(`${m.user_id}|${m.clinic_id}`));
+      if (membersWithShifts.length === 0) {
+        if (!cancelled) { setClinics([]); setLoading(false); }
+        return;
+      }
+
+      const activeUserIds = [...new Set(membersWithShifts.map((m: any) => m.user_id))];
+      const activeClinicIds = [...new Set(membersWithShifts.map((m: any) => m.clinic_id))];
+
+      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+
+      const [{ data: profs }, { data: clinicsData }, { data: appts }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, avatar_url').in('id', activeUserIds),
+        supabase.from('clinics').select('id, name, address, city').in('id', activeClinicIds),
         supabase
           .from('appointments')
-          .select('dentist_id, start_time, status')
-          .in('clinic_id', clinicIds)
+          .select('dentist_id, start_time, status, clinic_id')
+          .in('clinic_id', activeClinicIds)
           .gte('start_time', dayStart.toISOString())
           .lte('start_time', dayEnd.toISOString())
           .neq('status', 'cancelled'),
       ]);
 
-      const userIds = [...new Set((members ?? []).map((m: any) => m.user_id))];
-      const { data: profs } = userIds.length
-        ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds)
-        : { data: [] as any[] };
-
       const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+      const clinicMap = new Map((clinicsData ?? []).map((c: any) => [c.id, c]));
 
-      const result: ClinicWithDoctors[] = openClinics.map((c: any) => {
-        const bh = c.business_hours[dow];
-        const myMembers = (members ?? []).filter((m: any) => m.clinic_id === c.id);
-        const doctors = myMembers
-          .map((m: any) => {
-            const p = profMap.get(m.user_id);
-            return p ? { id: m.user_id, name: p.full_name ?? 'Profissional', avatar: p.avatar_url } : null;
-          })
-          .filter(Boolean) as { id: string; name: string; avatar: string | null }[];
+      // Group by clinic
+      const byClinic = new Map<string, ClinicWithDoctors>();
+      for (const m of membersWithShifts as any[]) {
+        const c = clinicMap.get(m.clinic_id);
+        if (!c) continue;
+        const p = profMap.get(m.user_id);
+        if (!p) continue;
+        const shifts = shiftsByUserClinic.get(`${m.user_id}|${m.clinic_id}`) ?? [];
+        let entry = byClinic.get(m.clinic_id);
+        if (!entry) {
+          entry = {
+            id: c.id,
+            name: c.name,
+            address: c.address,
+            city: c.city,
+            doctors: [],
+            bookedSlots: new Set<string>(),
+          };
+          byClinic.set(m.clinic_id, entry);
+        }
+        entry.doctors.push({
+          id: m.user_id,
+          name: p.full_name ?? 'Profissional',
+          avatar: p.avatar_url,
+          shifts,
+        });
+      }
 
-        const myAppts = (appts ?? []).filter((a: any) => doctors.some((d) => d.id === a.dentist_id));
-        const bookedSlots = new Set<string>(
-          myAppts.map((a: any) => `${a.dentist_id}|${a.start_time}`)
-        );
+      // Booked slots per clinic
+      for (const a of (appts ?? []) as any[]) {
+        const entry = byClinic.get(a.clinic_id);
+        if (entry) entry.bookedSlots.add(`${a.dentist_id}|${a.start_time}`);
+      }
 
-        return {
-          id: c.id,
-          name: c.name,
-          address: c.address,
-          city: c.city,
-          open: bh.open,
-          close: bh.close,
-          doctors,
-          bookedSlots,
-        };
-      }).filter((c) => c.doctors.length > 0);
-
+      const result = Array.from(byClinic.values());
       if (!cancelled) {
         setClinics(result);
         if (result.length === 1) setExpanded(result[0].id);
@@ -147,18 +184,14 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [specialty, date]);
 
   const isSlotBooked = (clinic: ClinicWithDoctors, doctorId: string, slot: Date) => {
-    // Compare with booked appointments (ISO timestamps)
     for (const key of clinic.bookedSlots) {
       const [did, iso] = key.split('|');
       if (did !== doctorId) continue;
       const booked = parseISO(iso);
-      // Within 30 min window
       if (Math.abs(booked.getTime() - slot.getTime()) < 30 * 60 * 1000) return true;
     }
     return false;
@@ -190,7 +223,7 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
       {clinics.length === 0 ? (
         <Card className="p-10 text-center border-dashed">
           <Building2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="font-medium">Nenhum profissional disponível</p>
+          <p className="font-medium">Nenhum profissional desta especialidade tem horário disponível neste dia</p>
           <p className="text-sm text-muted-foreground mt-1">
             Tente outra data ou outra especialidade.
           </p>
@@ -218,9 +251,6 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
                             <span className="truncate">{[clinic.address, clinic.city].filter(Boolean).join(', ')}</span>
                           </span>
                         )}
-                        <span className="flex items-center gap-1 flex-shrink-0">
-                          <Clock className="h-3 w-3" /> {clinic.open}–{clinic.close}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -232,7 +262,7 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
                 {isOpen && (
                   <div className="border-t border-border bg-muted/20">
                     {clinic.doctors.map((doctor) => {
-                      const slots = generateSlots(clinic.open, clinic.close, date);
+                      const slots = generateSlots(doctor.shifts, date);
                       return (
                         <div key={doctor.id} className="p-4 border-b border-border last:border-0">
                           <div className="flex items-center gap-3 mb-3">
@@ -242,9 +272,12 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
                                 {doctor.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
+                            <div className="flex-1">
                               <p className="text-sm font-semibold">{doctor.name}</p>
-                              <p className="text-xs text-muted-foreground">{specialty.name}</p>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {doctor.shifts.map((s) => `${s.start}–${s.end}`).join(', ')}
+                              </p>
                             </div>
                           </div>
                           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">

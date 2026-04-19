@@ -22,6 +22,7 @@ import Onboarding from "./pages/Onboarding";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
 import SecretariaIA from "./pages/SecretariaIA";
+import Availability from "./pages/Availability";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
@@ -108,6 +109,7 @@ const AppRoutes = () => (
     </Route>
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+    <Route path="/disponibilidade" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
     <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
