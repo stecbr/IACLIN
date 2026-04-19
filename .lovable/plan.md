@@ -1,56 +1,38 @@
 
 
-## Update SpecialtyStep with full alphabetical list + help modal
+## Diagnóstico: "Failed to fetch" ao gerar QR Code
 
-### Changes to `src/components/patient/booking/SpecialtyStep.tsx`
+### Causa raiz
+O frontend está fazendo `fetch` para `https://gourmet-affairs-telecharger-nations.trycloudflare.com` (configurado em `src/lib/aiBackend.ts` linha 6). Esse endereço **não responde** — confirmado por teste direto: o túnel Cloudflare caiu (ou o servidor Node.js por trás dele não está rodando).
 
-**1. Replace `SPECIALTIES` constant** with the full list (~70 items) from the user, each with an appropriate Lucide icon and starting letter for grouping. Categories kept (`medico`, `odonto`, `estetica`).
+Quando o navegador não consegue sequer estabelecer conexão TCP/TLS, o `fetch()` lança `TypeError: Failed to fetch` antes mesmo de receber um status HTTP — exatamente o que aparece no toast e no session replay ("Backend offline" no card de status confirma o mesmo).
 
-**2. Keep popular shortcuts** (Clínico Geral, Dentista, Limpeza Dental, Renovação de Receita, Avaliação) — remove the 🔥 emoji from the heading; keep just "Mais procurados".
+### Por que isso acontece
+Túneis `trycloudflare.com` gratuitos são **efêmeros**: caem quando o processo `cloudflared` no seu PC para, quando a máquina dorme, ou quando troca de rede. O túnel anterior (`turtle-employee-switching-bid…`) já tinha caído antes — agora o `gourmet-affairs…` também caiu.
 
-**3. Keep existing card structure** (current grid + hover lift + icon tile) exactly as-is.
+O código do frontend está correto. O QR Code só é gerado quando o backend Node.js + Evolution API responder.
 
-**4. Group rendering**: When no search query, after "Mais procurados" section, render specialties grouped by first letter:
-   - Compute `useMemo` that groups `SPECIALTIES` by `name[0].toUpperCase()` and sorts alphabetically.
-   - Render each letter as a section: small uppercase header "Letra A" / "Letra B" etc. (matches user's wording), then the same card grid below.
-   - When searching, keep current flat filtered grid.
+### O que fazer (você, fora do Lovable)
 
-**5. Help button + modal** at the bottom of the list:
-   - Button (full width, outlined, with `HelpCircle` icon): "Não encontrei a especialidade desejada".
-   - Opens a `Dialog` (`@/components/ui/dialog`) — already in the project and respects the global fade-only animation rule.
-   - Modal content:
-     - Centered circular icon tile with `HelpCircle` (?) in primary color.
-     - Title: "Não encontrou a especialidade?"
-     - Body: "Verifique com a sua rede de atendimento. Fale com o atendimento."
-     - Button: "Falar com atendimento" (layout only, no handler yet — `onClick` is a no-op placeholder).
+1. **Verificar o backend Node.js local**
+   - Confirmar que o processo do servidor (porta 3333) está rodando
+   - Confirmar que a Evolution API está rodando e acessível pelo backend
+   - Confirmar que o `cloudflared tunnel` está ativo e apontando pra porta certa
 
-### Icon mapping plan (Lucide)
-Reuse existing icons where possible; map new ones sensibly:
-- Acupuntura → `Sparkle`, Alergologia → `Wind`, Anestesiologia → `Syringe`, Angiologia → `Activity`, Avaliação Bariátrica → `Scale`, Avaliação Risco Cirúrgico → `ClipboardCheck`
-- Cardiologia → `Heart`, Cirurgias → `Scissors` (variants), Clínico Geral → `Stethoscope`
-- Dermatologia → `Hand`, Dor de Cabeça → `Brain`, Dor Costas → `PersonStanding`, Refluxo → `Flame`
-- Endocrinologia → `Droplet`, Enfermagem → `HeartHandshake`
-- Fisioterapia → `Dumbbell`, Fonoaudiologia → `Mic`
-- Gastroenterologia → `Soup`, Genética → `Dna`
-- Hematologia → `Droplets`, Homeopatia → `Leaf`
-- Infectologia → `Bug`
-- Mastologia → `Ribbon` (fallback `Heart`)
-- Nefrologia → `Droplet`, Neurocirurgia/Neurologia → `Brain`, Nutrição/Nutrologia → `Apple`
-- Oftalmologia → `Eye`, Oncologia → `Ribbon`/`Activity`, Ortopedia → `Bone`, Otorrino → `Ear`
-- Pneumologia → `Wind`, Proctologia → `Stethoscope`, Psicologia/Psiquiatria/Psico* → `Brain`
-- Renovação Receitas → `Pill`, Reumatologia → `Bone`
-- Terapia Ocupacional → `HandHeart` (fallback `Hand`), Triagem Fono → `Mic`
-- Urologia → `Droplet`
-- Dentista → `Smile`, Limpeza Dental → `Sparkles`, Estética → `Sparkles`
+2. **Pegar a nova URL do túnel**
+   - Quando reiniciar o `cloudflared`, ele imprime uma URL nova tipo `https://xxxx-yyyy-zzzz.trycloudflare.com`
+   - Me mande essa URL que eu atualizo o `src/lib/aiBackend.ts` (igual fizemos das outras vezes)
 
-Will verify each icon name exists in `lucide-react` before writing (fall back to `Stethoscope` if a name is missing).
+### Solução definitiva (recomendado)
+Túneis aleatórios vão continuar caindo. Opções pra estabilizar:
 
-### What stays the same
-- Card visual treatment (icon tile + name + category subtitle).
-- Search behavior, popular shortcuts logic, animations.
-- Parent flow in `PatientBooking.tsx` — no changes needed.
+- **Cloudflare Tunnel nomeado** (gratuito, URL fixa tipo `ai.seudominio.com`) — requer domínio na Cloudflare
+- **Deploy do backend Node.js** num provedor (Railway, Render, Fly.io) — URL permanente
+- **Variável de ambiente `VITE_AI_BACKEND_URL`** no Lovable em vez de hardcode — assim você troca sem precisar de novo deploy do frontend
 
-### Out of scope
-- "Falar com atendimento" action wiring (button is layout-only per user request).
-- New routes, DB or schema changes.
+### Próximo passo sugerido
+Me responde uma das opções:
+1. "Subi o backend de novo, a nova URL é `https://...`" → eu troco no código
+2. "Quero migrar pra URL fixa via variável de ambiente" → eu refatoro pra ler de `VITE_AI_BACKEND_URL` e te explico como configurar
+3. "Quero fazer deploy do backend Node.js em produção" → eu te guio na escolha do provedor
 
