@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 
