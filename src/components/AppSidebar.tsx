@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Settings,
   LogOut,
+  Bot,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -48,6 +49,7 @@ const clinicNav = [
   { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
   { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
 ];
 
 export function AppSidebar() {

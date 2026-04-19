@@ -173,7 +173,6 @@ export default function SecretariaIA() {
       <PageHeader
         title="Secretária IA"
         description="Configure a secretária virtual da sua clínica no WhatsApp"
-        icon={Bot}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -194,7 +193,7 @@ export default function SecretariaIA() {
                   <AlertCircle className="h-3 w-3" /> Backend offline
                 </Badge>
               ) : isConnected ? (
-                <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/20">
+                <Badge className="gap-1 bg-primary/15 text-primary border border-primary/30 hover:bg-primary/20">
                   <Wifi className="h-3 w-3" /> Conectado
                 </Badge>
               ) : (
