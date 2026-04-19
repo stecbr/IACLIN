@@ -87,7 +87,7 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
       const { data: members } = await supabase
         .from('clinic_members')
         .select('clinic_id, user_id, role, specialty')
-        .eq('specialty' as any, specialty.id)
+        .filter('specialty', 'eq', specialty.id)
         .in('role', ['dentist', 'admin']);
 
       if (!members || members.length === 0) {

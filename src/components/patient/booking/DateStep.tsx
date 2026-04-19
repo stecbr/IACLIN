@@ -43,7 +43,7 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
       const { data: members } = await supabase
         .from('clinic_members')
         .select('user_id, clinic_id')
-        .eq('specialty' as any, specialty.id)
+        .filter('specialty', 'eq', specialty.id)
         .in('role', ['dentist', 'admin']);
 
       if (!members || members.length === 0) {
