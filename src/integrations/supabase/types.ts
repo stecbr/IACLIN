@@ -41,6 +41,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_secretary_handoff: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          enabled: boolean
+          handoff_message: string | null
+          id: string
+          target_phone: string | null
+          target_user_id: string | null
+          trigger_keywords: string | null
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          enabled?: boolean
+          handoff_message?: string | null
+          id?: string
+          target_phone?: string | null
+          target_user_id?: string | null
+          trigger_keywords?: string | null
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          enabled?: boolean
+          handoff_message?: string | null
+          id?: string
+          target_phone?: string | null
+          target_user_id?: string | null
+          trigger_keywords?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       anamneses: {
         Row: {
           allergies: string | null
