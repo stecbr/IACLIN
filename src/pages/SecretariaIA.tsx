@@ -354,25 +354,43 @@ export default function SecretariaIA() {
       </div>
 
       {/* Card System Prompt */}
-      <Card>
+      <Card className="rounded-xl shadow-sm">
         <CardHeader>
           <CardTitle>System prompt</CardTitle>
           <CardDescription>
             Escreva livremente as instruções que definem o comportamento da IA.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {loadingConfig ? (
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-[320px] w-full" />
           ) : (
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              disabled={saveConfig.isPending}
-              rows={14}
-              placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
-              className="font-mono text-sm resize-y leading-relaxed"
-            />
+            <>
+              <div className="flex flex-wrap gap-2">
+                {PROMPT_CHIPS.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={() => insertChipTemplate(chip.template)}
+                    disabled={saveConfig.isPending}
+                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground/80">
+                Descreva como a IA deve se comportar ao atender seus pacientes. Use os atalhos acima se quiser ajuda pra organizar.
+              </p>
+              <Textarea
+                ref={textareaRef}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                disabled={saveConfig.isPending}
+                placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
+                className="min-h-[300px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3"
+              />
+            </>
           )}
           <div className="flex items-center justify-between pt-2 border-t border-border/60">
             <span className="text-xs text-muted-foreground">
@@ -380,7 +398,7 @@ export default function SecretariaIA() {
             </span>
             <Button
               onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
-              disabled={saveConfig.isPending || loadingConfig}
+              disabled={saveConfig.isPending || loadingConfig || !isDirty}
               className="gap-2"
             >
               {saveConfig.isPending ? (
