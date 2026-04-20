@@ -7,12 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2 } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 
-type UserType = null | 'profissional' | 'operadora' | 'cliente';
+type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
+
+function formatCnpj(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
 
 const fade = {
   initial: { opacity: 0, y: 12 },
@@ -48,6 +57,39 @@ export default function Auth() {
   const [userType, setUserType] = useState<UserType>(null);
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Clinic-specific fields
+  const [legalName, setLegalName] = useState('');
+  const [tradeName, setTradeName] = useState('');
+  const [cnpj, setCnpj] = useState('');
+  const [responsibleName, setResponsibleName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fetchingCnpj, setFetchingCnpj] = useState(false);
+
+  const fetchCnpjData = async () => {
+    const digits = cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      toast.error('CNPJ deve ter 14 dígitos');
+      return;
+    }
+    setFetchingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!res.ok) throw new Error('CNPJ não encontrado');
+      const data = await res.json();
+      if (data.razao_social) setLegalName(data.razao_social);
+      if (data.nome_fantasia) setTradeName(data.nome_fantasia);
+      else if (data.razao_social && !tradeName) setTradeName(data.razao_social);
+      if (data.ddd_telefone_1 && !phone) {
+        setPhone(`(${data.ddd_telefone_1.slice(0, 2)}) ${data.ddd_telefone_1.slice(2)}`);
+      }
+      toast.success('Dados preenchidos automaticamente!');
+    } catch {
+      toast.error('Não foi possível buscar o CNPJ.');
+    } finally {
+      setFetchingCnpj(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -85,6 +127,25 @@ export default function Auth() {
           }
         }
 
+        // Validate clinic-specific fields
+        if (userType === 'clinica') {
+          if (cnpj.replace(/\D/g, '').length !== 14) {
+            toast.error('CNPJ deve ter 14 dígitos');
+            setSubmitting(false);
+            return;
+          }
+          if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
+            toast.error('Preencha todos os campos obrigatórios');
+            setSubmitting(false);
+            return;
+          }
+          if (password !== confirmPassword) {
+            toast.error('As senhas não coincidem');
+            setSubmitting(false);
+            return;
+          }
+        }
+
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
         const { error } = await supabase.auth.signUp({
           email,
@@ -92,7 +153,7 @@ export default function Auth() {
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
-              full_name: fullName,
+              full_name: userType === 'clinica' ? responsibleName : fullName,
               user_type: userType,
               professional_subtype: profSubType,
               clinic_category: clinicCategory,
@@ -101,6 +162,14 @@ export default function Auth() {
                 phone,
                 insurance_provider: insuranceProvider || null,
                 insurance_number: insuranceNumber || null,
+              }),
+              ...(userType === 'clinica' && {
+                legal_name: legalName.trim(),
+                trade_name: tradeName.trim(),
+                cnpj: cnpj.replace(/\D/g, ''),
+                corporate_email: email.trim(),
+                phone: phone.trim(),
+                responsible_name: responsibleName.trim(),
               }),
             },
           },
@@ -130,7 +199,8 @@ export default function Auth() {
 
   const typeCards = [
     { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro', locked: false },
-    { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
+    { key: 'clinica' as const, icon: Building2, label: 'Sou uma Clínica', desc: 'Cadastre sua clínica e equipe', locked: false },
+    { key: 'operadora' as const, icon: Briefcase, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
     { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: false },
   ];
 
@@ -140,6 +210,7 @@ export default function Auth() {
   ];
 
   const isPatientSignup = userType === 'cliente';
+  const isClinicSignup = userType === 'clinica';
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
@@ -323,19 +394,55 @@ export default function Auth() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {userType === 'profissional'
                     ? profSubType === 'dentista' ? '🦷 Dentista' : '🩺 Médico'
+                    : userType === 'clinica' ? '🏥 Clínica'
                     : userType === 'operadora' ? '🏢 Operadora' : '👤 Paciente'}
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
-                  <Label htmlFor="name">Nome completo</Label>
-                  <Input
-                    id="name" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                    placeholder={userType === 'profissional' ? 'Dr. João Silva' : userType === 'operadora' ? 'Nome da empresa' : 'Seu nome completo'}
-                    required className="h-10" autoFocus
-                  />
-                </motion.div>
+                {!isClinicSignup && (
+                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
+                    <Label htmlFor="name">Nome completo</Label>
+                    <Input
+                      id="name" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                      placeholder={userType === 'profissional' ? 'Dr. João Silva' : userType === 'operadora' ? 'Nome da empresa' : 'Seu nome completo'}
+                      required className="h-10" autoFocus
+                    />
+                  </motion.div>
+                )}
+
+                {isClinicSignup && (
+                  <>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.08 }}>
+                      <Label htmlFor="cnpj">CNPJ</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="cnpj" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))}
+                          placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric" autoFocus
+                        />
+                        <Button type="button" variant="outline" size="icon" onClick={fetchCnpjData} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
+                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
+                      <Label htmlFor="legal-name">Razão Social</Label>
+                      <Input id="legal-name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Clínica X LTDA" required className="h-10" />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.12 }}>
+                      <Label htmlFor="trade-name">Nome Fantasia</Label>
+                      <Input id="trade-name" value={tradeName} onChange={(e) => setTradeName(e.target.value)} placeholder="Clínica X" required className="h-10" />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.14 }}>
+                      <Label htmlFor="responsible">Nome do Responsável</Label>
+                      <Input id="responsible" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Administrador da clínica" required className="h-10" />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.16 }}>
+                      <Label htmlFor="clinic-phone">Telefone / WhatsApp</Label>
+                      <Input id="clinic-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" required className="h-10" inputMode="tel" />
+                    </motion.div>
+                  </>
+                )}
 
                 {isPatientSignup && (
                   <>
@@ -357,8 +464,8 @@ export default function Auth() {
                 )}
 
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.15 }}>
-                  <Label htmlFor="signup-email">E-mail</Label>
-                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : 'joao@clinica.com'} required className="h-10" />
+                  <Label htmlFor="signup-email">{isClinicSignup ? 'E-mail Corporativo' : 'E-mail'}</Label>
+                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : isClinicSignup ? 'contato@clinica.com' : 'joao@clinica.com'} required className="h-10" />
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="signup-password">Senha</Label>
@@ -375,6 +482,13 @@ export default function Auth() {
                     </button>
                   </div>
                 </motion.div>
+
+                {isClinicSignup && (
+                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.21 }}>
+                    <Label htmlFor="confirm-password">Confirmar Senha</Label>
+                    <Input id="confirm-password" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10" />
+                  </motion.div>
+                )}
 
                 {isPatientSignup && (
                   <>

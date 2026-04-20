@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     const callerId = caller.id;
 
     // Parse body
-    const { email, full_name, password, role, clinic_id } = await req.json();
+    const { email, full_name, password, role, clinic_id, specialty, registration_number } = await req.json();
 
     if (!email || !full_name || !password || !role || !clinic_id) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -101,6 +101,8 @@ Deno.serve(async (req) => {
         user_id: newUserId,
         role,
         is_owner: false,
+        specialty: specialty ?? null,
+        registration_number: registration_number ?? null,
       }),
       adminClient.from("user_roles").insert({
         user_id: newUserId,
