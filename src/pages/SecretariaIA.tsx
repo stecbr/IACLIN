@@ -216,6 +216,7 @@ export default function SecretariaIA() {
   // ---------- Conexão WhatsApp ----------
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [shouldAutoAdvanceToTraining, setShouldAutoAdvanceToTraining] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   const stopPolling = () => {
@@ -237,6 +238,7 @@ export default function SecretariaIA() {
           status: data.status ?? 'connected',
           instance_name: data.instance_name ?? null,
         });
+        setShouldAutoAdvanceToTraining(true);
         toast.success('WhatsApp já está conectado!');
         return;
       }
@@ -252,6 +254,7 @@ export default function SecretariaIA() {
             if (s.connected) {
               stopPolling();
               setQrModalOpen(false);
+              setShouldAutoAdvanceToTraining(true);
               toast.success('WhatsApp conectado!');
             }
           } catch {
@@ -277,6 +280,7 @@ export default function SecretariaIA() {
       });
       qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
       setQrCode(null);
+      setShouldAutoAdvanceToTraining(false);
       setStep(1);
       toast.success('WhatsApp desconectado');
     },
@@ -296,8 +300,11 @@ export default function SecretariaIA() {
 
   // Avança automaticamente quando WhatsApp conectar
   useEffect(() => {
-    if (isConnected && step === 1) setStep(2);
-  }, [isConnected, step]);
+    if (isConnected && step === 1 && shouldAutoAdvanceToTraining) {
+      setStep(2);
+      setShouldAutoAdvanceToTraining(false);
+    }
+  }, [isConnected, shouldAutoAdvanceToTraining, step]);
 
   const promptCompleted = (savedPrompt?.length ?? 0) > 20;
   const canGoStep2 = isConnected;
