@@ -696,11 +696,11 @@ export default function SecretariaIA() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-xs text-muted-foreground">
-                    {prompt.length} caracteres
+                    {builtPrompt.length} caracteres
                   </span>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
+                      onClick={() => saveConfig.mutate({ custom_prompt: builtPrompt, enabled })}
                       disabled={saveConfig.isPending || loadingConfig || !isDirty}
                       variant="outline"
                       className="gap-2"
@@ -714,7 +714,7 @@ export default function SecretariaIA() {
                     </Button>
                     <Button
                       onClick={() => {
-                        if (isDirty) saveConfig.mutate({ custom_prompt: prompt, enabled });
+                        if (isDirty) saveConfig.mutate({ custom_prompt: builtPrompt, enabled });
                         setStep(3);
                       }}
                       disabled={!canGoStep3 && !isDirty}
