@@ -262,97 +262,167 @@ export default function SecretariaIA() {
 
   const isConnected = !!statusQuery.data?.connected;
 
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Card WhatsApp */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <CardTitle>Conexão WhatsApp</CardTitle>
-                <CardDescription>
-                  Status da conexão com o WhatsApp da clínica
-                </CardDescription>
-              </div>
-              {!backendConfigured ? (
-                <Badge variant="outline" className="gap-1">
-                  <AlertCircle className="h-3 w-3" /> Não configurado
-                </Badge>
-              ) : statusQuery.isLoading ? (
-                <Skeleton className="h-6 w-24" />
-              ) : statusQuery.isError ? (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertCircle className="h-3 w-3" /> Offline
-                </Badge>
-              ) : isConnected ? (
-                <Badge className="gap-1 bg-primary/15 text-primary border border-primary/30 hover:bg-primary/20">
-                  <Wifi className="h-3 w-3" /> Conectado
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="gap-1">
-                  <WifiOff className="h-3 w-3" /> Desconectado
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!backendConfigured && (
-              <div className="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
-                Backend da Secretária IA não configurado.
-              </div>
-            )}
-            {backendConfigured && statusQuery.isError && (
-              <p className="text-sm text-muted-foreground">
-                Não foi possível conectar ao serviço da IA. Verifique sua internet
-                e tente novamente.
-              </p>
-            )}
-            {backendConfigured && !statusQuery.isError && (
-              <p className="text-sm text-muted-foreground">
-                {isConnected
-                  ? 'Tudo certo! Sua IA está pronta para responder pacientes.'
-                  : 'Conecte o WhatsApp da clínica para a IA começar a atender.'}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => connectMutation.mutate()}
-                disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
-                variant={isConnected ? 'outline' : 'default'}
-                className="gap-2"
-              >
-                {connectMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isConnected ? (
-                  <RefreshCw className="h-4 w-4" />
-                ) : (
-                  <QrCode className="h-4 w-4" />
-                )}
-                {isConnected ? 'Reconectar' : 'Conectar WhatsApp'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+  // ---------- Stepper ----------
+  type Step = 1 | 2 | 3;
+  const [step, setStep] = useState<Step>(1);
 
-        {/* Card Ativar/Desativar */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Status da secretária</CardTitle>
-            <CardDescription>Ative para que a IA responda automaticamente</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between rounded-xl border border-border/60 p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="enabled-switch" className="text-base">
-                  {enabled ? 'Ativa' : 'Pausada'}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {enabled
-                    ? 'A IA está respondendo aos pacientes'
-                    : 'Nenhuma resposta automática será enviada'}
+  // Avança automaticamente quando WhatsApp conectar
+  useEffect(() => {
+    if (isConnected && step === 1) setStep(2);
+  }, [isConnected, step]);
+
+  const promptCompleted = (savedPrompt?.length ?? 0) > 20;
+  const canGoStep2 = isConnected;
+  const canGoStep3 = isConnected && promptCompleted;
+
+  const STEPS: { id: Step; label: string; icon: React.ReactNode; enabled: boolean }[] = [
+    { id: 1, label: 'Conexão', icon: <QrCode className="h-4 w-4" />, enabled: true },
+    { id: 2, label: 'Treinamento', icon: <Sparkles className="h-4 w-4" />, enabled: canGoStep2 },
+    { id: 3, label: 'Painel', icon: <LayoutDashboard className="h-4 w-4" />, enabled: canGoStep3 },
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Stepper */}
+      <div className="flex justify-center">
+        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1.5">
+          {STEPS.map((s) => {
+            const active = step === s.id;
+            const done = s.id < step;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => s.enabled && setStep(s.id)}
+                disabled={!s.enabled}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : done
+                    ? 'bg-background text-foreground hover:bg-accent'
+                    : 'text-muted-foreground hover:bg-background/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent'
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                    active
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : done
+                      ? 'bg-primary/15 text-primary'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {done ? <Check className="h-3 w-3" /> : s.id}
+                </span>
+                {active ? (
+                  <>
+                    {s.icon}
+                    {s.label}
+                  </>
+                ) : (
+                  s.icon
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ETAPA 1 — Conexão */}
+      {step === 1 && (
+        <div className="mx-auto max-w-2xl space-y-4">
+          <div className="space-y-1.5 text-center sm:text-left">
+            <h1 className="text-2xl font-semibold tracking-tight">Conexão WhatsApp</h1>
+            <p className="text-sm text-muted-foreground">
+              Conecte o WhatsApp da sua clínica para ativar a Secretária IA.
+            </p>
+          </div>
+
+          <Card className="rounded-xl shadow-sm">
+            <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-full ${
+                  isConnected ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
+                }`}
+              >
+                {isConnected ? <Wifi className="h-7 w-7" /> : <QrCode className="h-7 w-7" />}
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">
+                  {isConnected ? 'WhatsApp conectado' : 'Conectar WhatsApp'}
+                </h3>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  {!backendConfigured
+                    ? 'Backend da Secretária IA não configurado.'
+                    : isConnected
+                    ? 'Tudo certo! Sua IA está pronta para receber pacientes.'
+                    : 'Escaneie o QR Code com o WhatsApp da clínica para ativar o assistente.'}
                 </p>
               </div>
+
+              {/* Status badge */}
+              {backendConfigured && (
+                <div>
+                  {statusQuery.isLoading ? (
+                    <Skeleton className="h-6 w-32" />
+                  ) : statusQuery.isError ? (
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertCircle className="h-3 w-3" /> Offline
+                    </Badge>
+                  ) : isConnected ? (
+                    <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
+                      <Wifi className="h-3 w-3" /> Conectado
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-muted-foreground">
+                      <WifiOff className="h-3 w-3" /> Desconectado
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                <Button
+                  size="lg"
+                  onClick={() => connectMutation.mutate()}
+                  disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
+                  variant={isConnected ? 'outline' : 'default'}
+                  className="gap-2"
+                >
+                  {connectMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isConnected ? (
+                    <RefreshCw className="h-4 w-4" />
+                  ) : (
+                    <QrCode className="h-4 w-4" />
+                  )}
+                  {isConnected ? 'Reconectar' : 'Escanear QR Code'}
+                </Button>
+                {isConnected && (
+                  <Button size="lg" onClick={() => setStep(2)} className="gap-2">
+                    Próximo: treinar IA <ArrowRight className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ETAPA 2 — Treinamento */}
+      {step === 2 && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl font-semibold tracking-tight">Treinamento da IA</h1>
+              <p className="text-sm text-muted-foreground">
+                Defina como a Secretária IA deve se comportar nas conversas.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
+              <Label htmlFor="enabled-switch" className="text-sm">
+                {enabled ? 'IA Ativa' : 'IA Pausada'}
+              </Label>
               <Switch
                 id="enabled-switch"
                 checked={enabled}
@@ -360,34 +430,9 @@ export default function SecretariaIA() {
                 disabled={loadingConfig || saveConfig.isPending}
               />
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
 
-      {/* Ações: abrir prompt e ir para painel */}
-      <div className="flex flex-wrap gap-3">
-        <Button
-          onClick={() => setPromptOpen((v) => !v)}
-          variant={promptOpen ? 'outline' : 'default'}
-          className="gap-2"
-        >
-          <Sparkles className="h-4 w-4" />
-          {promptOpen ? 'Fechar instruções' : 'Configurar instruções da IA'}
-          <ChevronDown
-            className={`h-4 w-4 transition-transform ${promptOpen ? 'rotate-180' : ''}`}
-          />
-        </Button>
-        <Button asChild variant="outline" className="gap-2">
-          <Link to="/secretaria-ia/painel">
-            <LayoutDashboard className="h-4 w-4" />
-            Abrir painel da IA
-          </Link>
-        </Button>
-      </div>
-
-      {/* Card System Prompt — colapsável */}
-      {promptOpen && (
-        <Card className="rounded-xl shadow-sm">
+          <Card className="rounded-xl shadow-sm">
           <CardHeader>
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
@@ -474,23 +519,58 @@ export default function SecretariaIA() {
                   <span className="text-xs text-muted-foreground">
                     {prompt.length} caracteres
                   </span>
-                  <Button
-                    onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
-                    disabled={saveConfig.isPending || loadingConfig || !isDirty}
-                    className="gap-2"
-                  >
-                    {saveConfig.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Salvar
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
+                      disabled={saveConfig.isPending || loadingConfig || !isDirty}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      {saveConfig.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Salvar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (isDirty) saveConfig.mutate({ custom_prompt: prompt, enabled });
+                        setStep(3);
+                      }}
+                      disabled={!canGoStep3 && !isDirty}
+                      className="gap-2"
+                    >
+                      Próximo: painel <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
+        </div>
+      )}
+
+      {/* ETAPA 3 — Painel ao vivo */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl font-semibold tracking-tight">Painel da IA</h1>
+              <p className="text-sm text-muted-foreground">
+                Acompanhe em tempo real as mensagens recebidas no WhatsApp da clínica.
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link to="/secretaria-ia/painel">
+                <LayoutDashboard className="h-4 w-4" />
+                Configurações avançadas
+              </Link>
+            </Button>
+          </div>
+          {currentClinicId && <LiveMessagesPanel clinicId={currentClinicId} />}
+        </div>
       )}
 
       {/* Modal QR Code */}
