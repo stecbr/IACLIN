@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -292,7 +292,6 @@ export default function SecretariaIA() {
   const isDirty =
     JSON.stringify(sections) !== JSON.stringify(savedSections) ||
     builtPrompt !== savedPrompt;
-  const totalChars = builtPrompt.length;
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
@@ -309,9 +308,11 @@ export default function SecretariaIA() {
         );
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       toast.success('Instruções salvas com sucesso');
-      setSavedPrompt(prompt);
+      setSavedPrompt(vars.custom_prompt);
+      setPrompt(vars.custom_prompt);
+      setSavedSections(sections);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
@@ -319,7 +320,7 @@ export default function SecretariaIA() {
 
   const toggleEnabled = (next: boolean) => {
     setEnabled(next);
-    saveConfig.mutate({ custom_prompt: prompt, enabled: next });
+    saveConfig.mutate({ custom_prompt: builtPrompt, enabled: next });
   };
 
   // ---------- WhatsApp status ----------
