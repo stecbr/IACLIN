@@ -223,6 +223,7 @@ export type Database = {
           created_at: string
           id: string
           is_owner: boolean
+          registration_number: string | null
           role: Database["public"]["Enums"]["app_role"]
           specialty: string | null
           user_id: string
@@ -232,6 +233,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_owner?: boolean
+          registration_number?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           specialty?: string | null
           user_id: string
@@ -241,6 +243,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_owner?: boolean
+          registration_number?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           specialty?: string | null
           user_id?: string
@@ -412,10 +415,12 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          legal_name: string | null
           logo_url: string | null
           name: string
           owner_id: string | null
           phone: string | null
+          responsible_name: string | null
           state: string | null
           updated_at: string
           zip_code: string | null
@@ -429,10 +434,12 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          legal_name?: string | null
           logo_url?: string | null
           name: string
           owner_id?: string | null
           phone?: string | null
+          responsible_name?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
@@ -446,10 +453,12 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          legal_name?: string | null
           logo_url?: string | null
           name?: string
           owner_id?: string | null
           phone?: string | null
+          responsible_name?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
