@@ -3,11 +3,14 @@
 // Sem fallback: se a variável não estiver definida, as chamadas falham
 // imediatamente com mensagem clara — em vez de tentar uma URL inexistente.
 
-const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim();
+// URL do backend externo da Secretária IA.
+// Prioridade: variável de ambiente VITE_AI_BACKEND_URL > fallback hardcoded.
+const DEFAULT_AI_BACKEND_URL = 'https://pens-vegetation-project-amd.trycloudflare.com';
+const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim() || DEFAULT_AI_BACKEND_URL;
 const BASE_URL = RAW_URL ? RAW_URL.replace(/\/$/, '') : null;
 
 const NOT_CONFIGURED_MSG =
-  'Backend da Secretária IA não configurado. Defina VITE_AI_BACKEND_URL nas variáveis de ambiente do projeto.';
+  'Backend da Secretária IA não configurado.';
 
 export const AI_BACKEND_URL = BASE_URL;
 export const isAiBackendConfigured = () => !!BASE_URL;
