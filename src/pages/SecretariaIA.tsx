@@ -660,34 +660,39 @@ export default function SecretariaIA() {
                   </Select>
                 </div>
 
-                {/* Chips */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    {PROMPT_CHIPS.map((chip) => (
-                      <button
-                        key={chip.label}
-                        type="button"
-                        onClick={() => insertText(chip.template)}
+                {/* Seções independentes */}
+                <p className="text-xs text-muted-foreground/80">
+                  Preencha as etapas abaixo. Os exemplos somem assim que você começar a digitar — campos vazios são ignorados ao salvar.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {PROMPT_SECTIONS.map((s) => (
+                    <div
+                      key={s.key}
+                      className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 transition-colors hover:border-primary/30"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <Label htmlFor={`section-${s.key}`} className="text-sm font-medium">
+                          {s.label}
+                        </Label>
+                        {sections[s.key].trim() && (
+                          <span className="text-[10px] uppercase tracking-wide text-success">
+                            preenchido
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
+                      <Textarea
+                        id={`section-${s.key}`}
+                        value={sections[s.key]}
+                        onChange={(e) => updateSection(s.key, e.target.value)}
                         disabled={saveConfig.isPending}
-                        className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground/80">
-                    Clique em um atalho para inserir um bloco de texto. O campo é livre — escreva como preferir.
-                  </p>
+                        placeholder={s.placeholder}
+                        rows={s.rows}
+                        className="text-sm leading-relaxed resize-y rounded-md bg-background"
+                      />
+                    </div>
+                  ))}
                 </div>
-
-                <Textarea
-                  ref={textareaRef}
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  disabled={saveConfig.isPending}
-                  placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
-                  className="min-h-[320px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3 transition-colors focus-visible:bg-background"
-                />
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-xs text-muted-foreground">
