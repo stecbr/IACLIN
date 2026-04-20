@@ -483,6 +483,13 @@ export default function Auth() {
                   </div>
                 </motion.div>
 
+                {isClinicSignup && (
+                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.21 }}>
+                    <Label htmlFor="confirm-password">Confirmar Senha</Label>
+                    <Input id="confirm-password" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10" />
+                  </motion.div>
+                )}
+
                 {isPatientSignup && (
                   <>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
