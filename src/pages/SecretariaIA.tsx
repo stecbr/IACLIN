@@ -84,6 +84,158 @@ const PERSONALITY_OPTIONS: { value: string; label: string; template: string }[] 
   },
 ];
 
+// Seções independentes do prompt. Cada uma tem um placeholder de exemplo
+// que aparece somente quando o campo está vazio e some assim que o usuário
+// começa a escrever.
+type PromptSectionKey =
+  | 'saudacao'
+  | 'objetivo'
+  | 'regras'
+  | 'restricoes'
+  | 'exemplos'
+  | 'horarios'
+  | 'urgencias';
+
+const PROMPT_SECTIONS: {
+  key: PromptSectionKey;
+  label: string;
+  heading: string;
+  description: string;
+  placeholder: string;
+  rows: number;
+}[] = [
+  {
+    key: 'saudacao',
+    label: 'Saudação',
+    heading: 'SAUDAÇÃO',
+    description: 'Mensagem inicial que a IA envia ao paciente.',
+    placeholder:
+      'Ex: Olá! Sou a secretária virtual da clínica. Como posso ajudar você hoje?',
+    rows: 3,
+  },
+  {
+    key: 'objetivo',
+    label: 'Objetivo',
+    heading: 'OBJETIVO',
+    description: 'O que a IA deve fazer no atendimento.',
+    placeholder:
+      'Ex: Agendar consultas, confirmar presenças e tirar dúvidas dos pacientes.',
+    rows: 3,
+  },
+  {
+    key: 'regras',
+    label: 'Regras',
+    heading: 'REGRAS',
+    description: 'Como a IA deve se comportar durante a conversa.',
+    placeholder:
+      '- Sempre confirmar nome completo do paciente\n- Oferecer no máximo 3 opções de horário\n- Encaminhar urgências para o telefone da clínica',
+    rows: 4,
+  },
+  {
+    key: 'restricoes',
+    label: 'Restrições',
+    heading: 'RESTRIÇÕES',
+    description: 'O que a IA NUNCA deve fazer.',
+    placeholder:
+      '- Nunca dar diagnósticos\n- Nunca prometer valores sem confirmar com a clínica',
+    rows: 4,
+  },
+  {
+    key: 'exemplos',
+    label: 'Exemplos',
+    heading: 'EXEMPLOS DE RESPOSTA',
+    description: 'Pares de pergunta e resposta modelo.',
+    placeholder:
+      'Paciente: Vocês atendem convênio X?\nResposta: Sim! Atendemos o convênio X. Posso já verificar um horário para você?',
+    rows: 4,
+  },
+  {
+    key: 'horarios',
+    label: 'Horários',
+    heading: 'HORÁRIOS DE ATENDIMENTO',
+    description: 'Quando a clínica está aberta.',
+    placeholder: '- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h',
+    rows: 3,
+  },
+  {
+    key: 'urgencias',
+    label: 'Urgências',
+    heading: 'URGÊNCIAS',
+    description: 'Como a IA deve agir em casos urgentes.',
+    placeholder:
+      'Ex: Encaminhar para o telefone (11) 99999-0000 ou orientar a procurar pronto-atendimento mais próximo.',
+    rows: 3,
+  },
+];
+
+type SectionsState = Record<PromptSectionKey, string>;
+
+const EMPTY_SECTIONS: SectionsState = {
+  saudacao: '',
+  objetivo: '',
+  regras: '',
+  restricoes: '',
+  exemplos: '',
+  horarios: '',
+  urgencias: '',
+};
+
+// Reconstrói o objeto de seções a partir de um prompt salvo. Usa os
+// cabeçalhos (SAUDAÇÃO:, OBJETIVO: ...) como delimitadores. Se o prompt
+// não seguir esse formato, joga tudo em "objetivo" como texto livre.
+function parsePromptToSections(raw: string): SectionsState {
+  const result: SectionsState = { ...EMPTY_SECTIONS };
+  if (!raw || !raw.trim()) return result;
+
+  const headingByKey: Record<PromptSectionKey, string> = {
+    saudacao: 'SAUDAÇÃO',
+    objetivo: 'OBJETIVO',
+    regras: 'REGRAS',
+    restricoes: 'RESTRIÇÕES',
+    exemplos: 'EXEMPLOS DE RESPOSTA',
+    horarios: 'HORÁRIOS DE ATENDIMENTO',
+    urgencias: 'URGÊNCIAS',
+  };
+
+  const headings = Object.entries(headingByKey) as [PromptSectionKey, string][];
+  const pattern = new RegExp(
+    `(${headings.map(([, h]) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}):`,
+    'g'
+  );
+
+  const matches: { key: PromptSectionKey; start: number; end: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(raw)) !== null) {
+    const found = headings.find(([, h]) => h === m![1]);
+    if (found) {
+      matches.push({ key: found[0], start: m.index, end: m.index + m[0].length });
+    }
+  }
+
+  if (matches.length === 0) {
+    result.objetivo = raw.trim();
+    return result;
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const next = matches[i + 1];
+    const body = raw.slice(cur.end, next ? next.start : raw.length).trim();
+    result[cur.key] = body;
+  }
+  return result;
+}
+
+function buildPromptFromSections(sections: SectionsState): string {
+  return PROMPT_SECTIONS.map((s) => {
+    const value = sections[s.key]?.trim();
+    if (!value) return '';
+    return `${s.heading}:\n${value}`;
+  })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
@@ -108,7 +260,8 @@ export default function SecretariaIA() {
   const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [personality, setPersonality] = useState<string>('');
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [sections, setSections] = useState<SectionsState>(EMPTY_SECTIONS);
+  const [savedSections, setSavedSections] = useState<SectionsState>(EMPTY_SECTIONS);
 
   useEffect(() => {
     if (config) {
@@ -116,70 +269,29 @@ export default function SecretariaIA() {
       setPrompt(p);
       setSavedPrompt(p);
       setEnabled(config.enabled);
+      const parsed = parsePromptToSections(p);
+      setSections(parsed);
+      setSavedSections(parsed);
     }
   }, [config]);
 
-  const PROMPT_CHIPS: { label: string; template: string }[] = [
-    {
-      label: 'Saudação',
-      template:
-        'SAUDAÇÃO:\n[Mensagem inicial que a IA envia ao paciente — ex: "Olá! Sou a secretária virtual da clínica. Como posso ajudar você hoje?"]\n',
-    },
-    {
-      label: 'Objetivo',
-      template:
-        '\n\nOBJETIVO:\n[Descreva aqui o que a IA deve fazer no atendimento — ex: agendar consultas, confirmar presenças, tirar dúvidas]\n',
-    },
-    {
-      label: 'Regras',
-      template: '\n\nREGRAS:\n- [Regra 1]\n- [Regra 2]\n- [Regra 3]\n',
-    },
-    {
-      label: 'Restrições',
-      template:
-        '\n\nRESTRIÇÕES:\n- [O que a IA NUNCA deve fazer]\n- [Outra restrição importante]\n',
-    },
-    {
-      label: 'Exemplos',
-      template:
-        '\n\nEXEMPLOS DE RESPOSTA:\nPaciente: [pergunta comum]\nResposta: [como a IA deve responder]\n',
-    },
-    {
-      label: 'Horários',
-      template:
-        '\n\nHORÁRIOS DE ATENDIMENTO:\n- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h\n',
-    },
-    {
-      label: 'Urgências',
-      template:
-        '\n\nURGÊNCIAS:\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento]\n',
-    },
-  ];
-
-  const insertText = (template: string) => {
-    const el = textareaRef.current;
-    if (!el) {
-      setPrompt((p) => p + template);
-      return;
-    }
-    const start = el.selectionStart ?? prompt.length;
-    const end = el.selectionEnd ?? prompt.length;
-    const next = prompt.slice(0, start) + template + prompt.slice(end);
-    setPrompt(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + template.length;
-      el.setSelectionRange(pos, pos);
-    });
+  const updateSection = (key: PromptSectionKey, value: string) => {
+    setSections((prev) => ({ ...prev, [key]: value }));
   };
 
   const handlePersonalityChange = (value: string) => {
     setPersonality(value);
-    const opt = PERSONALITY_OPTIONS.find((o) => o.value === value);
-    if (opt) insertText(opt.template);
   };
 
-  const isDirty = prompt !== savedPrompt;
+  const builtPrompt = (() => {
+    const base = buildPromptFromSections(sections);
+    const opt = PERSONALITY_OPTIONS.find((o) => o.value === personality);
+    return opt ? `${base}${opt.template}` : base;
+  })();
+
+  const isDirty =
+    JSON.stringify(sections) !== JSON.stringify(savedSections) ||
+    builtPrompt !== savedPrompt;
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
@@ -196,9 +308,11 @@ export default function SecretariaIA() {
         );
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       toast.success('Instruções salvas com sucesso');
-      setSavedPrompt(prompt);
+      setSavedPrompt(vars.custom_prompt);
+      setPrompt(vars.custom_prompt);
+      setSavedSections(sections);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
@@ -206,7 +320,7 @@ export default function SecretariaIA() {
 
   const toggleEnabled = (next: boolean) => {
     setEnabled(next);
-    saveConfig.mutate({ custom_prompt: prompt, enabled: next });
+    saveConfig.mutate({ custom_prompt: builtPrompt, enabled: next });
   };
 
   // ---------- WhatsApp status ----------
@@ -547,42 +661,47 @@ export default function SecretariaIA() {
                   </Select>
                 </div>
 
-                {/* Chips */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    {PROMPT_CHIPS.map((chip) => (
-                      <button
-                        key={chip.label}
-                        type="button"
-                        onClick={() => insertText(chip.template)}
+                {/* Seções independentes */}
+                <p className="text-xs text-muted-foreground/80">
+                  Preencha as etapas abaixo. Os exemplos somem assim que você começar a digitar — campos vazios são ignorados ao salvar.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {PROMPT_SECTIONS.map((s) => (
+                    <div
+                      key={s.key}
+                      className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 transition-colors hover:border-primary/30"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <Label htmlFor={`section-${s.key}`} className="text-sm font-medium">
+                          {s.label}
+                        </Label>
+                        {sections[s.key].trim() && (
+                          <span className="text-[10px] uppercase tracking-wide text-success">
+                            preenchido
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
+                      <Textarea
+                        id={`section-${s.key}`}
+                        value={sections[s.key]}
+                        onChange={(e) => updateSection(s.key, e.target.value)}
                         disabled={saveConfig.isPending}
-                        className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground/80">
-                    Clique em um atalho para inserir um bloco de texto. O campo é livre — escreva como preferir.
-                  </p>
+                        placeholder={s.placeholder}
+                        rows={s.rows}
+                        className="text-sm leading-relaxed resize-y rounded-md bg-background"
+                      />
+                    </div>
+                  ))}
                 </div>
-
-                <Textarea
-                  ref={textareaRef}
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  disabled={saveConfig.isPending}
-                  placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
-                  className="min-h-[320px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3 transition-colors focus-visible:bg-background"
-                />
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-xs text-muted-foreground">
-                    {prompt.length} caracteres
+                    {builtPrompt.length} caracteres
                   </span>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
+                      onClick={() => saveConfig.mutate({ custom_prompt: builtPrompt, enabled })}
                       disabled={saveConfig.isPending || loadingConfig || !isDirty}
                       variant="outline"
                       className="gap-2"
@@ -596,7 +715,7 @@ export default function SecretariaIA() {
                     </Button>
                     <Button
                       onClick={() => {
-                        if (isDirty) saveConfig.mutate({ custom_prompt: prompt, enabled });
+                        if (isDirty) saveConfig.mutate({ custom_prompt: builtPrompt, enabled });
                         setStep(3);
                       }}
                       disabled={!canGoStep3 && !isDirty}
