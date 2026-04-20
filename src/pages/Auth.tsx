@@ -464,8 +464,8 @@ export default function Auth() {
                 )}
 
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.15 }}>
-                  <Label htmlFor="signup-email">E-mail</Label>
-                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : 'joao@clinica.com'} required className="h-10" />
+                  <Label htmlFor="signup-email">{isClinicSignup ? 'E-mail Corporativo' : 'E-mail'}</Label>
+                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : isClinicSignup ? 'contato@clinica.com' : 'joao@clinica.com'} required className="h-10" />
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="signup-password">Senha</Label>
