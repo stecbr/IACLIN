@@ -5,7 +5,7 @@
 
 // URL do backend externo da Secretária IA.
 // Prioridade: variável de ambiente VITE_AI_BACKEND_URL > fallback hardcoded.
-const DEFAULT_AI_BACKEND_URL = 'https://pens-vegetation-project-amd.trycloudflare.com';
+const DEFAULT_AI_BACKEND_URL = 'https://drops-bits-refrigerator-logan.trycloudflare.com';
 const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim() || DEFAULT_AI_BACKEND_URL;
 const BASE_URL = RAW_URL ? RAW_URL.replace(/\/$/, '') : null;
 
@@ -22,7 +22,10 @@ export interface WhatsAppStatus {
 }
 
 export interface WhatsAppConnectResponse {
-  qr_code: string; // base64
+  qr_code: string | null; // base64 (null quando já conectado)
+  connected?: boolean;
+  status?: string;
+  instance_name?: string;
 }
 
 export interface ConversationTestResponse {
@@ -63,5 +66,10 @@ export const aiBackend = {
     request<ConversationTestResponse>(`/api/clinics/${clinicId}/conversation/test`, {
       method: 'POST',
       body: JSON.stringify({ patient_phone, message }),
+    }),
+
+  disconnectWhatsApp: (clinicId: string) =>
+    request<{ success: boolean }>(`/api/clinics/${clinicId}/whatsapp/disconnect`, {
+      method: 'DELETE',
     }),
 };
