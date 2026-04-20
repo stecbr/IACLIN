@@ -10,7 +10,6 @@ import {
   QrCode,
   Loader2,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
