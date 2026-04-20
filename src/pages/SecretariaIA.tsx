@@ -72,14 +72,75 @@ export default function SecretariaIA() {
   });
 
   const [prompt, setPrompt] = useState('');
+  const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (config) {
-      setPrompt(config.custom_prompt ?? '');
+      const p = config.custom_prompt ?? '';
+      setPrompt(p);
+      setSavedPrompt(p);
       setEnabled(config.enabled);
     }
   }, [config]);
+
+  const PROMPT_CHIPS: { label: string; template: string }[] = [
+    {
+      label: '📋 Objetivo',
+      template:
+        '\n\n## Objetivo\n[Descreva aqui o que a IA deve fazer ao atender — ex: agendar consultas, confirmar presenças, tirar dúvidas...]\n',
+    },
+    {
+      label: '🎯 Tom de voz',
+      template:
+        '\n\n## Tom de voz\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional...]\n',
+    },
+    {
+      label: '📌 Regras',
+      template:
+        '\n\n## Regras da clínica\n[Liste as regras importantes — ex: política de remarcação, antecedência mínima, formas de pagamento...]\n',
+    },
+    {
+      label: '🚫 Restrições',
+      template:
+        '\n\n## Restrições\n[O que a IA NUNCA deve fazer — ex: dar diagnósticos, prometer resultados, falar sobre preços sem confirmar...]\n',
+    },
+    {
+      label: '💬 Exemplos',
+      template:
+        '\n\n## Exemplos de resposta\n[Cole aqui exemplos de como a IA deve responder em situações comuns...]\n',
+    },
+    {
+      label: '⏰ Horários',
+      template:
+        '\n\n## Horários de atendimento\n[Informe os dias e horários — ex: Seg a Sex, 8h às 18h. Sábado, 8h às 12h.]\n',
+    },
+    {
+      label: '📞 Urgências',
+      template:
+        '\n\n## Urgências\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento...]\n',
+    },
+  ];
+
+  const insertChipTemplate = (template: string) => {
+    const el = textareaRef.current;
+    if (!el) {
+      setPrompt((p) => p + template);
+      return;
+    }
+    const start = el.selectionStart ?? prompt.length;
+    const end = el.selectionEnd ?? prompt.length;
+    const next = prompt.slice(0, start) + template + prompt.slice(end);
+    setPrompt(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + template.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const isDirty = prompt !== savedPrompt;
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
@@ -98,6 +159,7 @@ export default function SecretariaIA() {
     },
     onSuccess: () => {
       toast.success('Instruções salvas com sucesso');
+      setSavedPrompt(prompt);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
@@ -292,25 +354,43 @@ export default function SecretariaIA() {
       </div>
 
       {/* Card System Prompt */}
-      <Card>
+      <Card className="rounded-xl shadow-sm">
         <CardHeader>
           <CardTitle>System prompt</CardTitle>
           <CardDescription>
             Escreva livremente as instruções que definem o comportamento da IA.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {loadingConfig ? (
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-[320px] w-full" />
           ) : (
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              disabled={saveConfig.isPending}
-              rows={14}
-              placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
-              className="font-mono text-sm resize-y leading-relaxed"
-            />
+            <>
+              <div className="flex flex-wrap gap-2">
+                {PROMPT_CHIPS.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={() => insertChipTemplate(chip.template)}
+                    disabled={saveConfig.isPending}
+                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground/80">
+                Descreva como a IA deve se comportar ao atender seus pacientes. Use os atalhos acima se quiser ajuda pra organizar.
+              </p>
+              <Textarea
+                ref={textareaRef}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                disabled={saveConfig.isPending}
+                placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
+                className="min-h-[300px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3"
+              />
+            </>
           )}
           <div className="flex items-center justify-between pt-2 border-t border-border/60">
             <span className="text-xs text-muted-foreground">
@@ -318,7 +398,7 @@ export default function SecretariaIA() {
             </span>
             <Button
               onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
-              disabled={saveConfig.isPending || loadingConfig}
+              disabled={saveConfig.isPending || loadingConfig || !isDirty}
               className="gap-2"
             >
               {saveConfig.isPending ? (
