@@ -10,6 +10,8 @@ import {
   QrCode,
   Loader2,
   AlertCircle,
+  Check,
+  CircleDot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,6 +40,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
+import { SuggestionsPanel, type ContextSuggestion } from '@/components/secretaria-ia/SuggestionsPanel';
 
 interface AiConfigRow {
   id: string;
@@ -87,41 +90,110 @@ export default function SecretariaIA() {
 
   const PROMPT_CHIPS: { label: string; template: string }[] = [
     {
-      label: '📋 Objetivo',
+      label: 'Objetivo',
       template:
-        '\n\n## Objetivo\n[Descreva aqui o que a IA deve fazer ao atender — ex: agendar consultas, confirmar presenças, tirar dúvidas...]\n',
+        '\n\nOBJETIVO:\n[Descreva aqui o que a IA deve fazer no atendimento — ex: agendar consultas, confirmar presenças, tirar dúvidas]\n',
     },
     {
-      label: '🎯 Tom de voz',
+      label: 'Tom de voz',
       template:
-        '\n\n## Tom de voz\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional...]\n',
+        '\n\nTOM DE VOZ:\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional]\n',
     },
     {
-      label: '📌 Regras',
+      label: 'Regras',
       template:
-        '\n\n## Regras da clínica\n[Liste as regras importantes — ex: política de remarcação, antecedência mínima, formas de pagamento...]\n',
+        '\n\nREGRAS:\n- [Regra 1]\n- [Regra 2]\n- [Regra 3]\n',
     },
     {
-      label: '🚫 Restrições',
+      label: 'Restrições',
       template:
-        '\n\n## Restrições\n[O que a IA NUNCA deve fazer — ex: dar diagnósticos, prometer resultados, falar sobre preços sem confirmar...]\n',
+        '\n\nRESTRIÇÕES:\n- [O que a IA NUNCA deve fazer]\n- [Outra restrição importante]\n',
     },
     {
-      label: '💬 Exemplos',
+      label: 'Exemplos',
       template:
-        '\n\n## Exemplos de resposta\n[Cole aqui exemplos de como a IA deve responder em situações comuns...]\n',
+        '\n\nEXEMPLOS DE RESPOSTA:\nPaciente: [pergunta comum]\nResposta: [como a IA deve responder]\n',
     },
     {
-      label: '⏰ Horários',
+      label: 'Horários',
       template:
-        '\n\n## Horários de atendimento\n[Informe os dias e horários — ex: Seg a Sex, 8h às 18h. Sábado, 8h às 12h.]\n',
+        '\n\nHORÁRIOS DE ATENDIMENTO:\n- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h\n',
     },
     {
-      label: '📞 Urgências',
+      label: 'Urgências',
       template:
-        '\n\n## Urgências\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento...]\n',
+        '\n\nURGÊNCIAS:\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento]\n',
     },
   ];
+
+  // ---------- Sugestões contextuais ----------
+  const { data: clinicInfo } = useQuery({
+    queryKey: ['ai-secretary-clinic-info', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clinics')
+        .select('name, category, phone, business_hours, address, city')
+        .eq('id', currentClinicId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const contextSuggestions: ContextSuggestion[] = (() => {
+    const list: ContextSuggestion[] = [];
+    if (!clinicInfo) return list;
+    if (clinicInfo.name) {
+      list.push({
+        id: 'identity',
+        title: 'Identidade',
+        preview: `Apresentar-se como secretária da ${clinicInfo.name}.`,
+        text: `\n\nIDENTIDADE:\nVocê é a secretária virtual da ${clinicInfo.name}. Sempre se apresente de forma cordial mencionando o nome da clínica.\n`,
+      });
+    }
+    if (clinicInfo.category) {
+      const catMap: Record<string, string> = {
+        odonto: 'odontológica', medico: 'médica', estetica: 'estética', veterinario: 'veterinária', outro: 'de saúde',
+      };
+      const cat = catMap[clinicInfo.category] ?? 'de saúde';
+      list.push({
+        id: 'specialty',
+        title: 'Especialidade',
+        preview: `Contexto de clínica ${cat}.`,
+        text: `\n\nCONTEXTO:\nA clínica é ${cat}. Adapte o vocabulário e as orientações ao tipo de atendimento oferecido.\n`,
+      });
+    }
+    if (clinicInfo.phone) {
+      list.push({
+        id: 'phone',
+        title: 'Telefone',
+        preview: `Encaminhar urgências para ${clinicInfo.phone}.`,
+        text: `\n\nCONTATO DE URGÊNCIA:\nEm casos urgentes, oriente o paciente a ligar para ${clinicInfo.phone}.\n`,
+      });
+    }
+    if (clinicInfo.address || clinicInfo.city) {
+      const addr = [clinicInfo.address, clinicInfo.city].filter(Boolean).join(', ');
+      list.push({
+        id: 'address',
+        title: 'Endereço',
+        preview: `Informar localização: ${addr}.`,
+        text: `\n\nLOCALIZAÇÃO:\nQuando perguntarem sobre a localização, informe: ${addr}.\n`,
+      });
+    }
+    list.push({
+      id: 'confirm',
+      title: 'Confirmação',
+      preview: 'Confirmar consultas 24h antes via WhatsApp.',
+      text: `\n\nCONFIRMAÇÃO:\nSempre confirme consultas 24h antes do horário marcado, e peça que o paciente responda SIM ou NÃO.\n`,
+    });
+    list.push({
+      id: 'limits',
+      title: 'Limites',
+      preview: 'Não dar diagnósticos nem prometer resultados.',
+      text: `\n\nLIMITES:\n- Nunca dê diagnósticos clínicos.\n- Nunca prometa resultados específicos de tratamentos.\n- Sempre encaminhe dúvidas técnicas ao profissional responsável.\n`,
+    });
+    return list;
+  })();
 
   const insertChipTemplate = (template: string) => {
     const el = textareaRef.current;
@@ -353,62 +425,93 @@ export default function SecretariaIA() {
         </Card>
       </div>
 
-      {/* Card System Prompt */}
+      {/* Card System Prompt — layout 2 colunas */}
       <Card className="rounded-xl shadow-sm">
         <CardHeader>
-          <CardTitle>System prompt</CardTitle>
-          <CardDescription>
-            Escreva livremente as instruções que definem o comportamento da IA.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {loadingConfig ? (
-            <Skeleton className="h-[320px] w-full" />
-          ) : (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {PROMPT_CHIPS.map((chip) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    onClick={() => insertChipTemplate(chip.template)}
-                    disabled={saveConfig.isPending}
-                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground/80">
-                Descreva como a IA deve se comportar ao atender seus pacientes. Use os atalhos acima se quiser ajuda pra organizar.
-              </p>
-              <Textarea
-                ref={textareaRef}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                disabled={saveConfig.isPending}
-                placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
-                className="min-h-[300px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3"
-              />
-            </>
-          )}
-          <div className="flex items-center justify-between pt-2 border-t border-border/60">
-            <span className="text-xs text-muted-foreground">
-              {prompt.length} caracteres
-            </span>
-            <Button
-              onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
-              disabled={saveConfig.isPending || loadingConfig || !isDirty}
-              className="gap-2"
-            >
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle>System prompt</CardTitle>
+              <CardDescription>
+                Escreva livremente as instruções que definem o comportamento da IA.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
               {saveConfig.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Salvar
-            </Button>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
+                </span>
+              ) : saveConfig.isError ? (
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <AlertCircle className="h-3 w-3" /> Erro ao salvar
+                </span>
+              ) : isDirty ? (
+                <span className="flex items-center gap-1.5 text-warning">
+                  <CircleDot className="h-3 w-3" /> Alterações não salvas
+                </span>
+              ) : savedPrompt ? (
+                <span className="flex items-center gap-1.5 text-success">
+                  <Check className="h-3 w-3" /> Salvo
+                </span>
+              ) : null}
+            </div>
           </div>
+        </CardHeader>
+        <CardContent>
+          {loadingConfig ? (
+            <Skeleton className="h-[420px] w-full" />
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="space-y-3 min-w-0">
+                <div className="flex flex-wrap gap-2">
+                  {PROMPT_CHIPS.map((chip) => (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      onClick={() => insertChipTemplate(chip.template)}
+                      disabled={saveConfig.isPending}
+                      className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground/80">
+                  Clique em um atalho para inserir um bloco de texto. O campo é livre — escreva como preferir.
+                </p>
+                <Textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  disabled={saveConfig.isPending}
+                  placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
+                  className="min-h-[320px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3 transition-colors focus-visible:bg-background"
+                />
+                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                  <span className="text-xs text-muted-foreground">
+                    {prompt.length} caracteres
+                  </span>
+                  <Button
+                    onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
+                    disabled={saveConfig.isPending || loadingConfig || !isDirty}
+                    className="gap-2"
+                  >
+                    {saveConfig.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+
+              <SuggestionsPanel
+                suggestions={contextSuggestions}
+                promptPreview={prompt}
+                onAdd={insertChipTemplate}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
