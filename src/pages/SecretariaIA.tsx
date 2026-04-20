@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageHeader } from '@/components/PageHeader';
 import {
   Card,
   CardContent,
@@ -35,11 +34,11 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
-import { GuidedPromptBuilder } from '@/components/secretaria-ia/GuidedPromptBuilder';
 
 interface AiConfigRow {
   id: string;
@@ -193,11 +192,6 @@ export default function SecretariaIA() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Secretária IA"
-        description="Configure a secretária virtual da sua clínica no WhatsApp"
-      />
-
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Card WhatsApp */}
         <Card>
@@ -265,15 +259,6 @@ export default function SecretariaIA() {
                 )}
                 {isConnected ? 'Reconectar' : 'Conectar WhatsApp'}
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => statusQuery.refetch()}
-                disabled={statusQuery.isFetching || !backendConfigured}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${statusQuery.isFetching ? 'animate-spin' : ''}`} />
-                Atualizar
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -307,44 +292,42 @@ export default function SecretariaIA() {
         </Card>
       </div>
 
-      {/* Card Construtor guiado */}
+      {/* Card System Prompt */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <CardTitle>Crie sua secretária IA</CardTitle>
-              <CardDescription>
-                Responda algumas perguntas e a IA estará pronta em menos de 2 minutos.
-              </CardDescription>
-            </div>
-          </div>
+          <CardTitle>System prompt</CardTitle>
+          <CardDescription>
+            Escreva livremente as instruções que definem o comportamento da IA.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           {loadingConfig ? (
-            <Skeleton className="h-80 w-full" />
+            <Skeleton className="h-64 w-full" />
           ) : (
-            <GuidedPromptBuilder
+            <Textarea
               value={prompt}
-              onChange={setPrompt}
+              onChange={(e) => setPrompt(e.target.value)}
               disabled={saveConfig.isPending}
+              rows={14}
+              placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
+              className="font-mono text-sm resize-y leading-relaxed"
             />
           )}
-          <div className="flex justify-end pt-2 border-t border-border/60">
+          <div className="flex items-center justify-between pt-2 border-t border-border/60">
+            <span className="text-xs text-muted-foreground">
+              {prompt.length} caracteres
+            </span>
             <Button
               onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
               disabled={saveConfig.isPending || loadingConfig}
               className="gap-2"
-              size="lg"
             >
               {saveConfig.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Salvar instruções
+              Salvar
             </Button>
           </div>
         </CardContent>
