@@ -1,9 +1,16 @@
 // Cliente HTTP para o backend Node.js da Secretária IA (Evolution API + IA)
-// URL configurável via VITE_AI_BACKEND_URL (default: http://localhost:3333)
+// URL configurada exclusivamente via VITE_AI_BACKEND_URL.
+// Sem fallback: se a variável não estiver definida, as chamadas falham
+// imediatamente com mensagem clara — em vez de tentar uma URL inexistente.
 
-const BASE_URL =
-  (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.replace(/\/$/, '') ||
-  'https://gourmet-affairs-telecharger-nations.trycloudflare.com';
+const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim();
+const BASE_URL = RAW_URL ? RAW_URL.replace(/\/$/, '') : null;
+
+const NOT_CONFIGURED_MSG =
+  'Backend da Secretária IA não configurado. Defina VITE_AI_BACKEND_URL nas variáveis de ambiente do projeto.';
+
+export const AI_BACKEND_URL = BASE_URL;
+export const isAiBackendConfigured = () => !!BASE_URL;
 
 export interface WhatsAppStatus {
   connected: boolean;
@@ -20,6 +27,9 @@ export interface ConversationTestResponse {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!BASE_URL) {
+    throw new Error(NOT_CONFIGURED_MSG);
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -52,5 +62,3 @@ export const aiBackend = {
       body: JSON.stringify({ patient_phone, message }),
     }),
 };
-
-export const AI_BACKEND_URL = BASE_URL;
