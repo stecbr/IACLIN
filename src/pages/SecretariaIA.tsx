@@ -13,9 +13,6 @@ import {
   CircleDot,
   Sparkles,
   LayoutDashboard,
-  MessageCircle,
-  Settings2,
-  Activity,
   ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -110,7 +107,6 @@ export default function SecretariaIA() {
   const [prompt, setPrompt] = useState('');
   const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [promptOpen, setPromptOpen] = useState(false);
   const [personality, setPersonality] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
