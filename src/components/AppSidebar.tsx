@@ -183,6 +183,42 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {isClinicOwner && (
+          <>
+            <div className="mx-3 my-2">
+              <div className="h-px bg-sidebar-border/60" />
+            </div>
+            <SidebarGroup>
+              {!collapsed && (
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                  Gestão da Clínica
+                </SidebarGroupLabel>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderNavItem({ title: 'Visão Geral', url: '/clinica', icon: Building2 })}
+                  {renderNavItem({ title: 'Médicos', url: '/clinica/medicos', icon: Stethoscope })}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton disabled tooltip="Faturamento (em breve)">
+                      <div className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground/50 cursor-not-allowed w-full">
+                        <Wallet className="h-4 w-4 flex-shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1">Faturamento</span>
+                            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
+                              em breve
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
         <div className="flex-1" />
 
         <SidebarGroup>
