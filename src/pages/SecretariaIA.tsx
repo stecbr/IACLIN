@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   Wifi,
   WifiOff,
   RefreshCw,
-  Send,
   Save,
   QrCode,
   Loader2,
   AlertCircle,
   Check,
   CircleDot,
+  Sparkles,
+  ChevronDown,
+  LayoutDashboard,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,7 +25,6 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -36,11 +37,17 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
-import { SuggestionsPanel, type ContextSuggestion } from '@/components/secretaria-ia/SuggestionsPanel';
 
 interface AiConfigRow {
   id: string;
@@ -49,10 +56,32 @@ interface AiConfigRow {
   enabled: boolean;
 }
 
-interface ChatBubble {
-  role: 'user' | 'ai';
-  text: string;
-}
+const PERSONALITY_OPTIONS: { value: string; label: string; template: string }[] = [
+  {
+    value: 'acolhedora',
+    label: 'Acolhedora e empática',
+    template:
+      '\n\nPERSONALIDADE:\nSeja acolhedora, gentil e empática. Demonstre cuidado genuíno com o paciente em cada resposta.\n',
+  },
+  {
+    value: 'profissional',
+    label: 'Profissional e objetiva',
+    template:
+      '\n\nPERSONALIDADE:\nSeja profissional, clara e direta. Priorize objetividade sem perder a cordialidade.\n',
+  },
+  {
+    value: 'descontraida',
+    label: 'Descontraída e próxima',
+    template:
+      '\n\nPERSONALIDADE:\nSeja descontraída, próxima e informal. Converse como uma amiga, mantendo respeito e profissionalismo.\n',
+  },
+  {
+    value: 'formal',
+    label: 'Formal e cerimoniosa',
+    template:
+      '\n\nPERSONALIDADE:\nSeja formal e cerimoniosa. Use tratamento respeitoso (senhor/senhora) e linguagem cuidadosa.\n',
+  },
+];
 
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
@@ -77,6 +106,8 @@ export default function SecretariaIA() {
   const [prompt, setPrompt] = useState('');
   const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [personality, setPersonality] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -95,14 +126,8 @@ export default function SecretariaIA() {
         '\n\nOBJETIVO:\n[Descreva aqui o que a IA deve fazer no atendimento — ex: agendar consultas, confirmar presenças, tirar dúvidas]\n',
     },
     {
-      label: 'Tom de voz',
-      template:
-        '\n\nTOM DE VOZ:\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional]\n',
-    },
-    {
       label: 'Regras',
-      template:
-        '\n\nREGRAS:\n- [Regra 1]\n- [Regra 2]\n- [Regra 3]\n',
+      template: '\n\nREGRAS:\n- [Regra 1]\n- [Regra 2]\n- [Regra 3]\n',
     },
     {
       label: 'Restrições',
@@ -126,76 +151,7 @@ export default function SecretariaIA() {
     },
   ];
 
-  // ---------- Sugestões contextuais ----------
-  const { data: clinicInfo } = useQuery({
-    queryKey: ['ai-secretary-clinic-info', currentClinicId],
-    enabled: !!currentClinicId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('clinics')
-        .select('name, category, phone, business_hours, address, city')
-        .eq('id', currentClinicId!)
-        .maybeSingle();
-      return data;
-    },
-  });
-
-  const contextSuggestions: ContextSuggestion[] = (() => {
-    const list: ContextSuggestion[] = [];
-    if (!clinicInfo) return list;
-    if (clinicInfo.name) {
-      list.push({
-        id: 'identity',
-        title: 'Identidade',
-        preview: `Apresentar-se como secretária da ${clinicInfo.name}.`,
-        text: `\n\nIDENTIDADE:\nVocê é a secretária virtual da ${clinicInfo.name}. Sempre se apresente de forma cordial mencionando o nome da clínica.\n`,
-      });
-    }
-    if (clinicInfo.category) {
-      const catMap: Record<string, string> = {
-        odonto: 'odontológica', medico: 'médica', estetica: 'estética', veterinario: 'veterinária', outro: 'de saúde',
-      };
-      const cat = catMap[clinicInfo.category] ?? 'de saúde';
-      list.push({
-        id: 'specialty',
-        title: 'Especialidade',
-        preview: `Contexto de clínica ${cat}.`,
-        text: `\n\nCONTEXTO:\nA clínica é ${cat}. Adapte o vocabulário e as orientações ao tipo de atendimento oferecido.\n`,
-      });
-    }
-    if (clinicInfo.phone) {
-      list.push({
-        id: 'phone',
-        title: 'Telefone',
-        preview: `Encaminhar urgências para ${clinicInfo.phone}.`,
-        text: `\n\nCONTATO DE URGÊNCIA:\nEm casos urgentes, oriente o paciente a ligar para ${clinicInfo.phone}.\n`,
-      });
-    }
-    if (clinicInfo.address || clinicInfo.city) {
-      const addr = [clinicInfo.address, clinicInfo.city].filter(Boolean).join(', ');
-      list.push({
-        id: 'address',
-        title: 'Endereço',
-        preview: `Informar localização: ${addr}.`,
-        text: `\n\nLOCALIZAÇÃO:\nQuando perguntarem sobre a localização, informe: ${addr}.\n`,
-      });
-    }
-    list.push({
-      id: 'confirm',
-      title: 'Confirmação',
-      preview: 'Confirmar consultas 24h antes via WhatsApp.',
-      text: `\n\nCONFIRMAÇÃO:\nSempre confirme consultas 24h antes do horário marcado, e peça que o paciente responda SIM ou NÃO.\n`,
-    });
-    list.push({
-      id: 'limits',
-      title: 'Limites',
-      preview: 'Não dar diagnósticos nem prometer resultados.',
-      text: `\n\nLIMITES:\n- Nunca dê diagnósticos clínicos.\n- Nunca prometa resultados específicos de tratamentos.\n- Sempre encaminhe dúvidas técnicas ao profissional responsável.\n`,
-    });
-    return list;
-  })();
-
-  const insertChipTemplate = (template: string) => {
+  const insertText = (template: string) => {
     const el = textareaRef.current;
     if (!el) {
       setPrompt((p) => p + template);
@@ -210,6 +166,12 @@ export default function SecretariaIA() {
       const pos = start + template.length;
       el.setSelectionRange(pos, pos);
     });
+  };
+
+  const handlePersonalityChange = (value: string) => {
+    setPersonality(value);
+    const opt = PERSONALITY_OPTIONS.find((o) => o.value === value);
+    if (opt) insertText(opt.template);
   };
 
   const isDirty = prompt !== savedPrompt;
@@ -242,7 +204,7 @@ export default function SecretariaIA() {
     saveConfig.mutate({ custom_prompt: prompt, enabled: next });
   };
 
-  // ---------- WhatsApp status (Backend IA) ----------
+  // ---------- WhatsApp status ----------
   const statusQuery = useQuery({
     queryKey: ['ai-whatsapp-status', currentClinicId],
     enabled: !!currentClinicId && backendConfigured,
@@ -294,33 +256,6 @@ export default function SecretariaIA() {
     if (!open) stopPolling();
   };
 
-  // ---------- Teste de conversa ----------
-  const [testPhone, setTestPhone] = useState('');
-  const [testMessage, setTestMessage] = useState('');
-  const [chat, setChat] = useState<ChatBubble[]>([]);
-
-  const testMutation = useMutation({
-    mutationFn: () =>
-      aiBackend.testConversation(currentClinicId!, testPhone.trim(), testMessage.trim()),
-    onMutate: () => {
-      setChat((c) => [...c, { role: 'user', text: testMessage.trim() }]);
-    },
-    onSuccess: (data) => {
-      setChat((c) => [...c, { role: 'ai', text: data.reply }]);
-      setTestMessage('');
-    },
-    onError: (e: any) => {
-      toast.error(e.message ?? 'Erro ao testar conversa');
-      setChat((c) => [...c, { role: 'ai', text: '⚠️ Erro: ' + (e.message ?? 'falha') }]);
-    },
-  });
-
-  const handleSendTest = () => {
-    if (!testPhone.trim() || !testMessage.trim() || !currentClinicId) return;
-    testMutation.mutate();
-  };
-
-  // ---------- Render ----------
   const isConnected = !!statusQuery.data?.connected;
 
   return (
@@ -425,59 +360,103 @@ export default function SecretariaIA() {
         </Card>
       </div>
 
-      {/* Card System Prompt — layout 2 colunas */}
-      <Card className="rounded-xl shadow-sm">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <CardTitle>System prompt</CardTitle>
-              <CardDescription>
-                Escreva livremente as instruções que definem o comportamento da IA.
-              </CardDescription>
+      {/* Ações: abrir prompt e ir para painel */}
+      <div className="flex flex-wrap gap-3">
+        <Button
+          onClick={() => setPromptOpen((v) => !v)}
+          variant={promptOpen ? 'outline' : 'default'}
+          className="gap-2"
+        >
+          <Sparkles className="h-4 w-4" />
+          {promptOpen ? 'Fechar instruções' : 'Configurar instruções da IA'}
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${promptOpen ? 'rotate-180' : ''}`}
+          />
+        </Button>
+        <Button asChild variant="outline" className="gap-2">
+          <Link to="/secretaria-ia/painel">
+            <LayoutDashboard className="h-4 w-4" />
+            Abrir painel da IA
+          </Link>
+        </Button>
+      </div>
+
+      {/* Card System Prompt — colapsável */}
+      {promptOpen && (
+        <Card className="rounded-xl shadow-sm">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <CardTitle>System prompt</CardTitle>
+                <CardDescription>
+                  Escreva livremente as instruções que definem o comportamento da IA.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {saveConfig.isPending ? (
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
+                  </span>
+                ) : saveConfig.isError ? (
+                  <span className="flex items-center gap-1.5 text-destructive">
+                    <AlertCircle className="h-3 w-3" /> Erro ao salvar
+                  </span>
+                ) : isDirty ? (
+                  <span className="flex items-center gap-1.5 text-warning">
+                    <CircleDot className="h-3 w-3" /> Alterações não salvas
+                  </span>
+                ) : savedPrompt ? (
+                  <span className="flex items-center gap-1.5 text-success">
+                    <Check className="h-3 w-3" /> Salvo
+                  </span>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              {saveConfig.isPending ? (
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
-                </span>
-              ) : saveConfig.isError ? (
-                <span className="flex items-center gap-1.5 text-destructive">
-                  <AlertCircle className="h-3 w-3" /> Erro ao salvar
-                </span>
-              ) : isDirty ? (
-                <span className="flex items-center gap-1.5 text-warning">
-                  <CircleDot className="h-3 w-3" /> Alterações não salvas
-                </span>
-              ) : savedPrompt ? (
-                <span className="flex items-center gap-1.5 text-success">
-                  <Check className="h-3 w-3" /> Salvo
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingConfig ? (
-            <Skeleton className="h-[420px] w-full" />
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="space-y-3 min-w-0">
-                <div className="flex flex-wrap gap-2">
-                  {PROMPT_CHIPS.map((chip) => (
-                    <button
-                      key={chip.label}
-                      type="button"
-                      onClick={() => insertChipTemplate(chip.template)}
-                      disabled={saveConfig.isPending}
-                      className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
+          </CardHeader>
+          <CardContent>
+            {loadingConfig ? (
+              <Skeleton className="h-[420px] w-full" />
+            ) : (
+              <div className="space-y-4">
+                {/* Personalidade */}
+                <div className="grid gap-2 sm:grid-cols-[180px_1fr] sm:items-center">
+                  <Label htmlFor="personality" className="text-sm">
+                    Personalidade
+                  </Label>
+                  <Select value={personality} onValueChange={handlePersonalityChange}>
+                    <SelectTrigger id="personality" className="sm:max-w-sm">
+                      <SelectValue placeholder="Selecione um estilo de comunicação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERSONALITY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <p className="text-xs text-muted-foreground/80">
-                  Clique em um atalho para inserir um bloco de texto. O campo é livre — escreva como preferir.
-                </p>
+
+                {/* Chips */}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {PROMPT_CHIPS.map((chip) => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        onClick={() => insertText(chip.template)}
+                        disabled={saveConfig.isPending}
+                        className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground/80">
+                    Clique em um atalho para inserir um bloco de texto. O campo é livre — escreva como preferir.
+                  </p>
+                </div>
+
                 <Textarea
                   ref={textareaRef}
                   value={prompt}
@@ -486,6 +465,7 @@ export default function SecretariaIA() {
                   placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
                   className="min-h-[320px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3 transition-colors focus-visible:bg-background"
                 />
+
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-xs text-muted-foreground">
                     {prompt.length} caracteres
@@ -504,88 +484,10 @@ export default function SecretariaIA() {
                   </Button>
                 </div>
               </div>
-
-              <SuggestionsPanel
-                suggestions={contextSuggestions}
-                promptPreview={prompt}
-                onAdd={insertChipTemplate}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Card Teste */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Testar conversa</CardTitle>
-          <CardDescription>
-            Simule uma mensagem de paciente para ver como a IA responde.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[200px_1fr_auto]">
-            <Input
-              placeholder="Telefone (ex: 11999999999)"
-              value={testPhone}
-              onChange={(e) => setTestPhone(e.target.value)}
-            />
-            <Input
-              placeholder="Mensagem do paciente"
-              value={testMessage}
-              onChange={(e) => setTestMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendTest()}
-            />
-            <Button
-              onClick={handleSendTest}
-              disabled={
-                testMutation.isPending ||
-                !testPhone.trim() ||
-                !testMessage.trim() ||
-                !currentClinicId ||
-                !backendConfigured
-              }
-              className="gap-2"
-            >
-              {testMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Enviar
-            </Button>
-          </div>
-
-          <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-4 min-h-[120px] max-h-[400px] overflow-y-auto">
-            {chat.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                As respostas da IA aparecerão aqui.
-              </p>
-            ) : (
-              <AnimatePresence initial={false}>
-                {chat.map((b, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${b.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
-                        b.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-br-sm'
-                          : 'bg-card border border-border rounded-bl-sm'
-                      }`}
-                    >
-                      {b.text}
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Modal QR Code */}
       <Dialog open={qrModalOpen} onOpenChange={handleQrClose}>
