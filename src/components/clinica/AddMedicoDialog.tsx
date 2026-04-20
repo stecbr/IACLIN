@@ -83,6 +83,11 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
               <Input id="med-spec" value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Cardiologia" />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="med-pass">Senha temporária</Label>
+            <Input id="med-pass" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 6 caracteres" minLength={6} required />
+            <p className="text-xs text-muted-foreground">Compartilhe esta senha com o médico. Ele poderá alterá-la depois.</p>
+          </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
