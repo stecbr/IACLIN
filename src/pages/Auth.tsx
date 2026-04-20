@@ -127,6 +127,25 @@ export default function Auth() {
           }
         }
 
+        // Validate clinic-specific fields
+        if (userType === 'clinica') {
+          if (cnpj.replace(/\D/g, '').length !== 14) {
+            toast.error('CNPJ deve ter 14 dígitos');
+            setSubmitting(false);
+            return;
+          }
+          if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
+            toast.error('Preencha todos os campos obrigatórios');
+            setSubmitting(false);
+            return;
+          }
+          if (password !== confirmPassword) {
+            toast.error('As senhas não coincidem');
+            setSubmitting(false);
+            return;
+          }
+        }
+
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
         const { error } = await supabase.auth.signUp({
           email,
@@ -134,7 +153,7 @@ export default function Auth() {
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
-              full_name: fullName,
+              full_name: userType === 'clinica' ? responsibleName : fullName,
               user_type: userType,
               professional_subtype: profSubType,
               clinic_category: clinicCategory,
@@ -143,6 +162,14 @@ export default function Auth() {
                 phone,
                 insurance_provider: insuranceProvider || null,
                 insurance_number: insuranceNumber || null,
+              }),
+              ...(userType === 'clinica' && {
+                legal_name: legalName.trim(),
+                trade_name: tradeName.trim(),
+                cnpj: cnpj.replace(/\D/g, ''),
+                corporate_email: email.trim(),
+                phone: phone.trim(),
+                responsible_name: responsibleName.trim(),
               }),
             },
           },
