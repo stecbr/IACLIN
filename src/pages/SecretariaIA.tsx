@@ -425,62 +425,93 @@ export default function SecretariaIA() {
         </Card>
       </div>
 
-      {/* Card System Prompt */}
+      {/* Card System Prompt — layout 2 colunas */}
       <Card className="rounded-xl shadow-sm">
         <CardHeader>
-          <CardTitle>System prompt</CardTitle>
-          <CardDescription>
-            Escreva livremente as instruções que definem o comportamento da IA.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {loadingConfig ? (
-            <Skeleton className="h-[320px] w-full" />
-          ) : (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {PROMPT_CHIPS.map((chip) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    onClick={() => insertChipTemplate(chip.template)}
-                    disabled={saveConfig.isPending}
-                    className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground/80">
-                Descreva como a IA deve se comportar ao atender seus pacientes. Use os atalhos acima se quiser ajuda pra organizar.
-              </p>
-              <Textarea
-                ref={textareaRef}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                disabled={saveConfig.isPending}
-                placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
-                className="min-h-[300px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3"
-              />
-            </>
-          )}
-          <div className="flex items-center justify-between pt-2 border-t border-border/60">
-            <span className="text-xs text-muted-foreground">
-              {prompt.length} caracteres
-            </span>
-            <Button
-              onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
-              disabled={saveConfig.isPending || loadingConfig || !isDirty}
-              className="gap-2"
-            >
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle>System prompt</CardTitle>
+              <CardDescription>
+                Escreva livremente as instruções que definem o comportamento da IA.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
               {saveConfig.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Salvar
-            </Button>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
+                </span>
+              ) : saveConfig.isError ? (
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <AlertCircle className="h-3 w-3" /> Erro ao salvar
+                </span>
+              ) : isDirty ? (
+                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                  <CircleDot className="h-3 w-3" /> Alterações não salvas
+                </span>
+              ) : savedPrompt ? (
+                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500">
+                  <Check className="h-3 w-3" /> Salvo
+                </span>
+              ) : null}
+            </div>
           </div>
+        </CardHeader>
+        <CardContent>
+          {loadingConfig ? (
+            <Skeleton className="h-[420px] w-full" />
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="space-y-3 min-w-0">
+                <div className="flex flex-wrap gap-2">
+                  {PROMPT_CHIPS.map((chip) => (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      onClick={() => insertChipTemplate(chip.template)}
+                      disabled={saveConfig.isPending}
+                      className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground/80 transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground/80">
+                  Clique em um atalho para inserir um bloco de texto. O campo é livre — escreva como preferir.
+                </p>
+                <Textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  disabled={saveConfig.isPending}
+                  placeholder="Ex: Você é a secretária virtual da clínica. Sua função é agendar consultas, confirmar presenças e tirar dúvidas dos pacientes de forma acolhedora..."
+                  className="min-h-[320px] font-mono text-[14px] leading-relaxed resize-y rounded-lg bg-muted/50 px-4 py-3 transition-colors focus-visible:bg-background"
+                />
+                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                  <span className="text-xs text-muted-foreground">
+                    {prompt.length} caracteres
+                  </span>
+                  <Button
+                    onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
+                    disabled={saveConfig.isPending || loadingConfig || !isDirty}
+                    className="gap-2"
+                  >
+                    {saveConfig.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+
+              <SuggestionsPanel
+                suggestions={contextSuggestions}
+                promptPreview={prompt}
+                onAdd={insertChipTemplate}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
