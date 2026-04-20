@@ -230,6 +230,27 @@ export default function SecretariaIA() {
   const connectMutation = useMutation({
     mutationFn: () => aiBackend.connectWhatsApp(currentClinicId!),
     onSuccess: (data) => {
+      // Se o backend já indica que está conectado, tratar como sucesso imediato.
+      if (data.connected) {
+        stopPolling();
+        setQrModalOpen(false);
+        setQrCode(null);
+        qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
+          connected: true,
+          status: data.status ?? 'connected',
+          instance_name: data.instance_name ?? null,
+        });
+        toast.success('WhatsApp conectado!');
+        setStep(2);
+        return;
+      }
+
+      // Sem QR code e não conectado → erro amigável.
+      if (!data.qr_code) {
+        toast.error('Não foi possível gerar o QR Code agora. Tente novamente.');
+        return;
+      }
+
       setQrCode(data.qr_code);
       setQrModalOpen(true);
       stopPolling();
