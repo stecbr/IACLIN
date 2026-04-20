@@ -159,6 +159,7 @@ export default function SecretariaIA() {
     },
     onSuccess: () => {
       toast.success('Instruções salvas com sucesso');
+      setSavedPrompt(prompt);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
