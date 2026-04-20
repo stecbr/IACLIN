@@ -646,6 +646,24 @@ export default function SecretariaIA() {
               <Loader2 className="h-3 w-3 animate-spin" />
               Aguardando conexão...
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                stopPolling();
+                setQrModalOpen(false);
+                disconnectMutation.mutate();
+              }}
+              disabled={disconnectMutation.isPending || !currentClinicId}
+              className="gap-2"
+            >
+              {disconnectMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <WifiOff className="h-4 w-4" />
+              )}
+              Desconectar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
