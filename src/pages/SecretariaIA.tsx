@@ -1,23 +1,45 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Wifi, WifiOff, RefreshCw, Send, Save, QrCode, Loader2, AlertCircle } from 'lucide-react';
+import {
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Send,
+  Save,
+  QrCode,
+  Loader2,
+  AlertCircle,
+  Sparkles,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
+import { GuidedPromptBuilder } from '@/components/secretaria-ia/GuidedPromptBuilder';
 
 interface AiConfigRow {
   id: string;
@@ -77,7 +99,7 @@ export default function SecretariaIA() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Configurações salvas');
+      toast.success('Instruções salvas com sucesso');
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
@@ -182,10 +204,10 @@ export default function SecretariaIA() {
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  Conexão WhatsApp
-                </CardTitle>
-                <CardDescription>Status da instância da secretária</CardDescription>
+                <CardTitle>Conexão WhatsApp</CardTitle>
+                <CardDescription>
+                  Status da conexão com o WhatsApp da clínica
+                </CardDescription>
               </div>
               {!backendConfigured ? (
                 <Badge variant="outline" className="gap-1">
@@ -195,7 +217,7 @@ export default function SecretariaIA() {
                 <Skeleton className="h-6 w-24" />
               ) : statusQuery.isError ? (
                 <Badge variant="destructive" className="gap-1">
-                  <AlertCircle className="h-3 w-3" /> Backend offline
+                  <AlertCircle className="h-3 w-3" /> Offline
                 </Badge>
               ) : isConnected ? (
                 <Badge className="gap-1 bg-primary/15 text-primary border border-primary/30 hover:bg-primary/20">
@@ -211,23 +233,21 @@ export default function SecretariaIA() {
           <CardContent className="space-y-4">
             {!backendConfigured && (
               <div className="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
-                Defina a variável de ambiente{' '}
-                <code className="font-mono text-foreground">VITE_AI_BACKEND_URL</code> apontando
-                para o backend Node.js da Secretária IA para habilitar a conexão.
+                Backend da Secretária IA não configurado.
               </div>
             )}
             {backendConfigured && statusQuery.isError && (
               <p className="text-sm text-muted-foreground">
-                Não foi possível conectar ao backend da IA. Verifique se ele está em execução.
+                Não foi possível conectar ao serviço da IA. Verifique sua internet
+                e tente novamente.
               </p>
             )}
             {backendConfigured && !statusQuery.isError && (
-              <div className="text-sm text-muted-foreground">
-                Instância:{' '}
-                <span className="font-mono text-foreground">
-                  {statusQuery.data?.instance_name ?? '—'}
-                </span>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                {isConnected
+                  ? 'Tudo certo! Sua IA está pronta para responder pacientes.'
+                  : 'Conecte o WhatsApp da clínica para a IA começar a atender.'}
+              </p>
             )}
             <div className="flex flex-wrap gap-2">
               <Button
@@ -252,7 +272,7 @@ export default function SecretariaIA() {
                 className="gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${statusQuery.isFetching ? 'animate-spin' : ''}`} />
-                Atualizar status
+                Atualizar
               </Button>
             </div>
           </CardContent>
@@ -287,38 +307,44 @@ export default function SecretariaIA() {
         </Card>
       </div>
 
-      {/* Card Prompt */}
+      {/* Card Construtor guiado */}
       <Card>
         <CardHeader>
-          <CardTitle>Instruções personalizadas</CardTitle>
-          <CardDescription>
-            Diga à IA como ela deve se comportar — regras de agendamento, tom de voz, restrições.
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle>Crie sua secretária IA</CardTitle>
+              <CardDescription>
+                Responda algumas perguntas e a IA estará pronta em menos de 2 minutos.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {loadingConfig ? (
-            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-80 w-full" />
           ) : (
-            <Textarea
+            <GuidedPromptBuilder
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={`Ex.:\n- Não agende aos domingos\n- Sempre pergunte o convênio\n- Use tom cordial e formal`}
-              rows={8}
-              className="resize-y font-mono text-sm"
+              onChange={setPrompt}
+              disabled={saveConfig.isPending}
             />
           )}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2 border-t border-border/60">
             <Button
               onClick={() => saveConfig.mutate({ custom_prompt: prompt, enabled })}
               disabled={saveConfig.isPending || loadingConfig}
               className="gap-2"
+              size="lg"
             >
               {saveConfig.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Salvar
+              Salvar instruções
             </Button>
           </div>
         </CardContent>
