@@ -72,14 +72,75 @@ export default function SecretariaIA() {
   });
 
   const [prompt, setPrompt] = useState('');
+  const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (config) {
-      setPrompt(config.custom_prompt ?? '');
+      const p = config.custom_prompt ?? '';
+      setPrompt(p);
+      setSavedPrompt(p);
       setEnabled(config.enabled);
     }
   }, [config]);
+
+  const PROMPT_CHIPS: { label: string; template: string }[] = [
+    {
+      label: '📋 Objetivo',
+      template:
+        '\n\n## Objetivo\n[Descreva aqui o que a IA deve fazer ao atender — ex: agendar consultas, confirmar presenças, tirar dúvidas...]\n',
+    },
+    {
+      label: '🎯 Tom de voz',
+      template:
+        '\n\n## Tom de voz\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional...]\n',
+    },
+    {
+      label: '📌 Regras',
+      template:
+        '\n\n## Regras da clínica\n[Liste as regras importantes — ex: política de remarcação, antecedência mínima, formas de pagamento...]\n',
+    },
+    {
+      label: '🚫 Restrições',
+      template:
+        '\n\n## Restrições\n[O que a IA NUNCA deve fazer — ex: dar diagnósticos, prometer resultados, falar sobre preços sem confirmar...]\n',
+    },
+    {
+      label: '💬 Exemplos',
+      template:
+        '\n\n## Exemplos de resposta\n[Cole aqui exemplos de como a IA deve responder em situações comuns...]\n',
+    },
+    {
+      label: '⏰ Horários',
+      template:
+        '\n\n## Horários de atendimento\n[Informe os dias e horários — ex: Seg a Sex, 8h às 18h. Sábado, 8h às 12h.]\n',
+    },
+    {
+      label: '📞 Urgências',
+      template:
+        '\n\n## Urgências\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento...]\n',
+    },
+  ];
+
+  const insertChipTemplate = (template: string) => {
+    const el = textareaRef.current;
+    if (!el) {
+      setPrompt((p) => p + template);
+      return;
+    }
+    const start = el.selectionStart ?? prompt.length;
+    const end = el.selectionEnd ?? prompt.length;
+    const next = prompt.slice(0, start) + template + prompt.slice(end);
+    setPrompt(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + template.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const isDirty = prompt !== savedPrompt;
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
