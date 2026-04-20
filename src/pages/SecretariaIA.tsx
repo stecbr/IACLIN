@@ -230,25 +230,57 @@ export default function SecretariaIA() {
   const connectMutation = useMutation({
     mutationFn: () => aiBackend.connectWhatsApp(currentClinicId!),
     onSuccess: (data) => {
-      setQrCode(data.qr_code);
-      setQrModalOpen(true);
-      stopPolling();
-      pollRef.current = window.setInterval(async () => {
-        try {
-          const s = await aiBackend.getWhatsAppStatus(currentClinicId!);
-          qc.setQueryData(['ai-whatsapp-status', currentClinicId], s);
-          if (s.connected) {
-            stopPolling();
-            setQrModalOpen(false);
-            toast.success('WhatsApp conectado!');
+      // Caso 1: já está conectado — não abre modal
+      if (data.connected) {
+        qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
+          connected: true,
+          status: data.status ?? 'connected',
+          instance_name: data.instance_name ?? null,
+        });
+        toast.success('WhatsApp já está conectado!');
+        return;
+      }
+      // Caso 2: veio QR Code — abre modal e inicia polling
+      if (data.qr_code) {
+        setQrCode(data.qr_code);
+        setQrModalOpen(true);
+        stopPolling();
+        pollRef.current = window.setInterval(async () => {
+          try {
+            const s = await aiBackend.getWhatsAppStatus(currentClinicId!);
+            qc.setQueryData(['ai-whatsapp-status', currentClinicId], s);
+            if (s.connected) {
+              stopPolling();
+              setQrModalOpen(false);
+              toast.success('WhatsApp conectado!');
+            }
+          } catch {
+            // ignora erros transitórios durante o polling
           }
-        } catch {
-          // ignora erros transitórios durante o polling
-        }
-      }, 5000);
+        }, 5000);
+        return;
+      }
+      // Caso 3: sem QR e desconectado — erro amigável
+      toast.error('Não foi possível gerar o QR Code. Tente novamente.');
     },
     onError: (e: any) =>
       toast.error(e.message ?? 'Não foi possível iniciar a conexão com o WhatsApp'),
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => aiBackend.disconnectWhatsApp(currentClinicId!),
+    onSuccess: () => {
+      qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
+        connected: false,
+        status: 'disconnected',
+        instance_name: null,
+      });
+      qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
+      setQrCode(null);
+      setStep(1);
+      toast.success('WhatsApp desconectado');
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao desconectar'),
   });
 
   const handleQrClose = (open: boolean) => {
