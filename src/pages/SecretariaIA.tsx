@@ -10,6 +10,8 @@ import {
   QrCode,
   Loader2,
   AlertCircle,
+  Check,
+  CircleDot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,6 +40,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
+import { SuggestionsPanel, type ContextSuggestion } from '@/components/secretaria-ia/SuggestionsPanel';
 
 interface AiConfigRow {
   id: string;
