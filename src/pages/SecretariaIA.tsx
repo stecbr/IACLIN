@@ -390,16 +390,23 @@ export default function SecretariaIA() {
 
               {/* Status badge */}
               {backendConfigured && (
-                <div>
+                <div className="flex flex-col items-center gap-1">
                   {statusQuery.isLoading ? (
                     <Skeleton className="h-6 w-32" />
+                  ) : isConnected ? (
+                    <>
+                      <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
+                        <Check className="h-3 w-3" /> WhatsApp Conectado
+                      </Badge>
+                      {statusQuery.data?.instance_name && (
+                        <span className="text-xs text-muted-foreground">
+                          Instância: {statusQuery.data.instance_name}
+                        </span>
+                      )}
+                    </>
                   ) : statusQuery.isError ? (
                     <Badge variant="destructive" className="gap-1">
                       <AlertCircle className="h-3 w-3" /> Offline
-                    </Badge>
-                  ) : isConnected ? (
-                    <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
-                      <Wifi className="h-3 w-3" /> Conectado
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="gap-1 text-muted-foreground">
@@ -410,25 +417,39 @@ export default function SecretariaIA() {
               )}
 
               <div className="flex flex-wrap justify-center gap-2 pt-2">
-                <Button
-                  size="lg"
-                  onClick={() => connectMutation.mutate()}
-                  disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
-                  variant={isConnected ? 'outline' : 'default'}
-                  className="gap-2"
-                >
-                  {connectMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isConnected ? (
-                    <RefreshCw className="h-4 w-4" />
-                  ) : (
-                    <QrCode className="h-4 w-4" />
-                  )}
-                  {isConnected ? 'Reconectar' : 'Escanear QR Code'}
-                </Button>
-                {isConnected && (
-                  <Button size="lg" onClick={() => setStep(2)} className="gap-2">
-                    Próximo: treinar IA <ArrowRight className="h-4 w-4" />
+                {isConnected ? (
+                  <>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() => disconnectMutation.mutate()}
+                      disabled={disconnectMutation.isPending}
+                      className="gap-2"
+                    >
+                      {disconnectMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <WifiOff className="h-4 w-4" />
+                      )}
+                      Desconectar
+                    </Button>
+                    <Button size="lg" onClick={() => setStep(2)} className="gap-2">
+                      Continuar <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="lg"
+                    onClick={() => connectMutation.mutate()}
+                    disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
+                    className="gap-2"
+                  >
+                    {connectMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <QrCode className="h-4 w-4" />
+                    )}
+                    {statusQuery.isError ? 'Tentar novamente' : 'Escanear QR Code'}
                   </Button>
                 )}
               </div>
