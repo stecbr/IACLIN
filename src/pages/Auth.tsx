@@ -58,6 +58,39 @@ export default function Auth() {
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Clinic-specific fields
+  const [legalName, setLegalName] = useState('');
+  const [tradeName, setTradeName] = useState('');
+  const [cnpj, setCnpj] = useState('');
+  const [responsibleName, setResponsibleName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fetchingCnpj, setFetchingCnpj] = useState(false);
+
+  const fetchCnpjData = async () => {
+    const digits = cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      toast.error('CNPJ deve ter 14 dígitos');
+      return;
+    }
+    setFetchingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!res.ok) throw new Error('CNPJ não encontrado');
+      const data = await res.json();
+      if (data.razao_social) setLegalName(data.razao_social);
+      if (data.nome_fantasia) setTradeName(data.nome_fantasia);
+      else if (data.razao_social && !tradeName) setTradeName(data.razao_social);
+      if (data.ddd_telefone_1 && !phone) {
+        setPhone(`(${data.ddd_telefone_1.slice(0, 2)}) ${data.ddd_telefone_1.slice(2)}`);
+      }
+      toast.success('Dados preenchidos automaticamente!');
+    } catch {
+      toast.error('Não foi possível buscar o CNPJ.');
+    } finally {
+      setFetchingCnpj(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
