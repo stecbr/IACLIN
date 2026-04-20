@@ -9,6 +9,9 @@ import {
   LogOut,
   Bot,
   CalendarClock,
+  Building2,
+  Stethoscope,
+  Wallet,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -59,7 +62,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { resolved } = useTheme();
-  const { profile, signOut, user, clinicCategory } = useAuth();
+  const { profile, signOut, user, clinicCategory, isClinicOwner } = useAuth();
   const { filterNavItems } = useRoleAccess();
 
   const filteredMainNav = filterNavItems(mainNav);
