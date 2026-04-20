@@ -56,15 +56,11 @@ export default function ClinicaMedicos() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Médicos"
-        description="Gestão de profissionais vinculados à clínica"
-        actions={
-          <Button onClick={() => setAddOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Adicionar médico
-          </Button>
-        }
-      />
+      <PageHeader title="Médicos" description="Gestão de profissionais vinculados à clínica">
+        <Button onClick={() => setAddOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Adicionar médico
+        </Button>
+      </PageHeader>
 
       <Card>
         <CardContent className="p-0">
