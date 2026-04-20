@@ -4,9 +4,9 @@
 // imediatamente com mensagem clara — em vez de tentar uma URL inexistente.
 
 // URL do backend externo da Secretária IA.
-// Apenas via variável de ambiente VITE_AI_BACKEND_URL — sem fallback hardcoded
-// (o túnel Cloudflare antigo expira e gera "Failed to fetch" em loop).
-const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim();
+// Prioridade: variável de ambiente VITE_AI_BACKEND_URL > fallback hardcoded.
+const DEFAULT_AI_BACKEND_URL = 'https://pens-vegetation-project-amd.trycloudflare.com';
+const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim() || DEFAULT_AI_BACKEND_URL;
 const BASE_URL = RAW_URL ? RAW_URL.replace(/\/$/, '') : null;
 
 const NOT_CONFIGURED_MSG =
@@ -22,10 +22,7 @@ export interface WhatsAppStatus {
 }
 
 export interface WhatsAppConnectResponse {
-  qr_code: string | null; // base64; null quando já está conectado
-  connected?: boolean;
-  status?: string;
-  instance_name?: string | null;
+  qr_code: string; // base64
 }
 
 export interface ConversationTestResponse {

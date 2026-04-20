@@ -1,94 +1,104 @@
 
 
-# Diagnóstico — Secretária IA · Etapa 1 (Conexão WhatsApp)
+# Plano: Adicionar perfil "Clínica" ao sistema
 
-Análise estática feita em `src/pages/SecretariaIA.tsx` e `src/lib/aiBackend.ts`. **Nada será alterado** — apenas respostas objetivas + correções recomendadas.
+Adicionar um terceiro tipo de cadastro na tela de autenticação ("Sou uma Clínica"), com formulário próprio que já cria a clínica no momento do signup, e um painel administrativo dedicado para gestão de médicos e pacientes vinculados.
 
-## Respostas ponto a ponto
+## 1. Tela de Autenticação (`src/pages/Auth.tsx`)
 
-**1. Função executada no clique de "Escanear QR Code"**
-`onClick={() => connectMutation.mutate()}` (linha 383). Dispara a mutation `connectMutation` definida na linha 230.
+Adicionar um novo card **"Sou uma Clínica"** ao lado de "Profissional de Saúde", "Operadora" e "Paciente", com ícone `Building2` (hoje usado pela operadora — trocaremos a operadora para `Briefcase`).
 
-**2. Método do `aiBackend` chamado**
-`aiBackend.connectWhatsApp(currentClinicId!)` (linha 231).
+Quando o usuário escolher "Clínica", o formulário de signup mostrará os campos:
 
-**3. Endpoint exato chamado**
-`POST {BASE_URL}/api/clinics/${clinicId}/whatsapp/connect`
-(definido em `src/lib/aiBackend.ts`, função `connectWhatsApp`).
+- Razão Social *
+- Nome Fantasia *
+- CNPJ * (com máscara e botão de auto-preencher via BrasilAPI, igual ao Onboarding)
+- E-mail Corporativo *
+- Telefone / WhatsApp *
+- Nome do Responsável (Administrador) *
+- Senha + Confirmação de Senha *
 
-**4. Base URL final usada nessa tela**
-`https://pens-vegetation-project-amd.trycloudflare.com` — confirmado pelos network logs (`GET …/whatsapp/status`).
+Validações: CNPJ com 14 dígitos, senha mínima 6 chars, confirmação igual à senha, e-mail válido.
 
-**5. Hardcoded, env ou fallback?**
-Tem **fallback hardcoded**. Em `aiBackend.ts`:
-```ts
-const DEFAULT_AI_BACKEND_URL = 'https://pens-vegetation-project-amd.trycloudflare.com';
-const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL ?? '').trim() || DEFAULT_AI_BACKEND_URL;
+No `signUp`, enviar `user_type: 'clinica'` mais todos os campos no `raw_user_meta_data`. Após o signup, a clínica é criada automaticamente (ver passo 2), pulando o `Onboarding`.
+
+## 2. Backend — criação automática da clínica
+
+Atualizar a função `handle_new_user` para tratar `user_type = 'clinica'`:
+
+- Criar registro em `public.clinics` com: `name` (nome fantasia), `legal_name` (razão social — nova coluna), `cnpj`, `email`, `phone`, `owner_id = NEW.id`, `category = 'outro'`.
+- O trigger `auto_link_clinic_owner` já vincula o owner como `admin` em `clinic_members` (mantém-se).
+- Atribuir role `'admin'` em `user_roles`.
+- Criar `profiles` com o nome do responsável.
+
+Migração necessária:
+- `ALTER TABLE clinics ADD COLUMN legal_name text;` (Razão Social)
+- `ALTER TABLE clinics ADD COLUMN responsible_name text;` (nome do administrador responsável, separado do dono da conta para auditoria)
+- Atualizar `handle_new_user` conforme acima.
+
+## 3. Painel da Clínica — novas rotas
+
+Como o perfil "Clínica" usa o mesmo role `admin` e a mesma `AppLayout`/`AppSidebar` já existentes, vamos **adicionar 3 novas páginas** dedicadas à gestão da clínica e exibi-las no menu lateral em uma nova seção "Gestão da Clínica":
+
+### 3.1 `/clinica` — Visão Geral (`src/pages/clinica/ClinicaHome.tsx`)
+Cards de resumo:
+- Total de Médicos (count em `clinic_members` da clínica)
+- Total de Pacientes (count em `patients`)
+- Consultas do mês (count em `appointments`)
+- Card placeholder "Faturamento" (em breve)
+
+### 3.2 `/clinica/medicos` — Meus Médicos (`src/pages/clinica/ClinicaMedicos.tsx`)
+Tabela listando `clinic_members` (com join em `profiles`) mostrando: Nome, E-mail, CRM/CRO (vem de `specialty` por enquanto + nova coluna `registration_number` em `clinic_members`), Especialidade, Status.
+
+Botão **"Adicionar Novo Médico"** abre modal com:
+- Nome, E-mail, CRM, Especialidade
+- Reaproveita a edge function `invite-member` já existente (envia convite por e-mail). Quando o médico aceitar, vira `clinic_members` com role `dentist`.
+
+### 3.3 `/clinica/pacientes` — Meus Pacientes
+Reaproveitar a página `/patients` já existente (que faz exatamente isso). Adicionar apenas link no menu da nova seção.
+
+### 3.4 `/clinica/configuracoes` — Configurações da Clínica
+Reaproveitar `SettingsPage` (que já permite editar dados da clínica, horários, equipe, etc). Apenas adicionar link no menu.
+
+### 3.5 Placeholder no menu
+Item desabilitado **"Faturamento"** com badge "Em breve" para indicar futuras abas.
+
+## 4. Atualização do Sidebar (`src/components/AppSidebar.tsx`)
+
+Adicionar nova seção "Gestão da Clínica" (visível apenas se `is_owner = true` em `clinic_members`):
+
+```text
+GESTÃO DA CLÍNICA
+  📊 Visão Geral        → /clinica
+  👨‍⚕️ Médicos           → /clinica/medicos
+  👥 Pacientes          → /clinica/pacientes (link para /patients)
+  ⚙️  Configurações     → /clinica/configuracoes (link para /settings)
+  💰 Faturamento        → (em breve, desabilitado)
 ```
-Se `VITE_AI_BACKEND_URL` não estiver definida, cai no túnel Cloudflare antigo.
 
-**6. Existe URL antiga de túnel ainda em uso só na Secretária IA?**
-Sim. O `DEFAULT_AI_BACKEND_URL` (`pens-vegetation-project-amd.trycloudflare.com`) é um túnel `trycloudflare.com` — esses túneis são efêmeros e **muito provavelmente estão expirados**, o que casa exatamente com os `Failed to fetch` em loop nos logs. Esse fallback só é referenciado em `aiBackend.ts`, que só é importado pela Secretária IA (`SecretariaIA.tsx` e `LiveMessagesPanel.tsx` indiretamente).
+## 5. Roteamento (`src/App.tsx`)
 
-**7. A tela trata `connected:true, qr_code:null` como sucesso ou erro?**
-Trata como **sucesso parcial bugado**. O `onSuccess` faz `setQrCode(data.qr_code)` (= `null`) e abre o modal mesmo assim — não há checagem de `data.connected`.
+Adicionar 3 rotas novas protegidas por `ProtectedRoute`:
+- `/clinica` → `ClinicaHome`
+- `/clinica/medicos` → `ClinicaMedicos`
+- (Pacientes e Configurações usam as rotas existentes)
 
-**8. Comportamento atual quando `connected:true, qr_code:null`**
-- Abre o modal de QR Code **vazio** (qr=null → imagem quebrada/em branco).
-- Inicia polling a cada 5s no `getWhatsAppStatus`.
-- No primeiro tick, como `s.connected === true`, o polling para, fecha o modal e mostra toast `WhatsApp conectado!`.
-- Resultado prático: **flash do modal vazio → fecha sozinho → conectado**. Não trava, mas é UX ruim.
+Após login, se `user_type = 'clinica'` (ou `is_owner = true`), redirecionar para `/clinica` em vez de `/`.
 
-**9. Quando o "Failed to fetch" ocorre**
-**Antes da resposta chegar** — é erro de rede (TLS/DNS do túnel `trycloudflare.com` indisponível). O navegador nem completa o request (sem status, sem corpo). Confirmado pelos logs: todos os GET `/whatsapp/status` aparecem com `Error: Failed to fetch`, sem código HTTP.
+## 6. Detalhes técnicos
 
-**10. `currentClinicId` está definido no clique?**
-Sim. Vem de `useAuth()` e é `70c7cf93-42fa-4a0e-980a-d75b89c31c68` (visível na URL do request). O botão também tem `disabled={!currentClinicId}`.
+**Arquivos novos:**
+- `src/pages/clinica/ClinicaHome.tsx`
+- `src/pages/clinica/ClinicaMedicos.tsx`
+- `src/components/clinica/AddMedicoDialog.tsx`
 
-**11. `isAiBackendConfigured()` retorna true?**
-Sim. Como há fallback hardcoded, `BASE_URL` nunca é `null` → retorna `true`. Por isso `backendConfigured` é `true` e a `statusQuery` roda em loop a cada 15s mesmo com o túnel morto.
+**Arquivos editados:**
+- `src/pages/Auth.tsx` — novo card "Clínica" + formulário com 7 campos
+- `src/App.tsx` — novas rotas + redirect pós-login para owners
+- `src/components/AppSidebar.tsx` — nova seção "Gestão da Clínica"
+- Migração SQL — colunas `legal_name`, `responsible_name` em `clinics` + atualização de `handle_new_user`
 
-**12. Fetch direto, `aiBackend` ou wrapper própria?**
-Usa **`aiBackend`** (wrapper em `src/lib/aiBackend.ts`), que internamente usa `fetch`. Nenhum `fetch` cru na página.
+**RLS:** As políticas existentes em `clinics` e `clinic_members` (via `is_clinic_owner` / `user_belongs_to_clinic`) já cobrem perfeitamente o acesso do dono da clínica aos seus médicos e pacientes — sem mudanças necessárias.
 
-**13. Existe trecho que assume que sempre haverá `qr_code` quando `connect` é chamado?**
-Sim.
-
-**14. Onde está esse trecho**
-`connectMutation.onSuccess` (linhas 232-249):
-```ts
-onSuccess: (data) => {
-  setQrCode(data.qr_code);   // assume string, mas pode ser null
-  setQrModalOpen(true);      // abre modal mesmo se já conectado
-  ...
-}
-```
-Não há `if (data.connected) { … } else { … }`. Também o tipo `WhatsAppConnectResponse` em `aiBackend.ts` declara `qr_code: string` (não admite `null`), o que mascara o caso real do backend.
-
-**15. O que precisa mudar (sem aplicar agora)**
-
-A. **`src/lib/aiBackend.ts`**
-- Atualizar tipo:
-  ```ts
-  interface WhatsAppConnectResponse {
-    qr_code: string | null;
-    connected?: boolean;
-    status?: string;
-    instance_name?: string | null;
-  }
-  ```
-- Remover/atualizar o `DEFAULT_AI_BACKEND_URL` — o túnel Cloudflare está caído. Deixar `BASE_URL = null` quando `VITE_AI_BACKEND_URL` não estiver definido (faz `isAiBackendConfigured()` voltar a funcionar como guarda real) **ou** apontar para a URL nova/estável do backend.
-
-B. **`src/pages/SecretariaIA.tsx` — `connectMutation.onSuccess` (linhas 232-249)**
-- Tratar 3 casos:
-  1. `data.connected === true` → `qc.invalidateQueries(['ai-whatsapp-status', clinicId])`, **não** abrir modal, toast `WhatsApp já conectado` e (opcionalmente) avançar `setStep(2)`.
-  2. `data.qr_code` presente → comportamento atual (abrir modal + polling).
-  3. nenhum dos dois → `toast.error('Resposta inesperada do backend')`.
-
-C. **Polling de status (linhas 208-214)**
-- Considerar `retry: 0` e desligar `refetchInterval` quando `statusQuery.isError` por N tentativas, para parar o loop infinito de `Failed to fetch` que está poluindo os logs do navegador.
-
-D. Apontar `VITE_AI_BACKEND_URL` no `.env` para a URL ativa do backend Node — o problema raiz não é UI, é o fallback estar batendo num túnel Cloudflare expirado.
-
-**Resumo**: a tela não está quebrada por lógica de UI — está apontando para uma base URL morta (túnel `trycloudflare.com` antigo via fallback hardcoded), e além disso assume `qr_code` sempre presente, o que vai dar UX ruim (modal vazio piscando) assim que o backend voltar e responder `connected:true, qr_code:null`.
+**Não muda:** lógica de pacientes (`/paciente`), profissionais individuais, ou onboarding (continua disponível para quem cria conta como "Profissional" sem clínica vinculada).
 
