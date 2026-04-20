@@ -445,11 +445,11 @@ export default function SecretariaIA() {
                   <AlertCircle className="h-3 w-3" /> Erro ao salvar
                 </span>
               ) : isDirty ? (
-                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                <span className="flex items-center gap-1.5 text-warning">
                   <CircleDot className="h-3 w-3" /> Alterações não salvas
                 </span>
               ) : savedPrompt ? (
-                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500">
+                <span className="flex items-center gap-1.5 text-success">
                   <Check className="h-3 w-3" /> Salvo
                 </span>
               ) : null}
