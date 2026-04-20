@@ -230,25 +230,57 @@ export default function SecretariaIA() {
   const connectMutation = useMutation({
     mutationFn: () => aiBackend.connectWhatsApp(currentClinicId!),
     onSuccess: (data) => {
-      setQrCode(data.qr_code);
-      setQrModalOpen(true);
-      stopPolling();
-      pollRef.current = window.setInterval(async () => {
-        try {
-          const s = await aiBackend.getWhatsAppStatus(currentClinicId!);
-          qc.setQueryData(['ai-whatsapp-status', currentClinicId], s);
-          if (s.connected) {
-            stopPolling();
-            setQrModalOpen(false);
-            toast.success('WhatsApp conectado!');
+      // Caso 1: já está conectado — não abre modal
+      if (data.connected) {
+        qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
+          connected: true,
+          status: data.status ?? 'connected',
+          instance_name: data.instance_name ?? null,
+        });
+        toast.success('WhatsApp já está conectado!');
+        return;
+      }
+      // Caso 2: veio QR Code — abre modal e inicia polling
+      if (data.qr_code) {
+        setQrCode(data.qr_code);
+        setQrModalOpen(true);
+        stopPolling();
+        pollRef.current = window.setInterval(async () => {
+          try {
+            const s = await aiBackend.getWhatsAppStatus(currentClinicId!);
+            qc.setQueryData(['ai-whatsapp-status', currentClinicId], s);
+            if (s.connected) {
+              stopPolling();
+              setQrModalOpen(false);
+              toast.success('WhatsApp conectado!');
+            }
+          } catch {
+            // ignora erros transitórios durante o polling
           }
-        } catch {
-          // ignora erros transitórios durante o polling
-        }
-      }, 5000);
+        }, 5000);
+        return;
+      }
+      // Caso 3: sem QR e desconectado — erro amigável
+      toast.error('Não foi possível gerar o QR Code. Tente novamente.');
     },
     onError: (e: any) =>
       toast.error(e.message ?? 'Não foi possível iniciar a conexão com o WhatsApp'),
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => aiBackend.disconnectWhatsApp(currentClinicId!),
+    onSuccess: () => {
+      qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
+        connected: false,
+        status: 'disconnected',
+        instance_name: null,
+      });
+      qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
+      setQrCode(null);
+      setStep(1);
+      toast.success('WhatsApp desconectado');
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao desconectar'),
   });
 
   const handleQrClose = (open: boolean) => {
@@ -358,16 +390,23 @@ export default function SecretariaIA() {
 
               {/* Status badge */}
               {backendConfigured && (
-                <div>
+                <div className="flex flex-col items-center gap-1">
                   {statusQuery.isLoading ? (
                     <Skeleton className="h-6 w-32" />
+                  ) : isConnected ? (
+                    <>
+                      <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
+                        <Check className="h-3 w-3" /> WhatsApp Conectado
+                      </Badge>
+                      {statusQuery.data?.instance_name && (
+                        <span className="text-xs text-muted-foreground">
+                          Instância: {statusQuery.data.instance_name}
+                        </span>
+                      )}
+                    </>
                   ) : statusQuery.isError ? (
                     <Badge variant="destructive" className="gap-1">
                       <AlertCircle className="h-3 w-3" /> Offline
-                    </Badge>
-                  ) : isConnected ? (
-                    <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
-                      <Wifi className="h-3 w-3" /> Conectado
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="gap-1 text-muted-foreground">
@@ -378,25 +417,39 @@ export default function SecretariaIA() {
               )}
 
               <div className="flex flex-wrap justify-center gap-2 pt-2">
-                <Button
-                  size="lg"
-                  onClick={() => connectMutation.mutate()}
-                  disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
-                  variant={isConnected ? 'outline' : 'default'}
-                  className="gap-2"
-                >
-                  {connectMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isConnected ? (
-                    <RefreshCw className="h-4 w-4" />
-                  ) : (
-                    <QrCode className="h-4 w-4" />
-                  )}
-                  {isConnected ? 'Reconectar' : 'Escanear QR Code'}
-                </Button>
-                {isConnected && (
-                  <Button size="lg" onClick={() => setStep(2)} className="gap-2">
-                    Próximo: treinar IA <ArrowRight className="h-4 w-4" />
+                {isConnected ? (
+                  <>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() => disconnectMutation.mutate()}
+                      disabled={disconnectMutation.isPending}
+                      className="gap-2"
+                    >
+                      {disconnectMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <WifiOff className="h-4 w-4" />
+                      )}
+                      Desconectar
+                    </Button>
+                    <Button size="lg" onClick={() => setStep(2)} className="gap-2">
+                      Continuar <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="lg"
+                    onClick={() => connectMutation.mutate()}
+                    disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
+                    className="gap-2"
+                  >
+                    {connectMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <QrCode className="h-4 w-4" />
+                    )}
+                    {statusQuery.isError ? 'Tentar novamente' : 'Escanear QR Code'}
                   </Button>
                 )}
               </div>
