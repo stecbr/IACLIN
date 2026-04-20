@@ -394,19 +394,55 @@ export default function Auth() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {userType === 'profissional'
                     ? profSubType === 'dentista' ? '🦷 Dentista' : '🩺 Médico'
+                    : userType === 'clinica' ? '🏥 Clínica'
                     : userType === 'operadora' ? '🏢 Operadora' : '👤 Paciente'}
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
-                  <Label htmlFor="name">Nome completo</Label>
-                  <Input
-                    id="name" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                    placeholder={userType === 'profissional' ? 'Dr. João Silva' : userType === 'operadora' ? 'Nome da empresa' : 'Seu nome completo'}
-                    required className="h-10" autoFocus
-                  />
-                </motion.div>
+                {!isClinicSignup && (
+                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
+                    <Label htmlFor="name">Nome completo</Label>
+                    <Input
+                      id="name" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                      placeholder={userType === 'profissional' ? 'Dr. João Silva' : userType === 'operadora' ? 'Nome da empresa' : 'Seu nome completo'}
+                      required className="h-10" autoFocus
+                    />
+                  </motion.div>
+                )}
+
+                {isClinicSignup && (
+                  <>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.08 }}>
+                      <Label htmlFor="cnpj">CNPJ</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="cnpj" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))}
+                          placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric" autoFocus
+                        />
+                        <Button type="button" variant="outline" size="icon" onClick={fetchCnpjData} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
+                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
+                      <Label htmlFor="legal-name">Razão Social</Label>
+                      <Input id="legal-name" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Clínica X LTDA" required className="h-10" />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.12 }}>
+                      <Label htmlFor="trade-name">Nome Fantasia</Label>
+                      <Input id="trade-name" value={tradeName} onChange={(e) => setTradeName(e.target.value)} placeholder="Clínica X" required className="h-10" />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.14 }}>
+                      <Label htmlFor="responsible">Nome do Responsável</Label>
+                      <Input id="responsible" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Administrador da clínica" required className="h-10" />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.16 }}>
+                      <Label htmlFor="clinic-phone">Telefone / WhatsApp</Label>
+                      <Input id="clinic-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" required className="h-10" inputMode="tel" />
+                    </motion.div>
+                  </>
+                )}
 
                 {isPatientSignup && (
                   <>
