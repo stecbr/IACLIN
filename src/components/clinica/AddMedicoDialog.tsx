@@ -17,15 +17,15 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', registration: '', specialty: '' });
+  const [form, setForm] = useState({ name: '', email: '', registration: '', specialty: '', password: '' });
 
-  const reset = () => setForm({ name: '', email: '', registration: '', specialty: '' });
+  const reset = () => setForm({ name: '', email: '', registration: '', specialty: '', password: '' });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentClinicId) return;
-    if (!form.name.trim() || !form.email.trim()) {
-      toast.error('Nome e e-mail são obrigatórios');
+    if (!form.name.trim() || !form.email.trim() || form.password.length < 6) {
+      toast.error('Preencha nome, e-mail e senha (mín. 6 caracteres)');
       return;
     }
     setSubmitting(true);
@@ -35,13 +35,14 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
           clinic_id: currentClinicId,
           email: form.email.trim(),
           full_name: form.name.trim(),
+          password: form.password,
           role: 'dentist',
           specialty: form.specialty.trim() || null,
           registration_number: form.registration.trim() || null,
         },
       });
       if (error) throw error;
-      toast.success('Convite enviado!', { description: `${form.name} receberá um e-mail para acessar a clínica.` });
+      toast.success('Médico cadastrado!', { description: `${form.name} já pode acessar com o e-mail e senha definidos.` });
       qc.invalidateQueries({ queryKey: ['clinica-medicos'] });
       qc.invalidateQueries({ queryKey: ['clinica-stats'] });
       reset();
