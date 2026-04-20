@@ -84,6 +84,158 @@ const PERSONALITY_OPTIONS: { value: string; label: string; template: string }[] 
   },
 ];
 
+// Seções independentes do prompt. Cada uma tem um placeholder de exemplo
+// que aparece somente quando o campo está vazio e some assim que o usuário
+// começa a escrever.
+type PromptSectionKey =
+  | 'saudacao'
+  | 'objetivo'
+  | 'regras'
+  | 'restricoes'
+  | 'exemplos'
+  | 'horarios'
+  | 'urgencias';
+
+const PROMPT_SECTIONS: {
+  key: PromptSectionKey;
+  label: string;
+  heading: string;
+  description: string;
+  placeholder: string;
+  rows: number;
+}[] = [
+  {
+    key: 'saudacao',
+    label: 'Saudação',
+    heading: 'SAUDAÇÃO',
+    description: 'Mensagem inicial que a IA envia ao paciente.',
+    placeholder:
+      'Ex: Olá! Sou a secretária virtual da clínica. Como posso ajudar você hoje?',
+    rows: 3,
+  },
+  {
+    key: 'objetivo',
+    label: 'Objetivo',
+    heading: 'OBJETIVO',
+    description: 'O que a IA deve fazer no atendimento.',
+    placeholder:
+      'Ex: Agendar consultas, confirmar presenças e tirar dúvidas dos pacientes.',
+    rows: 3,
+  },
+  {
+    key: 'regras',
+    label: 'Regras',
+    heading: 'REGRAS',
+    description: 'Como a IA deve se comportar durante a conversa.',
+    placeholder:
+      '- Sempre confirmar nome completo do paciente\n- Oferecer no máximo 3 opções de horário\n- Encaminhar urgências para o telefone da clínica',
+    rows: 4,
+  },
+  {
+    key: 'restricoes',
+    label: 'Restrições',
+    heading: 'RESTRIÇÕES',
+    description: 'O que a IA NUNCA deve fazer.',
+    placeholder:
+      '- Nunca dar diagnósticos\n- Nunca prometer valores sem confirmar com a clínica',
+    rows: 4,
+  },
+  {
+    key: 'exemplos',
+    label: 'Exemplos',
+    heading: 'EXEMPLOS DE RESPOSTA',
+    description: 'Pares de pergunta e resposta modelo.',
+    placeholder:
+      'Paciente: Vocês atendem convênio X?\nResposta: Sim! Atendemos o convênio X. Posso já verificar um horário para você?',
+    rows: 4,
+  },
+  {
+    key: 'horarios',
+    label: 'Horários',
+    heading: 'HORÁRIOS DE ATENDIMENTO',
+    description: 'Quando a clínica está aberta.',
+    placeholder: '- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h',
+    rows: 3,
+  },
+  {
+    key: 'urgencias',
+    label: 'Urgências',
+    heading: 'URGÊNCIAS',
+    description: 'Como a IA deve agir em casos urgentes.',
+    placeholder:
+      'Ex: Encaminhar para o telefone (11) 99999-0000 ou orientar a procurar pronto-atendimento mais próximo.',
+    rows: 3,
+  },
+];
+
+type SectionsState = Record<PromptSectionKey, string>;
+
+const EMPTY_SECTIONS: SectionsState = {
+  saudacao: '',
+  objetivo: '',
+  regras: '',
+  restricoes: '',
+  exemplos: '',
+  horarios: '',
+  urgencias: '',
+};
+
+// Reconstrói o objeto de seções a partir de um prompt salvo. Usa os
+// cabeçalhos (SAUDAÇÃO:, OBJETIVO: ...) como delimitadores. Se o prompt
+// não seguir esse formato, joga tudo em "objetivo" como texto livre.
+function parsePromptToSections(raw: string): SectionsState {
+  const result: SectionsState = { ...EMPTY_SECTIONS };
+  if (!raw || !raw.trim()) return result;
+
+  const headingByKey: Record<PromptSectionKey, string> = {
+    saudacao: 'SAUDAÇÃO',
+    objetivo: 'OBJETIVO',
+    regras: 'REGRAS',
+    restricoes: 'RESTRIÇÕES',
+    exemplos: 'EXEMPLOS DE RESPOSTA',
+    horarios: 'HORÁRIOS DE ATENDIMENTO',
+    urgencias: 'URGÊNCIAS',
+  };
+
+  const headings = Object.entries(headingByKey) as [PromptSectionKey, string][];
+  const pattern = new RegExp(
+    `(${headings.map(([, h]) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}):`,
+    'g'
+  );
+
+  const matches: { key: PromptSectionKey; start: number; end: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(raw)) !== null) {
+    const found = headings.find(([, h]) => h === m![1]);
+    if (found) {
+      matches.push({ key: found[0], start: m.index, end: m.index + m[0].length });
+    }
+  }
+
+  if (matches.length === 0) {
+    result.objetivo = raw.trim();
+    return result;
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const next = matches[i + 1];
+    const body = raw.slice(cur.end, next ? next.start : raw.length).trim();
+    result[cur.key] = body;
+  }
+  return result;
+}
+
+function buildPromptFromSections(sections: SectionsState): string {
+  return PROMPT_SECTIONS.map((s) => {
+    const value = sections[s.key]?.trim();
+    if (!value) return '';
+    return `${s.heading}:\n${value}`;
+  })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
