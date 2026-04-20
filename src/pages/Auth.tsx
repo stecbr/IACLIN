@@ -199,7 +199,8 @@ export default function Auth() {
 
   const typeCards = [
     { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro', locked: false },
-    { key: 'operadora' as const, icon: Building2, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
+    { key: 'clinica' as const, icon: Building2, label: 'Sou uma Clínica', desc: 'Cadastre sua clínica e equipe', locked: false },
+    { key: 'operadora' as const, icon: Briefcase, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
     { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: false },
   ];
 
@@ -209,6 +210,7 @@ export default function Auth() {
   ];
 
   const isPatientSignup = userType === 'cliente';
+  const isClinicSignup = userType === 'clinica';
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
