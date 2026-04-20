@@ -121,6 +121,11 @@ export default function SecretariaIA() {
 
   const PROMPT_CHIPS: { label: string; template: string }[] = [
     {
+      label: 'Saudação',
+      template:
+        'SAUDAÇÃO:\n[Mensagem inicial que a IA envia ao paciente — ex: "Olá! Sou a secretária virtual da clínica. Como posso ajudar você hoje?"]\n',
+    },
+    {
       label: 'Objetivo',
       template:
         '\n\nOBJETIVO:\n[Descreva aqui o que a IA deve fazer no atendimento — ex: agendar consultas, confirmar presenças, tirar dúvidas]\n',
