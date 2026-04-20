@@ -90,41 +90,110 @@ export default function SecretariaIA() {
 
   const PROMPT_CHIPS: { label: string; template: string }[] = [
     {
-      label: '📋 Objetivo',
+      label: 'Objetivo',
       template:
-        '\n\n## Objetivo\n[Descreva aqui o que a IA deve fazer ao atender — ex: agendar consultas, confirmar presenças, tirar dúvidas...]\n',
+        '\n\nOBJETIVO:\n[Descreva aqui o que a IA deve fazer no atendimento — ex: agendar consultas, confirmar presenças, tirar dúvidas]\n',
     },
     {
-      label: '🎯 Tom de voz',
+      label: 'Tom de voz',
       template:
-        '\n\n## Tom de voz\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional...]\n',
+        '\n\nTOM DE VOZ:\n[Descreva como a IA deve falar — ex: acolhedora, formal, próxima, profissional]\n',
     },
     {
-      label: '📌 Regras',
+      label: 'Regras',
       template:
-        '\n\n## Regras da clínica\n[Liste as regras importantes — ex: política de remarcação, antecedência mínima, formas de pagamento...]\n',
+        '\n\nREGRAS:\n- [Regra 1]\n- [Regra 2]\n- [Regra 3]\n',
     },
     {
-      label: '🚫 Restrições',
+      label: 'Restrições',
       template:
-        '\n\n## Restrições\n[O que a IA NUNCA deve fazer — ex: dar diagnósticos, prometer resultados, falar sobre preços sem confirmar...]\n',
+        '\n\nRESTRIÇÕES:\n- [O que a IA NUNCA deve fazer]\n- [Outra restrição importante]\n',
     },
     {
-      label: '💬 Exemplos',
+      label: 'Exemplos',
       template:
-        '\n\n## Exemplos de resposta\n[Cole aqui exemplos de como a IA deve responder em situações comuns...]\n',
+        '\n\nEXEMPLOS DE RESPOSTA:\nPaciente: [pergunta comum]\nResposta: [como a IA deve responder]\n',
     },
     {
-      label: '⏰ Horários',
+      label: 'Horários',
       template:
-        '\n\n## Horários de atendimento\n[Informe os dias e horários — ex: Seg a Sex, 8h às 18h. Sábado, 8h às 12h.]\n',
+        '\n\nHORÁRIOS DE ATENDIMENTO:\n- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h\n',
     },
     {
-      label: '📞 Urgências',
+      label: 'Urgências',
       template:
-        '\n\n## Urgências\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento...]\n',
+        '\n\nURGÊNCIAS:\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento]\n',
     },
   ];
+
+  // ---------- Sugestões contextuais ----------
+  const { data: clinicInfo } = useQuery({
+    queryKey: ['ai-secretary-clinic-info', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clinics')
+        .select('name, category, phone, business_hours, address, city')
+        .eq('id', currentClinicId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const contextSuggestions: ContextSuggestion[] = (() => {
+    const list: ContextSuggestion[] = [];
+    if (!clinicInfo) return list;
+    if (clinicInfo.name) {
+      list.push({
+        id: 'identity',
+        title: 'Identidade',
+        preview: `Apresentar-se como secretária da ${clinicInfo.name}.`,
+        text: `\n\nIDENTIDADE:\nVocê é a secretária virtual da ${clinicInfo.name}. Sempre se apresente de forma cordial mencionando o nome da clínica.\n`,
+      });
+    }
+    if (clinicInfo.category) {
+      const catMap: Record<string, string> = {
+        odonto: 'odontológica', medico: 'médica', estetica: 'estética', veterinario: 'veterinária', outro: 'de saúde',
+      };
+      const cat = catMap[clinicInfo.category] ?? 'de saúde';
+      list.push({
+        id: 'specialty',
+        title: 'Especialidade',
+        preview: `Contexto de clínica ${cat}.`,
+        text: `\n\nCONTEXTO:\nA clínica é ${cat}. Adapte o vocabulário e as orientações ao tipo de atendimento oferecido.\n`,
+      });
+    }
+    if (clinicInfo.phone) {
+      list.push({
+        id: 'phone',
+        title: 'Telefone',
+        preview: `Encaminhar urgências para ${clinicInfo.phone}.`,
+        text: `\n\nCONTATO DE URGÊNCIA:\nEm casos urgentes, oriente o paciente a ligar para ${clinicInfo.phone}.\n`,
+      });
+    }
+    if (clinicInfo.address || clinicInfo.city) {
+      const addr = [clinicInfo.address, clinicInfo.city].filter(Boolean).join(', ');
+      list.push({
+        id: 'address',
+        title: 'Endereço',
+        preview: `Informar localização: ${addr}.`,
+        text: `\n\nLOCALIZAÇÃO:\nQuando perguntarem sobre a localização, informe: ${addr}.\n`,
+      });
+    }
+    list.push({
+      id: 'confirm',
+      title: 'Confirmação',
+      preview: 'Confirmar consultas 24h antes via WhatsApp.',
+      text: `\n\nCONFIRMAÇÃO:\nSempre confirme consultas 24h antes do horário marcado, e peça que o paciente responda SIM ou NÃO.\n`,
+    });
+    list.push({
+      id: 'limits',
+      title: 'Limites',
+      preview: 'Não dar diagnósticos nem prometer resultados.',
+      text: `\n\nLIMITES:\n- Nunca dê diagnósticos clínicos.\n- Nunca prometa resultados específicos de tratamentos.\n- Sempre encaminhe dúvidas técnicas ao profissional responsável.\n`,
+    });
+    return list;
+  })();
 
   const insertChipTemplate = (template: string) => {
     const el = textareaRef.current;
