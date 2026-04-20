@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { aiBackend } from '@/lib/aiBackend';
+import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 
 interface AiConfigRow {
   id: string;
@@ -34,6 +34,7 @@ interface ChatBubble {
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
+  const backendConfigured = isAiBackendConfigured();
 
   // ---------- Configuração (Supabase) ----------
   const { data: config, isLoading: loadingConfig } = useQuery({
@@ -90,9 +91,9 @@ export default function SecretariaIA() {
   // ---------- WhatsApp status (Backend IA) ----------
   const statusQuery = useQuery({
     queryKey: ['ai-whatsapp-status', currentClinicId],
-    enabled: !!currentClinicId,
+    enabled: !!currentClinicId && backendConfigured,
     queryFn: () => aiBackend.getWhatsAppStatus(currentClinicId!),
-    refetchInterval: 15000,
+    refetchInterval: backendConfigured ? 15000 : false,
     retry: 1,
   });
 
@@ -186,7 +187,11 @@ export default function SecretariaIA() {
                 </CardTitle>
                 <CardDescription>Status da instância da secretária</CardDescription>
               </div>
-              {statusQuery.isLoading ? (
+              {!backendConfigured ? (
+                <Badge variant="outline" className="gap-1">
+                  <AlertCircle className="h-3 w-3" /> Não configurado
+                </Badge>
+              ) : statusQuery.isLoading ? (
                 <Skeleton className="h-6 w-24" />
               ) : statusQuery.isError ? (
                 <Badge variant="destructive" className="gap-1">
@@ -204,12 +209,19 @@ export default function SecretariaIA() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {statusQuery.isError && (
+            {!backendConfigured && (
+              <div className="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
+                Defina a variável de ambiente{' '}
+                <code className="font-mono text-foreground">VITE_AI_BACKEND_URL</code> apontando
+                para o backend Node.js da Secretária IA para habilitar a conexão.
+              </div>
+            )}
+            {backendConfigured && statusQuery.isError && (
               <p className="text-sm text-muted-foreground">
                 Não foi possível conectar ao backend da IA. Verifique se ele está em execução.
               </p>
             )}
-            {!statusQuery.isError && (
+            {backendConfigured && !statusQuery.isError && (
               <div className="text-sm text-muted-foreground">
                 Instância:{' '}
                 <span className="font-mono text-foreground">
@@ -220,7 +232,7 @@ export default function SecretariaIA() {
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() => connectMutation.mutate()}
-                disabled={connectMutation.isPending || !currentClinicId}
+                disabled={connectMutation.isPending || !currentClinicId || !backendConfigured}
                 variant={isConnected ? 'outline' : 'default'}
                 className="gap-2"
               >
@@ -236,7 +248,7 @@ export default function SecretariaIA() {
               <Button
                 variant="ghost"
                 onClick={() => statusQuery.refetch()}
-                disabled={statusQuery.isFetching}
+                disabled={statusQuery.isFetching || !backendConfigured}
                 className="gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${statusQuery.isFetching ? 'animate-spin' : ''}`} />
@@ -339,7 +351,8 @@ export default function SecretariaIA() {
                 testMutation.isPending ||
                 !testPhone.trim() ||
                 !testMessage.trim() ||
-                !currentClinicId
+                !currentClinicId ||
+                !backendConfigured
               }
               className="gap-2"
             >
