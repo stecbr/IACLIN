@@ -347,7 +347,7 @@ export function GuidedPromptBuilder({ value, onChange, disabled }: Props) {
 
       {/* Validação */}
       {stepValidation[step] && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {stepValidation[step]}
         </div>
       )}
