@@ -209,8 +209,9 @@ export default function SecretariaIA() {
     queryKey: ['ai-whatsapp-status', currentClinicId],
     enabled: !!currentClinicId && backendConfigured,
     queryFn: () => aiBackend.getWhatsAppStatus(currentClinicId!),
-    refetchInterval: backendConfigured ? 15000 : false,
-    retry: 1,
+    refetchInterval: (query) =>
+      backendConfigured && !query.state.error ? 15000 : false,
+    retry: 0,
   });
 
   // ---------- Conexão WhatsApp ----------
@@ -230,22 +231,34 @@ export default function SecretariaIA() {
   const connectMutation = useMutation({
     mutationFn: () => aiBackend.connectWhatsApp(currentClinicId!),
     onSuccess: (data) => {
-      setQrCode(data.qr_code);
-      setQrModalOpen(true);
-      stopPolling();
-      pollRef.current = window.setInterval(async () => {
-        try {
-          const s = await aiBackend.getWhatsAppStatus(currentClinicId!);
-          qc.setQueryData(['ai-whatsapp-status', currentClinicId], s);
-          if (s.connected) {
-            stopPolling();
-            setQrModalOpen(false);
-            toast.success('WhatsApp conectado!');
+      // Caso 1: já está conectado — não abre modal, apenas atualiza status
+      if (data.connected) {
+        qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
+        toast.success('WhatsApp já conectado!');
+        return;
+      }
+      // Caso 2: backend retornou QR Code para escanear
+      if (data.qr_code) {
+        setQrCode(data.qr_code);
+        setQrModalOpen(true);
+        stopPolling();
+        pollRef.current = window.setInterval(async () => {
+          try {
+            const s = await aiBackend.getWhatsAppStatus(currentClinicId!);
+            qc.setQueryData(['ai-whatsapp-status', currentClinicId], s);
+            if (s.connected) {
+              stopPolling();
+              setQrModalOpen(false);
+              toast.success('WhatsApp conectado!');
+            }
+          } catch {
+            // ignora erros transitórios durante o polling
           }
-        } catch {
-          // ignora erros transitórios durante o polling
-        }
-      }, 5000);
+        }, 5000);
+        return;
+      }
+      // Caso 3: resposta inesperada
+      toast.error('Resposta inesperada do backend ao conectar WhatsApp');
     },
     onError: (e: any) =>
       toast.error(e.message ?? 'Não foi possível iniciar a conexão com o WhatsApp'),
