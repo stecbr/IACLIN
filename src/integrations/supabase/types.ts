@@ -1121,6 +1121,51 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_messages: {
+        Row: {
+          clinic_id: string
+          content: string
+          created_at: string
+          direction: string
+          external_message_id: string | null
+          handled_by: string
+          id: string
+          message_type: string
+          metadata: Json | null
+          patient_name: string | null
+          patient_phone: string
+          status: string
+        }
+        Insert: {
+          clinic_id: string
+          content: string
+          created_at?: string
+          direction: string
+          external_message_id?: string | null
+          handled_by?: string
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          patient_name?: string | null
+          patient_phone: string
+          status?: string
+        }
+        Update: {
+          clinic_id?: string
+          content?: string
+          created_at?: string
+          direction?: string
+          external_message_id?: string | null
+          handled_by?: string
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          patient_name?: string | null
+          patient_phone?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
