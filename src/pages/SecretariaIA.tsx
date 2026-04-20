@@ -260,7 +260,8 @@ export default function SecretariaIA() {
   const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [personality, setPersonality] = useState<string>('');
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [sections, setSections] = useState<SectionsState>(EMPTY_SECTIONS);
+  const [savedSections, setSavedSections] = useState<SectionsState>(EMPTY_SECTIONS);
 
   useEffect(() => {
     if (config) {
@@ -268,70 +269,30 @@ export default function SecretariaIA() {
       setPrompt(p);
       setSavedPrompt(p);
       setEnabled(config.enabled);
+      const parsed = parsePromptToSections(p);
+      setSections(parsed);
+      setSavedSections(parsed);
     }
   }, [config]);
 
-  const PROMPT_CHIPS: { label: string; template: string }[] = [
-    {
-      label: 'Saudação',
-      template:
-        'SAUDAÇÃO:\n[Mensagem inicial que a IA envia ao paciente — ex: "Olá! Sou a secretária virtual da clínica. Como posso ajudar você hoje?"]\n',
-    },
-    {
-      label: 'Objetivo',
-      template:
-        '\n\nOBJETIVO:\n[Descreva aqui o que a IA deve fazer no atendimento — ex: agendar consultas, confirmar presenças, tirar dúvidas]\n',
-    },
-    {
-      label: 'Regras',
-      template: '\n\nREGRAS:\n- [Regra 1]\n- [Regra 2]\n- [Regra 3]\n',
-    },
-    {
-      label: 'Restrições',
-      template:
-        '\n\nRESTRIÇÕES:\n- [O que a IA NUNCA deve fazer]\n- [Outra restrição importante]\n',
-    },
-    {
-      label: 'Exemplos',
-      template:
-        '\n\nEXEMPLOS DE RESPOSTA:\nPaciente: [pergunta comum]\nResposta: [como a IA deve responder]\n',
-    },
-    {
-      label: 'Horários',
-      template:
-        '\n\nHORÁRIOS DE ATENDIMENTO:\n- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h\n',
-    },
-    {
-      label: 'Urgências',
-      template:
-        '\n\nURGÊNCIAS:\n[Como a IA deve agir em casos urgentes — ex: encaminhar para o telefone X, orientar a procurar pronto-atendimento]\n',
-    },
-  ];
-
-  const insertText = (template: string) => {
-    const el = textareaRef.current;
-    if (!el) {
-      setPrompt((p) => p + template);
-      return;
-    }
-    const start = el.selectionStart ?? prompt.length;
-    const end = el.selectionEnd ?? prompt.length;
-    const next = prompt.slice(0, start) + template + prompt.slice(end);
-    setPrompt(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + template.length;
-      el.setSelectionRange(pos, pos);
-    });
+  const updateSection = (key: PromptSectionKey, value: string) => {
+    setSections((prev) => ({ ...prev, [key]: value }));
   };
 
   const handlePersonalityChange = (value: string) => {
     setPersonality(value);
-    const opt = PERSONALITY_OPTIONS.find((o) => o.value === value);
-    if (opt) insertText(opt.template);
   };
 
-  const isDirty = prompt !== savedPrompt;
+  const builtPrompt = (() => {
+    const base = buildPromptFromSections(sections);
+    const opt = PERSONALITY_OPTIONS.find((o) => o.value === personality);
+    return opt ? `${base}${opt.template}` : base;
+  })();
+
+  const isDirty =
+    JSON.stringify(sections) !== JSON.stringify(savedSections) ||
+    builtPrompt !== savedPrompt;
+  const totalChars = builtPrompt.length;
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
