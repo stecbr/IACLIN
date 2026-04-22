@@ -1,57 +1,94 @@
 
 
-# Plano: Corrigir cadastro travado e visão real do médico
+# Plano: Signup do Profissional só com código de clínica
 
-Dois bugs separados, dois consertos.
+Médico (profissional) **não pode mais ser autônomo**. Sempre precisa de vínculo: ou via **código de clínica** ou via **link de convite**. Sem código/convite válido → não cria conta.
 
-## Bug 1 — "Database error saving new user"
+## O que muda no signup
 
-**Causa**: a migração mais recente que criou `assign_default_role` (para dar `dentist` a quem entra via convite/código) **nunca foi anexada como trigger** em `auth.users`. Resultado:
+Quando o usuário escolhe "Profissional" no passo 1, o passo 2 fica com este formulário único (sem toggle, sem campos de empresa):
 
-- O trigger único que roda no signup ainda é o velho `handle_new_user`, que só sabe lidar com `user_type = 'cliente'` (paciente) e `'clinica'` (clínica). Para `'profissional'` e `'profissional_member'` ele não atribui papel nenhum.
-- Além disso, `auto_link_clinic_owner` e `set_clinic_invite_code` existem como funções mas **não têm trigger** ligado em `clinics`. Então quando uma clínica nova é criada via signup, ninguém vira membro automaticamente e o `invite_code` não é gerado.
-- Por fim, recadastros com o mesmo e-mail batem em PK violation no `INSERT INTO profiles`, o que o Supabase devolve como "Database error saving new user".
+1. **Nome completo**
+2. **E-mail** + **Senha**
+3. **Especialidade** (opcional)
+4. **Registro/CRO** (opcional)
+5. **Código da clínica** — *obrigatório*, formato `CLIN-XXXXXXXX`
 
-**Correção** — nova migração:
+Se chegou via `?invite=TOKEN`, o campo "Código" some, e os dados de e-mail/nome vêm pré-preenchidos pelo convite (lógica já existe).
 
-1. Adicionar `INSERT ... ON CONFLICT (id) DO NOTHING` em `handle_new_user` na inserção de `profiles` (idempotente).
-2. Adicionar branch `profissional_member` dentro de `handle_new_user` (atribui papel `dentist` direto, sem criar clínica). Isso unifica a lógica num único trigger e mata o `assign_default_role` órfão.
-3. Adicionar branch `profissional` (sem invite/código): atribuir papel `admin` (médico autônomo, comportamento atual).
-4. **Anexar** `auto_link_clinic_owner` como trigger `AFTER INSERT ON public.clinics`.
-5. **Anexar** `set_clinic_invite_code` já está anexado pela migração de invites — ok, manter.
-6. Backfill: rodar `auto_link_clinic_owner`-equivalente para clínicas existentes que não têm membership do owner (já constatado: 9 clínicas têm `owner` mas todas já têm membership; o backfill é defensivo).
-7. Remover a função `assign_default_role` (dead code).
+## Fluxo passo a passo
 
-Também adicionar policy de **INSERT** em `user_roles` (hoje só tem SELECT) para o caso do trigger, embora `SECURITY DEFINER` ignore RLS — é cintos-e-suspensórios.
+1. Front valida o código com regex `^CLIN-[A-Z2-9]{8}$` antes de qualquer chamada.
+2. Front chama um novo endpoint `validate-clinic-code` (edge function pública, sem auth) só pra verificar se o código existe **antes** de criar a conta. Se não existir, mostra erro inline e **não cria conta**.
+3. Se válido, chama `supabase.auth.signUp` com `user_type: 'profissional_member'` + metadata (`specialty`, `registration_number`).
+4. Trigger `handle_new_user` cria `profile` + role `dentist` (já está pronto na migração nova).
+5. Após o signUp resolver com sucesso e a sessão estabelecida, front chama `join-clinic-by-code` para vincular o usuário como membro da clínica (já existe).
+6. Se `join-clinic-by-code` falhar nesse ponto (caso raro, ex: clínica deletada entre validação e signup), mostra erro e oferece botão "tentar com outro código" — a conta já existe, mas o usuário fica num estado de "sem clínica" que cai numa nova tela `/aguardando-clinica`.
 
-## Bug 2 — Sidebar do médico ainda mostra itens de admin
+## Tela "/aguardando-clinica" (novo fallback)
 
-**Causa real (verificada no banco)**: o usuário do print (`lucasferreiraceara@gmail.com`) tem **`clinic_role = admin` e `is_owner = true`** — ou seja, ele é o dono da clínica, não médico. O sidebar está correto **para esse usuário**. O print mostra a visão de admin porque a conta logada É admin.
+Para o caso raro acima, e para qualquer profissional que entre no app sem `currentClinicId`:
 
-A conta de teste de médico real é `felipesiqueira@gmail.com` (`clinic_role = dentist`). Mas ela também tem uma linha `admin` em `user_roles` (legado). O `useRoleAccess` já usa `clinicRole` (correto), então a visão dela já vem como dentist.
+- Tela única com input de código + botão "Vincular".
+- Chama `join-clinic-by-code` com o código.
+- Sucesso → redireciona pra `/`.
+- Botão secundário "Sair" pra trocar de conta.
 
-**Mesmo assim**, vou endurecer o front pra não depender de qual conta está logada:
+Substitui o redirect atual pra `/onboarding` quando o user é `dentist` sem clínica (admin continua indo pro onboarding normal porque pode criar a clínica dele — **mas no caso de profissional, ele nunca vira admin**, então isso não acontece).
 
-1. **Remover roles legadas duplicadas**: na nova migração, dedupar `user_roles` para usuários que são `dentist` numa clínica e têm `admin` global espúrio (manter só `dentist` quando `clinic_members.role = 'dentist'`).
-2. **`useRoleAccess`**: trocar o fallback `clinicRole ?? 'admin'` por `clinicRole ?? (isClinicOwner ? 'admin' : 'dentist')` — assim, se algum dia faltar `clinicRole`, a UI degrada pra dentist (mais restritivo) e não pra admin.
-3. **`AppSidebar`**: hoje os itens `Financeiro`, `Secretária IA`, `Odontograma` etc. não têm `allowedRoles` no array e dependem 100% do `routePermissions` central. Vou anotar cada item com `allowedRoles` explícito (defesa em profundidade) — assim mesmo que a rota mude no futuro, o item da sidebar respeita.
-4. Garantir que o bloco "Gestão da Clínica" (Visão Geral / Médicos / Faturamento) não apareça para `dentist` — hoje a guarda é `isClinicOwner && !isDentist`, mas se um médico for `is_owner` por engano (caso do `lucasferreira@gmail.com` que é admin+owner mas roda como `clinicRole='admin'`), o bloco aparece corretamente. Trocar a guarda para **`!isDentist && !isPatient` apenas**, sem depender de owner — isso libera para qualquer admin/secretary com permissão (já filtrado por `routePermissions`).
+## Edge function nova
 
-## Como verificar depois
+**`supabase/functions/validate-clinic-code/index.ts`** (pública, sem JWT):
 
-1. Logar como `felipesiqueira@gmail.com` (médico) → sidebar deve mostrar apenas: Dashboard, Agenda, Disponibilidade, Pacientes, Odontograma, Orçamentos, Meu Perfil. Sem Financeiro, Secretária IA, Visão Geral, Médicos, Faturamento, Configurações.
-2. Criar uma conta nova como Profissional → Dentista (sem código): deve completar sem "Database error saving new user", e cair como `admin` de uma conta solo.
-3. Criar conta nova com código de clínica: deve completar e já entrar com `clinicRole = dentist` e ver a sidebar enxuta.
+- Body: `{ code: string }`
+- Faz `select id, name from clinics where invite_code = ?`
+- Retorna `{ valid: true, clinic_name }` ou `{ valid: false, error }`
+- Rate limit simples por IP (in-memory map, 10 tentativas/min) pra não virar oráculo de códigos.
 
-## Arquivos tocados
+Configurar `verify_jwt = false` no `supabase/config.toml` pra essa função.
 
-- `supabase/migrations/<nova>.sql` — corrige `handle_new_user`, anexa `auto_link_clinic_owner`, dropa `assign_default_role`, dedupa `user_roles`.
-- `src/hooks/useRoleAccess.ts` — fallback mais seguro.
-- `src/components/AppSidebar.tsx` — anotar `allowedRoles` por item, ajustar guarda do bloco "Gestão da Clínica".
+## Mudanças no código
+
+**`src/pages/Auth.tsx`**:
+- No passo 1, manter as 3 opções (Cliente / Clínica / Profissional).
+- No passo 2 quando `userType === 'profissional'`: form novo só com os 5 campos acima. Remover `legal_name`, `trade_name`, `cnpj`, `corporate_email`, `responsible_name`, `responsible_cpf`.
+- Botão "Criar conta" desabilitado até `clinicCode` passar no regex.
+- Onclick: chama `validate-clinic-code` → se ok, `supabase.auth.signUp({ user_type: 'profissional_member', specialty, registration_number })` → após sessão, `supabase.functions.invoke('join-clinic-by-code', { body: { code, specialty, registration_number } })`.
+- Caso `?invite=TOKEN`: esconde input de código, dispara `accept-clinic-invite(token)` em vez de `join-clinic-by-code`.
+
+**`src/App.tsx`**:
+- Novo route `/aguardando-clinica` (componente `WaitingClinic`).
+- Em `ProtectedRoute`: se user logado, não é patient, e `clinics.length === 0`, redirecionar pra `/aguardando-clinica` em vez de `/onboarding` quando o usuário **não tem role admin** (ou seja: profissional órfão). Admin sem clínica continua indo pro `/onboarding`.
+
+**`src/pages/WaitingClinic.tsx`** (novo): tela simples descrita acima.
+
+**`supabase/config.toml`**: adicionar bloco
+```toml
+[functions.validate-clinic-code]
+verify_jwt = false
+```
+
+**Trigger `handle_new_user`**: já está correto — `profissional_member` vira `dentist`. Sem mudança.
+
+**Branch `profissional` (sem código) no `handle_new_user`**: pode ficar como está (defensivo) ou ser removida. Vou deixar — não fará mal e protege contra signups antigos pendentes.
+
+## O que sai da UI
+
+- ❌ Toggle "Tenho código / Sou autônomo".
+- ❌ Campos de empresa (CNPJ, razão social, responsável) no fluxo de Profissional.
+- ❌ Redirect de profissional pra `/onboarding`.
+
+## Validações e UX
+
+- Erro de código inválido → toast vermelho + borda vermelha no input + texto "Código não encontrado. Peça à clínica para gerar um novo".
+- Caps automático no input do código (já vai pra UPPERCASE no onChange).
+- Máscara visual `CLIN-XXXXXXXX` com placeholder claro.
+- Loading state no botão durante validação + signup (sequencial).
 
 ## O que NÃO muda
 
-- Edge functions de invite/código continuam iguais.
-- Tabelas e RLS de `clinic_members`/`clinic_invites` continuam iguais.
-- Visão de admin e secretária permanece intacta.
+- Fluxo de paciente e clínica (PJ): inalterados.
+- `accept-clinic-invite` e `join-clinic-by-code`: inalteradas.
+- RLS, schema, outras edge functions: inalteradas.
+- Caso o usuário queira virar autônomo no futuro, a clínica que ele administra precisará ser criada via fluxo "Clínica" no signup — não pelo fluxo "Profissional".
 
