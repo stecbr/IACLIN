@@ -40,7 +40,7 @@ import PatientSettings from "./pages/patient/PatientSettings";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, isPatient, roles } = useAuth();
+  const { user, loading, currentClinicId, isPatient, roles, simulatedRole } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -53,6 +53,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  // Dev simulation: simulating patient → send to patient area
+  if (simulatedRole === 'patient') return <Navigate to="/paciente" replace />;
   // Patient users go to their own area
   if (isPatient) return <Navigate to="/paciente" replace />;
   // No clinic linked: admins go to onboarding (can create one), others (dentists) wait for code
@@ -66,7 +68,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, isPatient } = useAuth();
+  const { user, loading, isPatient, simulatedRole, isDevUser } = useAuth();
 
   if (loading) {
     return (
@@ -77,7 +79,8 @@ function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
-  if (!isPatient) return <Navigate to="/" replace />;
+  // Allow dev users simulating patient to access patient area
+  if (!isPatient && !(isDevUser && simulatedRole === 'patient')) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }
