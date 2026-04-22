@@ -634,18 +634,54 @@ export default function Auth() {
                   </>
                 )}
 
-                {userType === 'profissional' && !inviteToken && (
-                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
-                    <Label htmlFor="clinic-code" className="text-xs text-muted-foreground">Código da clínica (opcional)</Label>
-                    <Input
-                      id="clinic-code"
-                      value={clinicCode}
-                      onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
-                      placeholder="CLIN-XXXXXXXX"
-                      className="h-10 font-mono tracking-wider"
-                    />
-                    <p className="text-[11px] text-muted-foreground">Tem código de uma clínica? Cole aqui para entrar na equipe automaticamente.</p>
-                  </motion.div>
+                {userType === 'profissional' && (
+                  <>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.21 }}>
+                      <Label htmlFor="specialty" className="text-xs text-muted-foreground">Especialidade (opcional)</Label>
+                      <Input
+                        id="specialty"
+                        value={specialty}
+                        onChange={(e) => setSpecialty(e.target.value)}
+                        placeholder={profSubType === 'dentista' ? 'Ex: Ortodontia' : 'Ex: Cardiologia'}
+                        className="h-10"
+                      />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
+                      <Label htmlFor="registration" className="text-xs text-muted-foreground">
+                        {profSubType === 'dentista' ? 'CRO' : 'CRM'} (opcional)
+                      </Label>
+                      <Input
+                        id="registration"
+                        value={registrationNumber}
+                        onChange={(e) => setRegistrationNumber(e.target.value)}
+                        placeholder={profSubType === 'dentista' ? 'Ex: CRO-SP 12345' : 'Ex: CRM-SP 12345'}
+                        className="h-10"
+                      />
+                    </motion.div>
+
+                    {!inviteToken && (
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
+                        <Label htmlFor="clinic-code">Código da clínica</Label>
+                        <Input
+                          id="clinic-code"
+                          value={clinicCode}
+                          onChange={(e) => {
+                            setClinicCodeError(null);
+                            setClinicCode(e.target.value.toUpperCase());
+                          }}
+                          placeholder="CLIN-XXXXXXXX"
+                          required
+                          maxLength={13}
+                          className={`h-10 font-mono tracking-wider ${clinicCodeError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                        />
+                        {clinicCodeError ? (
+                          <p className="text-[11px] text-destructive">{clinicCodeError}</p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">Cole o código que você recebeu da clínica para entrar na equipe.</p>
+                        )}
+                      </motion.div>
+                    )}
+                  </>
                 )}
 
                 <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.28 }}>
