@@ -1,86 +1,101 @@
 
 
-# Plano: Liberar acesso de simulação para `lucasferreiraceara@gmail.com`
+# Plano: Agenda global com filtro por médico (modo Clínica) + remover Disponibilidade do menu da clínica
 
-Dar a esse e-mail um "modo desenvolvedor" que permite alternar entre as três visões: **Clínica (admin)**, **Médico (dentist)** e **Paciente** — sem precisar de logins separados.
+## Contexto
 
-## Como vai funcionar
+Hoje, na Agenda (`src/pages/Agenda.tsx`):
+- **Médico (dentist)**: vê só os próprios agendamentos. ✅ Correto.
+- **Admin/Secretária**: vê todos os agendamentos da clínica, mas **sem nenhum filtro visual** — fica tudo amontoado, impossível separar por profissional.
 
-1. **Whitelist por e-mail**: criar uma constante `DEV_EMAILS = ['lucasferreiraceara@gmail.com']` em um arquivo único (`src/lib/devAccess.ts`). Só esses e-mails enxergam o seletor.
+E no menu lateral, **Disponibilidade** aparece para `admin` e `dentist`. Essa tela é pessoal do médico (cada um marca os próprios turnos), então não faz sentido pra clínica.
 
-2. **Seletor de simulação no header**: dropdown discreto no topo da tela (ao lado do `ClinicSwitcher` no `AppLayout`) com 3 opções:
-   - 👔 Clínica (admin) — visão padrão atual dele
-   - 🩺 Médico (dentist) — esconde Financeiro, Secretária IA, Configurações, Gestão da Clínica
-   - 👤 Paciente — leva pra `/paciente` (PatientLayout completo)
+## O que muda
 
-3. **Estado persistido em `localStorage`** (`iaclin.simulatedRole`) — sobrevive a reload, mas é só visual no front. Não toca no banco.
+### 1. Agenda — filtro por médico (apenas para admin/secretary)
 
-4. **`AuthContext` ganha 3 campos novos**:
-   - `isDevUser: boolean` (calculado de `user.email`)
-   - `simulatedRole: 'admin' | 'dentist' | 'patient' | null`
-   - `setSimulatedRole(role)` — só funciona se `isDevUser === true` (guard interno)
+Adicionar um **seletor de médico** no topo da tela de Agenda, ao lado dos botões de navegação Hoje/anterior/próximo:
 
-5. **`useRoleAccess` passa a respeitar a simulação**:
-   ```typescript
-   const effectiveRole = simulatedRole ?? (isPatient ? 'patient' : (clinicRole ?? (isClinicOwner ? 'admin' : 'dentist')));
-   ```
-   Assim, sidebar, rotas e guards já existentes filtram automaticamente — sem duplicar lógica.
+```
+[<] [Hoje] [>]  Semana de 21 a 27 de abril       [Médico: Todos ▾]   [Dia | Semana | Mês]
+```
 
-6. **Roteamento condicional**:
-   - Se `simulatedRole === 'patient'` e usuário está em rota não-paciente → redireciona pra `/paciente`.
-   - Se sair de `/paciente` voltando pra `/`, simulação de paciente é resetada automaticamente (ou ele clica em "voltar pra Clínica" no seletor).
-   - Botão "Sair do modo simulação" sempre visível dentro do dropdown.
+Comportamento:
+- Lista carregada de `clinic_members` da clínica atual (juntando com `profiles.full_name`), só usuários com role `admin` ou `dentist` (quem atende).
+- Opções: **"Todos os médicos"** (default) + um item por profissional, com avatar/iniciais.
+- Estado persistido em `localStorage` (`iaclin.agendaDoctorFilter`) para a secretária não ter que reescolher toda vez.
+- Quando filtra por um médico, a query da agenda passa a aplicar `eq('dentist_id', selectedDoctorId)` — mesma lógica que já existe para o role `dentist`, só que controlada pela secretária/admin.
+- **Cada agendamento na grade mostra um pequeno avatar/inicial colorida do médico** (canto superior direito do card) quando está em "Todos" — assim, mesmo na visão geral, dá pra bater o olho e saber de quem é a consulta.
+- O seletor **não aparece** quando `effectiveRole === 'dentist'` (médico continua vendo só o próprio).
 
-## Visual do seletor
+### 2. Coluna por médico no modo Semana (opcional, dentro do mesmo seletor)
 
-No header, ao lado direito (antes do sino de notificação):
+Adicionar uma terceira opção no seletor: **"Comparar lado a lado"** — só ativa no modo **Semana** e **Dia**. Quando ligada, em vez de mesclar todos os agendamentos, divide cada coluna de dia em sub-colunas por médico (estilo Google Calendar com múltiplos calendários). Visual:
+
+```
+        | Seg 21                  | Ter 22                  |
+        | Dr. A | Dr. B | Dr. C   | Dr. A | Dr. B | Dr. C   |
+  09:00 | apt   |       | apt     |       | apt   |         |
+  10:00 |       | apt   |         | apt   |       | apt     |
+```
+
+Se houver mais de 4 médicos ativos, cai automaticamente pra modo "Todos mesclado" pra não quebrar layout, e mostra aviso discreto: *"Comparação lado a lado disponível para até 4 médicos."*
+
+### 3. Remover "Disponibilidade" do menu para admin e secretary
+
+No `AppSidebar.tsx`:
+```ts
+{ title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['dentist'] }
+```
+(antes: `['admin', 'dentist']`)
+
+E em `useRoleAccess.ts` — `routePermissions`:
+```ts
+{ path: '/disponibilidade', allowedRoles: ['dentist'] }
+```
+
+Assim a rota fica acessível só para o médico. Se um admin tentar acessar `/disponibilidade` direto pela URL, é redirecionado pra `/`.
+
+## Visual do seletor de médico
 
 ```
 ┌──────────────────────────────────┐
-│ 🧪 Visualizando como: Médico  ▾  │
+│ 👥 Médico: Todos             ▾   │
 └──────────────────────────────────┘
 ```
 
-Quando aberto:
+Aberto:
 ```
-┌────────────────────────────────────┐
-│ Modo desenvolvedor                 │
-│ ─────────────────────────────────  │
-│ ✓ 👔 Clínica (admin)               │
-│   🩺 Médico (dentist)              │
-│   👤 Paciente                      │
-│ ─────────────────────────────────  │
-│   ↩  Voltar ao normal              │
-└────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  ✓ 👥 Todos os médicos               │
+│  ─────────────────────────────────   │
+│    🟦 FS  Dr. Felipe Siqueira        │
+│    🟪 GF  Gabriela Ferreira          │
+│    🟧 LP  Luan Pereira               │
+│  ─────────────────────────────────   │
+│    ⊞  Comparar lado a lado           │
+└──────────────────────────────────────┘
 ```
 
-Badge amarelo discreto "Simulando" aparece ao lado do nome do usuário no rodapé da sidebar quando o modo está ativo, pra deixar claro que não é a visão real.
-
-## Segurança
-
-- **Front-only**: a simulação **não** muda nada no banco. RLS continua aplicada com o usuário real (`lucasferreiraceara@gmail.com` que é admin de fato).
-- Como ele já tem `clinic_role = admin` no banco, ele tecnicamente *pode* ver tudo. A simulação só esconde itens de UI pra ele testar como cada perfil enxerga.
-- Se quisermos que ele teste *escrita* como paciente (ex: criar um agendamento pelo `/paciente/agendar`), o registro vai pra clínica dele com o user_id dele — então fica num estado meio híbrido. Aceitável pra QA, mas precisa ficar documentado.
-- Whitelist é **hardcoded em código**, não em banco. Adicionar/remover = mudar o array e fazer deploy.
+Cor do dot ao lado das iniciais é gerada por hash do `user_id` (estável) — mesma cor usada no avatar do card de agendamento.
 
 ## Arquivos tocados
 
-- **Novo**: `src/lib/devAccess.ts` — constante `DEV_EMAILS` + helper `isDevUser(email)`.
-- **Novo**: `src/components/DevRoleSwitcher.tsx` — dropdown do seletor.
-- **Editado**: `src/contexts/AuthContext.tsx` — adicionar `isDevUser`, `simulatedRole`, `setSimulatedRole`, persistência em localStorage.
-- **Editado**: `src/hooks/useRoleAccess.ts` — `effectiveRole` passa a considerar `simulatedRole` antes de qualquer outro fallback.
-- **Editado**: `src/components/AppLayout.tsx` — encaixar `<DevRoleSwitcher />` no header (só renderiza se `isDevUser`).
-- **Editado**: `src/components/AppSidebar.tsx` — badge "Simulando" no footer quando `simulatedRole !== null`.
-- **Editado**: `src/App.tsx` — em `ProtectedRoute`, se `simulatedRole === 'patient'` e rota não começa com `/paciente`, redirecionar pra `/paciente`. Em `PatientProtectedRoute`, aceitar dev users com `simulatedRole === 'patient'` mesmo que `isPatient === false`.
+- **Editado**: `src/pages/Agenda.tsx` — adicionar `DoctorFilter` no header da tela; estender `useQuery` pra aplicar `eq('dentist_id', filterId)` quando admin/secretary escolhe médico; renderizar avatar do médico no card quando `filterId === null`; implementar layout de sub-colunas por médico no modo "Comparar".
+- **Novo**: `src/components/agenda/AgendaDoctorFilter.tsx` — componente do seletor (dropdown shadcn), busca médicos via `clinic_members + profiles`, persiste no localStorage.
+- **Novo**: `src/lib/avatarColor.ts` — helper `getAvatarColor(userId: string)` que devolve uma cor estável de uma paleta fixa (8 cores).
+- **Editado**: `src/components/AppSidebar.tsx` — `Disponibilidade` passa a ter `allowedRoles: ['dentist']`.
+- **Editado**: `src/hooks/useRoleAccess.ts` — `/disponibilidade` passa a ter `allowedRoles: ['dentist']`.
 
 ## O que NÃO muda
 
-- Banco de dados: zero migrations.
-- RLS: intacta.
-- Outros usuários: nem veem o seletor, comportamento idêntico ao atual.
-- `clinicRole` real do `lucasferreiraceara@gmail.com` continua `admin` — a simulação é puramente de UI.
+- Banco, RLS, edge functions: zero mudanças.
+- Visão do médico: continua exatamente igual (vê só a própria agenda, sem seletor).
+- Visão do paciente: inalterada.
+- Página `/disponibilidade` em si: continua existindo, só sai do menu do admin.
+- Dashboard, Financeiro, Pacientes, etc: inalterados.
 
-## Pergunta
+## Confirmação
 
-Quer que eu adicione **mais e-mails** à whitelist agora (ex: `furtadolucas@gmail.com`, `lucas@simoes.tec.br`, `henrifurtado.adv@gmail.com`) ou começamos só com `lucasferreiraceara@gmail.com` e adiciono os outros depois se precisar?
+Vou seguir com tudo isso de uma vez (filtro + remover do menu + comparação lado a lado opcional). Se preferir começar **só pelo filtro por médico** e deixar a "comparação lado a lado" pra uma próxima rodada, é só falar antes de eu implementar.
 
