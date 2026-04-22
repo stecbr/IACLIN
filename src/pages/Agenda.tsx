@@ -11,6 +11,13 @@ import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDi
 import { PageHeader } from '@/components/PageHeader';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import {
+  AgendaDoctorFilter,
+  loadStoredDoctorFilter,
+  type DoctorFilterValue,
+  type DoctorOption,
+} from '@/components/agenda/AgendaDoctorFilter';
+import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
