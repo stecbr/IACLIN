@@ -148,7 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else sessionStorage.removeItem(SIMULATED_ROLE_KEY);
   };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
-  const canSimulate = roles.includes('admin') && isDevEnvironment();
+  const isAdminOrOwner =
+    roles.includes('admin') ||
+    clinics.some((c) => c.is_owner || c.role === 'admin');
+  const canSimulate = isAdminOrOwner && isDevEnvironment();
 
   return (
     <AuthContext.Provider value={{
