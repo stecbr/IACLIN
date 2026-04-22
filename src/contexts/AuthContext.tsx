@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { isDevEmail, SimulatedRole, SIMULATED_ROLE_STORAGE_KEY } from '@/lib/devAccess';
 
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
@@ -28,6 +29,9 @@ interface AuthContextType {
   switchClinic: (clinicId: string) => void;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
+  isDevUser: boolean;
+  simulatedRole: SimulatedRole | null;
+  setSimulatedRole: (role: SimulatedRole | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [clinics, setClinics] = useState<ClinicMembership[]>([]);
   const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
+  const [simulatedRole, setSimulatedRoleState] = useState<SimulatedRole | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem(SIMULATED_ROLE_STORAGE_KEY);
+    if (stored === 'admin' || stored === 'dentist' || stored === 'patient') return stored;
+    return null;
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -115,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    if (typeof window !== 'undefined') localStorage.removeItem(SIMULATED_ROLE_STORAGE_KEY);
+    setSimulatedRoleState(null);
     await supabase.auth.signOut();
   };
 
@@ -126,6 +138,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.setItem(CLINIC_STORAGE_KEY, clinicId);
   };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
+
+  const isDevUser = isDevEmail(user?.email);
+  const setSimulatedRole = (role: SimulatedRole | null) => {
+    if (!isDevUser) return; // hard guard
+    setSimulatedRoleState(role);
+    if (typeof window === 'undefined') return;
+    if (role === null) localStorage.removeItem(SIMULATED_ROLE_STORAGE_KEY);
+    else localStorage.setItem(SIMULATED_ROLE_STORAGE_KEY, role);
+  };
+  // Effective simulated role: only honored if user is whitelisted
+  const effectiveSimulatedRole = isDevUser ? simulatedRole : null;
 
   return (
     <AuthContext.Provider value={{
@@ -143,6 +166,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchClinic,
       signOut,
       hasRole,
+      isDevUser,
+      simulatedRole: effectiveSimulatedRole,
+      setSimulatedRole,
     }}>
       {children}
     </AuthContext.Provider>
