@@ -14,7 +14,7 @@ import { CalendarDays, Clock, MapPin, ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { formatCpf, isValidCpf, unmaskCpf } from "@/lib/cpf";
+import { formatCpf, isValidCpf } from "@/lib/cpf";
 
 interface InsurancePlan {
   id: string;

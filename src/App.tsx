@@ -28,6 +28,7 @@ import SecretariaIAPainel from "./pages/SecretariaIAPainel";
 import Availability from "./pages/Availability";
 import ClinicaHome from "./pages/clinica/ClinicaHome";
 import ClinicaMedicos from "./pages/clinica/ClinicaMedicos";
+import ClinicaAprovacoes from "./pages/clinica/ClinicaAprovacoes";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
@@ -144,6 +145,7 @@ const AppRoutes = () => (
     <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
     <Route path="/clinica" element={<ProtectedRoute><ClinicaHome /></ProtectedRoute>} />
     <Route path="/clinica/medicos" element={<ProtectedRoute><ClinicaMedicos /></ProtectedRoute>} />
+    <Route path="/clinica/aprovacoes" element={<ProtectedRoute><ClinicaAprovacoes /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
