@@ -221,17 +221,28 @@ export default function Agenda() {
                       >
                         {dayApts.map((apt: any) => {
                           const procedureColor = (apt as any).procedures?.color ?? 'hsl(var(--primary))';
+                          const showDoctorBadge = !isDentist && doctorFilter.kind === 'all';
+                          const doctor = showDoctorBadge ? doctorById.get(apt.dentist_id) : null;
                           return (
                             <Tooltip key={apt.id}>
                               <TooltipTrigger asChild>
                                 <div
-                                  className="rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer"
+                                  className="relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer"
                                   onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   style={{
                                     backgroundColor: `${procedureColor}15`,
                                     borderLeft: `3px solid ${procedureColor}`,
                                   }}
                                 >
+                                  {showDoctorBadge && (
+                                    <span
+                                      className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold text-white ring-1 ring-background"
+                                      style={{ backgroundColor: getAvatarColor(apt.dentist_id) }}
+                                      title={doctor?.full_name ?? ''}
+                                    >
+                                      {getInitials(doctor?.full_name ?? '?')}
+                                    </span>
+                                  )}
                                   <p className="font-medium truncate text-foreground">{(apt as any).patients?.full_name}</p>
                                   <p className="text-muted-foreground truncate">
                                     {(apt as any).procedures?.name ?? 'Consulta'}
@@ -244,6 +255,7 @@ export default function Agenda() {
                                   <p className="text-xs text-muted-foreground">{(apt as any).procedures?.name ?? 'Consulta'}</p>
                                   <p className="text-xs">{format(parseISO(apt.start_time), 'HH:mm')} - {format(parseISO(apt.end_time), 'HH:mm')}</p>
                                   <p className="text-xs capitalize">{statusLabels[apt.status] ?? apt.status}</p>
+                                  {doctor && <p className="text-xs">Dr(a). {doctor.full_name}</p>}
                                   {apt.notes && <p className="text-xs text-muted-foreground italic">{apt.notes}</p>}
                                 </div>
                               </TooltipContent>
