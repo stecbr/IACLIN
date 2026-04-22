@@ -7,6 +7,7 @@ type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro'
 
 interface ClinicMembership {
   clinic_id: string;
+  clinic_name: string;
   role: AppRole;
   is_owner: boolean;
   category: ClinicCategory;
@@ -23,11 +24,15 @@ interface AuthContextType {
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
   isPatient: boolean;
+  clinics: ClinicMembership[];
+  switchClinic: (clinicId: string) => void;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const CLINIC_STORAGE_KEY = 'iaclin.currentClinicId';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,7 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
-  const [clinicMembership, setClinicMembership] = useState<ClinicMembership | null>(null);
+  const [clinics, setClinics] = useState<ClinicMembership[]>([]);
+  const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -44,32 +50,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
-        supabase.from('clinic_members').select('clinic_id, role, is_owner').eq('user_id', userId).limit(1).maybeSingle(),
+        supabase.from('clinic_members').select('clinic_id, role, is_owner').eq('user_id', userId),
       ]).then(async ([{ data: rolesData }, { data: profileData }, { data: memberData }]) => {
         if (!mounted) return;
         setRoles((rolesData ?? []).map(r => r.role as AppRole));
         setProfile(profileData);
-        if (memberData) {
-          // Fetch clinic category
-          let category: ClinicCategory = 'odonto';
-          const { data: clinicData } = await supabase
-            .from('clinics')
-            .select('category')
-            .eq('id', memberData.clinic_id)
-            .single();
-          if (clinicData?.category) {
-            category = clinicData.category as ClinicCategory;
-          }
-          if (!mounted) return;
-          setClinicMembership({
-            clinic_id: memberData.clinic_id,
-            role: memberData.role as AppRole,
-            is_owner: memberData.is_owner,
-            category,
-          });
-        } else {
-          setClinicMembership(null);
+        const memberRows = (memberData ?? []) as Array<{ clinic_id: string; role: string; is_owner: boolean }>;
+        if (memberRows.length === 0) {
+          setClinics([]);
+          setCurrentClinicId(null);
+          return;
         }
+        const clinicIds = memberRows.map((m) => m.clinic_id);
+        const { data: clinicsData } = await supabase
+          .from('clinics')
+          .select('id, name, category')
+          .in('id', clinicIds);
+        const clinicMap = new Map((clinicsData ?? []).map((c) => [c.id, c]));
+        const memberships: ClinicMembership[] = memberRows.map((m) => ({
+          clinic_id: m.clinic_id,
+          clinic_name: clinicMap.get(m.clinic_id)?.name ?? 'Clínica',
+          role: m.role as AppRole,
+          is_owner: m.is_owner,
+          category: (clinicMap.get(m.clinic_id)?.category ?? 'odonto') as ClinicCategory,
+        }));
+        if (!mounted) return;
+        setClinics(memberships);
+
+        // Pick current clinic: stored value if still valid, otherwise first
+        const stored = typeof window !== 'undefined' ? localStorage.getItem(CLINIC_STORAGE_KEY) : null;
+        const validStored = stored && memberships.some((m) => m.clinic_id === stored) ? stored : null;
+        setCurrentClinicId(validStored ?? memberships[0].clinic_id);
       });
     };
 
@@ -92,7 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setRoles([]);
         setProfile(null);
-        setClinicMembership(null);
+        setClinics([]);
+        setCurrentClinicId(null);
       }
     });
 
@@ -108,6 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isPatient = roles.includes('patient');
+  const switchClinic = (clinicId: string) => {
+    if (!clinics.some((c) => c.clinic_id === clinicId)) return;
+    setCurrentClinicId(clinicId);
+    if (typeof window !== 'undefined') localStorage.setItem(CLINIC_STORAGE_KEY, clinicId);
+  };
+  const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
 
   return (
     <AuthContext.Provider value={{
@@ -116,11 +134,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       roles,
       profile,
-      currentClinicId: clinicMembership?.clinic_id ?? null,
-      clinicRole: clinicMembership?.role ?? null,
-      isClinicOwner: clinicMembership?.is_owner ?? false,
-      clinicCategory: clinicMembership?.category ?? 'odonto',
+      currentClinicId,
+      clinicRole: currentMembership?.role ?? null,
+      isClinicOwner: currentMembership?.is_owner ?? false,
+      clinicCategory: currentMembership?.category ?? 'odonto',
       isPatient,
+      clinics,
+      switchClinic,
       signOut,
       hasRole,
     }}>
