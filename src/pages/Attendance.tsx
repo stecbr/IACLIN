@@ -88,7 +88,7 @@ export default function Attendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clinical_records')
-        .select('*, clinical_record_procedures(*)')
+        .select('*, clinical_record_procedures(*), clinical_record_requests(*)')
         .eq('appointment_id', appointmentId!)
         .maybeSingle();
       if (error) throw error;
@@ -97,13 +97,44 @@ export default function Attendance() {
     enabled: !!appointmentId,
   });
 
+  // Detect clinic category for odontogram tab
+  const { data: clinicCategory } = useQuery({
+    queryKey: ['attendance-clinic-category', currentClinicId],
+    queryFn: async () => {
+      if (!currentClinicId) return null;
+      const { data } = await supabase.from('clinics').select('category').eq('id', currentClinicId).maybeSingle();
+      return data?.category ?? null;
+    },
+    enabled: !!currentClinicId,
+  });
+  const showOdontogram = clinicCategory === 'odonto';
+
   // Populate form with existing record
   useEffect(() => {
     if (existingRecord) {
+      const r = existingRecord as any;
       setClinicalRecordId(existingRecord.id);
       setClinicalNotes(existingRecord.notes ?? '');
       setDiagnosis(existingRecord.diagnosis ?? '');
-      const procs = ((existingRecord as any).clinical_record_procedures ?? []).map((p: any) => ({
+      setChiefComplaint(r.chief_complaint ?? '');
+      setHpi(r.history_present_illness ?? '');
+      const dur = r.symptom_duration ?? '';
+      const m = dur.match(/^(\d+)\s+(\w+)$/);
+      if (m) { setDurationValue(m[1]); setDurationUnit(m[2]); } else { setDurationValue(dur); }
+      setPhysicalExam(r.physical_exam ?? '');
+      setVitalSigns(r.vital_signs ?? {});
+      setHypotheses(Array.isArray(r.hypotheses) ? r.hypotheses : []);
+      setSeverity(r.severity ?? '');
+      setTreatmentPlan(r.treatment_plan ?? '');
+      setFollowUpDate(r.follow_up_date ?? '');
+      setFollowUpReason(r.follow_up_reason ?? '');
+      const reqs = (r.clinical_record_requests ?? []).map((it: any) => ({
+        id: it.id,
+        kind: it.kind as RequestKind,
+        payload: it.payload ?? {},
+      }));
+      if (reqs.length > 0) setRequests(reqs);
+      const procs = (r.clinical_record_procedures ?? []).map((p: any) => ({
         tempId: p.id,
         procedure_id: p.procedure_id,
         tooth_number: p.tooth_number,
