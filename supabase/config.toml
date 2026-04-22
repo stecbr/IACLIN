@@ -1,1 +1,4 @@
 project_id = "fwyulywxhjyxdreeuqna"
+
+[functions.validate-clinic-code]
+verify_jwt = false

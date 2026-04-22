@@ -19,6 +19,7 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
+import WaitingClinic from "./pages/WaitingClinic";
 import Profile from "./pages/Profile";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
@@ -39,7 +40,7 @@ import PatientSettings from "./pages/patient/PatientSettings";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, isPatient } = useAuth();
+  const { user, loading, currentClinicId, isPatient, roles } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -54,8 +55,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!user) return <Navigate to="/auth" replace />;
   // Patient users go to their own area
   if (isPatient) return <Navigate to="/paciente" replace />;
-  // Redirect to onboarding if user has no clinic
-  if (!currentClinicId) return <Navigate to="/onboarding" replace />;
+  // No clinic linked: admins go to onboarding (can create one), others (dentists) wait for code
+  if (!currentClinicId) {
+    const isAdmin = roles.includes('admin');
+    return <Navigate to={isAdmin ? '/onboarding' : '/aguardando-clinica'} replace />;
+  }
   if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
 
   return <AppLayout>{children}</AppLayout>;
@@ -96,10 +100,29 @@ function OnboardingRoute() {
   return <Onboarding />;
 }
 
+function WaitingClinicRoute() {
+  const { user, loading, currentClinicId, isPatient } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
+  if (isPatient) return <Navigate to="/paciente" replace />;
+  if (currentClinicId) return <Navigate to="/" replace />;
+
+  return <WaitingClinic />;
+}
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<Auth />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
+    <Route path="/aguardando-clinica" element={<WaitingClinicRoute />} />
     <Route path="/marketplace" element={<Marketplace />} />
     <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
     <Route path="/paciente" element={<PatientProtectedRoute><PatientLayout /></PatientProtectedRoute>}>

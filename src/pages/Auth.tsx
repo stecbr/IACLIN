@@ -61,6 +61,11 @@ export default function Auth() {
 
   // Clinic code field (when joining a clinic via shared code)
   const [clinicCode, setClinicCode] = useState('');
+  const [clinicCodeError, setClinicCodeError] = useState<string | null>(null);
+
+  // Professional fields (specialty / registration)
+  const [specialty, setSpecialty] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
 
   // Invite info loaded from token
   const [inviteInfo, setInviteInfo] = useState<{ clinic_name: string; email: string; full_name: string | null } | null>(null);
@@ -179,6 +184,30 @@ export default function Auth() {
           }
         }
 
+        // Validate professional-specific fields (always requires clinic link)
+        const CODE_REGEX = /^CLIN-[A-Z2-9]{8}$/;
+        if (userType === 'profissional' && !inviteToken) {
+          const trimmed = clinicCode.trim().toUpperCase();
+          if (!CODE_REGEX.test(trimmed)) {
+            setClinicCodeError('Código inválido. Use CLIN-XXXXXXXX.');
+            toast.error('Informe um código de clínica válido');
+            setSubmitting(false);
+            return;
+          }
+          // Validate code exists before creating account
+          const { data: validation, error: valErr } = await supabase.functions.invoke('validate-clinic-code', {
+            body: { code: trimmed },
+          });
+          if (valErr || !validation?.valid) {
+            const msg = validation?.error || 'Código não encontrado. Peça à clínica para gerar um novo.';
+            setClinicCodeError(msg);
+            toast.error(msg);
+            setSubmitting(false);
+            return;
+          }
+          setClinicCodeError(null);
+        }
+
         // Validate clinic-specific fields
         if (userType === 'clinica') {
           if (cnpj.replace(/\D/g, '').length !== 14) {
@@ -211,6 +240,10 @@ export default function Auth() {
               user_type: isJoiningExistingClinic ? 'profissional_member' : userType,
               professional_subtype: profSubType,
               clinic_category: clinicCategory,
+              ...(userType === 'profissional' && {
+                specialty: specialty.trim() || null,
+                registration_number: registrationNumber.trim() || null,
+              }),
               ...(userType === 'cliente' && {
                 cpf: unmaskCpf(cpf),
                 phone,
@@ -239,10 +272,18 @@ export default function Auth() {
             else toast.success('Você foi vinculado à clínica!');
           } else if (userType === 'profissional' && clinicCode.trim()) {
             const { error: joinErr } = await supabase.functions.invoke('join-clinic-by-code', {
-              body: { code: clinicCode.trim().toUpperCase() },
+              body: {
+                code: clinicCode.trim().toUpperCase(),
+                specialty: specialty.trim() || null,
+                registration_number: registrationNumber.trim() || null,
+              },
             });
-            if (joinErr) toast.error('Conta criada, mas código inválido: ' + joinErr.message);
-            else toast.success('Vínculo criado com a clínica!');
+            if (joinErr) {
+              toast.error('Conta criada, mas falhou ao vincular: ' + joinErr.message);
+              navigate('/aguardando-clinica', { replace: true });
+            } else {
+              toast.success('Vínculo criado com a clínica!');
+            }
           }
         }
       }
@@ -593,18 +634,54 @@ export default function Auth() {
                   </>
                 )}
 
-                {userType === 'profissional' && !inviteToken && (
-                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
-                    <Label htmlFor="clinic-code" className="text-xs text-muted-foreground">Código da clínica (opcional)</Label>
-                    <Input
-                      id="clinic-code"
-                      value={clinicCode}
-                      onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
-                      placeholder="CLIN-XXXXXXXX"
-                      className="h-10 font-mono tracking-wider"
-                    />
-                    <p className="text-[11px] text-muted-foreground">Tem código de uma clínica? Cole aqui para entrar na equipe automaticamente.</p>
-                  </motion.div>
+                {userType === 'profissional' && (
+                  <>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.21 }}>
+                      <Label htmlFor="specialty" className="text-xs text-muted-foreground">Especialidade (opcional)</Label>
+                      <Input
+                        id="specialty"
+                        value={specialty}
+                        onChange={(e) => setSpecialty(e.target.value)}
+                        placeholder={profSubType === 'dentista' ? 'Ex: Ortodontia' : 'Ex: Cardiologia'}
+                        className="h-10"
+                      />
+                    </motion.div>
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
+                      <Label htmlFor="registration" className="text-xs text-muted-foreground">
+                        {profSubType === 'dentista' ? 'CRO' : 'CRM'} (opcional)
+                      </Label>
+                      <Input
+                        id="registration"
+                        value={registrationNumber}
+                        onChange={(e) => setRegistrationNumber(e.target.value)}
+                        placeholder={profSubType === 'dentista' ? 'Ex: CRO-SP 12345' : 'Ex: CRM-SP 12345'}
+                        className="h-10"
+                      />
+                    </motion.div>
+
+                    {!inviteToken && (
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
+                        <Label htmlFor="clinic-code">Código da clínica</Label>
+                        <Input
+                          id="clinic-code"
+                          value={clinicCode}
+                          onChange={(e) => {
+                            setClinicCodeError(null);
+                            setClinicCode(e.target.value.toUpperCase());
+                          }}
+                          placeholder="CLIN-XXXXXXXX"
+                          required
+                          maxLength={13}
+                          className={`h-10 font-mono tracking-wider ${clinicCodeError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                        />
+                        {clinicCodeError ? (
+                          <p className="text-[11px] text-destructive">{clinicCodeError}</p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">Cole o código que você recebeu da clínica para entrar na equipe.</p>
+                        )}
+                      </motion.div>
+                    )}
+                  </>
                 )}
 
                 <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.28 }}>
