@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/select';
 import { Calendar, Clock, User, Stethoscope, FileText, Play, X } from 'lucide-react';
 import { useState } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 interface Appointment {
   id: string;
@@ -63,6 +66,8 @@ const statusColors: Record<string, string> = {
 export function AppointmentDetailDialog({ open, onOpenChange, appointment, onStatusChange }: Props) {
   const navigate = useNavigate();
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const { effectiveRole } = useRoleAccess();
+  const canViewPatient = effectiveRole !== 'patient';
 
   if (!appointment) return null;
 
@@ -90,6 +95,12 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
     navigate(`/atendimento/${appointment.id}`);
   };
 
+  const handleOpenPatient = () => {
+    if (!canViewPatient) return;
+    onOpenChange(false);
+    navigate(`/patients/${appointment.patient_id}`);
+  };
+
   const handleCancel = async () => {
     await handleStatusChange('cancelled');
   };
@@ -109,13 +120,37 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
 
         <div className="space-y-4">
           {/* Patient */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-            <User className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">{appointment.patients?.full_name ?? 'Paciente'}</p>
-              <p className="text-xs text-muted-foreground">Paciente</p>
+          {canViewPatient ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleOpenPatient}
+                    className="group w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-primary/10 transition-colors text-left"
+                  >
+                    <User className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                        {appointment.patients?.full_name ?? 'Paciente'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Ver ficha completa</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Ver ficha completa do paciente</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+              <User className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">{appointment.patients?.full_name ?? 'Paciente'}</p>
+                <p className="text-xs text-muted-foreground">Paciente</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Info Grid */}
           <div className="grid grid-cols-2 gap-3">
