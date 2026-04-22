@@ -43,6 +43,20 @@ export default function Attendance() {
   const [finishing, setFinishing] = useState(false);
   const [clinicalRecordId, setClinicalRecordId] = useState<string | null>(null);
 
+  // Expanded clinical fields
+  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [hpi, setHpi] = useState('');
+  const [durationValue, setDurationValue] = useState('');
+  const [durationUnit, setDurationUnit] = useState('days');
+  const [physicalExam, setPhysicalExam] = useState('');
+  const [vitalSigns, setVitalSigns] = useState<VitalSigns>({});
+  const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [severity, setSeverity] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpReason, setFollowUpReason] = useState('');
+  const [requests, setRequests] = useState<RequestItem[]>([]);
+
   // Load appointment
   const { data: appointment, isLoading: loadingApt } = useQuery({
     queryKey: ['appointment-detail', appointmentId],
