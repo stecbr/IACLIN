@@ -1,131 +1,99 @@
 
 
-# Plano: Tela de atendimento clínico completa (multiespecialidade)
+# Plano: Especialidade obrigatória e padronizada (catálogo único)
 
-Expandir a tela `/atendimento/:appointmentId` (`Attendance.tsx`) pra cobrir tudo que um profissional de qualquer especialidade preencheria numa consulta. Hoje ela tem só **Evolução**, **Procedimentos** e **Odontograma**. Vou adicionar os blocos clínicos completos, todos como **registro digital** (sem PDF agora — fica pra fase 2).
+## Problema raiz
 
-## Estrutura da tela (nova)
+O paciente filtra médicos por `specialty.id` do catálogo (ex: `cardiologia`). Mas hoje a especialidade é digitada como texto livre em 3 lugares (signup do profissional, convite do admin, e configurações), então grava strings tipo "Cardiologista" que nunca batem com o id do catálogo → o médico nunca aparece na busca.
 
-Manter o cabeçalho atual (paciente + ações Salvar/Finalizar), mas trocar as 3 tabs por **6 tabs progressivas** que seguem o fluxo natural de uma consulta:
+## Solução
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│ 👤 Lucas Ferreira  ·  21/04 14:30  ·  Consulta            [Salvar] [Finalizar]│
-├──────────────────────────────────────────────────────────────────────┤
-│ [1.Avaliação] [2.Sinais Vitais] [3.Diagnóstico] [4.Conduta]          │
-│ [5.Solicitações] [6.Procedimentos] [7.Odontograma†]                  │
-└──────────────────────────────────────────────────────────────────────┘
-```
-† Odontograma só aparece em clínica `category='odonto'` (regra que já existe no projeto).
+Trocar **todos os campos de especialidade** por um **Select com o mesmo catálogo `SPECIALTIES`** usado pelo paciente, e tornar **obrigatório** em toda criação/atualização. Assim o que é gravado (`specialty.id`) sempre bate com o que o paciente filtra.
 
-### Tab 1 — Avaliação Clínica
-- **Queixa principal** (texto curto)
-- **História da doença atual / HDA** (textarea)
-- **Duração dos sintomas** (input + select dia/semana/mês)
-- **Antecedentes relevantes** (textarea — puxa anamnese do paciente como sugestão read-only no topo: alergias, medicações em uso, doenças)
-- **Exame físico / inspeção** (textarea livre)
+## O que muda
 
-### Tab 2 — Sinais Vitais
-Grid de inputs numéricos curtos:
-- PA sistólica / diastólica (mmHg)
-- FC (bpm), FR (rpm), Temperatura (°C), SpO₂ (%)
-- Peso (kg), Altura (cm) → **IMC calculado automaticamente** com classificação
-- Glicemia capilar (opcional)
+### 1. Cadastro de profissional (`Auth.tsx`)
+- Trocar o `<Input>` de especialidade por um `<Select>` com busca, listando todo o catálogo `SPECIALTIES` ordenado A-Z (com seção "Mais procurados" no topo).
+- Filtrar opções por sub-tipo: se escolheu **Dentista**, mostra só categorias `odonto`; se **Médico**, mostra `medico` + `estetica` + `outro`.
+- Label vira "Especialidade" (sem "(opcional)").
+- **Validação obrigatória** antes de submeter — se vazio, toast de erro e bloqueia.
+- Grava o `specialty.id` (ex: `cardiologia`), não o nome.
 
-### Tab 3 — Diagnóstico
-- **Hipóteses diagnósticas** (lista — cada item tem texto livre + campo opcional pra CID-10 manual; sem busca de catálogo CID nessa fase, só campo de texto)
-- **Diagnóstico definitivo** (textarea)
-- **Severidade**: leve / moderado / grave (chips)
+### 2. Convite de médico pelo admin (`AddMedicoDialog.tsx`)
+- Mesma troca: `<Input>` → `<Select>` com o catálogo.
+- Obrigatório. Botão "Criar convite" desabilitado até preencher.
+- Edge function `create-clinic-invite` já aceita `specialty` no body — só passa o id.
 
-### Tab 4 — Conduta e Retorno
-- **Plano terapêutico / orientações** (textarea longa)
-- **Sugestão de retorno**: data picker + motivo (campo livre)
-  - Botão "Agendar retorno agora" → abre o `AppointmentFormDialog` já com paciente e data preenchidos.
+### 3. Aceite de convite (`Auth.tsx` quando `inviteToken` está presente)
+- Hoje o convite traz a especialidade pré-definida pelo admin, mas o usuário pode alterar. Mantém pré-preenchido com a especialidade do convite e **obrigatório** confirmar/escolher antes de criar conta.
+- A edge function `accept-clinic-invite` precisa salvar o `specialty` em `clinic_members`. Vou verificar e ajustar se faltar.
 
-### Tab 5 — Solicitações (lista de itens estruturados)
-Quatro accordions independentes dentro da tab, cada um com botão "+ Adicionar":
+### 4. Entrada por código (`join-clinic-by-code`)
+- O fluxo já passa `specialty` pra função (Auth.tsx linha 277). Garantir que a função grave em `clinic_members.specialty`. Se não grava, ajusto.
 
-**5a. Exames laboratoriais** — lista de linhas: nome do exame (ex: "Hemograma completo"), justificativa (opcional), urgência (rotina/urgente).
+### 5. Configurações do médico (`SpecialtySection.tsx`)
+- Já é Select com catálogo ✅. Só vou:
+  - Tornar **obrigatório** (não permite salvar vazio).
+  - Mostrar um banner de aviso no topo da página de Configurações se a especialidade estiver vazia ("Defina sua especialidade para aparecer nas buscas").
 
-**5b. Exames de imagem** — nome (ex: "Raio-X panorâmico"), região, justificativa.
+### 6. Painel do admin — coluna Especialidade (`ClinicaMedicos.tsx`)
+- A coluna já existe (linha 138), mas mostra a string crua. Vou:
+  - Mapear o `id` salvo (ex: `cardiologia`) pro **nome legível** ("Cardiologia") usando o catálogo.
+  - Se não bater nenhum id (dados antigos digitados à mão), mostra a string crua mesmo, com um ícone de alerta amarelo + tooltip "Especialidade fora do catálogo, médico não aparece nas buscas — peça pra ele atualizar nas configurações".
 
-**5c. Prescrições / Receita** — medicamento, concentração, posologia (ex: "1 cp 8/8h"), duração ("7 dias"), via (oral/tópica/etc), tipo (comum/controlada).
+### 7. Convites pendentes — coluna Especialidade
+- Adicionar coluna "Especialidade" na tabela de convites pendentes (hoje só mostra Nome/Email/Expira), também usando o catálogo pra exibir o nome legível.
 
-**5d. Encaminhamentos** — especialidade destino, motivo, urgência.
+## Componente novo
 
-Cada item exibido como card compacto editável; botão lixeira pra remover.
+**`src/components/SpecialtySelect.tsx`** — `<Select>` reutilizável, recebe `value`, `onChange`, e opcionalmente `filterCategory: 'odonto' | 'medico' | 'all'`. Lista o catálogo com:
+- Seção "Mais procurados" no topo (chips).
+- Lista A-Z agrupada por letra.
+- Campo de busca interno (estilo combobox).
+- Usado em: Auth (signup), AddMedicoDialog, SpecialtySection.
 
-### Tab 6 — Procedimentos realizados
-Mantém igual ao que já existe (catálogo + dente + face + valor). Sem mudança.
+## Migração de dados antigos
 
-### Tab 7 — Odontograma
-Mantém o link existente pro odontograma do paciente. Só renderiza se a clínica é odonto.
+Vou rodar uma query de leitura pra ver quantos `clinic_members.specialty` existentes não batem com nenhum id do catálogo. Pra cada caso:
+- Se for fácil mapear (ex: "Cardiologista" → `cardiologia`), faço um `UPDATE` único na migração.
+- O resto fica como está + fica visível o ícone de alerta no painel pro admin pedir atualização.
 
-## Modelo de dados (1 migration)
+## Validações no banco (defensivo)
 
-Tudo fica anexado ao `clinical_records` (que já existe). Crio **uma tabela JSONB-friendly** pra evitar 7 tabelas novas:
-
-```sql
-ALTER TABLE public.clinical_records
-  ADD COLUMN chief_complaint text,
-  ADD COLUMN history_present_illness text,
-  ADD COLUMN symptom_duration text,
-  ADD COLUMN physical_exam text,
-  ADD COLUMN vital_signs jsonb,            -- {bp_sys, bp_dia, hr, rr, temp, spo2, weight, height, glycemia}
-  ADD COLUMN hypotheses jsonb,             -- [{text, cid10}]
-  ADD COLUMN severity text,                -- 'mild'|'moderate'|'severe'
-  ADD COLUMN treatment_plan text,
-  ADD COLUMN follow_up_date date,
-  ADD COLUMN follow_up_reason text;
-
-CREATE TABLE public.clinical_record_requests (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  clinical_record_id uuid NOT NULL,
-  kind text NOT NULL,                      -- 'lab_exam'|'imaging_exam'|'prescription'|'referral'
-  payload jsonb NOT NULL,                  -- campos específicos do tipo
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.clinical_record_requests ENABLE ROW LEVEL SECURITY;
--- policies: clinic members podem CRUD se forem membros da clínica do clinical_record pai
-```
-
-Por que JSONB pros sub-itens? Cada tipo tem campos diferentes (medicamento ≠ exame), e não tem busca/relatório complexo — JSONB é mais simples e flexível agora; se virar relatório depois, é só promover pra colunas.
-
-## Integração com a Timeline do paciente
-
-`PatientTimeline` (já existe) passa a buscar e mostrar:
-- Atendimento finalizado: "Consulta — 21/04 — Dr. Felipe — 3 hipóteses, 2 prescrições, 1 exame solicitado"
-- Cada item clicável abre o atendimento em modo leitura.
+Não vou criar CHECK constraint (já que o catálogo é client-side e pode crescer), mas a UI sempre vai forçar Select. Banco continua aceitando texto livre pra não quebrar dados antigos.
 
 ## Permissões
 
-- **Médico (`dentist`)**: acesso completo, edita o próprio atendimento.
-- **Admin/Secretária**: vê (read-only) atendimentos finalizados; **não cria/edita** (só o médico que atendeu).
-- **Paciente**: vê na própria área (`PatientHistory`) um resumo do atendimento — diagnóstico, prescrições e retorno; sem campos internos como "exame físico".
+- Médico edita só a própria especialidade nas Configurações.
+- Admin pode editar a especialidade de qualquer médico da clínica direto na tabela de Médicos (botão de editar na linha) — **adiciono isso de bônus**, já que hoje o admin não consegue corrigir um médico que cadastrou errado.
 
 ## Arquivos tocados
 
-**Editado**:
-- `src/pages/Attendance.tsx` — reorganizar em 7 tabs; adicionar formulários novos (Avaliação, Vitais, Diagnóstico, Conduta, Solicitações); persistir no `clinical_records` + `clinical_record_requests`.
-- `src/components/patients/PatientTimeline.tsx` — novos eventos vindos de `clinical_records` enriquecidos.
-- `src/pages/patient/PatientHistory.tsx` — mostrar resumo da consulta pro paciente.
+**Novos:**
+- `src/components/SpecialtySelect.tsx`
 
-**Novos**:
-- `src/components/attendance/VitalSignsForm.tsx` — grid de inputs com cálculo de IMC.
-- `src/components/attendance/HypothesesEditor.tsx` — lista editável de hipóteses + CID.
-- `src/components/attendance/RequestsEditor.tsx` — accordions de exames/receitas/encaminhamentos.
-- `src/components/attendance/AssessmentForm.tsx` — bloco queixa/HDA/exame físico.
-- `src/components/attendance/FollowUpBlock.tsx` — campo de retorno + botão pra agenda.
+**Editados:**
+- `src/pages/Auth.tsx` — substitui Input de especialidade por SpecialtySelect; valida obrigatório.
+- `src/components/clinica/AddMedicoDialog.tsx` — substitui Input por SpecialtySelect; obrigatório.
+- `src/components/settings/SpecialtySection.tsx` — torna obrigatório; remove mensagem "opcional".
+- `src/pages/clinica/ClinicaMedicos.tsx` — exibe nome legível via catálogo + ícone de alerta pra strings fora do catálogo + botão pra editar especialidade direto na linha + coluna nos convites pendentes.
+- `src/pages/SettingsPage.tsx` — banner de aviso se especialidade do médico logado estiver vazia.
 
-**Migration**:
-- Adicionar colunas em `clinical_records` + criar `clinical_record_requests` com RLS espelhando `clinical_record_procedures`.
+**Edge functions (verificar e ajustar se preciso):**
+- `supabase/functions/accept-clinic-invite/index.ts` — garantir que grava `specialty` em `clinic_members`.
+- `supabase/functions/join-clinic-by-code/index.ts` — idem.
 
-## O que NÃO entra agora
+**Migration:**
+- 1 `UPDATE` mapeando os strings antigos conhecidos (ex: "Cardiologista"→"cardiologia") quando der pra inferir.
 
-- **PDF de receita / atestado / pedido de exame** — fica pra fase 2 (você confirmou "só registro digital").
-- **Atestado médico** — não está nos blocos priorizados; se quiser depois, é um 5º accordion na tab Solicitações (dias + CID).
-- **Busca de catálogo CID-10** — campo livre por enquanto. Adicionar busca depois se precisar.
-- **Envio por WhatsApp** dos documentos.
-- **Assinatura digital**.
-- Nenhum dado dos pacientes existentes é alterado; colunas novas aceitam NULL.
+## O que NÃO muda
+
+- Catálogo de especialidades em si (já é robusto, ~70 itens).
+- Schema do banco (`clinic_members.specialty` continua `text` nullable — só forçamos via UI).
+- Marketplace, busca do paciente, agenda — funcionam automaticamente assim que os dados ficarem padronizados.
+- Cadastro de paciente (não tem especialidade).
+
+## Resultado esperado
+
+Após o ajuste: você cadastra Joel como Cardiologia (Select), o paciente busca "Cardiologia" → Joel aparece. O admin vê "Cardiologia" bonitinho na tabela. Médicos antigos com texto livre ganham um alerta visual pra atualizar.
 
