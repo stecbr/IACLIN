@@ -1,91 +1,79 @@
 
 
-# Plano: Cadastro de Médico via Convite + Código da Clínica
+# Plano: Painel do Médico (visão dedicada)
 
-Substituir o fluxo atual ("clínica cria conta com senha temporária") por um modelo onde o **médico tem autonomia** para criar a própria conta, mas só fica vinculado se a clínica autorizou — via **convite por e-mail** OU **código da clínica**. Suporta médico em **múltiplas clínicas**, e gestão por **dono ou qualquer admin**.
+Criar uma experiência separada para o `dentist`, removendo módulos administrativos (Secretária IA, Financeiro, Gestão da Clínica, Configurações da clínica) e filtrando dados para mostrar **apenas o que pertence ao médico logado**.
 
-## 1. Como funciona (visão do usuário)
+## 1. O que muda na navegação do médico
 
-**Lado da clínica** — em `/clinica/medicos`, o botão "Adicionar médico" abre um modal com 2 abas:
+Sidebar enxuta para `dentist`:
 
-- **Convite por e-mail**: digita nome + e-mail + (opcional) CRO/especialidade → sistema gera token único e envia link (`/auth?invite=TOKEN`). O médico clica, define a senha, conta criada e já vinculada.
-- **Código da clínica**: cada clínica tem um código permanente (ex: `CLIN-A4B2`) visível no painel. A clínica copia e compartilha por WhatsApp/qualquer canal. O médico vai em `/auth`, escolhe "Sou Profissional", informa o código no signup, conta criada e já vinculada.
+- **Início (Hoje)** — dashboard pessoal: próximas consultas, atendimentos do dia, retornos sugeridos, atalho "iniciar atendimento", aniversariantes da semana entre os pacientes dele.
+- **Minha Agenda** — somente `appointments` com `dentist_id = auth.uid()`.
+- **Meus Pacientes** — somente pacientes com pelo menos um `appointment` ou `clinical_record` dele. Ao clicar, abre o **prontuário completo** com acesso a anamnese, odontograma, exames/documentos, histórico/timeline, planos de tratamento (mesmas telas atuais — não vão ser duplicadas).
+- **Atendimento** — fluxo clínico atual.
+- **Odontograma** — acesso direto.
+- **Orçamentos / Planos de Tratamento** — somente os que ele criou (`dentist_id = auth.uid()`), com valores totais visíveis.
+- **Disponibilidade** — gerenciar próprios horários/folgas.
+- **Minhas Clínicas** (ClinicSwitcher na sidebar) — só aparece se o médico atende em mais de uma clínica.
+- **Meu Perfil** — dados pessoais, especialidade, registro, foto, senha.
 
-Nas duas vias o vínculo é **automático e imediato** — sem fila de aprovação manual.
+Sai da sidebar do médico:
+- ❌ Secretária IA (`/secretaria-ia`)
+- ❌ Financeiro (`/financial`)
+- ❌ Clínica → Visão geral / Médicos / Faturamento
+- ❌ Configurações da clínica (vira só "Meu Perfil")
 
-**Lado do médico** — uma seção "Minhas clínicas" no perfil mostra todas as clínicas que ele atende, com botão para entrar em cada uma. Se ele recebe um novo convite enquanto já tem conta, basta clicar no link logado e o vínculo é adicionado (não cria conta nova).
+## 2. Filtros por dono dos dados
 
-**Lista de convites pendentes** — a clínica vê na tela `/clinica/medicos` quais convites ainda não foram aceitos, com opção de reenviar ou revogar.
+Quando `effectiveRole === 'dentist'`, aplicar filtros automáticos (sem toggle "ver tudo"):
 
-## 2. Mudanças no banco
+- **Agenda** (`src/pages/Agenda.tsx`): query e filtro de profissional travados em `dentist_id = auth.uid()`.
+- **Pacientes** (`src/pages/Patients.tsx`): listar apenas IDs únicos de pacientes presentes em `appointments` ou `clinical_records` do médico. Detalhe do paciente (`/patients/:id`) continua liberado e mostra **tudo** do prontuário (anamnese, odontograma, documentos/exames, timeline, planos).
+- **Orçamentos** (`src/pages/Budgets.tsx`): kanban filtrado por `treatment_plans.dentist_id = auth.uid()`. Totais (R$) continuam visíveis nos cards do médico.
+- **Notificações** (`src/components/NotificationBell.tsx`): hoje a query traz tudo da clínica via RLS; ajustar a query no front para `user_id = auth.uid()` quando médico, escondendo notificações da clínica que não são dele.
+- **Início**: `DentistHome` calcula KPIs apenas dos próprios atendimentos/pacientes.
 
-Migração nova:
+## 3. Mudanças técnicas
 
-- **`clinic_members.invite_code`** (texto, único por clínica) — código permanente exibido no painel. Gerado via trigger ao criar `clinics`.
-  - Na verdade fica em `clinics.invite_code` (uma por clínica, não por membro).
-- Nova tabela **`clinic_invites`**:
-  ```
-  id uuid pk
-  clinic_id uuid
-  email text
-  full_name text
-  specialty text nullable
-  registration_number text nullable
-  role app_role default 'dentist'
-  token text unique             -- usado no link /auth?invite=TOKEN
-  invited_by uuid               -- quem mandou
-  status text                   -- 'pending' | 'accepted' | 'revoked'
-  expires_at timestamptz        -- 7 dias
-  created_at, accepted_at
-  ```
-  RLS: members da clínica leem/criam/revogam; qualquer authenticated lê quando consulta pelo `token` (necessário para aceitar).
-- Trocar policy `Owners can insert clinic members` para também aceitar `has_role(uid,'admin') AND user_belongs_to_clinic(uid, clinic_id)`.
-- **Garantir `UNIQUE(clinic_id, user_id)`** em `clinic_members` (já implícito pelo `ON CONFLICT` em `auto_link_clinic_owner`, mas confirmar).
-- Ajustar `AuthContext` para permitir múltiplas memberships (hoje usa `.limit(1).maybeSingle()`).
-
-## 3. Edge functions
-
-- **`create-clinic-invite`** (nova): valida que caller é admin/owner da clínica, cria registro em `clinic_invites` com token aleatório, envia e-mail com link `https://app/auth?invite=TOKEN` usando o sistema de e-mail transacional do Lovable Cloud.
-- **`accept-clinic-invite`** (nova): recebe `token`, valida (não expirado, não aceito), insere em `clinic_members`, marca convite como `accepted`. Roda com service role para ignorar RLS na hora do INSERT.
-- **`join-clinic-by-code`** (nova): recebe `code`, busca a clínica, insere em `clinic_members` com role `dentist`. Service role.
-- **Manter `invite-member`** apenas para retrocompatibilidade (ou remover — recomendo remover já que o fluxo muda).
-
-## 4. UI — telas a editar/criar
-
-**Editar:**
-- `src/pages/Auth.tsx` — quando vier `?invite=TOKEN` na URL, pré-preencher e-mail/nome do convite (consulta pública por token), e ao concluir signup chamar `accept-clinic-invite`. No signup de "Profissional", adicionar campo opcional **"Código da clínica"** que dispara `join-clinic-by-code` no fim.
-- `src/components/clinica/AddMedicoDialog.tsx` — refatorar para 2 abas (Convite / Código). Aba código mostra o código atual + botão copiar.
-- `src/pages/clinica/ClinicaMedicos.tsx` — adicionar seção "Convites pendentes" abaixo da tabela, com ações reenviar/revogar.
-- `src/contexts/AuthContext.tsx` — passar a carregar **lista** de memberships, expor `clinics: ClinicMembership[]` + `currentClinicId` (com seletor persistido em localStorage).
-
-**Criar:**
-- `src/components/clinica/ClinicInviteCodeCard.tsx` — card no topo da tela de médicos mostrando o código + botão copiar.
-- `src/components/ClinicSwitcher.tsx` — dropdown na sidebar para o médico alternar entre clínicas.
-- `src/pages/InviteAccept.tsx` (opcional) — tela dedicada para usuário **já logado** aceitar um convite recebido.
-
-## 5. Fluxo técnico resumido
+**RBAC** (`src/hooks/useRoleAccess.ts`) — atualizar `routePermissions`:
 
 ```text
-CONVITE POR E-MAIL
-clínica → AddMedicoDialog → create-clinic-invite
-       → e-mail com link /auth?invite=TOKEN
-       → médico clica → Auth lê token, mostra signup pré-preenchido
-       → signup OK → accept-clinic-invite(token) → vincula
-
-CÓDIGO DA CLÍNICA
-clínica → copia CLIN-XXXX do card
-       → médico recebe → /auth signup como Profissional
-       → digita código → signup OK → join-clinic-by-code(code) → vincula
-
-MÉDICO JÁ EXISTENTE recebendo convite
-logado → clica link → InviteAccept → accept-clinic-invite → nova membership
+'/'                       → admin, dentist, secretary
+'/agenda'                 → admin, dentist, secretary
+'/disponibilidade'        → admin, dentist
+'/patients'               → admin, dentist, secretary
+'/patients/:id'           → admin, dentist, secretary
+'/odontogram'             → admin, dentist
+'/atendimento/:id'        → admin, dentist
+'/budgets'                → admin, dentist            (NOVO: liberar pro médico)
+'/financial'              → admin, secretary         (médico fora)
+'/secretaria-ia*'         → admin                    (médico fora)
+'/clinica*'               → admin                    (médico fora)
+'/settings'               → admin, secretary         (médico fora)
+'/perfil'                 → admin, dentist, secretary (NOVO)
 ```
 
-## 6. Pontos de atenção
+**Sidebar** (`src/components/AppSidebar.tsx`) — anotar cada item com `allowedRoles` e deixar `filterNavItems` (já existente) cuidar da visibilidade. Esconder grupos "Gestão da Clínica" para `dentist`. Adicionar `ClinicSwitcher` no topo quando houver múltiplas clínicas.
 
-- **Signup de profissional hoje cria role `admin`** automaticamente (`assign_default_role`). Precisa ajustar: se houver `?invite=` ou código no signup, NÃO criar clínica nem dar role admin — apenas role `dentist` e a membership da clínica convidante.
-- **Múltiplas clínicas**: toda query que hoje faz `currentClinicId` continua válida, mas precisa de UI para trocar de clínica. Sem isso, o médico fica preso na primeira.
-- **E-mail transacional**: requer domínio configurado em Lovable Cloud. Se ainda não houver, mostro o setup quando começarmos.
-- **Segurança do código**: códigos curtos (8 chars) + rate limit no `join-clinic-by-code` para evitar brute force. Permitir regeneração do código pelo dono.
-- **Convites expirados**: 7 dias por padrão, com botão "reenviar" que gera novo token.
+**Mobile bottom nav** (`src/components/MobileBottomNav.tsx`) — para médico: Início, Agenda, Pacientes, Perfil.
+
+**Página Início** (`src/pages/Index.tsx`) — detectar `effectiveRole === 'dentist'` e renderizar `DentistHome` em vez do dashboard de admin.
+
+**Componentes/páginas novos**:
+- `src/pages/dentist/DentistHome.tsx` — KPIs pessoais + próximas consultas + retornos.
+- `src/pages/Profile.tsx` — edita `profiles` + `clinic_members.specialty/registration_number`.
+- `src/components/ClinicSwitcher.tsx` — dropdown na sidebar (a infra já existe no `AuthContext`).
+
+**Filtros nos hooks/páginas**: adicionar branch `if (effectiveRole === 'dentist') query.eq('dentist_id', user.id)` em `Agenda.tsx`, `Budgets.tsx` e na lista de `Patients.tsx` (usar JOIN/`in` com IDs vindos de `appointments`+`clinical_records` do médico).
+
+**Notificações**: ajustar `NotificationBell` para filtrar por `user_id = auth.uid()` quando `dentist`, em vez de pegar tudo da clínica.
+
+**Memória**: atualizar `mem://auth/roles` com a nova matriz e criar `mem://features/dentist-panel` documentando o painel dedicado.
+
+## 4. O que NÃO muda
+
+- Detalhe do paciente (`/patients/:id`) continua o mesmo — médico vê **anamnese, odontograma, documentos/exames, histórico, planos** completos do paciente que ele atende.
+- RLS do banco fica como está (acesso por clínica). Os filtros por `dentist_id` são aplicados no front, então qualquer admin/secretária continua vendo tudo.
+- Nenhuma mudança em edge functions ou migrations.
 
