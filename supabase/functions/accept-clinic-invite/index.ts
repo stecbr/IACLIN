@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { token } = await req.json();
+    const { token, specialty: overrideSpecialty, registration_number: overrideReg } = await req.json();
     if (!token) return new Response(JSON.stringify({ error: "Missing token" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
@@ -39,6 +39,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Convite expirado" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const finalSpecialty = (typeof overrideSpecialty === "string" && overrideSpecialty.trim())
+      ? overrideSpecialty.trim()
+      : invite.specialty;
+    const finalReg = (typeof overrideReg === "string" && overrideReg.trim())
+      ? overrideReg.trim()
+      : invite.registration_number;
+
     // Insert membership (idempotent via UNIQUE)
     const { error: memErr } = await admin
       .from("clinic_members")
@@ -46,12 +53,24 @@ Deno.serve(async (req) => {
         clinic_id: invite.clinic_id,
         user_id: user.id,
         role: invite.role,
-        specialty: invite.specialty,
-        registration_number: invite.registration_number,
+        specialty: finalSpecialty,
+        registration_number: finalReg,
         is_owner: false,
       });
     if (memErr && !memErr.message.includes("duplicate")) {
       return new Response(JSON.stringify({ error: memErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // If membership already existed, still update specialty/registration if user passed new values
+    if (memErr && memErr.message.includes("duplicate") && (overrideSpecialty || overrideReg)) {
+      await admin
+        .from("clinic_members")
+        .update({
+          ...(overrideSpecialty ? { specialty: finalSpecialty } : {}),
+          ...(overrideReg ? { registration_number: finalReg } : {}),
+        })
+        .eq("clinic_id", invite.clinic_id)
+        .eq("user_id", user.id);
     }
 
     // Ensure dentist role
