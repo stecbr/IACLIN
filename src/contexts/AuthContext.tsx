@@ -129,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    setSimulatedRoleState(null);
+    if (typeof window !== 'undefined') sessionStorage.removeItem(SIMULATED_ROLE_KEY);
     await supabase.auth.signOut();
   };
 
@@ -139,7 +141,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentClinicId(clinicId);
     if (typeof window !== 'undefined') localStorage.setItem(CLINIC_STORAGE_KEY, clinicId);
   };
+  const setSimulatedRole = (role: AppRole | null) => {
+    setSimulatedRoleState(role);
+    if (typeof window === 'undefined') return;
+    if (role) sessionStorage.setItem(SIMULATED_ROLE_KEY, role);
+    else sessionStorage.removeItem(SIMULATED_ROLE_KEY);
+  };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
+  const canSimulate = roles.includes('admin') && isDevEnvironment();
 
   return (
     <AuthContext.Provider value={{
@@ -157,6 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchClinic,
       signOut,
       hasRole,
+      simulatedRole,
+      setSimulatedRole,
+      isSimulating: simulatedRole !== null,
+      canSimulate,
     }}>
       {children}
     </AuthContext.Provider>
