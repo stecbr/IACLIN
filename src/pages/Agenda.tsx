@@ -32,6 +32,15 @@ export default function Agenda() {
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
   const gridRef = useRef<HTMLDivElement>(null);
+  const [doctorFilter, setDoctorFilter] = useState<DoctorFilterValue>(() =>
+    isDentist ? { kind: 'all' } : loadStoredDoctorFilter()
+  );
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const doctorById = useMemo(() => {
+    const m = new Map<string, DoctorOption>();
+    doctors.forEach((d) => m.set(d.user_id, d));
+    return m;
+  }, [doctors]);
 
   const range = useMemo(() => {
     if (view === 'day') return { start: currentDate, end: currentDate };
