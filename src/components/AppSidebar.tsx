@@ -69,6 +69,7 @@ export function AppSidebar() {
   const { resolved } = useTheme();
   const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
+  const { simulatedRole } = useAuth();
   const isDentist = effectiveRole === 'dentist';
 
   // Defense in depth: gate by allowedRoles AND by route permission
@@ -261,9 +262,16 @@ export function AppSidebar() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {profile?.full_name ?? user?.email}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {profile?.full_name ?? user?.email}
+                  </p>
+                  {simulatedRole && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex-shrink-0">
+                      Simulando
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-muted-foreground truncate">
                   {user?.email}
                 </p>
