@@ -136,7 +136,16 @@ export default function Agenda() {
             </Button>
             <span className="text-sm font-medium text-foreground ml-2 capitalize">{headerLabel}</span>
           </div>
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          <div className="flex items-center gap-2">
+            {!isDentist && (
+              <AgendaDoctorFilter
+                value={doctorFilter}
+                onChange={setDoctorFilter}
+                allowCompare={view !== 'month'}
+                onDoctorsLoaded={setDoctors}
+              />
+            )}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['day', 'week', 'month'] as View[]).map((v) => (
               <button
                 key={v}
@@ -148,6 +157,7 @@ export default function Agenda() {
                 {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
               </button>
             ))}
+            </div>
           </div>
         </div>
 
