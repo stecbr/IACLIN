@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, isFuture, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Plus, Loader2, Stethoscope, ChevronRight } from 'lucide-react';
+import { Calendar, Plus, Loader2, Stethoscope, ChevronRight, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,12 +10,56 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePatientData, appointmentStatusMap, type AppointmentRow } from '@/hooks/usePatientData';
 import { AppointmentDetailDrawer } from '@/components/patient/AppointmentDetailDrawer';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export default function PatientAppointments() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { appointments, loading, refetch } = usePatientData();
   const [selected, setSelected] = useState<AppointmentRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
+  const loadRequests = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('appointment_requests')
+      .select('*, clinics(name)')
+      .eq('patient_user_id', user.id)
+      .in('status', ['pending', 'rejected'])
+      .order('created_at', { ascending: false });
+    setPendingRequests(data ?? []);
+  };
+
+  useEffect(() => {
+    loadRequests();
+    if (!user) return;
+    const channel = supabase
+      .channel(`my_requests_${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'appointment_requests', filter: `patient_user_id=eq.${user.id}` },
+        () => { loadRequests(); refetch(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const cancelRequest = async (id: string) => {
+    const { error } = await supabase
+      .from('appointment_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', id);
+    if (error) {
+      toast.error('Falha ao cancelar pedido');
+      return;
+    }
+    toast.success('Pedido cancelado');
+    loadRequests();
+  };
 
   const upcoming = appointments.filter(
     (a) => isFuture(parseISO(a.start_time)) && a.status !== 'cancelled'
@@ -48,6 +92,49 @@ export default function PatientAppointments() {
           <Plus className="h-4 w-4" /> Agendar consulta
         </Button>
       </div>
+
+      {pendingRequests.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Pedidos</h2>
+          <div className="space-y-2">
+            {pendingRequests.map((r) => (
+              <Card key={r.id} className="border-amber-500/30">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium truncate">{r.clinics?.name ?? 'Clínica'}</p>
+                      {r.status === 'pending' ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                          Aguardando confirmação
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-500/30">
+                          Recusado
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {format(parseISO(r.start_time), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                    {r.specialty && <p className="text-xs text-muted-foreground capitalize">{r.specialty}</p>}
+                    {r.rejection_reason && (
+                      <p className="text-xs text-rose-600 mt-1">Motivo: {r.rejection_reason}</p>
+                    )}
+                    {r.status === 'pending' && (
+                      <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs text-muted-foreground" onClick={() => cancelRequest(r.id)}>
+                        Cancelar pedido
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="upcoming">
         <TabsList>

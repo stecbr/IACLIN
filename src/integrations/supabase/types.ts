@@ -137,6 +137,63 @@ export type Database = {
           },
         ]
       }
+      appointment_requests: {
+        Row: {
+          appointment_id: string | null
+          clinic_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          dentist_id: string
+          end_time: string
+          id: string
+          notes: string | null
+          patient_account_snapshot: Json
+          patient_user_id: string
+          rejection_reason: string | null
+          specialty: string | null
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          clinic_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dentist_id: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          patient_account_snapshot?: Json
+          patient_user_id: string
+          rejection_reason?: string | null
+          specialty?: string | null
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          clinic_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dentist_id?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          patient_account_snapshot?: Json
+          patient_user_id?: string
+          rejection_reason?: string | null
+          specialty?: string | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           clinic_id: string | null

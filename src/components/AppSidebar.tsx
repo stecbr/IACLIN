@@ -13,6 +13,7 @@ import {
   Stethoscope,
   Wallet,
   User as UserIcon,
+  ClipboardCheck,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -56,6 +57,7 @@ const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard;
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
   { title: 'Pacientes', url: '/patients', icon: Users, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Aprovações', url: '/clinica/aprovacoes', icon: ClipboardCheck, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'], allowedRoles: ['admin', 'dentist'] },
   { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
@@ -99,6 +101,19 @@ export function AppSidebar() {
       return count ?? 0;
     },
     refetchInterval: 60000,
+  });
+
+  // Pending appointment requests count for badge
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['pending-requests-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('appointment_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
   });
 
   const isActive = (url: string) => {
@@ -198,7 +213,9 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredClinicNav.map((item) => renderNavItem(item))}
+              {filteredClinicNav.map((item) =>
+                renderNavItem(item, item.url === '/clinica/aprovacoes' ? pendingCount : undefined)
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
