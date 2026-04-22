@@ -1,46 +1,77 @@
 
 
-# Fix: Tela branca ao simular role "Paciente"
+# Plano: Simulador de Roles (dev/preview only)
 
-## Causa raiz
+Permite trocar entre **Clínica (admin)** / **Médico/Profissional (dentist)** / **Paciente (patient)** sem deslogar. Só aparece para admins reais e em ambientes não-produção. Puramente UI — RLS continua usando o JWT real.
 
-Quando admin real clica "Paciente" no simulador:
+## Arquivos novos
 
-1. `RoleSimulator` salva `simulatedRole='patient'` e navega para `/`.
-2. `ProtectedRoute` (`src/App.tsx`) lê `isPatient` do `AuthContext`, que vem de `roles.includes('patient')` — o role REAL, não o simulado. Como o admin não tem role `patient`, **não** redireciona para `/paciente`.
-3. Em seguida, `canAccess('/')` do `useRoleAccess` usa `effectiveRole='patient'` (que respeita simulação) e retorna `false`, porque `/` só permite admin/dentist/secretary.
-4. Resultado: `<Navigate to="/" replace />` em loop → React não renderiza nada → **tela branca**.
+### `src/lib/isDevEnvironment.ts`
+```ts
+const PROD_LOVABLE_HOSTS = ['dental-bridge-suite.lovable.app'];
+export const isDevEnvironment = () => {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  if (PROD_LOVABLE_HOSTS.includes(h)) return false;
+  if (h === 'iaclin.test.ia.br') return false;
+  return h === 'localhost' || h === '127.0.0.1'
+    || h.endsWith('.lovable.app') || h.includes('lovable.dev');
+};
+```
 
-O mesmo problema, ao contrário, vai ocorrer se um usuário paciente real tentar simular admin — `PatientProtectedRoute` também olha só o `isPatient` real.
+### `src/components/RoleSimulator.tsx`
+- Constante exportada `SIMULATABLE_ROLES` com 3 entradas (admin/Clínica, dentist/Médico/Profissional, patient/Paciente). Fácil adicionar `secretary` depois.
+- Retorna `null` se `loading` ou `!canSimulate`.
+- `DropdownMenu` shadcn com trigger `UserCog`:
+  - Desktop: ícone + texto "Visualizar como" (ou "Simulando: <label>" quando ativo, com `variant` warning).
+  - Mobile (<sm): só ícone.
+- Items: "Conta real" (disabled se !isSimulating), separator, depois `SIMULATABLE_ROLES.map(...)` com check no item ativo.
+- Após `setSimulatedRole`, chama `navigate('/', { replace: true })`.
 
-## Correção
+### `src/components/SimulationBanner.tsx`
+- Retorna `null` se `!isSimulating`.
+- `<div>` sticky `top-0 z-[60] h-7 bg-yellow-500/90 text-black` com texto:
+  "⚠ Modo simulação ativo — visualizando como **<label>**. RLS do banco continua usando sua conta real."
+- Botão "Sair da simulação" à direita chamando `setSimulatedRole(null)`.
 
-Fazer as guards de rota respeitarem o role efetivo (real OU simulado), centralizando a lógica.
+## Arquivos editados
 
-### 1. `src/contexts/AuthContext.tsx`
-Expor um `effectiveIsPatient` derivado da simulação:
-- Se `isSimulating` → `effectiveIsPatient = simulatedRole === 'patient'`
-- Senão → `effectiveIsPatient = isPatient` (real)
+### `src/contexts/AuthContext.tsx`
+- Importar `isDevEnvironment`.
+- Estado `simulatedRole` inicializado em mount via `sessionStorage.getItem('iaclin.simulatedRole')`.
+- Wrapper `setSimulatedRole(role)`: atualiza estado + grava/remove de sessionStorage.
+- `signOut`: limpa estado + sessionStorage antes de chamar `supabase.auth.signOut()`.
+- Adicionar ao `value`:
+  - `simulatedRole`
+  - `setSimulatedRole`
+  - `isSimulating: simulatedRole !== null`
+  - `canSimulate: roles.includes('admin') && isDevEnvironment()`
+- Atualizar `AuthContextType` com esses 4 campos.
 
-### 2. `src/App.tsx` — `ProtectedRoute`
-Trocar uso de `isPatient` por `effectiveIsPatient`. Assim, ao simular paciente, redireciona corretamente para `/paciente` em vez de cair em loop com `canAccess`.
+### `src/hooks/useRoleAccess.ts`
+- Pegar `simulatedRole`, `isSimulating` do `useAuth`.
+- ```ts
+  const realEffectiveRole: AppRole = isPatient ? 'patient' : (clinicRole ?? 'admin');
+  const effectiveRole: AppRole = (isSimulating && simulatedRole) ? simulatedRole : realEffectiveRole;
+  ```
 
-### 3. `src/App.tsx` — `PatientProtectedRoute`
-Também trocar para `effectiveIsPatient`. Permite que admin simulando paciente acesse `/paciente/*`. E quando paciente real simular admin (caso `canSimulate` permita), volta para `/`.
+### `src/components/AppLayout.tsx`
+- `<SimulationBanner />` como **primeiro filho** do `SidebarProvider`'s wrapper div (acima do header, fora do flex principal — como bloco no topo).
+- `<RoleSimulator />` no header, **antes** de `<CommandPalette />` e do toggle de tema.
+- Como o banner é sticky `top-0` com altura `h-7`, o header já é `sticky top-0`; ajustar header para `top-7` quando `isSimulating` (ler do `useAuth`) — ou deixar o banner como bloco normal (não-sticky) no topo do flex coluna, evitando sobreposição. **Vou usar bloco normal não-sticky** para não brigar com o header sticky.
 
-### 4. `src/App.tsx` — `OnboardingRoute` e `WaitingClinicRoute`
-Mesma troca, para evitar redirecionamentos errados durante simulação.
+## O que NÃO muda
 
-### 5. Validação manual
-- Admin real → "Visualizar como > Paciente" → vai para `/paciente`, mostra `PatientLayout`, sem tela branca.
-- Voltar para "Conta real" ou "Clínica" → volta para `/` normalmente.
-- "Médico/Profissional" → continua em `/`, mas com sidebar/menus filtrados pelo `useRoleAccess` (já funciona).
-- Em produção (`dental-bridge-suite.lovable.app` e `iaclin.test.ia.br`) → simulador continua oculto (`isDevEnvironment()` false).
+- Sem alterações em RLS, migrations, edge functions.
+- `switchClinic`, `ClinicSwitcher`, `ProtectedRoute`, `PatientProtectedRoute` intactos — herdam comportamento via `useRoleAccess`.
+- Queries do Supabase continuam com o usuário real.
 
-## Arquivos alterados
+## Validação
 
-- `src/contexts/AuthContext.tsx` — adicionar `effectiveIsPatient` ao contexto.
-- `src/App.tsx` — usar `effectiveIsPatient` em todas as guards (`ProtectedRoute`, `PatientProtectedRoute`, `OnboardingRoute`, `WaitingClinicRoute`).
-
-Nenhuma migration, RLS ou edge function. Mudança puramente de UI/roteamento.
+1. Admin no `*.lovable.app` (preview) → seletor visível, 3 opções.
+2. Trocar para Paciente → sidebar muda, redireciona pra `/`, banner amarelo no topo.
+3. Trocar para Médico → bloco "Gestão da Clínica" some, "Meu Perfil" aparece.
+4. "Sair da simulação" → tudo volta.
+5. Em `dental-bridge-suite.lovable.app` e `iaclin.test.ia.br` → seletor não renderiza.
+6. Reload mantém simulação (sessionStorage); fechar aba reseta; logout limpa.
 

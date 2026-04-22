@@ -40,7 +40,7 @@ import PatientSettings from "./pages/patient/PatientSettings";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, effectiveIsPatient, roles } = useAuth();
+  const { user, loading, currentClinicId, isPatient, roles } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -54,7 +54,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Navigate to="/auth" replace />;
   // Patient users go to their own area
-  if (effectiveIsPatient) return <Navigate to="/paciente" replace />;
+  if (isPatient) return <Navigate to="/paciente" replace />;
   // No clinic linked: admins go to onboarding (can create one), others (dentists) wait for code
   if (!currentClinicId) {
     const isAdmin = roles.includes('admin');
@@ -66,7 +66,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, effectiveIsPatient } = useAuth();
+  const { user, loading, isPatient } = useAuth();
 
   if (loading) {
     return (
@@ -77,13 +77,13 @@ function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
-  if (!effectiveIsPatient) return <Navigate to="/" replace />;
+  if (!isPatient) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }
 
 function OnboardingRoute() {
-  const { user, loading, currentClinicId, effectiveIsPatient } = useAuth();
+  const { user, loading, currentClinicId, isPatient } = useAuth();
 
   if (loading) {
     return (
@@ -94,14 +94,14 @@ function OnboardingRoute() {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
-  if (effectiveIsPatient) return <Navigate to="/paciente" replace />;
+  if (isPatient) return <Navigate to="/paciente" replace />;
   if (currentClinicId) return <Navigate to="/" replace />;
 
   return <Onboarding />;
 }
 
 function WaitingClinicRoute() {
-  const { user, loading, currentClinicId, effectiveIsPatient } = useAuth();
+  const { user, loading, currentClinicId, isPatient } = useAuth();
 
   if (loading) {
     return (
@@ -112,7 +112,7 @@ function WaitingClinicRoute() {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
-  if (effectiveIsPatient) return <Navigate to="/paciente" replace />;
+  if (isPatient) return <Navigate to="/paciente" replace />;
   if (currentClinicId) return <Navigate to="/" replace />;
 
   return <WaitingClinic />;
