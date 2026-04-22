@@ -165,7 +165,54 @@ export default function ClinicaMedicos() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{m.registration_number ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{m.specialty ?? '—'}</TableCell>
+                    <TableCell>
+                      {editingId === m.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="min-w-[200px]">
+                            <SpecialtySelect value={editValue} onChange={setEditValue} placeholder="Selecione" />
+                          </div>
+                          <Button size="sm" variant="ghost" onClick={() => saveEdit(m)} disabled={savingEdit || !editValue}>
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={cancelEdit}>
+                            <XIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {m.specialty ? (
+                            <>
+                              <span className={isCatalogSpecialty(m.specialty) ? 'text-foreground' : 'text-muted-foreground'}>
+                                {specialtyLabel(m.specialty)}
+                              </span>
+                              {!isCatalogSpecialty(m.specialty) && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertTriangle className="h-3.5 w-3.5 text-warning cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs text-xs">
+                                      Especialidade fora do catálogo. Este médico não aparece nas buscas dos pacientes. Edite para corrigir.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                            onClick={() => startEdit(m)}
+                            aria-label="Editar especialidade"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {m.is_owner ? (
                         <Badge variant="default">Administrador</Badge>
@@ -193,6 +240,7 @@ export default function ClinicaMedicos() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
+                  <TableHead>Especialidade</TableHead>
                   <TableHead>Expira em</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -202,6 +250,20 @@ export default function ClinicaMedicos() {
                   <TableRow key={inv.id}>
                     <TableCell className="font-medium">{inv.full_name ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{inv.email}</TableCell>
+                    <TableCell>
+                      {inv.specialty ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className={isCatalogSpecialty(inv.specialty) ? 'text-foreground' : 'text-muted-foreground'}>
+                            {specialtyLabel(inv.specialty)}
+                          </span>
+                          {!isCatalogSpecialty(inv.specialty) && (
+                            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {new Date(inv.expires_at).toLocaleDateString('pt-BR')}
                     </TableCell>

@@ -34,12 +34,12 @@ const sections = [
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('profile');
-  const { user, currentClinicId, isDentist } = useAuth();
+  const { user, currentClinicId, clinicRole } = useAuth();
   const [needsSpecialty, setNeedsSpecialty] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    if (!user || !currentClinicId || !isDentist) {
+    if (!user || !currentClinicId || clinicRole !== 'dentist') {
       setNeedsSpecialty(false);
       return;
     }
@@ -55,7 +55,7 @@ export default function SettingsPage() {
       setNeedsSpecialty(!v || !isCatalogSpecialty(v));
     })();
     return () => { cancelled = true; };
-  }, [user, currentClinicId, isDentist]);
+  }, [user, currentClinicId, clinicRole]);
 
   return (
     <div className="space-y-6">
