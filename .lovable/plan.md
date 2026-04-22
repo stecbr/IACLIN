@@ -1,94 +1,86 @@
 
 
-# Plano: Signup do Profissional só com código de clínica
+# Plano: Liberar acesso de simulação para `lucasferreiraceara@gmail.com`
 
-Médico (profissional) **não pode mais ser autônomo**. Sempre precisa de vínculo: ou via **código de clínica** ou via **link de convite**. Sem código/convite válido → não cria conta.
+Dar a esse e-mail um "modo desenvolvedor" que permite alternar entre as três visões: **Clínica (admin)**, **Médico (dentist)** e **Paciente** — sem precisar de logins separados.
 
-## O que muda no signup
+## Como vai funcionar
 
-Quando o usuário escolhe "Profissional" no passo 1, o passo 2 fica com este formulário único (sem toggle, sem campos de empresa):
+1. **Whitelist por e-mail**: criar uma constante `DEV_EMAILS = ['lucasferreiraceara@gmail.com']` em um arquivo único (`src/lib/devAccess.ts`). Só esses e-mails enxergam o seletor.
 
-1. **Nome completo**
-2. **E-mail** + **Senha**
-3. **Especialidade** (opcional)
-4. **Registro/CRO** (opcional)
-5. **Código da clínica** — *obrigatório*, formato `CLIN-XXXXXXXX`
+2. **Seletor de simulação no header**: dropdown discreto no topo da tela (ao lado do `ClinicSwitcher` no `AppLayout`) com 3 opções:
+   - 👔 Clínica (admin) — visão padrão atual dele
+   - 🩺 Médico (dentist) — esconde Financeiro, Secretária IA, Configurações, Gestão da Clínica
+   - 👤 Paciente — leva pra `/paciente` (PatientLayout completo)
 
-Se chegou via `?invite=TOKEN`, o campo "Código" some, e os dados de e-mail/nome vêm pré-preenchidos pelo convite (lógica já existe).
+3. **Estado persistido em `localStorage`** (`iaclin.simulatedRole`) — sobrevive a reload, mas é só visual no front. Não toca no banco.
 
-## Fluxo passo a passo
+4. **`AuthContext` ganha 3 campos novos**:
+   - `isDevUser: boolean` (calculado de `user.email`)
+   - `simulatedRole: 'admin' | 'dentist' | 'patient' | null`
+   - `setSimulatedRole(role)` — só funciona se `isDevUser === true` (guard interno)
 
-1. Front valida o código com regex `^CLIN-[A-Z2-9]{8}$` antes de qualquer chamada.
-2. Front chama um novo endpoint `validate-clinic-code` (edge function pública, sem auth) só pra verificar se o código existe **antes** de criar a conta. Se não existir, mostra erro inline e **não cria conta**.
-3. Se válido, chama `supabase.auth.signUp` com `user_type: 'profissional_member'` + metadata (`specialty`, `registration_number`).
-4. Trigger `handle_new_user` cria `profile` + role `dentist` (já está pronto na migração nova).
-5. Após o signUp resolver com sucesso e a sessão estabelecida, front chama `join-clinic-by-code` para vincular o usuário como membro da clínica (já existe).
-6. Se `join-clinic-by-code` falhar nesse ponto (caso raro, ex: clínica deletada entre validação e signup), mostra erro e oferece botão "tentar com outro código" — a conta já existe, mas o usuário fica num estado de "sem clínica" que cai numa nova tela `/aguardando-clinica`.
+5. **`useRoleAccess` passa a respeitar a simulação**:
+   ```typescript
+   const effectiveRole = simulatedRole ?? (isPatient ? 'patient' : (clinicRole ?? (isClinicOwner ? 'admin' : 'dentist')));
+   ```
+   Assim, sidebar, rotas e guards já existentes filtram automaticamente — sem duplicar lógica.
 
-## Tela "/aguardando-clinica" (novo fallback)
+6. **Roteamento condicional**:
+   - Se `simulatedRole === 'patient'` e usuário está em rota não-paciente → redireciona pra `/paciente`.
+   - Se sair de `/paciente` voltando pra `/`, simulação de paciente é resetada automaticamente (ou ele clica em "voltar pra Clínica" no seletor).
+   - Botão "Sair do modo simulação" sempre visível dentro do dropdown.
 
-Para o caso raro acima, e para qualquer profissional que entre no app sem `currentClinicId`:
+## Visual do seletor
 
-- Tela única com input de código + botão "Vincular".
-- Chama `join-clinic-by-code` com o código.
-- Sucesso → redireciona pra `/`.
-- Botão secundário "Sair" pra trocar de conta.
+No header, ao lado direito (antes do sino de notificação):
 
-Substitui o redirect atual pra `/onboarding` quando o user é `dentist` sem clínica (admin continua indo pro onboarding normal porque pode criar a clínica dele — **mas no caso de profissional, ele nunca vira admin**, então isso não acontece).
-
-## Edge function nova
-
-**`supabase/functions/validate-clinic-code/index.ts`** (pública, sem JWT):
-
-- Body: `{ code: string }`
-- Faz `select id, name from clinics where invite_code = ?`
-- Retorna `{ valid: true, clinic_name }` ou `{ valid: false, error }`
-- Rate limit simples por IP (in-memory map, 10 tentativas/min) pra não virar oráculo de códigos.
-
-Configurar `verify_jwt = false` no `supabase/config.toml` pra essa função.
-
-## Mudanças no código
-
-**`src/pages/Auth.tsx`**:
-- No passo 1, manter as 3 opções (Cliente / Clínica / Profissional).
-- No passo 2 quando `userType === 'profissional'`: form novo só com os 5 campos acima. Remover `legal_name`, `trade_name`, `cnpj`, `corporate_email`, `responsible_name`, `responsible_cpf`.
-- Botão "Criar conta" desabilitado até `clinicCode` passar no regex.
-- Onclick: chama `validate-clinic-code` → se ok, `supabase.auth.signUp({ user_type: 'profissional_member', specialty, registration_number })` → após sessão, `supabase.functions.invoke('join-clinic-by-code', { body: { code, specialty, registration_number } })`.
-- Caso `?invite=TOKEN`: esconde input de código, dispara `accept-clinic-invite(token)` em vez de `join-clinic-by-code`.
-
-**`src/App.tsx`**:
-- Novo route `/aguardando-clinica` (componente `WaitingClinic`).
-- Em `ProtectedRoute`: se user logado, não é patient, e `clinics.length === 0`, redirecionar pra `/aguardando-clinica` em vez de `/onboarding` quando o usuário **não tem role admin** (ou seja: profissional órfão). Admin sem clínica continua indo pro `/onboarding`.
-
-**`src/pages/WaitingClinic.tsx`** (novo): tela simples descrita acima.
-
-**`supabase/config.toml`**: adicionar bloco
-```toml
-[functions.validate-clinic-code]
-verify_jwt = false
+```
+┌──────────────────────────────────┐
+│ 🧪 Visualizando como: Médico  ▾  │
+└──────────────────────────────────┘
 ```
 
-**Trigger `handle_new_user`**: já está correto — `profissional_member` vira `dentist`. Sem mudança.
+Quando aberto:
+```
+┌────────────────────────────────────┐
+│ Modo desenvolvedor                 │
+│ ─────────────────────────────────  │
+│ ✓ 👔 Clínica (admin)               │
+│   🩺 Médico (dentist)              │
+│   👤 Paciente                      │
+│ ─────────────────────────────────  │
+│   ↩  Voltar ao normal              │
+└────────────────────────────────────┘
+```
 
-**Branch `profissional` (sem código) no `handle_new_user`**: pode ficar como está (defensivo) ou ser removida. Vou deixar — não fará mal e protege contra signups antigos pendentes.
+Badge amarelo discreto "Simulando" aparece ao lado do nome do usuário no rodapé da sidebar quando o modo está ativo, pra deixar claro que não é a visão real.
 
-## O que sai da UI
+## Segurança
 
-- ❌ Toggle "Tenho código / Sou autônomo".
-- ❌ Campos de empresa (CNPJ, razão social, responsável) no fluxo de Profissional.
-- ❌ Redirect de profissional pra `/onboarding`.
+- **Front-only**: a simulação **não** muda nada no banco. RLS continua aplicada com o usuário real (`lucasferreiraceara@gmail.com` que é admin de fato).
+- Como ele já tem `clinic_role = admin` no banco, ele tecnicamente *pode* ver tudo. A simulação só esconde itens de UI pra ele testar como cada perfil enxerga.
+- Se quisermos que ele teste *escrita* como paciente (ex: criar um agendamento pelo `/paciente/agendar`), o registro vai pra clínica dele com o user_id dele — então fica num estado meio híbrido. Aceitável pra QA, mas precisa ficar documentado.
+- Whitelist é **hardcoded em código**, não em banco. Adicionar/remover = mudar o array e fazer deploy.
 
-## Validações e UX
+## Arquivos tocados
 
-- Erro de código inválido → toast vermelho + borda vermelha no input + texto "Código não encontrado. Peça à clínica para gerar um novo".
-- Caps automático no input do código (já vai pra UPPERCASE no onChange).
-- Máscara visual `CLIN-XXXXXXXX` com placeholder claro.
-- Loading state no botão durante validação + signup (sequencial).
+- **Novo**: `src/lib/devAccess.ts` — constante `DEV_EMAILS` + helper `isDevUser(email)`.
+- **Novo**: `src/components/DevRoleSwitcher.tsx` — dropdown do seletor.
+- **Editado**: `src/contexts/AuthContext.tsx` — adicionar `isDevUser`, `simulatedRole`, `setSimulatedRole`, persistência em localStorage.
+- **Editado**: `src/hooks/useRoleAccess.ts` — `effectiveRole` passa a considerar `simulatedRole` antes de qualquer outro fallback.
+- **Editado**: `src/components/AppLayout.tsx` — encaixar `<DevRoleSwitcher />` no header (só renderiza se `isDevUser`).
+- **Editado**: `src/components/AppSidebar.tsx` — badge "Simulando" no footer quando `simulatedRole !== null`.
+- **Editado**: `src/App.tsx` — em `ProtectedRoute`, se `simulatedRole === 'patient'` e rota não começa com `/paciente`, redirecionar pra `/paciente`. Em `PatientProtectedRoute`, aceitar dev users com `simulatedRole === 'patient'` mesmo que `isPatient === false`.
 
 ## O que NÃO muda
 
-- Fluxo de paciente e clínica (PJ): inalterados.
-- `accept-clinic-invite` e `join-clinic-by-code`: inalteradas.
-- RLS, schema, outras edge functions: inalteradas.
-- Caso o usuário queira virar autônomo no futuro, a clínica que ele administra precisará ser criada via fluxo "Clínica" no signup — não pelo fluxo "Profissional".
+- Banco de dados: zero migrations.
+- RLS: intacta.
+- Outros usuários: nem veem o seletor, comportamento idêntico ao atual.
+- `clinicRole` real do `lucasferreiraceara@gmail.com` continua `admin` — a simulação é puramente de UI.
+
+## Pergunta
+
+Quer que eu adicione **mais e-mails** à whitelist agora (ex: `furtadolucas@gmail.com`, `lucas@simoes.tec.br`, `henrifurtado.adv@gmail.com`) ou começamos só com `lucasferreiraceara@gmail.com` e adiciono os outros depois se precisar?
 
