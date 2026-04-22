@@ -9,6 +9,8 @@ export const isDevEnvironment = (): boolean => {
     h === 'localhost' ||
     h === '127.0.0.1' ||
     h.endsWith('.lovable.app') ||
+    h.endsWith('.lovableproject.com') ||
+    h.endsWith('.lovable.dev') ||
     h.includes('lovable.dev')
   );
 };
