@@ -37,11 +37,6 @@ export default function SpecialtySection() {
     return () => { cancelled = true; };
   }, [user, currentClinicId]);
 
-  const sortedSpecialties = useMemo(
-    () => [...SPECIALTIES].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
-    []
-  );
-
   const handleSave = async () => {
     if (!user || !currentClinicId) return;
     if (!value) {
@@ -77,8 +72,8 @@ export default function SpecialtySection() {
       </CardHeader>
       <CardContent className="space-y-4">
         {!loading && initial && !isCatalogSpecialty(initial) && (
-          <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-foreground">
-            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-yellow-600" />
+          <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-warning" />
             <span>
               Sua especialidade atual ("{initial}") está fora do catálogo padronizado, então você não aparece nas buscas dos pacientes. Selecione abaixo a opção correta e salve.
             </span>
