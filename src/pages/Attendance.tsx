@@ -15,6 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AssessmentForm } from '@/components/attendance/AssessmentForm';
+import { VitalSignsForm, type VitalSigns } from '@/components/attendance/VitalSignsForm';
+import { HypothesesEditor, type Hypothesis } from '@/components/attendance/HypothesesEditor';
+import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
+import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 
 interface ProcedureRow {
   tempId: string;
