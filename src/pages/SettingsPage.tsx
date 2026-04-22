@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair } from 'lucide-react';
+import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/compone
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
+import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
@@ -33,10 +34,47 @@ const sections = [
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('profile');
+  const { user, currentClinicId, clinicRole } = useAuth();
+  const [needsSpecialty, setNeedsSpecialty] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user || !currentClinicId || clinicRole !== 'dentist') {
+      setNeedsSpecialty(false);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from('clinic_members')
+        .select('specialty')
+        .eq('user_id', user.id)
+        .eq('clinic_id', currentClinicId)
+        .maybeSingle();
+      if (cancelled) return;
+      const v = (data as any)?.specialty as string | null;
+      setNeedsSpecialty(!v || !isCatalogSpecialty(v));
+    })();
+    return () => { cancelled = true; };
+  }, [user, currentClinicId, clinicRole]);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações" description="Gerencie seu perfil, clínica e preferências." />
+      {needsSpecialty && activeSection !== 'specialty' && (
+        <button
+          type="button"
+          onClick={() => setActiveSection('specialty')}
+          className="w-full flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 text-left hover:bg-warning/15 transition-colors"
+        >
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-warning" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Defina sua especialidade</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Sem uma especialidade do catálogo, pacientes não conseguem te encontrar nas buscas. Clique para configurar agora.
+            </p>
+          </div>
+        </button>
+      )}
       <div className="flex flex-col md:flex-row gap-6">
         <nav className="flex md:flex-col gap-1 md:w-48 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
           {sections.map((s) => (

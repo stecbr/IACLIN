@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
+import { SpecialtySelect } from '@/components/SpecialtySelect';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
@@ -186,6 +187,13 @@ export default function Auth() {
 
         // Validate professional-specific fields (always requires clinic link)
         const CODE_REGEX = /^CLIN-[A-Z2-9]{8}$/;
+        if (userType === 'profissional') {
+          if (!specialty.trim()) {
+            toast.error('Selecione sua especialidade');
+            setSubmitting(false);
+            return;
+          }
+        }
         if (userType === 'profissional' && !inviteToken) {
           const trimmed = clinicCode.trim().toUpperCase();
           if (!CODE_REGEX.test(trimmed)) {
@@ -637,14 +645,17 @@ export default function Auth() {
                 {userType === 'profissional' && (
                   <>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.21 }}>
-                      <Label htmlFor="specialty" className="text-xs text-muted-foreground">Especialidade (opcional)</Label>
-                      <Input
+                      <Label htmlFor="specialty">Especialidade <span className="text-destructive">*</span></Label>
+                      <SpecialtySelect
                         id="specialty"
                         value={specialty}
-                        onChange={(e) => setSpecialty(e.target.value)}
-                        placeholder={profSubType === 'dentista' ? 'Ex: Ortodontia' : 'Ex: Cardiologia'}
-                        className="h-10"
+                        onChange={setSpecialty}
+                        filterCategory={profSubType === 'dentista' ? 'odonto' : 'medico'}
+                        placeholder="Selecione sua especialidade"
                       />
+                      <p className="text-[11px] text-muted-foreground">
+                        Você só aparecerá nas buscas dos pacientes para a especialidade escolhida.
+                      </p>
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="registration" className="text-xs text-muted-foreground">

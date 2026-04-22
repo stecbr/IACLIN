@@ -1,13 +1,12 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Stethoscope, Info } from 'lucide-react';
+import { Save, Stethoscope, Info, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SPECIALTIES } from '@/components/patient/booking/SpecialtyStep';
+import { SpecialtySelect, isCatalogSpecialty } from '@/components/SpecialtySelect';
 
 export default function SpecialtySection() {
   const { user, currentClinicId } = useAuth();
@@ -38,18 +37,17 @@ export default function SpecialtySection() {
     return () => { cancelled = true; };
   }, [user, currentClinicId]);
 
-  const sortedSpecialties = useMemo(
-    () => [...SPECIALTIES].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
-    []
-  );
-
   const handleSave = async () => {
     if (!user || !currentClinicId) return;
+    if (!value) {
+      toast.error('Selecione uma especialidade');
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
         .from('clinic_members')
-        .update({ specialty: value || null } as any)
+        .update({ specialty: value } as any)
         .eq('user_id', user.id)
         .eq('clinic_id', currentClinicId);
       if (error) throw error;
@@ -73,18 +71,31 @@ export default function SpecialtySection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!loading && initial && !isCatalogSpecialty(initial) && (
+          <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-warning" />
+            <span>
+              Sua especialidade atual ("{initial}") está fora do catálogo padronizado, então você não aparece nas buscas dos pacientes. Selecione abaixo a opção correta e salve.
+            </span>
+          </div>
+        )}
+        {!loading && !initial && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-foreground">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-destructive" />
+            <span>
+              Você ainda não tem uma especialidade definida. Defina agora para aparecer nas buscas dos pacientes.
+            </span>
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label>Sua especialidade</Label>
-          <Select value={value} onValueChange={setValue} disabled={loading}>
-            <SelectTrigger>
-              <SelectValue placeholder={loading ? 'Carregando...' : 'Selecione uma especialidade'} />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              {sortedSpecialties.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Sua especialidade <span className="text-destructive">*</span></Label>
+          <SpecialtySelect
+            value={value}
+            onChange={setValue}
+            disabled={loading}
+            placeholder={loading ? 'Carregando...' : 'Selecione uma especialidade'}
+          />
         </div>
 
         <div className="flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
@@ -96,7 +107,7 @@ export default function SpecialtySection() {
 
         <Button
           onClick={handleSave}
-          disabled={saving || loading || value === initial}
+          disabled={saving || loading || !value || value === initial}
           className="gap-2"
         >
           <Save className="h-4 w-4" />
