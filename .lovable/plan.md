@@ -1,61 +1,166 @@
 
 
-# Plano: Validar fluxo de agendamento Flavio → Joel
+# Plano: Fluxo completo de aprovação e atendimento da consulta
 
-## Diagnóstico
+## Visão geral
 
-Olhei o estado atual no banco e o código do fluxo `/paciente/agendar`:
+Mudar o fluxo do agendamento de **direto** para **com aprovação**, ligando paciente → clínica → médico → atendimento. Hoje o paciente clica "Confirmar" e tenta gravar direto em `patients`/`appointments` (RLS bloqueia). Vamos transformar isso num pedido que entra numa fila de aprovação da clínica.
 
-- **Joel** (cardiologia, clínica "Lucas Ferreira Santos Gomes") tem **disponibilidade só hoje, 22/04, das 19:00 às 23:00**. Nenhum outro dia cadastrado.
-- **Flavio Batista** (paciente, CPF 60756355303) **não tem nenhum registro em `patients`** ainda — então o fluxo precisa criar um na hora do agendamento.
-- O botão "Confirmar agendamento" em `SummaryStep.tsx` chama `handleConfirm` em `PatientBooking.tsx` que **já faz tudo certo**: procura paciente por CPF na clínica, cria se não existir, e insere o agendamento.
+## Fluxo novo
 
-**O botão já funciona.** Não precisa de gambiarra "uma vez só". O que provavelmente travou na sua tentativa foi um destes:
+```text
+Paciente clica Confirmar
+        ↓
+[appointment_requests] status=pending  (criado via edge function segura)
+        ↓
+Clínica vê na aba "Aprovações" + sino de notificação
+        ↓
+Admin aprova → cria appointment status=scheduled
+        ↓
+Médico recebe sino "Nova consulta confirmada"
+Paciente recebe sino "Sua consulta foi confirmada"
+        ↓
+Médico vê detalhes, pode confirmar/reagendar
+        ↓
+Quando faltar ≤30min → botão "Iniciar atendimento" aparece
+        ↓
+Vai pra /atendimento/:id (tela clínica que já existe)
+```
 
-1. Você selecionou uma data que **não é hoje** → na tela 3 não aparece o Joel (ele só tem agenda dia 22/04).
-2. Selecionou hoje mas um horário **antes das 19:00** → todos os slots aparecem disponíveis a partir das 19h só.
-3. O slot que você clicou **já passou** (se tentou agora, antes das 19h, o array `slots` ainda mostra de 19h pra frente, então tudo bem).
+## Mudanças no banco
 
-## O que vou ajustar pra destravar o teste
+### Nova tabela `appointment_requests`
+- `id`, `patient_user_id`, `patient_account_snapshot` (jsonb com nome/cpf/phone)
+- `clinic_id`, `dentist_id`, `specialty`, `start_time`, `end_time`
+- `notes`, `status` (`pending` | `approved` | `rejected` | `cancelled`)
+- `created_at`, `decided_at`, `decided_by`, `rejection_reason`
+- `appointment_id` (preenchido quando aprovada)
 
-### 1. Garantir disponibilidade do Joel pra hoje + amanhã + depois
-Vou rodar uma migration que **adiciona disponibilidade do Joel pros próximos 7 dias** (08:00–18:00, segunda a sexta), pra você poder testar em qualquer horário sem ficar preso ao 19–23h de hoje.
+### RLS
+- Paciente: vê e cria os próprios pedidos.
+- Membros da clínica: veem e atualizam pedidos da sua clínica.
+- Médico: vê pedidos onde `dentist_id = auth.uid()`.
 
-### 2. Melhorar o feedback de erro no `handleConfirm`
-Hoje, se algo falha em silêncio (ex: RLS bloqueando o INSERT em `patients` por algum motivo), o toast só mostra `err.message` que pode vir vazio. Vou:
-- Logar o erro completo no console com contexto (`{ step: 'create_patient', error }`).
-- Mostrar toast com mensagem mais clara: "Falha ao criar paciente: {detalhe}" ou "Falha ao criar agendamento: {detalhe}".
+### Triggers de notificação
+- `INSERT` em `appointment_requests` → notifica todos admins da clínica (sino).
+- `UPDATE` para `approved` → notifica médico + paciente.
+- `UPDATE` para `rejected` → notifica paciente com motivo.
 
-### 3. Pré-popular o `patient_account` do Flavio com nome/CPF/phone (se faltar algo)
-O Flavio já tem `patient_account` completo (Flavio Batista, CPF 60756355303, telefone). O fluxo `PatientBooking.tsx` lê de `usePatientData().account` e usa esses dados pra criar o paciente. Tá ok.
+## Edge functions
 
-### 4. Visualização na área do Joel
-Depois que o agendamento for criado, ele aparece automaticamente:
-- **Agenda do Joel** (`/agenda`) → como dentist, ele vê só os próprios; aparece o card "Flavio Batista — cardiologia — HH:MM".
-- **Notificação**: o trigger `notify_new_appointment` já cria notificação pro `dentist_id` (Joel).
-- **Painel inicial** (`/medico`) → mostra próximas consultas.
+### `request-appointment` (nova)
+Substitui o insert direto que dá erro de RLS:
+- Valida usuário autenticado e `patient_accounts`.
+- Valida slot ainda livre (sem outro `pending`/`approved` no mesmo horário).
+- Cria registro em `appointment_requests` com snapshot dos dados do paciente.
+- Retorna mensagem clara em caso de erro.
 
-## O que NÃO vou fazer
+### `approve-appointment-request` (nova)
+- Só admin/owner da clínica pode chamar.
+- Verifica se ainda está `pending`.
+- Encontra/cria `patients` na clínica (linka por CPF, cria se não existir).
+- Cria `appointments` com `status=scheduled`.
+- Atualiza request: `status=approved`, `appointment_id`, `decided_at/by`.
 
-- **Não vou criar um botão "uma vez só"**. O fluxo normal já faz exatamente isso. Adicionar um bypass criaria dívida técnica e poderia mascarar o bug real.
-- **Não vou mexer em RLS** — as policies já permitem o paciente criar registros na própria clínica via `clinic_id` e o trigger `link_patients_by_cpf` cuida do vínculo.
-- **Não vou simular o agendamento por SQL direto**. Quero que você valide o fluxo real do Flavio clicando, porque é isso que o usuário final vai fazer.
+### `reject-appointment-request` (nova)
+- Mesma autorização.
+- Atualiza status + `rejection_reason`.
+
+## Mudanças no frontend
+
+### Paciente
+
+**`src/pages/patient/PatientBooking.tsx`**
+- `handleConfirm` chama `request-appointment` (não insere mais direto).
+- Toast: "Pedido enviado! A clínica vai confirmar em breve."
+- Redireciona pra `/paciente/agendas` que mostrará o pedido pendente.
+
+**`src/pages/patient/PatientAppointments.tsx`**
+- Adicionar seção "Pedidos pendentes" no topo, listando `appointment_requests` com status `pending`/`rejected`.
+- Badge amarelo "Aguardando confirmação" / vermelho "Recusado".
+- Botão "Cancelar pedido" enquanto pendente.
+
+**`src/components/marketplace/BookingConfirmation.tsx`**
+- Mesma troca: chama `request-appointment`.
+
+### Clínica (admin)
+
+**Nova página `src/pages/clinica/ClinicaAprovacoes.tsx`** (`/clinica/aprovacoes`)
+- Lista de cards com pedidos `pending`: paciente, médico, especialidade, data/hora, observações.
+- Botões: **Aprovar** (verde) | **Reagendar** (abre dialog com sugestão de novo horário) | **Recusar** (pede motivo).
+- Tabs: Pendentes | Aprovadas | Recusadas (histórico).
+- Real-time via Supabase Realtime → atualiza a lista quando chega novo pedido.
+
+**`src/components/AppSidebar.tsx`**
+- Novo item "Aprovações" com badge de contagem de pendentes (só pra admin).
+
+**`src/components/NotificationBell.tsx`**
+- Já funciona — só garantir que `type=appointment_request` abra `/clinica/aprovacoes`.
+
+### Médico
+
+**`src/pages/dentist/DentistHome.tsx`**
+- Card "Próximas consultas" mostra agendamentos aprovados com indicador "Confirmada pela clínica".
+- Quando faltar ≤30min pra `start_time`: botão verde **"Iniciar atendimento"** que leva pra `/atendimento/:appointmentId`.
+
+**`src/pages/Agenda.tsx`** (visão do médico)
+- No `AppointmentDetailDialog`, se faltarem ≤30min: botão destacado "Iniciar atendimento agora".
+- Adicionar botão "Reagendar" e "Confirmar presença" pro médico.
+
+**`src/components/agenda/AppointmentDetailDialog.tsx`**
+- Mostrar origem: "Agendado pelo paciente via app" quando vier de `appointment_requests`.
+
+### Tela de atendimento (já existe)
+- `/atendimento/:appointmentId` (`Attendance.tsx`) já tem todos os blocos clínicos que criamos antes (anamnese, vital signs, hipóteses, solicitações, etc.). Só precisa estar acessível via o botão novo. Sem mudanças nela.
+
+## Notificações (sino)
+
+| Evento | Quem recebe | Mensagem |
+|---|---|---|
+| Pedido criado | Admins da clínica | "Novo pedido de consulta de {paciente}" |
+| Pedido aprovado | Médico | "Nova consulta confirmada: {paciente} em {data}" |
+| Pedido aprovado | Paciente | "Sua consulta em {clínica} foi confirmada" |
+| Pedido recusado | Paciente | "Sua consulta foi recusada: {motivo}" |
+| Reagendamento | Paciente + Médico | "Consulta reagendada para {nova data}" |
+
+## Botão "Iniciar atendimento" — regra
+
+Aparece quando:
+- `appointment.status = 'scheduled'` ou `'confirmed'`
+- `now() >= start_time - 30min` E `now() <= end_time + 60min`
+- Usuário logado é o `dentist_id` do appointment
 
 ## Arquivos tocados
 
-**Editados:**
-- `src/pages/PatientBooking.tsx` — melhorar logs e mensagens de erro do `handleConfirm`.
+**Novos**
+- `supabase/functions/request-appointment/index.ts`
+- `supabase/functions/approve-appointment-request/index.ts`
+- `supabase/functions/reject-appointment-request/index.ts`
+- `src/pages/clinica/ClinicaAprovacoes.tsx`
+- `src/components/clinica/ApprovalCard.tsx`
+- `src/components/clinica/RescheduleDialog.tsx`
 
-**Migration:**
-- INSERT em `professional_availability` com 7 dias de disponibilidade do Joel (08:00–18:00, dias úteis), evitando duplicatas com `ON CONFLICT DO NOTHING` (ou checando antes).
+**Editados**
+- `src/pages/patient/PatientBooking.tsx`
+- `src/pages/patient/PatientAppointments.tsx`
+- `src/components/marketplace/BookingConfirmation.tsx`
+- `src/components/AppSidebar.tsx`
+- `src/pages/dentist/DentistHome.tsx`
+- `src/pages/Agenda.tsx`
+- `src/components/agenda/AppointmentDetailDialog.tsx`
+- `src/App.tsx` (rota nova)
 
-## Como testar depois que eu implementar
+**Migrations**
+- Cria `appointment_requests` + RLS + triggers de notificação.
+- Habilita realtime na tabela.
 
-1. Logar como **flavio@gmail.com**.
-2. Ir em `/paciente/agendar`.
-3. Selecionar **Cardiologia**.
-4. Escolher qualquer dia útil dos próximos 7.
-5. Expandir clínica "Lucas Ferreira Santos Gomes" → escolher um horário do Joel.
-6. Confirmar.
-7. Logar como **joel** → ver na agenda dele e na sininha de notificação.
+## O que NÃO muda
+
+- Tela `/atendimento/:id` continua igual (já tem os blocos clínicos).
+- Agenda interna da clínica (criada pela secretária) continua direto, sem aprovação — só o fluxo do paciente passa pela aprovação.
+- RLS de `patients`/`appointments` permanece restrita.
+
+## Resultado final
+
+Você logará como Flávio → pedirá consulta com Joel → o pedido entra na fila da clínica do Lucas → Lucas (admin) aprova → Joel recebe sino + vê na agenda → quando chegar perto da hora, Joel clica "Iniciar atendimento" → preenche os blocos clínicos.
 
