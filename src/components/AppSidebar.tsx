@@ -213,8 +213,9 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredClinicNav.map((item) => renderNavItem(item))}
-              {filteredClinicNav.map(() => null)/* placeholder */}
+              {filteredClinicNav.map((item) =>
+                renderNavItem(item, item.url === '/clinica/aprovacoes' ? pendingCount : undefined)
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
