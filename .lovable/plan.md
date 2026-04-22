@@ -1,104 +1,91 @@
 
 
-# Plano: Adicionar perfil "Clínica" ao sistema
+# Plano: Cadastro de Médico via Convite + Código da Clínica
 
-Adicionar um terceiro tipo de cadastro na tela de autenticação ("Sou uma Clínica"), com formulário próprio que já cria a clínica no momento do signup, e um painel administrativo dedicado para gestão de médicos e pacientes vinculados.
+Substituir o fluxo atual ("clínica cria conta com senha temporária") por um modelo onde o **médico tem autonomia** para criar a própria conta, mas só fica vinculado se a clínica autorizou — via **convite por e-mail** OU **código da clínica**. Suporta médico em **múltiplas clínicas**, e gestão por **dono ou qualquer admin**.
 
-## 1. Tela de Autenticação (`src/pages/Auth.tsx`)
+## 1. Como funciona (visão do usuário)
 
-Adicionar um novo card **"Sou uma Clínica"** ao lado de "Profissional de Saúde", "Operadora" e "Paciente", com ícone `Building2` (hoje usado pela operadora — trocaremos a operadora para `Briefcase`).
+**Lado da clínica** — em `/clinica/medicos`, o botão "Adicionar médico" abre um modal com 2 abas:
 
-Quando o usuário escolher "Clínica", o formulário de signup mostrará os campos:
+- **Convite por e-mail**: digita nome + e-mail + (opcional) CRO/especialidade → sistema gera token único e envia link (`/auth?invite=TOKEN`). O médico clica, define a senha, conta criada e já vinculada.
+- **Código da clínica**: cada clínica tem um código permanente (ex: `CLIN-A4B2`) visível no painel. A clínica copia e compartilha por WhatsApp/qualquer canal. O médico vai em `/auth`, escolhe "Sou Profissional", informa o código no signup, conta criada e já vinculada.
 
-- Razão Social *
-- Nome Fantasia *
-- CNPJ * (com máscara e botão de auto-preencher via BrasilAPI, igual ao Onboarding)
-- E-mail Corporativo *
-- Telefone / WhatsApp *
-- Nome do Responsável (Administrador) *
-- Senha + Confirmação de Senha *
+Nas duas vias o vínculo é **automático e imediato** — sem fila de aprovação manual.
 
-Validações: CNPJ com 14 dígitos, senha mínima 6 chars, confirmação igual à senha, e-mail válido.
+**Lado do médico** — uma seção "Minhas clínicas" no perfil mostra todas as clínicas que ele atende, com botão para entrar em cada uma. Se ele recebe um novo convite enquanto já tem conta, basta clicar no link logado e o vínculo é adicionado (não cria conta nova).
 
-No `signUp`, enviar `user_type: 'clinica'` mais todos os campos no `raw_user_meta_data`. Após o signup, a clínica é criada automaticamente (ver passo 2), pulando o `Onboarding`.
+**Lista de convites pendentes** — a clínica vê na tela `/clinica/medicos` quais convites ainda não foram aceitos, com opção de reenviar ou revogar.
 
-## 2. Backend — criação automática da clínica
+## 2. Mudanças no banco
 
-Atualizar a função `handle_new_user` para tratar `user_type = 'clinica'`:
+Migração nova:
 
-- Criar registro em `public.clinics` com: `name` (nome fantasia), `legal_name` (razão social — nova coluna), `cnpj`, `email`, `phone`, `owner_id = NEW.id`, `category = 'outro'`.
-- O trigger `auto_link_clinic_owner` já vincula o owner como `admin` em `clinic_members` (mantém-se).
-- Atribuir role `'admin'` em `user_roles`.
-- Criar `profiles` com o nome do responsável.
+- **`clinic_members.invite_code`** (texto, único por clínica) — código permanente exibido no painel. Gerado via trigger ao criar `clinics`.
+  - Na verdade fica em `clinics.invite_code` (uma por clínica, não por membro).
+- Nova tabela **`clinic_invites`**:
+  ```
+  id uuid pk
+  clinic_id uuid
+  email text
+  full_name text
+  specialty text nullable
+  registration_number text nullable
+  role app_role default 'dentist'
+  token text unique             -- usado no link /auth?invite=TOKEN
+  invited_by uuid               -- quem mandou
+  status text                   -- 'pending' | 'accepted' | 'revoked'
+  expires_at timestamptz        -- 7 dias
+  created_at, accepted_at
+  ```
+  RLS: members da clínica leem/criam/revogam; qualquer authenticated lê quando consulta pelo `token` (necessário para aceitar).
+- Trocar policy `Owners can insert clinic members` para também aceitar `has_role(uid,'admin') AND user_belongs_to_clinic(uid, clinic_id)`.
+- **Garantir `UNIQUE(clinic_id, user_id)`** em `clinic_members` (já implícito pelo `ON CONFLICT` em `auto_link_clinic_owner`, mas confirmar).
+- Ajustar `AuthContext` para permitir múltiplas memberships (hoje usa `.limit(1).maybeSingle()`).
 
-Migração necessária:
-- `ALTER TABLE clinics ADD COLUMN legal_name text;` (Razão Social)
-- `ALTER TABLE clinics ADD COLUMN responsible_name text;` (nome do administrador responsável, separado do dono da conta para auditoria)
-- Atualizar `handle_new_user` conforme acima.
+## 3. Edge functions
 
-## 3. Painel da Clínica — novas rotas
+- **`create-clinic-invite`** (nova): valida que caller é admin/owner da clínica, cria registro em `clinic_invites` com token aleatório, envia e-mail com link `https://app/auth?invite=TOKEN` usando o sistema de e-mail transacional do Lovable Cloud.
+- **`accept-clinic-invite`** (nova): recebe `token`, valida (não expirado, não aceito), insere em `clinic_members`, marca convite como `accepted`. Roda com service role para ignorar RLS na hora do INSERT.
+- **`join-clinic-by-code`** (nova): recebe `code`, busca a clínica, insere em `clinic_members` com role `dentist`. Service role.
+- **Manter `invite-member`** apenas para retrocompatibilidade (ou remover — recomendo remover já que o fluxo muda).
 
-Como o perfil "Clínica" usa o mesmo role `admin` e a mesma `AppLayout`/`AppSidebar` já existentes, vamos **adicionar 3 novas páginas** dedicadas à gestão da clínica e exibi-las no menu lateral em uma nova seção "Gestão da Clínica":
+## 4. UI — telas a editar/criar
 
-### 3.1 `/clinica` — Visão Geral (`src/pages/clinica/ClinicaHome.tsx`)
-Cards de resumo:
-- Total de Médicos (count em `clinic_members` da clínica)
-- Total de Pacientes (count em `patients`)
-- Consultas do mês (count em `appointments`)
-- Card placeholder "Faturamento" (em breve)
+**Editar:**
+- `src/pages/Auth.tsx` — quando vier `?invite=TOKEN` na URL, pré-preencher e-mail/nome do convite (consulta pública por token), e ao concluir signup chamar `accept-clinic-invite`. No signup de "Profissional", adicionar campo opcional **"Código da clínica"** que dispara `join-clinic-by-code` no fim.
+- `src/components/clinica/AddMedicoDialog.tsx` — refatorar para 2 abas (Convite / Código). Aba código mostra o código atual + botão copiar.
+- `src/pages/clinica/ClinicaMedicos.tsx` — adicionar seção "Convites pendentes" abaixo da tabela, com ações reenviar/revogar.
+- `src/contexts/AuthContext.tsx` — passar a carregar **lista** de memberships, expor `clinics: ClinicMembership[]` + `currentClinicId` (com seletor persistido em localStorage).
 
-### 3.2 `/clinica/medicos` — Meus Médicos (`src/pages/clinica/ClinicaMedicos.tsx`)
-Tabela listando `clinic_members` (com join em `profiles`) mostrando: Nome, E-mail, CRM/CRO (vem de `specialty` por enquanto + nova coluna `registration_number` em `clinic_members`), Especialidade, Status.
+**Criar:**
+- `src/components/clinica/ClinicInviteCodeCard.tsx` — card no topo da tela de médicos mostrando o código + botão copiar.
+- `src/components/ClinicSwitcher.tsx` — dropdown na sidebar para o médico alternar entre clínicas.
+- `src/pages/InviteAccept.tsx` (opcional) — tela dedicada para usuário **já logado** aceitar um convite recebido.
 
-Botão **"Adicionar Novo Médico"** abre modal com:
-- Nome, E-mail, CRM, Especialidade
-- Reaproveita a edge function `invite-member` já existente (envia convite por e-mail). Quando o médico aceitar, vira `clinic_members` com role `dentist`.
-
-### 3.3 `/clinica/pacientes` — Meus Pacientes
-Reaproveitar a página `/patients` já existente (que faz exatamente isso). Adicionar apenas link no menu da nova seção.
-
-### 3.4 `/clinica/configuracoes` — Configurações da Clínica
-Reaproveitar `SettingsPage` (que já permite editar dados da clínica, horários, equipe, etc). Apenas adicionar link no menu.
-
-### 3.5 Placeholder no menu
-Item desabilitado **"Faturamento"** com badge "Em breve" para indicar futuras abas.
-
-## 4. Atualização do Sidebar (`src/components/AppSidebar.tsx`)
-
-Adicionar nova seção "Gestão da Clínica" (visível apenas se `is_owner = true` em `clinic_members`):
+## 5. Fluxo técnico resumido
 
 ```text
-GESTÃO DA CLÍNICA
-  📊 Visão Geral        → /clinica
-  👨‍⚕️ Médicos           → /clinica/medicos
-  👥 Pacientes          → /clinica/pacientes (link para /patients)
-  ⚙️  Configurações     → /clinica/configuracoes (link para /settings)
-  💰 Faturamento        → (em breve, desabilitado)
+CONVITE POR E-MAIL
+clínica → AddMedicoDialog → create-clinic-invite
+       → e-mail com link /auth?invite=TOKEN
+       → médico clica → Auth lê token, mostra signup pré-preenchido
+       → signup OK → accept-clinic-invite(token) → vincula
+
+CÓDIGO DA CLÍNICA
+clínica → copia CLIN-XXXX do card
+       → médico recebe → /auth signup como Profissional
+       → digita código → signup OK → join-clinic-by-code(code) → vincula
+
+MÉDICO JÁ EXISTENTE recebendo convite
+logado → clica link → InviteAccept → accept-clinic-invite → nova membership
 ```
 
-## 5. Roteamento (`src/App.tsx`)
+## 6. Pontos de atenção
 
-Adicionar 3 rotas novas protegidas por `ProtectedRoute`:
-- `/clinica` → `ClinicaHome`
-- `/clinica/medicos` → `ClinicaMedicos`
-- (Pacientes e Configurações usam as rotas existentes)
-
-Após login, se `user_type = 'clinica'` (ou `is_owner = true`), redirecionar para `/clinica` em vez de `/`.
-
-## 6. Detalhes técnicos
-
-**Arquivos novos:**
-- `src/pages/clinica/ClinicaHome.tsx`
-- `src/pages/clinica/ClinicaMedicos.tsx`
-- `src/components/clinica/AddMedicoDialog.tsx`
-
-**Arquivos editados:**
-- `src/pages/Auth.tsx` — novo card "Clínica" + formulário com 7 campos
-- `src/App.tsx` — novas rotas + redirect pós-login para owners
-- `src/components/AppSidebar.tsx` — nova seção "Gestão da Clínica"
-- Migração SQL — colunas `legal_name`, `responsible_name` em `clinics` + atualização de `handle_new_user`
-
-**RLS:** As políticas existentes em `clinics` e `clinic_members` (via `is_clinic_owner` / `user_belongs_to_clinic`) já cobrem perfeitamente o acesso do dono da clínica aos seus médicos e pacientes — sem mudanças necessárias.
-
-**Não muda:** lógica de pacientes (`/paciente`), profissionais individuais, ou onboarding (continua disponível para quem cria conta como "Profissional" sem clínica vinculada).
+- **Signup de profissional hoje cria role `admin`** automaticamente (`assign_default_role`). Precisa ajustar: se houver `?invite=` ou código no signup, NÃO criar clínica nem dar role admin — apenas role `dentist` e a membership da clínica convidante.
+- **Múltiplas clínicas**: toda query que hoje faz `currentClinicId` continua válida, mas precisa de UI para trocar de clínica. Sem isso, o médico fica preso na primeira.
+- **E-mail transacional**: requer domínio configurado em Lovable Cloud. Se ainda não houver, mostro o setup quando começarmos.
+- **Segurança do código**: códigos curtos (8 chars) + rate limit no `join-clinic-by-code` para evitar brute force. Permitir regeneração do código pelo dono.
+- **Convites expirados**: 7 dias por padrão, com botão "reenviar" que gera novo token.
 
