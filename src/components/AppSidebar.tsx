@@ -105,7 +105,10 @@ export function AppSidebar() {
     .slice(0, 2)
     .toUpperCase() ?? 'U';
 
-  const renderNavItem = (item: typeof mainNav[0], badge?: number) => (
+  const renderNavItem = (
+    item: { title: string; url: string; icon: typeof LayoutDashboard },
+    badge?: number,
+  ) => (
     <SidebarMenuItem key={item.title}>
       <SidebarMenuButton
         asChild
