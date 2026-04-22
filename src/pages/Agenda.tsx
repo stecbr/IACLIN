@@ -174,8 +174,21 @@ export default function Agenda() {
         </div>
 
         {/* Calendar Grid */}
+        {compareOverflow && view !== 'month' && (
+          <p className="text-xs text-muted-foreground -mt-2">
+            Comparação lado a lado disponível para até 4 médicos. Mostrando os 4 primeiros.
+          </p>
+        )}
         {view === 'month' ? (
           <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} onAppointmentClick={(apt) => setSelectedAppointment(apt)} />
+        ) : useCompareView ? (
+          <AgendaCompareView
+            days={days}
+            doctors={compareDoctors}
+            appointments={appointments}
+            onSlotClick={(d, h) => handleSlotClick(d, h)}
+            onAppointmentClick={(apt) => setSelectedAppointment(apt)}
+          />
         ) : (
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
             {/* Day Headers */}
