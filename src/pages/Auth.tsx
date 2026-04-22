@@ -240,6 +240,10 @@ export default function Auth() {
               user_type: isJoiningExistingClinic ? 'profissional_member' : userType,
               professional_subtype: profSubType,
               clinic_category: clinicCategory,
+              ...(userType === 'profissional' && {
+                specialty: specialty.trim() || null,
+                registration_number: registrationNumber.trim() || null,
+              }),
               ...(userType === 'cliente' && {
                 cpf: unmaskCpf(cpf),
                 phone,
@@ -268,10 +272,18 @@ export default function Auth() {
             else toast.success('Você foi vinculado à clínica!');
           } else if (userType === 'profissional' && clinicCode.trim()) {
             const { error: joinErr } = await supabase.functions.invoke('join-clinic-by-code', {
-              body: { code: clinicCode.trim().toUpperCase() },
+              body: {
+                code: clinicCode.trim().toUpperCase(),
+                specialty: specialty.trim() || null,
+                registration_number: registrationNumber.trim() || null,
+              },
             });
-            if (joinErr) toast.error('Conta criada, mas código inválido: ' + joinErr.message);
-            else toast.success('Vínculo criado com a clínica!');
+            if (joinErr) {
+              toast.error('Conta criada, mas falhou ao vincular: ' + joinErr.message);
+              navigate('/aguardando-clinica', { replace: true });
+            } else {
+              toast.success('Vínculo criado com a clínica!');
+            }
           }
         }
       }
