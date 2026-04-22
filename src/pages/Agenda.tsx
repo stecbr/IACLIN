@@ -18,6 +18,7 @@ import {
   type DoctorOption,
 } from '@/components/agenda/AgendaDoctorFilter';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
+import { AgendaCompareView } from '@/components/agenda/AgendaCompareView';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
