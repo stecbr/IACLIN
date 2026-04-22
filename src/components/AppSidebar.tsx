@@ -71,9 +71,16 @@ export function AppSidebar() {
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
 
-  const filteredMainNav = filterNavItems(mainNav);
+  // Defense in depth: gate by allowedRoles AND by route permission
+  const filteredMainNav = filterNavItems(
+    mainNav.filter((item) => item.allowedRoles.includes(effectiveRole))
+  );
   const filteredClinicNav = filterNavItems(
-    clinicNav.filter((item) => item.categories.includes(clinicCategory))
+    clinicNav.filter(
+      (item) =>
+        item.categories.includes(clinicCategory) &&
+        item.allowedRoles.includes(effectiveRole)
+    )
   );
 
   // Today's appointment count for badge
@@ -195,7 +202,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isClinicOwner && !isDentist && (
+        {!isDentist && effectiveRole !== 'patient' && (
           <>
             <div className="mx-3 my-2">
               <div className="h-px bg-sidebar-border/60" />
