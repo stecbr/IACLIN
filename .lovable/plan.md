@@ -1,64 +1,131 @@
 
 
-# Plano: Clicar no nome do paciente na Agenda → abrir ficha do paciente
+# Plano: Tela de atendimento clínico completa (multiespecialidade)
 
-Hoje, ao clicar num agendamento na Agenda, abre o `AppointmentDetailDialog`. O nome do paciente aparece dentro do dialog mas não é clicável. Quero deixar o nome do paciente como um **link** que leva direto pra ficha completa dele em `/patients/:id` (a rota já existe).
+Expandir a tela `/atendimento/:appointmentId` (`Attendance.tsx`) pra cobrir tudo que um profissional de qualquer especialidade preencheria numa consulta. Hoje ela tem só **Evolução**, **Procedimentos** e **Odontograma**. Vou adicionar os blocos clínicos completos, todos como **registro digital** (sem PDF agora — fica pra fase 2).
 
-## O que muda
+## Estrutura da tela (nova)
 
-### 1. No `AppointmentDetailDialog.tsx`
+Manter o cabeçalho atual (paciente + ações Salvar/Finalizar), mas trocar as 3 tabs por **6 tabs progressivas** que seguem o fluxo natural de uma consulta:
 
-Transformar o bloco do paciente (linhas 112-118) em um **botão clicável**:
-
-- Hover muda o background levemente, ícone do `User` e nome ganham cor primária.
-- Aparece um pequeno ícone `ChevronRight` à direita indicando "vai pra algum lugar".
-- Tooltip: *"Ver ficha completa do paciente"*.
-- Ao clicar: fecha o dialog e navega pra `/patients/{appointment.patient_id}`.
-- **Só fica clicável** se `effectiveRole !== 'patient'` (paciente não pode ver ficha de outros pacientes — embora hoje paciente nem usa essa tela, é um guard preventivo).
-
-### 2. Tornar o link mais descobrível também na grade da Agenda (opcional, dentro do mesmo card)
-
-No card do agendamento (`Agenda.tsx`, dentro do loop `dayApts.map`), o nome do paciente já está em destaque. Vou adicionar um sutil **`hover:underline`** no nome quando o cursor passar — sinaliza que dá pra interagir, mas o clique no card todo continua abrindo o dialog (não muda o comportamento atual). O atalho direto pra ficha fica dentro do dialog, que é o lugar natural pra "drill down".
-
-### 3. Mesma melhoria no `MonthView` da Agenda
-
-O modo Mês mostra só o primeiro nome do paciente. Mantém o mesmo comportamento (clicar abre o dialog), e dentro do dialog o usuário acessa a ficha. Sem mudança aqui.
-
-### 4. Mesma melhoria no `AgendaCompareView.tsx`
-
-Os cards de agendamento na visão "Comparar lado a lado" usam o mesmo `AppointmentDetailDialog` no clique → automaticamente herdam o link pra ficha. Sem mudança no arquivo.
-
-## Visual
-
-Antes:
 ```
-┌─────────────────────────────────────┐
-│ 👤  Gabriela Ferreira               │
-│     Paciente                        │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ 👤 Lucas Ferreira  ·  21/04 14:30  ·  Consulta            [Salvar] [Finalizar]│
+├──────────────────────────────────────────────────────────────────────┤
+│ [1.Avaliação] [2.Sinais Vitais] [3.Diagnóstico] [4.Conduta]          │
+│ [5.Solicitações] [6.Procedimentos] [7.Odontograma†]                  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+† Odontograma só aparece em clínica `category='odonto'` (regra que já existe no projeto).
+
+### Tab 1 — Avaliação Clínica
+- **Queixa principal** (texto curto)
+- **História da doença atual / HDA** (textarea)
+- **Duração dos sintomas** (input + select dia/semana/mês)
+- **Antecedentes relevantes** (textarea — puxa anamnese do paciente como sugestão read-only no topo: alergias, medicações em uso, doenças)
+- **Exame físico / inspeção** (textarea livre)
+
+### Tab 2 — Sinais Vitais
+Grid de inputs numéricos curtos:
+- PA sistólica / diastólica (mmHg)
+- FC (bpm), FR (rpm), Temperatura (°C), SpO₂ (%)
+- Peso (kg), Altura (cm) → **IMC calculado automaticamente** com classificação
+- Glicemia capilar (opcional)
+
+### Tab 3 — Diagnóstico
+- **Hipóteses diagnósticas** (lista — cada item tem texto livre + campo opcional pra CID-10 manual; sem busca de catálogo CID nessa fase, só campo de texto)
+- **Diagnóstico definitivo** (textarea)
+- **Severidade**: leve / moderado / grave (chips)
+
+### Tab 4 — Conduta e Retorno
+- **Plano terapêutico / orientações** (textarea longa)
+- **Sugestão de retorno**: data picker + motivo (campo livre)
+  - Botão "Agendar retorno agora" → abre o `AppointmentFormDialog` já com paciente e data preenchidos.
+
+### Tab 5 — Solicitações (lista de itens estruturados)
+Quatro accordions independentes dentro da tab, cada um com botão "+ Adicionar":
+
+**5a. Exames laboratoriais** — lista de linhas: nome do exame (ex: "Hemograma completo"), justificativa (opcional), urgência (rotina/urgente).
+
+**5b. Exames de imagem** — nome (ex: "Raio-X panorâmico"), região, justificativa.
+
+**5c. Prescrições / Receita** — medicamento, concentração, posologia (ex: "1 cp 8/8h"), duração ("7 dias"), via (oral/tópica/etc), tipo (comum/controlada).
+
+**5d. Encaminhamentos** — especialidade destino, motivo, urgência.
+
+Cada item exibido como card compacto editável; botão lixeira pra remover.
+
+### Tab 6 — Procedimentos realizados
+Mantém igual ao que já existe (catálogo + dente + face + valor). Sem mudança.
+
+### Tab 7 — Odontograma
+Mantém o link existente pro odontograma do paciente. Só renderiza se a clínica é odonto.
+
+## Modelo de dados (1 migration)
+
+Tudo fica anexado ao `clinical_records` (que já existe). Crio **uma tabela JSONB-friendly** pra evitar 7 tabelas novas:
+
+```sql
+ALTER TABLE public.clinical_records
+  ADD COLUMN chief_complaint text,
+  ADD COLUMN history_present_illness text,
+  ADD COLUMN symptom_duration text,
+  ADD COLUMN physical_exam text,
+  ADD COLUMN vital_signs jsonb,            -- {bp_sys, bp_dia, hr, rr, temp, spo2, weight, height, glycemia}
+  ADD COLUMN hypotheses jsonb,             -- [{text, cid10}]
+  ADD COLUMN severity text,                -- 'mild'|'moderate'|'severe'
+  ADD COLUMN treatment_plan text,
+  ADD COLUMN follow_up_date date,
+  ADD COLUMN follow_up_reason text;
+
+CREATE TABLE public.clinical_record_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinical_record_id uuid NOT NULL,
+  kind text NOT NULL,                      -- 'lab_exam'|'imaging_exam'|'prescription'|'referral'
+  payload jsonb NOT NULL,                  -- campos específicos do tipo
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.clinical_record_requests ENABLE ROW LEVEL SECURITY;
+-- policies: clinic members podem CRUD se forem membros da clínica do clinical_record pai
 ```
 
-Depois:
-```
-┌─────────────────────────────────────┐
-│ 👤  Gabriela Ferreira          ›    │  ← clicável, hover destaca
-│     Ver ficha completa              │
-└─────────────────────────────────────┘
-```
+Por que JSONB pros sub-itens? Cada tipo tem campos diferentes (medicamento ≠ exame), e não tem busca/relatório complexo — JSONB é mais simples e flexível agora; se virar relatório depois, é só promover pra colunas.
+
+## Integração com a Timeline do paciente
+
+`PatientTimeline` (já existe) passa a buscar e mostrar:
+- Atendimento finalizado: "Consulta — 21/04 — Dr. Felipe — 3 hipóteses, 2 prescrições, 1 exame solicitado"
+- Cada item clicável abre o atendimento em modo leitura.
 
 ## Permissões
 
-- **Admin / Secretária / Médico**: link ativo, vai pra `/patients/:id`.
-- **Paciente** (modo simulado ou real): link desativado (renderiza como texto comum). RLS já bloquearia o acesso de qualquer forma; isso é só pra UX não oferecer um caminho que vai dar 403.
+- **Médico (`dentist`)**: acesso completo, edita o próprio atendimento.
+- **Admin/Secretária**: vê (read-only) atendimentos finalizados; **não cria/edita** (só o médico que atendeu).
+- **Paciente**: vê na própria área (`PatientHistory`) um resumo do atendimento — diagnóstico, prescrições e retorno; sem campos internos como "exame físico".
 
 ## Arquivos tocados
 
-- **Editado**: `src/components/agenda/AppointmentDetailDialog.tsx` — bloco do paciente vira botão; usa `useRoleAccess` pra checar permissão; navega via `navigate()` (já importado).
+**Editado**:
+- `src/pages/Attendance.tsx` — reorganizar em 7 tabs; adicionar formulários novos (Avaliação, Vitais, Diagnóstico, Conduta, Solicitações); persistir no `clinical_records` + `clinical_record_requests`.
+- `src/components/patients/PatientTimeline.tsx` — novos eventos vindos de `clinical_records` enriquecidos.
+- `src/pages/patient/PatientHistory.tsx` — mostrar resumo da consulta pro paciente.
 
-## O que NÃO muda
+**Novos**:
+- `src/components/attendance/VitalSignsForm.tsx` — grid de inputs com cálculo de IMC.
+- `src/components/attendance/HypothesesEditor.tsx` — lista editável de hipóteses + CID.
+- `src/components/attendance/RequestsEditor.tsx` — accordions de exames/receitas/encaminhamentos.
+- `src/components/attendance/AssessmentForm.tsx` — bloco queixa/HDA/exame físico.
+- `src/components/attendance/FollowUpBlock.tsx` — campo de retorno + botão pra agenda.
 
-- Rota `/patients/:id` e página `PatientDetail.tsx`: já existem, sem alteração.
-- Banco, RLS, edge functions: zero mudanças.
-- Comportamento de clique no card da grade: continua abrindo o dialog (não pula direto pra ficha — o dialog é o ponto de entrada pra ações: status, iniciar atendimento, cancelar, e agora também ver ficha).
-- `Agenda.tsx`, `AgendaCompareView.tsx`, `MonthView`: nenhuma mudança de código.
+**Migration**:
+- Adicionar colunas em `clinical_records` + criar `clinical_record_requests` com RLS espelhando `clinical_record_procedures`.
+
+## O que NÃO entra agora
+
+- **PDF de receita / atestado / pedido de exame** — fica pra fase 2 (você confirmou "só registro digital").
+- **Atestado médico** — não está nos blocos priorizados; se quiser depois, é um 5º accordion na tab Solicitações (dias + CID).
+- **Busca de catálogo CID-10** — campo livre por enquanto. Adicionar busca depois se precisar.
+- **Envio por WhatsApp** dos documentos.
+- **Assinatura digital**.
+- Nenhum dado dos pacientes existentes é alterado; colunas novas aceitam NULL.
 
