@@ -7,6 +7,8 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { NotificationBell } from '@/components/NotificationBell';
 import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { RoleSimulator } from '@/components/RoleSimulator';
+import { SimulationBanner } from '@/components/SimulationBanner';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
@@ -38,7 +40,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex flex-col w-full">
+        <SimulationBanner />
+        <div className="flex flex-1 w-full min-h-0">
         <div className="hidden md:block">
           <AppSidebar />
         </div>
@@ -62,6 +66,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <RoleSimulator />
               <CommandPalette />
               <button
                 onClick={toggleTheme}
@@ -86,6 +91,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </motion.div>
             </AnimatePresence>
           </main>
+        </div>
         </div>
       </div>
       <MobileBottomNav />
