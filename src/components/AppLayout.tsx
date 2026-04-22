@@ -48,13 +48,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
               {/* Mobile logo */}
               <div className="flex md:hidden items-center">
                 <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-7 object-contain" />
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 text-sm">
+              <RoleSimulator />
+              <div className="hidden md:flex items-center gap-1.5 text-sm">
                 {crumbs.map((crumb, i) => (
                   <span key={i} className="flex items-center gap-1.5">
                     {i > 0 && <span className="text-muted-foreground/40">/</span>}
@@ -66,7 +67,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <RoleSimulator />
               <CommandPalette />
               <button
                 onClick={toggleTheme}

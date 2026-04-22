@@ -2,6 +2,7 @@ import { UserCog, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { isDevEnvironment } from '@/lib/isDevEnvironment';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,10 +21,15 @@ const SIMULATABLE_ROLES: { value: AppRole; label: string }[] = [
 ];
 
 export function RoleSimulator() {
-  const { canSimulate, loading, simulatedRole, setSimulatedRole, isSimulating } = useAuth();
+  const { canSimulate, simulatedRole, setSimulatedRole, isSimulating, user } = useAuth();
   const navigate = useNavigate();
 
-  if (loading || !canSimulate) return null;
+  // Dev/preview only — never render in production hosts.
+  // We deliberately do NOT gate on `loading` so the button shows up as soon as
+  // the layout mounts, and we only require the user to be authenticated.
+  if (!isDevEnvironment()) return null;
+  if (!user) return null;
+  if (!canSimulate) return null;
 
   const currentLabel = simulatedRole
     ? SIMULATABLE_ROLES.find((r) => r.value === simulatedRole)?.label ?? simulatedRole
@@ -38,17 +44,16 @@ export function RoleSimulator() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant={isSimulating ? 'default' : 'ghost'}
           size="sm"
           className={
             isSimulating
-              ? 'h-8 gap-1.5 bg-yellow-500 text-black hover:bg-yellow-500/90'
-              : 'h-8 gap-1.5 text-muted-foreground hover:text-foreground'
+              ? 'h-8 gap-1.5 bg-yellow-500 text-black hover:bg-yellow-500/90 border border-yellow-600'
+              : 'h-8 gap-1.5 bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-500/25 border border-yellow-500/40'
           }
           title="Simular role (apenas dev/preview)"
         >
           <UserCog className="h-4 w-4" />
-          <span className="hidden sm:inline text-xs">
+          <span className="text-xs font-medium">
             {isSimulating ? `Simulando: ${currentLabel}` : 'Visualizar como'}
           </span>
         </Button>
