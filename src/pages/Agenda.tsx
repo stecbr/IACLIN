@@ -11,6 +11,14 @@ import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDi
 import { PageHeader } from '@/components/PageHeader';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import {
+  AgendaDoctorFilter,
+  loadStoredDoctorFilter,
+  type DoctorFilterValue,
+  type DoctorOption,
+} from '@/components/agenda/AgendaDoctorFilter';
+import { getAvatarColor, getInitials } from '@/lib/avatarColor';
+import { AgendaCompareView } from '@/components/agenda/AgendaCompareView';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
@@ -25,6 +33,26 @@ export default function Agenda() {
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
   const gridRef = useRef<HTMLDivElement>(null);
+  const [doctorFilter, setDoctorFilter] = useState<DoctorFilterValue>(() =>
+    isDentist ? { kind: 'all' } : loadStoredDoctorFilter()
+  );
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const doctorById = useMemo(() => {
+    const m = new Map<string, DoctorOption>();
+    doctors.forEach((d) => m.set(d.user_id, d));
+    return m;
+  }, [doctors]);
+
+  const compareDoctors = useMemo(() => {
+    if (doctorFilter.kind !== 'compare') return [];
+    return doctors.slice(0, 4);
+  }, [doctorFilter, doctors]);
+  const compareOverflow = doctorFilter.kind === 'compare' && doctors.length > 4;
+  const useCompareView =
+    !isDentist &&
+    doctorFilter.kind === 'compare' &&
+    view !== 'month' &&
+    compareDoctors.length > 1;
 
   const range = useMemo(() => {
     if (view === 'day') return { start: currentDate, end: currentDate };
@@ -36,7 +64,13 @@ export default function Agenda() {
   const { currentClinicId } = useAuth();
 
   const { data: appointments = [], refetch } = useQuery({
-    queryKey: ['appointments', range.start.toISOString(), range.end.toISOString(), currentClinicId, isDentist ? user?.id : 'all'],
+    queryKey: [
+      'appointments',
+      range.start.toISOString(),
+      range.end.toISOString(),
+      currentClinicId,
+      isDentist ? user?.id : doctorFilter.kind === 'one' ? doctorFilter.doctorId : 'all',
+    ],
     queryFn: async () => {
       let query = supabase
         .from('appointments')
@@ -46,6 +80,7 @@ export default function Agenda() {
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       if (isDentist && user) query = query.eq('dentist_id', user.id);
+      else if (doctorFilter.kind === 'one') query = query.eq('dentist_id', doctorFilter.doctorId);
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -113,7 +148,16 @@ export default function Agenda() {
             </Button>
             <span className="text-sm font-medium text-foreground ml-2 capitalize">{headerLabel}</span>
           </div>
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          <div className="flex items-center gap-2">
+            {!isDentist && (
+              <AgendaDoctorFilter
+                value={doctorFilter}
+                onChange={setDoctorFilter}
+                allowCompare={view !== 'month'}
+                onDoctorsLoaded={setDoctors}
+              />
+            )}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['day', 'week', 'month'] as View[]).map((v) => (
               <button
                 key={v}
@@ -125,12 +169,26 @@ export default function Agenda() {
                 {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
               </button>
             ))}
+            </div>
           </div>
         </div>
 
         {/* Calendar Grid */}
+        {compareOverflow && view !== 'month' && (
+          <p className="text-xs text-muted-foreground -mt-2">
+            Comparação lado a lado disponível para até 4 médicos. Mostrando os 4 primeiros.
+          </p>
+        )}
         {view === 'month' ? (
           <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} onAppointmentClick={(apt) => setSelectedAppointment(apt)} />
+        ) : useCompareView ? (
+          <AgendaCompareView
+            days={days}
+            doctors={compareDoctors}
+            appointments={appointments}
+            onSlotClick={(d, h) => handleSlotClick(d, h)}
+            onAppointmentClick={(apt) => setSelectedAppointment(apt)}
+          />
         ) : (
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
             {/* Day Headers */}
@@ -188,17 +246,28 @@ export default function Agenda() {
                       >
                         {dayApts.map((apt: any) => {
                           const procedureColor = (apt as any).procedures?.color ?? 'hsl(var(--primary))';
+                          const showDoctorBadge = !isDentist && doctorFilter.kind === 'all';
+                          const doctor = showDoctorBadge ? doctorById.get(apt.dentist_id) : null;
                           return (
                             <Tooltip key={apt.id}>
                               <TooltipTrigger asChild>
                                 <div
-                                  className="rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer"
+                                  className="relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer"
                                   onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   style={{
                                     backgroundColor: `${procedureColor}15`,
                                     borderLeft: `3px solid ${procedureColor}`,
                                   }}
                                 >
+                                  {showDoctorBadge && (
+                                    <span
+                                      className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold text-white ring-1 ring-background"
+                                      style={{ backgroundColor: getAvatarColor(apt.dentist_id) }}
+                                      title={doctor?.full_name ?? ''}
+                                    >
+                                      {getInitials(doctor?.full_name ?? '?')}
+                                    </span>
+                                  )}
                                   <p className="font-medium truncate text-foreground">{(apt as any).patients?.full_name}</p>
                                   <p className="text-muted-foreground truncate">
                                     {(apt as any).procedures?.name ?? 'Consulta'}
@@ -211,6 +280,7 @@ export default function Agenda() {
                                   <p className="text-xs text-muted-foreground">{(apt as any).procedures?.name ?? 'Consulta'}</p>
                                   <p className="text-xs">{format(parseISO(apt.start_time), 'HH:mm')} - {format(parseISO(apt.end_time), 'HH:mm')}</p>
                                   <p className="text-xs capitalize">{statusLabels[apt.status] ?? apt.status}</p>
+                                  {doctor && <p className="text-xs">Dr(a). {doctor.full_name}</p>}
                                   {apt.notes && <p className="text-xs text-muted-foreground italic">{apt.notes}</p>}
                                 </div>
                               </TooltipContent>

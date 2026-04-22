@@ -11,7 +11,7 @@ interface RouteAccess {
 const routePermissions: RouteAccess[] = [
   { path: '/', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/agenda', allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { path: '/disponibilidade', allowedRoles: ['admin', 'dentist'] },
+  { path: '/disponibilidade', allowedRoles: ['dentist'] },
   { path: '/patients', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/clinica', allowedRoles: ['admin'] },
   { path: '/clinica/medicos', allowedRoles: ['admin'] },
