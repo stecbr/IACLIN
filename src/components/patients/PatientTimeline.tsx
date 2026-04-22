@@ -2,27 +2,34 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, DollarSign, FileText, Clock } from 'lucide-react';
+import { Calendar, DollarSign, FileText, Clock, Stethoscope } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface TimelineEvent {
   id: string;
-  type: 'appointment' | 'financial' | 'document';
+  type: 'appointment' | 'financial' | 'document' | 'clinical';
   title: string;
   description: string;
   date: string;
   icon: typeof Calendar;
   color: string;
   status?: string;
+  href?: string;
 }
 
 export function PatientTimeline({ patientId }: { patientId: string }) {
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['patient-timeline', patientId],
     queryFn: async () => {
-      const [aptRes, txRes, docRes] = await Promise.all([
+      const [aptRes, txRes, docRes, recRes] = await Promise.all([
         supabase.from('appointments').select('id, start_time, status, notes, procedures(name)').eq('patient_id', patientId).order('start_time', { ascending: false }).limit(50),
         supabase.from('financial_transactions').select('id, due_date, description, category, amount, type, status').eq('patient_id', patientId).order('due_date', { ascending: false }).limit(50),
         supabase.from('documents').select('id, created_at, name, category').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(50),
+        supabase.from('clinical_records')
+          .select('id, appointment_id, created_at, status, diagnosis, hypotheses, clinical_record_procedures(id), clinical_record_requests(id, kind)')
+          .eq('patient_id', patientId)
+          .order('created_at', { ascending: false })
+          .limit(50),
       ]);
 
       const timeline: TimelineEvent[] = [];
@@ -62,6 +69,30 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
           date: d.created_at,
           icon: FileText,
           color: 'text-violet-500 bg-violet-500/10',
+        });
+      });
+
+      (recRes.data ?? []).forEach((r: any) => {
+        const hyps = Array.isArray(r.hypotheses) ? r.hypotheses.length : 0;
+        const procs = (r.clinical_record_procedures ?? []).length;
+        const reqs = (r.clinical_record_requests ?? []).length;
+        const presc = (r.clinical_record_requests ?? []).filter((x: any) => x.kind === 'prescription').length;
+        const exams = (r.clinical_record_requests ?? []).filter((x: any) => x.kind === 'lab_exam' || x.kind === 'imaging_exam').length;
+        const parts: string[] = [];
+        if (hyps) parts.push(`${hyps} hipótese${hyps > 1 ? 's' : ''}`);
+        if (procs) parts.push(`${procs} procedimento${procs > 1 ? 's' : ''}`);
+        if (presc) parts.push(`${presc} prescriç${presc > 1 ? 'ões' : 'ão'}`);
+        if (exams) parts.push(`${exams} exame${exams > 1 ? 's' : ''}`);
+        const desc = parts.length > 0 ? parts.join(' · ') : (r.diagnosis ?? `Status: ${r.status}`);
+        timeline.push({
+          id: `rec-${r.id}`,
+          type: 'clinical',
+          title: r.status === 'completed' ? 'Atendimento finalizado' : 'Atendimento em andamento',
+          description: desc,
+          date: r.created_at,
+          icon: Stethoscope,
+          color: 'text-primary bg-primary/10',
+          href: r.appointment_id ? `/atendimento/${r.appointment_id}` : undefined,
         });
       });
 
