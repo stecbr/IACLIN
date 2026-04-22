@@ -593,6 +593,20 @@ export default function Auth() {
                   </>
                 )}
 
+                {userType === 'profissional' && !inviteToken && (
+                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
+                    <Label htmlFor="clinic-code" className="text-xs text-muted-foreground">Código da clínica (opcional)</Label>
+                    <Input
+                      id="clinic-code"
+                      value={clinicCode}
+                      onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
+                      placeholder="CLIN-XXXXXXXX"
+                      className="h-10 font-mono tracking-wider"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Tem código de uma clínica? Cole aqui para entrar na equipe automaticamente.</p>
+                  </motion.div>
+                )}
+
                 <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.28 }}>
                   <Button type="submit" className="w-full h-10" disabled={submitting}>
                     {submitting ? 'Aguarde...' : 'Criar conta'}
