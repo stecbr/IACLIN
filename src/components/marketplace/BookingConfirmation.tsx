@@ -105,51 +105,28 @@ export function BookingConfirmation({
 
     setSubmitting(true);
     try {
-      const cpfDigits = unmaskCpf(patientCpf);
-
-      // 1. Find existing patient by CPF in this clinic
-      let { data: patient } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("clinic_id", clinicId)
-        .eq("cpf", cpfDigits)
-        .maybeSingle();
-
-      // 2. If not found, create one (trigger will link patient_user_id by CPF)
-      if (!patient) {
-        const { data: newPatient, error: patientErr } = await supabase
-          .from("patients")
-          .insert({
-            full_name: patientName,
-            cpf: cpfDigits,
-            email: user.email,
-            phone: patientPhone || null,
-            clinic_id: clinicId,
-          })
-          .select("id")
-          .single();
-        if (patientErr) throw patientErr;
-        patient = newPatient;
-      }
-
       const startTime = new Date(`${date}T${time}:00`);
       const endTime = new Date(startTime.getTime() + 30 * 60 * 1000);
+      const noteText = `Agendado via marketplace. ${firstVisit === "yes" ? "Primeira consulta." : ""} ${
+        isParticular ? "Particular" : selectedPlanId ? `Convênio: ${insurancePlans.find((p) => p.id === selectedPlanId)?.name}` : ""
+      }`.trim();
 
-      const { error } = await supabase.from("appointments").insert({
-        patient_id: patient.id,
-        dentist_id: dentistId,
-        clinic_id: clinicId,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        status: "scheduled",
-        notes: `Agendado via marketplace. ${firstVisit === "yes" ? "Primeira consulta." : ""} ${
-          isParticular ? "Particular" : selectedPlanId ? `Convênio: ${insurancePlans.find((p) => p.id === selectedPlanId)?.name}` : ""
-        }`.trim(),
+      const { data, error } = await supabase.functions.invoke("request-appointment", {
+        body: {
+          clinicId,
+          dentistId,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          notes: noteText,
+        },
       });
 
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      toast.success("Consulta agendada com sucesso!");
+      toast.success("Pedido enviado!", {
+        description: "A clínica vai confirmar sua consulta em breve.",
+      });
       navigate(isPatient ? "/paciente" : "/marketplace");
     } catch (err: any) {
       toast.error(err.message || "Erro ao agendar consulta.");

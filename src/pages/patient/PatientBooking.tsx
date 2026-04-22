@@ -18,7 +18,7 @@ type Step = 1 | 2 | 3 | 4;
 export default function PatientBooking() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { account, refetch } = usePatientData();
+  const { refetch } = usePatientData();
 
   const [step, setStep] = useState<Step>(1);
   const [specialty, setSpecialty] = useState<Specialty | null>(null);
