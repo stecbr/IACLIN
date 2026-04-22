@@ -7,8 +7,6 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { NotificationBell } from '@/components/NotificationBell';
 import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
-import { RoleSimulator } from '@/components/RoleSimulator';
-import { SimulationBanner } from '@/components/SimulationBanner';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
@@ -40,22 +38,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex flex-col w-full">
-        <SimulationBanner />
-        <div className="flex flex-1 w-full min-h-0">
+      <div className="min-h-screen flex w-full">
         <div className="hidden md:block">
           <AppSidebar />
         </div>
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
               {/* Mobile logo */}
               <div className="flex md:hidden items-center">
                 <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-7 object-contain" />
               </div>
-              <RoleSimulator />
-              <div className="hidden md:flex items-center gap-1.5 text-sm">
+              <div className="hidden sm:flex items-center gap-1.5 text-sm">
                 {crumbs.map((crumb, i) => (
                   <span key={i} className="flex items-center gap-1.5">
                     {i > 0 && <span className="text-muted-foreground/40">/</span>}
@@ -91,7 +86,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </motion.div>
             </AnimatePresence>
           </main>
-        </div>
         </div>
       </div>
       <MobileBottomNav />
