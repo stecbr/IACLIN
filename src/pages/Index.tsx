@@ -16,6 +16,12 @@ import { MiniSparkline } from '@/components/dashboard/MiniSparkline';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import DentistHome from '@/pages/dentist/DentistHome';
 
+export default function IndexRouter() {
+  const { effectiveRole } = useRoleAccess();
+  if (effectiveRole === 'dentist') return <DentistHome />;
+  return <AdminHome />;
+}
+
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Bom dia';
@@ -23,10 +29,8 @@ function getGreeting() {
   return 'Boa noite';
 }
 
-export default function Index() {
+function AdminHome() {
   const { profile, currentClinicId } = useAuth();
-  const { effectiveRole } = useRoleAccess();
-  if (effectiveRole === 'dentist') return <DentistHome />;
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
