@@ -25,6 +25,7 @@ interface AuthContextType {
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
   isPatient: boolean;
+  effectiveIsPatient: boolean;
   clinics: ClinicMembership[];
   switchClinic: (clinicId: string) => void;
   signOut: () => Promise<void>;
