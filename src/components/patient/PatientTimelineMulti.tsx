@@ -40,7 +40,7 @@ export function PatientTimelineMulti({ patientIds, limit, compact = false }: Pro
           .limit(50),
         supabase
           .from('clinical_records')
-          .select('id, created_at, diagnosis, notes, status')
+          .select('id, created_at, diagnosis, status, treatment_plan, follow_up_date, follow_up_reason, clinical_record_requests(id, kind, payload)')
           .in('patient_id', patientIds)
           .order('created_at', { ascending: false })
           .limit(50),
@@ -73,11 +73,28 @@ export function PatientTimelineMulti({ patientIds, limit, compact = false }: Pro
       });
 
       (recRes.data ?? []).forEach((r: any) => {
+        const requests = r.clinical_record_requests ?? [];
+        const prescriptions = requests.filter((x: any) => x.kind === 'prescription');
+        const exams = requests.filter((x: any) => x.kind === 'lab_exam' || x.kind === 'imaging_exam');
+        const lines: string[] = [];
+        if (r.diagnosis) lines.push(`Diagnóstico: ${r.diagnosis}`);
+        if (r.treatment_plan) lines.push(`Orientações: ${r.treatment_plan}`);
+        if (prescriptions.length > 0) {
+          const meds = prescriptions.map((p: any) => p.payload?.medication).filter(Boolean).join(', ');
+          if (meds) lines.push(`Receita: ${meds}`);
+        }
+        if (exams.length > 0) {
+          const ex = exams.map((p: any) => p.payload?.name).filter(Boolean).join(', ');
+          if (ex) lines.push(`Exames solicitados: ${ex}`);
+        }
+        if (r.follow_up_date) {
+          lines.push(`Retorno: ${format(new Date(r.follow_up_date), 'dd/MM/yyyy')}${r.follow_up_reason ? ' — ' + r.follow_up_reason : ''}`);
+        }
         timeline.push({
           id: `rec-${r.id}`,
           type: 'record',
-          title: r.diagnosis ?? 'Atendimento clínico',
-          description: r.notes ?? `Status: ${r.status}`,
+          title: 'Atendimento clínico',
+          description: lines.length > 0 ? lines.join(' • ') : `Status: ${r.status}`,
           date: r.created_at,
           icon: Stethoscope,
           color: 'text-emerald-500 bg-emerald-500/10',
