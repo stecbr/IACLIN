@@ -45,18 +45,21 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const mainNav = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Agenda', url: '/agenda', icon: Calendar },
-  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
+type Role = 'admin' | 'dentist' | 'secretary' | 'patient';
+const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'veterinario', 'outro'];
+
+const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin', 'dentist'] },
 ];
 
-const clinicNav = [
-  { title: 'Pacientes', url: '/patients', icon: Users, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
-  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
-  { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
-  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
-  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
+  { title: 'Pacientes', url: '/patients', icon: Users, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'], allowedRoles: ['admin', 'dentist'] },
+  { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
+  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
+  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
 ];
 
 export function AppSidebar() {
