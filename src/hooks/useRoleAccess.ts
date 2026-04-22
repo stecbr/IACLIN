@@ -32,10 +32,13 @@ const routePermissions: RouteAccess[] = [
 ];
 
 export function useRoleAccess() {
-  const { clinicRole, isPatient } = useAuth();
-  
+  const { clinicRole, isPatient, simulatedRole } = useAuth();
+
+  // Dev simulation wins over everything when set
   // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
-  const effectiveRole: AppRole = isPatient ? 'patient' : (clinicRole ?? 'admin');
+  const effectiveRole: AppRole = simulatedRole
+    ? (simulatedRole as AppRole)
+    : (isPatient ? 'patient' : (clinicRole ?? 'admin'));
 
   const canAccess = (path: string): boolean => {
     const rule = routePermissions.find((r) => {
