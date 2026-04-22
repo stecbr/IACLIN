@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { isDevEnvironment } from '@/lib/isDevEnvironment';
 
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
@@ -28,11 +29,16 @@ interface AuthContextType {
   switchClinic: (clinicId: string) => void;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
+  simulatedRole: AppRole | null;
+  setSimulatedRole: (role: AppRole | null) => void;
+  isSimulating: boolean;
+  canSimulate: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const CLINIC_STORAGE_KEY = 'iaclin.currentClinicId';
+const SIMULATED_ROLE_KEY = 'iaclin.simulatedRole';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,6 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [clinics, setClinics] = useState<ClinicMembership[]>([]);
   const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
+  const [simulatedRole, setSimulatedRoleState] = useState<AppRole | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = sessionStorage.getItem(SIMULATED_ROLE_KEY);
+    if (stored && ['admin', 'dentist', 'secretary', 'patient'].includes(stored)) {
+      return stored as AppRole;
+    }
+    return null;
+  });
 
   useEffect(() => {
     let mounted = true;
