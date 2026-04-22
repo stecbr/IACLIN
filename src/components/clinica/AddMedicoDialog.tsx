@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { Copy, Mail, KeyRound, Check } from 'lucide-react';
 import { useEffect } from 'react';
+import { SpecialtySelect } from '@/components/SpecialtySelect';
 
 interface Props {
   open: boolean;
@@ -44,6 +45,10 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
     if (!currentClinicId) return;
     if (!form.name.trim() || !form.email.trim()) {
       toast.error('Preencha nome e e-mail');
+      return;
+    }
+    if (!form.specialty.trim()) {
+      toast.error('Selecione a especialidade do médico');
       return;
     }
     setSubmitting(true);
@@ -129,13 +134,18 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
                     <Input id="med-reg" value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} placeholder="123456-SP" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="med-spec">Especialidade</Label>
-                    <Input id="med-spec" value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Cardiologia" />
+                    <Label htmlFor="med-spec">Especialidade <span className="text-destructive">*</span></Label>
+                    <SpecialtySelect
+                      id="med-spec"
+                      value={form.specialty}
+                      onChange={(v) => setForm({ ...form, specialty: v })}
+                      placeholder="Selecione"
+                    />
                   </div>
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">
                   <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={submitting}>{submitting ? 'Criando…' : 'Criar convite'}</Button>
+                  <Button type="submit" disabled={submitting || !form.specialty.trim()}>{submitting ? 'Criando…' : 'Criar convite'}</Button>
                 </DialogFooter>
               </form>
             )}
