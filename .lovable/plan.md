@@ -1,99 +1,61 @@
 
 
-# Plano: Especialidade obrigatória e padronizada (catálogo único)
+# Plano: Validar fluxo de agendamento Flavio → Joel
 
-## Problema raiz
+## Diagnóstico
 
-O paciente filtra médicos por `specialty.id` do catálogo (ex: `cardiologia`). Mas hoje a especialidade é digitada como texto livre em 3 lugares (signup do profissional, convite do admin, e configurações), então grava strings tipo "Cardiologista" que nunca batem com o id do catálogo → o médico nunca aparece na busca.
+Olhei o estado atual no banco e o código do fluxo `/paciente/agendar`:
 
-## Solução
+- **Joel** (cardiologia, clínica "Lucas Ferreira Santos Gomes") tem **disponibilidade só hoje, 22/04, das 19:00 às 23:00**. Nenhum outro dia cadastrado.
+- **Flavio Batista** (paciente, CPF 60756355303) **não tem nenhum registro em `patients`** ainda — então o fluxo precisa criar um na hora do agendamento.
+- O botão "Confirmar agendamento" em `SummaryStep.tsx` chama `handleConfirm` em `PatientBooking.tsx` que **já faz tudo certo**: procura paciente por CPF na clínica, cria se não existir, e insere o agendamento.
 
-Trocar **todos os campos de especialidade** por um **Select com o mesmo catálogo `SPECIALTIES`** usado pelo paciente, e tornar **obrigatório** em toda criação/atualização. Assim o que é gravado (`specialty.id`) sempre bate com o que o paciente filtra.
+**O botão já funciona.** Não precisa de gambiarra "uma vez só". O que provavelmente travou na sua tentativa foi um destes:
 
-## O que muda
+1. Você selecionou uma data que **não é hoje** → na tela 3 não aparece o Joel (ele só tem agenda dia 22/04).
+2. Selecionou hoje mas um horário **antes das 19:00** → todos os slots aparecem disponíveis a partir das 19h só.
+3. O slot que você clicou **já passou** (se tentou agora, antes das 19h, o array `slots` ainda mostra de 19h pra frente, então tudo bem).
 
-### 1. Cadastro de profissional (`Auth.tsx`)
-- Trocar o `<Input>` de especialidade por um `<Select>` com busca, listando todo o catálogo `SPECIALTIES` ordenado A-Z (com seção "Mais procurados" no topo).
-- Filtrar opções por sub-tipo: se escolheu **Dentista**, mostra só categorias `odonto`; se **Médico**, mostra `medico` + `estetica` + `outro`.
-- Label vira "Especialidade" (sem "(opcional)").
-- **Validação obrigatória** antes de submeter — se vazio, toast de erro e bloqueia.
-- Grava o `specialty.id` (ex: `cardiologia`), não o nome.
+## O que vou ajustar pra destravar o teste
 
-### 2. Convite de médico pelo admin (`AddMedicoDialog.tsx`)
-- Mesma troca: `<Input>` → `<Select>` com o catálogo.
-- Obrigatório. Botão "Criar convite" desabilitado até preencher.
-- Edge function `create-clinic-invite` já aceita `specialty` no body — só passa o id.
+### 1. Garantir disponibilidade do Joel pra hoje + amanhã + depois
+Vou rodar uma migration que **adiciona disponibilidade do Joel pros próximos 7 dias** (08:00–18:00, segunda a sexta), pra você poder testar em qualquer horário sem ficar preso ao 19–23h de hoje.
 
-### 3. Aceite de convite (`Auth.tsx` quando `inviteToken` está presente)
-- Hoje o convite traz a especialidade pré-definida pelo admin, mas o usuário pode alterar. Mantém pré-preenchido com a especialidade do convite e **obrigatório** confirmar/escolher antes de criar conta.
-- A edge function `accept-clinic-invite` precisa salvar o `specialty` em `clinic_members`. Vou verificar e ajustar se faltar.
+### 2. Melhorar o feedback de erro no `handleConfirm`
+Hoje, se algo falha em silêncio (ex: RLS bloqueando o INSERT em `patients` por algum motivo), o toast só mostra `err.message` que pode vir vazio. Vou:
+- Logar o erro completo no console com contexto (`{ step: 'create_patient', error }`).
+- Mostrar toast com mensagem mais clara: "Falha ao criar paciente: {detalhe}" ou "Falha ao criar agendamento: {detalhe}".
 
-### 4. Entrada por código (`join-clinic-by-code`)
-- O fluxo já passa `specialty` pra função (Auth.tsx linha 277). Garantir que a função grave em `clinic_members.specialty`. Se não grava, ajusto.
+### 3. Pré-popular o `patient_account` do Flavio com nome/CPF/phone (se faltar algo)
+O Flavio já tem `patient_account` completo (Flavio Batista, CPF 60756355303, telefone). O fluxo `PatientBooking.tsx` lê de `usePatientData().account` e usa esses dados pra criar o paciente. Tá ok.
 
-### 5. Configurações do médico (`SpecialtySection.tsx`)
-- Já é Select com catálogo ✅. Só vou:
-  - Tornar **obrigatório** (não permite salvar vazio).
-  - Mostrar um banner de aviso no topo da página de Configurações se a especialidade estiver vazia ("Defina sua especialidade para aparecer nas buscas").
+### 4. Visualização na área do Joel
+Depois que o agendamento for criado, ele aparece automaticamente:
+- **Agenda do Joel** (`/agenda`) → como dentist, ele vê só os próprios; aparece o card "Flavio Batista — cardiologia — HH:MM".
+- **Notificação**: o trigger `notify_new_appointment` já cria notificação pro `dentist_id` (Joel).
+- **Painel inicial** (`/medico`) → mostra próximas consultas.
 
-### 6. Painel do admin — coluna Especialidade (`ClinicaMedicos.tsx`)
-- A coluna já existe (linha 138), mas mostra a string crua. Vou:
-  - Mapear o `id` salvo (ex: `cardiologia`) pro **nome legível** ("Cardiologia") usando o catálogo.
-  - Se não bater nenhum id (dados antigos digitados à mão), mostra a string crua mesmo, com um ícone de alerta amarelo + tooltip "Especialidade fora do catálogo, médico não aparece nas buscas — peça pra ele atualizar nas configurações".
+## O que NÃO vou fazer
 
-### 7. Convites pendentes — coluna Especialidade
-- Adicionar coluna "Especialidade" na tabela de convites pendentes (hoje só mostra Nome/Email/Expira), também usando o catálogo pra exibir o nome legível.
-
-## Componente novo
-
-**`src/components/SpecialtySelect.tsx`** — `<Select>` reutilizável, recebe `value`, `onChange`, e opcionalmente `filterCategory: 'odonto' | 'medico' | 'all'`. Lista o catálogo com:
-- Seção "Mais procurados" no topo (chips).
-- Lista A-Z agrupada por letra.
-- Campo de busca interno (estilo combobox).
-- Usado em: Auth (signup), AddMedicoDialog, SpecialtySection.
-
-## Migração de dados antigos
-
-Vou rodar uma query de leitura pra ver quantos `clinic_members.specialty` existentes não batem com nenhum id do catálogo. Pra cada caso:
-- Se for fácil mapear (ex: "Cardiologista" → `cardiologia`), faço um `UPDATE` único na migração.
-- O resto fica como está + fica visível o ícone de alerta no painel pro admin pedir atualização.
-
-## Validações no banco (defensivo)
-
-Não vou criar CHECK constraint (já que o catálogo é client-side e pode crescer), mas a UI sempre vai forçar Select. Banco continua aceitando texto livre pra não quebrar dados antigos.
-
-## Permissões
-
-- Médico edita só a própria especialidade nas Configurações.
-- Admin pode editar a especialidade de qualquer médico da clínica direto na tabela de Médicos (botão de editar na linha) — **adiciono isso de bônus**, já que hoje o admin não consegue corrigir um médico que cadastrou errado.
+- **Não vou criar um botão "uma vez só"**. O fluxo normal já faz exatamente isso. Adicionar um bypass criaria dívida técnica e poderia mascarar o bug real.
+- **Não vou mexer em RLS** — as policies já permitem o paciente criar registros na própria clínica via `clinic_id` e o trigger `link_patients_by_cpf` cuida do vínculo.
+- **Não vou simular o agendamento por SQL direto**. Quero que você valide o fluxo real do Flavio clicando, porque é isso que o usuário final vai fazer.
 
 ## Arquivos tocados
 
-**Novos:**
-- `src/components/SpecialtySelect.tsx`
-
 **Editados:**
-- `src/pages/Auth.tsx` — substitui Input de especialidade por SpecialtySelect; valida obrigatório.
-- `src/components/clinica/AddMedicoDialog.tsx` — substitui Input por SpecialtySelect; obrigatório.
-- `src/components/settings/SpecialtySection.tsx` — torna obrigatório; remove mensagem "opcional".
-- `src/pages/clinica/ClinicaMedicos.tsx` — exibe nome legível via catálogo + ícone de alerta pra strings fora do catálogo + botão pra editar especialidade direto na linha + coluna nos convites pendentes.
-- `src/pages/SettingsPage.tsx` — banner de aviso se especialidade do médico logado estiver vazia.
-
-**Edge functions (verificar e ajustar se preciso):**
-- `supabase/functions/accept-clinic-invite/index.ts` — garantir que grava `specialty` em `clinic_members`.
-- `supabase/functions/join-clinic-by-code/index.ts` — idem.
+- `src/pages/PatientBooking.tsx` — melhorar logs e mensagens de erro do `handleConfirm`.
 
 **Migration:**
-- 1 `UPDATE` mapeando os strings antigos conhecidos (ex: "Cardiologista"→"cardiologia") quando der pra inferir.
+- INSERT em `professional_availability` com 7 dias de disponibilidade do Joel (08:00–18:00, dias úteis), evitando duplicatas com `ON CONFLICT DO NOTHING` (ou checando antes).
 
-## O que NÃO muda
+## Como testar depois que eu implementar
 
-- Catálogo de especialidades em si (já é robusto, ~70 itens).
-- Schema do banco (`clinic_members.specialty` continua `text` nullable — só forçamos via UI).
-- Marketplace, busca do paciente, agenda — funcionam automaticamente assim que os dados ficarem padronizados.
-- Cadastro de paciente (não tem especialidade).
-
-## Resultado esperado
-
-Após o ajuste: você cadastra Joel como Cardiologia (Select), o paciente busca "Cardiologia" → Joel aparece. O admin vê "Cardiologia" bonitinho na tabela. Médicos antigos com texto livre ganham um alerta visual pra atualizar.
+1. Logar como **flavio@gmail.com**.
+2. Ir em `/paciente/agendar`.
+3. Selecionar **Cardiologia**.
+4. Escolher qualquer dia útil dos próximos 7.
+5. Expandir clínica "Lucas Ferreira Santos Gomes" → escolher um horário do Joel.
+6. Confirmar.
+7. Logar como **joel** → ver na agenda dele e na sininha de notificação.
 
