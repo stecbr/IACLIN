@@ -43,6 +43,17 @@ export default function Agenda() {
     return m;
   }, [doctors]);
 
+  const compareDoctors = useMemo(() => {
+    if (doctorFilter.kind !== 'compare') return [];
+    return doctors.slice(0, 4);
+  }, [doctorFilter, doctors]);
+  const compareOverflow = doctorFilter.kind === 'compare' && doctors.length > 4;
+  const useCompareView =
+    !isDentist &&
+    doctorFilter.kind === 'compare' &&
+    view !== 'month' &&
+    compareDoctors.length > 1;
+
   const range = useMemo(() => {
     if (view === 'day') return { start: currentDate, end: currentDate };
     if (view === 'week') return { start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) };
