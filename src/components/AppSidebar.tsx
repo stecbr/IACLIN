@@ -45,18 +45,21 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const mainNav = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Agenda', url: '/agenda', icon: Calendar },
-  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
+type Role = 'admin' | 'dentist' | 'secretary' | 'patient';
+const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'veterinario', 'outro'];
+
+const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin', 'dentist'] },
 ];
 
-const clinicNav = [
-  { title: 'Pacientes', url: '/patients', icon: Users, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
-  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
-  { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
-  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
-  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ['odonto', 'medico', 'estetica', 'veterinario', 'outro'] },
+const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
+  { title: 'Pacientes', url: '/patients', icon: Users, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'], allowedRoles: ['admin', 'dentist'] },
+  { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
+  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
+  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
 ];
 
 export function AppSidebar() {
@@ -64,13 +67,20 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { resolved } = useTheme();
-  const { profile, signOut, user, clinicCategory, isClinicOwner } = useAuth();
+  const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
 
-  const filteredMainNav = filterNavItems(mainNav);
+  // Defense in depth: gate by allowedRoles AND by route permission
+  const filteredMainNav = filterNavItems(
+    mainNav.filter((item) => item.allowedRoles.includes(effectiveRole))
+  );
   const filteredClinicNav = filterNavItems(
-    clinicNav.filter((item) => item.categories.includes(clinicCategory))
+    clinicNav.filter(
+      (item) =>
+        item.categories.includes(clinicCategory) &&
+        item.allowedRoles.includes(effectiveRole)
+    )
   );
 
   // Today's appointment count for badge
@@ -102,7 +112,10 @@ export function AppSidebar() {
     .slice(0, 2)
     .toUpperCase() ?? 'U';
 
-  const renderNavItem = (item: typeof mainNav[0], badge?: number) => (
+  const renderNavItem = (
+    item: { title: string; url: string; icon: typeof LayoutDashboard },
+    badge?: number,
+  ) => (
     <SidebarMenuItem key={item.title}>
       <SidebarMenuButton
         asChild
@@ -189,7 +202,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isClinicOwner && !isDentist && (
+        {!isDentist && effectiveRole !== 'patient' && (
           <>
             <div className="mx-3 my-2">
               <div className="h-px bg-sidebar-border/60" />
