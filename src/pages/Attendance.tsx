@@ -15,6 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AssessmentForm } from '@/components/attendance/AssessmentForm';
+import { VitalSignsForm, type VitalSigns } from '@/components/attendance/VitalSignsForm';
+import { HypothesesEditor, type Hypothesis } from '@/components/attendance/HypothesesEditor';
+import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
+import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 
 interface ProcedureRow {
   tempId: string;
@@ -37,6 +42,20 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [clinicalRecordId, setClinicalRecordId] = useState<string | null>(null);
+
+  // Expanded clinical fields
+  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [hpi, setHpi] = useState('');
+  const [durationValue, setDurationValue] = useState('');
+  const [durationUnit, setDurationUnit] = useState('days');
+  const [physicalExam, setPhysicalExam] = useState('');
+  const [vitalSigns, setVitalSigns] = useState<VitalSigns>({});
+  const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [severity, setSeverity] = useState('');
+  const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpReason, setFollowUpReason] = useState('');
+  const [requests, setRequests] = useState<RequestItem[]>([]);
 
   // Load appointment
   const { data: appointment, isLoading: loadingApt } = useQuery({
@@ -69,7 +88,7 @@ export default function Attendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clinical_records')
-        .select('*, clinical_record_procedures(*)')
+        .select('*, clinical_record_procedures(*), clinical_record_requests(*)')
         .eq('appointment_id', appointmentId!)
         .maybeSingle();
       if (error) throw error;
@@ -78,13 +97,44 @@ export default function Attendance() {
     enabled: !!appointmentId,
   });
 
+  // Detect clinic category for odontogram tab
+  const { data: clinicCategory } = useQuery({
+    queryKey: ['attendance-clinic-category', currentClinicId],
+    queryFn: async () => {
+      if (!currentClinicId) return null;
+      const { data } = await supabase.from('clinics').select('category').eq('id', currentClinicId).maybeSingle();
+      return data?.category ?? null;
+    },
+    enabled: !!currentClinicId,
+  });
+  const showOdontogram = clinicCategory === 'odonto';
+
   // Populate form with existing record
   useEffect(() => {
     if (existingRecord) {
+      const r = existingRecord as any;
       setClinicalRecordId(existingRecord.id);
       setClinicalNotes(existingRecord.notes ?? '');
       setDiagnosis(existingRecord.diagnosis ?? '');
-      const procs = ((existingRecord as any).clinical_record_procedures ?? []).map((p: any) => ({
+      setChiefComplaint(r.chief_complaint ?? '');
+      setHpi(r.history_present_illness ?? '');
+      const dur = r.symptom_duration ?? '';
+      const m = dur.match(/^(\d+)\s+(\w+)$/);
+      if (m) { setDurationValue(m[1]); setDurationUnit(m[2]); } else { setDurationValue(dur); }
+      setPhysicalExam(r.physical_exam ?? '');
+      setVitalSigns(r.vital_signs ?? {});
+      setHypotheses(Array.isArray(r.hypotheses) ? r.hypotheses : []);
+      setSeverity(r.severity ?? '');
+      setTreatmentPlan(r.treatment_plan ?? '');
+      setFollowUpDate(r.follow_up_date ?? '');
+      setFollowUpReason(r.follow_up_reason ?? '');
+      const reqs = (r.clinical_record_requests ?? []).map((it: any) => ({
+        id: it.id,
+        kind: it.kind as RequestKind,
+        payload: it.payload ?? {},
+      }));
+      if (reqs.length > 0) setRequests(reqs);
+      const procs = (r.clinical_record_procedures ?? []).map((p: any) => ({
         tempId: p.id,
         procedure_id: p.procedure_id,
         tooth_number: p.tooth_number,
@@ -133,17 +183,40 @@ export default function Attendance() {
     setSaving(true);
     try {
       let recordId = clinicalRecordId;
+      const symptomDuration = durationValue ? `${durationValue} ${durationUnit}` : null;
+      const cleanVitals = Object.fromEntries(
+        Object.entries(vitalSigns).filter(([, v]) => v !== undefined && v !== '')
+      );
+      const vitalsToSave = Object.keys(cleanVitals).length > 0 ? cleanVitals : null;
+      const cleanHypotheses = hypotheses.filter((h) => h.text.trim());
+      const hypothesesToSave = cleanHypotheses.length > 0 ? cleanHypotheses : null;
+
+      const recordPayload: any = {
+        notes: clinicalNotes || null,
+        diagnosis: diagnosis || null,
+        chief_complaint: chiefComplaint || null,
+        history_present_illness: hpi || null,
+        symptom_duration: symptomDuration,
+        physical_exam: physicalExam || null,
+        vital_signs: vitalsToSave,
+        hypotheses: hypothesesToSave,
+        severity: severity || null,
+        treatment_plan: treatmentPlan || null,
+        follow_up_date: followUpDate || null,
+        follow_up_reason: followUpReason || null,
+      };
 
       if (recordId) {
         // Update existing
         const { error } = await supabase
           .from('clinical_records')
-          .update({ notes: clinicalNotes || null, diagnosis: diagnosis || null })
+          .update(recordPayload)
           .eq('id', recordId);
         if (error) throw error;
 
-        // Delete old procedures and re-insert
+        // Delete old procedures + requests and re-insert
         await supabase.from('clinical_record_procedures').delete().eq('clinical_record_id', recordId);
+        await supabase.from('clinical_record_requests').delete().eq('clinical_record_id', recordId);
       } else {
         // Create new
         const { data, error } = await supabase
@@ -153,10 +226,9 @@ export default function Attendance() {
             patient_id: appointment.patient_id,
             dentist_id: user.id,
             clinic_id: currentClinicId ?? null,
-            notes: clinicalNotes || null,
-            diagnosis: diagnosis || null,
             status: 'in_progress',
-          })
+            ...recordPayload,
+          } as any)
           .select('id')
           .single();
         if (error) throw error;
@@ -178,6 +250,22 @@ export default function Attendance() {
           }))
         );
         if (procError) throw procError;
+      }
+
+      // Insert requests
+      const validRequests = requests.filter((r) => {
+        const v = Object.values(r.payload).join('').trim();
+        return v.length > 0;
+      });
+      if (validRequests.length > 0 && recordId) {
+        const { error: reqError } = await supabase.from('clinical_record_requests').insert(
+          validRequests.map((r) => ({
+            clinical_record_id: recordId!,
+            kind: r.kind,
+            payload: r.payload,
+          }))
+        );
+        if (reqError) throw reqError;
       }
 
       toast.success('Atendimento salvo!');
@@ -293,12 +381,64 @@ export default function Attendance() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="notes" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="notes">Evolução Clínica</TabsTrigger>
-          <TabsTrigger value="procedures">Procedimentos ({procedures.length})</TabsTrigger>
-          <TabsTrigger value="odontogram">Odontograma</TabsTrigger>
+      <Tabs defaultValue="assessment" className="space-y-4">
+        <TabsList className="flex flex-wrap h-auto">
+          <TabsTrigger value="assessment">1. Avaliação</TabsTrigger>
+          <TabsTrigger value="vitals">2. Sinais Vitais</TabsTrigger>
+          <TabsTrigger value="diagnosis">3. Diagnóstico</TabsTrigger>
+          <TabsTrigger value="conduct">4. Conduta</TabsTrigger>
+          <TabsTrigger value="requests">5. Solicitações ({requests.length})</TabsTrigger>
+          <TabsTrigger value="procedures">6. Procedimentos ({procedures.length})</TabsTrigger>
+          <TabsTrigger value="notes">Evolução</TabsTrigger>
+          {showOdontogram && <TabsTrigger value="odontogram">Odontograma</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="assessment">
+          <AssessmentForm
+            patientId={appointment.patient_id}
+            chiefComplaint={chiefComplaint}
+            setChiefComplaint={setChiefComplaint}
+            hpi={hpi}
+            setHpi={setHpi}
+            durationValue={durationValue}
+            setDurationValue={setDurationValue}
+            durationUnit={durationUnit}
+            setDurationUnit={setDurationUnit}
+            physicalExam={physicalExam}
+            setPhysicalExam={setPhysicalExam}
+          />
+        </TabsContent>
+
+        <TabsContent value="vitals">
+          <VitalSignsForm value={vitalSigns} onChange={setVitalSigns} />
+        </TabsContent>
+
+        <TabsContent value="diagnosis">
+          <HypothesesEditor
+            hypotheses={hypotheses}
+            onChange={setHypotheses}
+            diagnosis={diagnosis}
+            setDiagnosis={setDiagnosis}
+            severity={severity}
+            setSeverity={setSeverity}
+          />
+        </TabsContent>
+
+        <TabsContent value="conduct">
+          <FollowUpBlock
+            treatmentPlan={treatmentPlan}
+            setTreatmentPlan={setTreatmentPlan}
+            followUpDate={followUpDate}
+            setFollowUpDate={setFollowUpDate}
+            followUpReason={followUpReason}
+            setFollowUpReason={setFollowUpReason}
+            onScheduled={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
+          />
+        </TabsContent>
+
+        <TabsContent value="requests">
+          <RequestsEditor items={requests} onChange={setRequests} />
+        </TabsContent>
 
         {/* Clinical Notes Tab */}
         <TabsContent value="notes">
@@ -427,21 +567,22 @@ export default function Attendance() {
           </Card>
         </TabsContent>
 
-        {/* Odontogram Tab */}
-        <TabsContent value="odontogram">
-          <Card className="border-border/50">
-            <CardContent className="p-6 text-center">
-              <p className="text-sm text-muted-foreground mb-3">
-                Acesse o odontograma completo do paciente para registrar alterações dentárias.
-              </p>
-              <Link to={`/odontogram?patient=${appointment.patient_id}`}>
-                <Button variant="outline" className="gap-2">
-                  Abrir Odontograma
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {showOdontogram && (
+          <TabsContent value="odontogram">
+            <Card className="border-border/50">
+              <CardContent className="p-6 text-center">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Acesse o odontograma completo do paciente para registrar alterações dentárias.
+                </p>
+                <Link to={`/odontogram?patient=${appointment.patient_id}`}>
+                  <Button variant="outline" className="gap-2">
+                    Abrir Odontograma
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

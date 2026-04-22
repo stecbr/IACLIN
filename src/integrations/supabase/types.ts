@@ -400,42 +400,104 @@ export type Database = {
           },
         ]
       }
+      clinical_record_requests: {
+        Row: {
+          clinical_record_id: string
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+        }
+        Insert: {
+          clinical_record_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+        }
+        Update: {
+          clinical_record_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_record_requests_clinical_record_id_fkey"
+            columns: ["clinical_record_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_records: {
         Row: {
           appointment_id: string | null
+          chief_complaint: string | null
           clinic_id: string | null
           created_at: string
           dentist_id: string
           diagnosis: string | null
+          follow_up_date: string | null
+          follow_up_reason: string | null
+          history_present_illness: string | null
+          hypotheses: Json | null
           id: string
           notes: string | null
           patient_id: string
+          physical_exam: string | null
+          severity: string | null
           status: string
+          symptom_duration: string | null
+          treatment_plan: string | null
           updated_at: string
+          vital_signs: Json | null
         }
         Insert: {
           appointment_id?: string | null
+          chief_complaint?: string | null
           clinic_id?: string | null
           created_at?: string
           dentist_id: string
           diagnosis?: string | null
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          history_present_illness?: string | null
+          hypotheses?: Json | null
           id?: string
           notes?: string | null
           patient_id: string
+          physical_exam?: string | null
+          severity?: string | null
           status?: string
+          symptom_duration?: string | null
+          treatment_plan?: string | null
           updated_at?: string
+          vital_signs?: Json | null
         }
         Update: {
           appointment_id?: string | null
+          chief_complaint?: string | null
           clinic_id?: string | null
           created_at?: string
           dentist_id?: string
           diagnosis?: string | null
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          history_present_illness?: string | null
+          hypotheses?: Json | null
           id?: string
           notes?: string | null
           patient_id?: string
+          physical_exam?: string | null
+          severity?: string | null
           status?: string
+          symptom_duration?: string | null
+          treatment_plan?: string | null
           updated_at?: string
+          vital_signs?: Json | null
         }
         Relationships: [
           {
