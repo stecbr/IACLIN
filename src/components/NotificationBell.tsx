@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const typeIcons: Record<string, typeof Bell> = {
   appointment: Calendar,
@@ -24,17 +25,21 @@ const typeColors: Record<string, string> = {
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const { user, currentClinicId } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const isDentist = effectiveRole === 'dentist';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { data: notifications = [] } = useQuery({
-    queryKey: ['notifications', currentClinicId],
+    queryKey: ['notifications', currentClinicId, isDentist ? user?.id : 'all'],
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(30);
+      if (isDentist && user) q = q.eq('user_id', user.id);
+      const { data } = await q;
       return data ?? [];
     },
     enabled: !!user,

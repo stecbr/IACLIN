@@ -10,6 +10,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { ClipboardList, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const COLUMNS = [
   { id: 'pending', label: 'Pendente', color: 'border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10' },
@@ -20,6 +22,9 @@ const COLUMNS = [
 
 export default function Budgets() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const isDentist = effectiveRole === 'dentist';
   const [activeId, setActiveId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -28,12 +33,14 @@ export default function Budgets() {
   );
 
   const { data: plans = [], isLoading } = useQuery({
-    queryKey: ['treatment-plans-kanban'],
+    queryKey: ['treatment-plans-kanban', isDentist ? user?.id : 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('treatment_plans')
         .select('*, patients(full_name), treatment_plan_items(id)')
         .order('created_at', { ascending: false });
+      if (isDentist && user) query = query.eq('dentist_id', user.id);
+      const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
     },
