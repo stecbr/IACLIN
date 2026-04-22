@@ -25,6 +25,7 @@ interface AuthContextType {
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
   isPatient: boolean;
+  effectiveIsPatient: boolean;
   clinics: ClinicMembership[];
   switchClinic: (clinicId: string) => void;
   signOut: () => Promise<void>;
@@ -152,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     roles.includes('admin') ||
     clinics.some((c) => c.is_owner || c.role === 'admin');
   const canSimulate = isAdminOrOwner && isDevEnvironment();
+  const effectiveIsPatient = simulatedRole !== null ? simulatedRole === 'patient' : isPatient;
 
   return (
     <AuthContext.Provider value={{
@@ -165,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isClinicOwner: currentMembership?.is_owner ?? false,
       clinicCategory: currentMembership?.category ?? 'odonto',
       isPatient,
+      effectiveIsPatient,
       clinics,
       switchClinic,
       signOut,
