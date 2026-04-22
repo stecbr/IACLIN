@@ -1,94 +1,77 @@
 
 
-# Plano: Signup do Profissional só com código de clínica
+# Plano: Simulador de Roles (dev/preview only)
 
-Médico (profissional) **não pode mais ser autônomo**. Sempre precisa de vínculo: ou via **código de clínica** ou via **link de convite**. Sem código/convite válido → não cria conta.
+Permite trocar entre **Clínica (admin)** / **Médico/Profissional (dentist)** / **Paciente (patient)** sem deslogar. Só aparece para admins reais e em ambientes não-produção. Puramente UI — RLS continua usando o JWT real.
 
-## O que muda no signup
+## Arquivos novos
 
-Quando o usuário escolhe "Profissional" no passo 1, o passo 2 fica com este formulário único (sem toggle, sem campos de empresa):
-
-1. **Nome completo**
-2. **E-mail** + **Senha**
-3. **Especialidade** (opcional)
-4. **Registro/CRO** (opcional)
-5. **Código da clínica** — *obrigatório*, formato `CLIN-XXXXXXXX`
-
-Se chegou via `?invite=TOKEN`, o campo "Código" some, e os dados de e-mail/nome vêm pré-preenchidos pelo convite (lógica já existe).
-
-## Fluxo passo a passo
-
-1. Front valida o código com regex `^CLIN-[A-Z2-9]{8}$` antes de qualquer chamada.
-2. Front chama um novo endpoint `validate-clinic-code` (edge function pública, sem auth) só pra verificar se o código existe **antes** de criar a conta. Se não existir, mostra erro inline e **não cria conta**.
-3. Se válido, chama `supabase.auth.signUp` com `user_type: 'profissional_member'` + metadata (`specialty`, `registration_number`).
-4. Trigger `handle_new_user` cria `profile` + role `dentist` (já está pronto na migração nova).
-5. Após o signUp resolver com sucesso e a sessão estabelecida, front chama `join-clinic-by-code` para vincular o usuário como membro da clínica (já existe).
-6. Se `join-clinic-by-code` falhar nesse ponto (caso raro, ex: clínica deletada entre validação e signup), mostra erro e oferece botão "tentar com outro código" — a conta já existe, mas o usuário fica num estado de "sem clínica" que cai numa nova tela `/aguardando-clinica`.
-
-## Tela "/aguardando-clinica" (novo fallback)
-
-Para o caso raro acima, e para qualquer profissional que entre no app sem `currentClinicId`:
-
-- Tela única com input de código + botão "Vincular".
-- Chama `join-clinic-by-code` com o código.
-- Sucesso → redireciona pra `/`.
-- Botão secundário "Sair" pra trocar de conta.
-
-Substitui o redirect atual pra `/onboarding` quando o user é `dentist` sem clínica (admin continua indo pro onboarding normal porque pode criar a clínica dele — **mas no caso de profissional, ele nunca vira admin**, então isso não acontece).
-
-## Edge function nova
-
-**`supabase/functions/validate-clinic-code/index.ts`** (pública, sem JWT):
-
-- Body: `{ code: string }`
-- Faz `select id, name from clinics where invite_code = ?`
-- Retorna `{ valid: true, clinic_name }` ou `{ valid: false, error }`
-- Rate limit simples por IP (in-memory map, 10 tentativas/min) pra não virar oráculo de códigos.
-
-Configurar `verify_jwt = false` no `supabase/config.toml` pra essa função.
-
-## Mudanças no código
-
-**`src/pages/Auth.tsx`**:
-- No passo 1, manter as 3 opções (Cliente / Clínica / Profissional).
-- No passo 2 quando `userType === 'profissional'`: form novo só com os 5 campos acima. Remover `legal_name`, `trade_name`, `cnpj`, `corporate_email`, `responsible_name`, `responsible_cpf`.
-- Botão "Criar conta" desabilitado até `clinicCode` passar no regex.
-- Onclick: chama `validate-clinic-code` → se ok, `supabase.auth.signUp({ user_type: 'profissional_member', specialty, registration_number })` → após sessão, `supabase.functions.invoke('join-clinic-by-code', { body: { code, specialty, registration_number } })`.
-- Caso `?invite=TOKEN`: esconde input de código, dispara `accept-clinic-invite(token)` em vez de `join-clinic-by-code`.
-
-**`src/App.tsx`**:
-- Novo route `/aguardando-clinica` (componente `WaitingClinic`).
-- Em `ProtectedRoute`: se user logado, não é patient, e `clinics.length === 0`, redirecionar pra `/aguardando-clinica` em vez de `/onboarding` quando o usuário **não tem role admin** (ou seja: profissional órfão). Admin sem clínica continua indo pro `/onboarding`.
-
-**`src/pages/WaitingClinic.tsx`** (novo): tela simples descrita acima.
-
-**`supabase/config.toml`**: adicionar bloco
-```toml
-[functions.validate-clinic-code]
-verify_jwt = false
+### `src/lib/isDevEnvironment.ts`
+```ts
+const PROD_LOVABLE_HOSTS = ['dental-bridge-suite.lovable.app'];
+export const isDevEnvironment = () => {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  if (PROD_LOVABLE_HOSTS.includes(h)) return false;
+  if (h === 'iaclin.test.ia.br') return false;
+  return h === 'localhost' || h === '127.0.0.1'
+    || h.endsWith('.lovable.app') || h.includes('lovable.dev');
+};
 ```
 
-**Trigger `handle_new_user`**: já está correto — `profissional_member` vira `dentist`. Sem mudança.
+### `src/components/RoleSimulator.tsx`
+- Constante exportada `SIMULATABLE_ROLES` com 3 entradas (admin/Clínica, dentist/Médico/Profissional, patient/Paciente). Fácil adicionar `secretary` depois.
+- Retorna `null` se `loading` ou `!canSimulate`.
+- `DropdownMenu` shadcn com trigger `UserCog`:
+  - Desktop: ícone + texto "Visualizar como" (ou "Simulando: <label>" quando ativo, com `variant` warning).
+  - Mobile (<sm): só ícone.
+- Items: "Conta real" (disabled se !isSimulating), separator, depois `SIMULATABLE_ROLES.map(...)` com check no item ativo.
+- Após `setSimulatedRole`, chama `navigate('/', { replace: true })`.
 
-**Branch `profissional` (sem código) no `handle_new_user`**: pode ficar como está (defensivo) ou ser removida. Vou deixar — não fará mal e protege contra signups antigos pendentes.
+### `src/components/SimulationBanner.tsx`
+- Retorna `null` se `!isSimulating`.
+- `<div>` sticky `top-0 z-[60] h-7 bg-yellow-500/90 text-black` com texto:
+  "⚠ Modo simulação ativo — visualizando como **<label>**. RLS do banco continua usando sua conta real."
+- Botão "Sair da simulação" à direita chamando `setSimulatedRole(null)`.
 
-## O que sai da UI
+## Arquivos editados
 
-- ❌ Toggle "Tenho código / Sou autônomo".
-- ❌ Campos de empresa (CNPJ, razão social, responsável) no fluxo de Profissional.
-- ❌ Redirect de profissional pra `/onboarding`.
+### `src/contexts/AuthContext.tsx`
+- Importar `isDevEnvironment`.
+- Estado `simulatedRole` inicializado em mount via `sessionStorage.getItem('iaclin.simulatedRole')`.
+- Wrapper `setSimulatedRole(role)`: atualiza estado + grava/remove de sessionStorage.
+- `signOut`: limpa estado + sessionStorage antes de chamar `supabase.auth.signOut()`.
+- Adicionar ao `value`:
+  - `simulatedRole`
+  - `setSimulatedRole`
+  - `isSimulating: simulatedRole !== null`
+  - `canSimulate: roles.includes('admin') && isDevEnvironment()`
+- Atualizar `AuthContextType` com esses 4 campos.
 
-## Validações e UX
+### `src/hooks/useRoleAccess.ts`
+- Pegar `simulatedRole`, `isSimulating` do `useAuth`.
+- ```ts
+  const realEffectiveRole: AppRole = isPatient ? 'patient' : (clinicRole ?? 'admin');
+  const effectiveRole: AppRole = (isSimulating && simulatedRole) ? simulatedRole : realEffectiveRole;
+  ```
 
-- Erro de código inválido → toast vermelho + borda vermelha no input + texto "Código não encontrado. Peça à clínica para gerar um novo".
-- Caps automático no input do código (já vai pra UPPERCASE no onChange).
-- Máscara visual `CLIN-XXXXXXXX` com placeholder claro.
-- Loading state no botão durante validação + signup (sequencial).
+### `src/components/AppLayout.tsx`
+- `<SimulationBanner />` como **primeiro filho** do `SidebarProvider`'s wrapper div (acima do header, fora do flex principal — como bloco no topo).
+- `<RoleSimulator />` no header, **antes** de `<CommandPalette />` e do toggle de tema.
+- Como o banner é sticky `top-0` com altura `h-7`, o header já é `sticky top-0`; ajustar header para `top-7` quando `isSimulating` (ler do `useAuth`) — ou deixar o banner como bloco normal (não-sticky) no topo do flex coluna, evitando sobreposição. **Vou usar bloco normal não-sticky** para não brigar com o header sticky.
 
 ## O que NÃO muda
 
-- Fluxo de paciente e clínica (PJ): inalterados.
-- `accept-clinic-invite` e `join-clinic-by-code`: inalteradas.
-- RLS, schema, outras edge functions: inalteradas.
-- Caso o usuário queira virar autônomo no futuro, a clínica que ele administra precisará ser criada via fluxo "Clínica" no signup — não pelo fluxo "Profissional".
+- Sem alterações em RLS, migrations, edge functions.
+- `switchClinic`, `ClinicSwitcher`, `ProtectedRoute`, `PatientProtectedRoute` intactos — herdam comportamento via `useRoleAccess`.
+- Queries do Supabase continuam com o usuário real.
+
+## Validação
+
+1. Admin no `*.lovable.app` (preview) → seletor visível, 3 opções.
+2. Trocar para Paciente → sidebar muda, redireciona pra `/`, banner amarelo no topo.
+3. Trocar para Médico → bloco "Gestão da Clínica" some, "Meu Perfil" aparece.
+4. "Sair da simulação" → tudo volta.
+5. Em `dental-bridge-suite.lovable.app` e `iaclin.test.ia.br` → seletor não renderiza.
+6. Reload mantém simulação (sessionStorage); fechar aba reseta; logout limpa.
 
