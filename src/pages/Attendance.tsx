@@ -381,12 +381,64 @@ export default function Attendance() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="notes" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="notes">Evolução Clínica</TabsTrigger>
-          <TabsTrigger value="procedures">Procedimentos ({procedures.length})</TabsTrigger>
-          <TabsTrigger value="odontogram">Odontograma</TabsTrigger>
+      <Tabs defaultValue="assessment" className="space-y-4">
+        <TabsList className="flex flex-wrap h-auto">
+          <TabsTrigger value="assessment">1. Avaliação</TabsTrigger>
+          <TabsTrigger value="vitals">2. Sinais Vitais</TabsTrigger>
+          <TabsTrigger value="diagnosis">3. Diagnóstico</TabsTrigger>
+          <TabsTrigger value="conduct">4. Conduta</TabsTrigger>
+          <TabsTrigger value="requests">5. Solicitações ({requests.length})</TabsTrigger>
+          <TabsTrigger value="procedures">6. Procedimentos ({procedures.length})</TabsTrigger>
+          <TabsTrigger value="notes">Evolução</TabsTrigger>
+          {showOdontogram && <TabsTrigger value="odontogram">Odontograma</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="assessment">
+          <AssessmentForm
+            patientId={appointment.patient_id}
+            chiefComplaint={chiefComplaint}
+            setChiefComplaint={setChiefComplaint}
+            hpi={hpi}
+            setHpi={setHpi}
+            durationValue={durationValue}
+            setDurationValue={setDurationValue}
+            durationUnit={durationUnit}
+            setDurationUnit={setDurationUnit}
+            physicalExam={physicalExam}
+            setPhysicalExam={setPhysicalExam}
+          />
+        </TabsContent>
+
+        <TabsContent value="vitals">
+          <VitalSignsForm value={vitalSigns} onChange={setVitalSigns} />
+        </TabsContent>
+
+        <TabsContent value="diagnosis">
+          <HypothesesEditor
+            hypotheses={hypotheses}
+            onChange={setHypotheses}
+            diagnosis={diagnosis}
+            setDiagnosis={setDiagnosis}
+            severity={severity}
+            setSeverity={setSeverity}
+          />
+        </TabsContent>
+
+        <TabsContent value="conduct">
+          <FollowUpBlock
+            treatmentPlan={treatmentPlan}
+            setTreatmentPlan={setTreatmentPlan}
+            followUpDate={followUpDate}
+            setFollowUpDate={setFollowUpDate}
+            followUpReason={followUpReason}
+            setFollowUpReason={setFollowUpReason}
+            onScheduled={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
+          />
+        </TabsContent>
+
+        <TabsContent value="requests">
+          <RequestsEditor items={requests} onChange={setRequests} />
+        </TabsContent>
 
         {/* Clinical Notes Tab */}
         <TabsContent value="notes">
