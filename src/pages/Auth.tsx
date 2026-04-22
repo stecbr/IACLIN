@@ -61,6 +61,11 @@ export default function Auth() {
 
   // Clinic code field (when joining a clinic via shared code)
   const [clinicCode, setClinicCode] = useState('');
+  const [clinicCodeError, setClinicCodeError] = useState<string | null>(null);
+
+  // Professional fields (specialty / registration)
+  const [specialty, setSpecialty] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
 
   // Invite info loaded from token
   const [inviteInfo, setInviteInfo] = useState<{ clinic_name: string; email: string; full_name: string | null } | null>(null);
