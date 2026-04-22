@@ -31,96 +31,28 @@ export default function PatientBooking() {
     if (!selection || !specialty || !user) return;
     setSubmitting(true);
     try {
-      // 1. Find or create patient row in this clinic
-      let patientId: string | null = null;
-
-      // Try to find existing patient in this clinic linked to user
-      const { data: existingByUser, error: findUserErr } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('clinic_id', selection.clinicId)
-        .eq('patient_user_id', user.id)
-        .maybeSingle();
-
-      if (findUserErr) {
-        console.error('[booking] find patient by user_id failed', findUserErr);
-      }
-
-      if (existingByUser) {
-        patientId = existingByUser.id;
-      } else if (account?.cpf) {
-        // Try by CPF
-        const { data: existingByCpf, error: findCpfErr } = await supabase
-          .from('patients')
-          .select('id')
-          .eq('clinic_id', selection.clinicId)
-          .eq('cpf', account.cpf)
-          .maybeSingle();
-
-        if (findCpfErr) {
-          console.error('[booking] find patient by cpf failed', findCpfErr);
-        }
-
-        if (existingByCpf) {
-          patientId = existingByCpf.id;
-          // Link it to user
-          await supabase
-            .from('patients')
-            .update({ patient_user_id: user.id })
-            .eq('id', patientId);
-        }
-      }
-
-      if (!patientId) {
-        // Create patient
-        const { data: created, error: createErr } = await supabase
-          .from('patients')
-          .insert({
-            clinic_id: selection.clinicId,
-            full_name: account?.full_name ?? user.email ?? 'Paciente',
-            cpf: account?.cpf ?? null,
-            phone: account?.phone ?? null,
-            email: user.email ?? null,
-            date_of_birth: account?.date_of_birth ?? null,
-            insurance_provider: account?.insurance_provider ?? null,
-            insurance_number: account?.insurance_number ?? null,
-            patient_user_id: user.id,
-          })
-          .select('id')
-          .single();
-
-        if (createErr || !created) {
-          console.error('[booking] create patient failed', { error: createErr, payload: { clinic_id: selection.clinicId, cpf: account?.cpf, user_id: user.id } });
-          throw new Error(`Falha ao criar paciente: ${createErr?.message ?? 'erro desconhecido'} (code: ${createErr?.code ?? 'n/a'})`);
-        }
-        patientId = created.id;
-      }
-
-      // 2. Create appointment
-      const { error: apptErr } = await supabase.from('appointments').insert({
-        patient_id: patientId,
-        dentist_id: selection.dentistId,
-        clinic_id: selection.clinicId,
-        start_time: selection.startTime.toISOString(),
-        end_time: selection.endTime.toISOString(),
-        status: 'scheduled',
-        label: specialty.name,
-        notes: notes.trim() || null,
+      const { data, error } = await supabase.functions.invoke('request-appointment', {
+        body: {
+          clinicId: selection.clinicId,
+          dentistId: selection.dentistId,
+          specialty: specialty.id,
+          startTime: selection.startTime.toISOString(),
+          endTime: selection.endTime.toISOString(),
+          notes: notes.trim() || null,
+        },
       });
 
-      if (apptErr) {
-        console.error('[booking] create appointment failed', { error: apptErr, patientId, dentistId: selection.dentistId, clinicId: selection.clinicId });
-        throw new Error(`Falha ao criar agendamento: ${apptErr.message} (code: ${apptErr.code ?? 'n/a'})`);
-      }
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      toast.success('Consulta agendada com sucesso!', {
-        description: `${specialty.name} em ${selection.clinicName}.`,
+      toast.success('Pedido enviado!', {
+        description: `A ${selection.clinicName} vai confirmar sua consulta de ${specialty.name} em breve.`,
       });
       refetch();
       navigate('/paciente/agendas');
     } catch (err: any) {
       console.error('[booking] handleConfirm error:', err);
-      toast.error('Não foi possível agendar', {
+      toast.error('Não foi possível solicitar agendamento', {
         description: err?.message ?? err?.error_description ?? 'Tente novamente em instantes.',
       });
     } finally {
