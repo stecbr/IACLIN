@@ -3,10 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { Copy, Mail, KeyRound, Check } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface Props {
   open: boolean;
@@ -17,85 +20,141 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', registration: '', specialty: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', registration: '', specialty: '' });
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
-  const reset = () => setForm({ name: '', email: '', registration: '', specialty: '', password: '' });
+  const reset = () => {
+    setForm({ name: '', email: '', registration: '', specialty: '' });
+    setInviteUrl(null);
+    setLinkCopied(false);
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!open || !currentClinicId) return;
+    supabase.from('clinics').select('invite_code').eq('id', currentClinicId).maybeSingle().then(({ data }) => {
+      setCode((data as any)?.invite_code ?? null);
+    });
+  }, [open, currentClinicId]);
+
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentClinicId) return;
-    if (!form.name.trim() || !form.email.trim() || form.password.length < 6) {
-      toast.error('Preencha nome, e-mail e senha (mín. 6 caracteres)');
+    if (!form.name.trim() || !form.email.trim()) {
+      toast.error('Preencha nome e e-mail');
       return;
     }
     setSubmitting(true);
     try {
-      const { error } = await supabase.functions.invoke('invite-member', {
+      const { data, error } = await supabase.functions.invoke('create-clinic-invite', {
         body: {
           clinic_id: currentClinicId,
           email: form.email.trim(),
           full_name: form.name.trim(),
-          password: form.password,
-          role: 'dentist',
           specialty: form.specialty.trim() || null,
           registration_number: form.registration.trim() || null,
         },
       });
       if (error) throw error;
-      toast.success('Médico cadastrado!', { description: `${form.name} já pode acessar com o e-mail e senha definidos.` });
-      qc.invalidateQueries({ queryKey: ['clinica-medicos'] });
-      qc.invalidateQueries({ queryKey: ['clinica-stats'] });
-      reset();
-      onOpenChange(false);
+      setInviteUrl((data as any)?.invite_url ?? null);
+      toast.success('Convite criado!', { description: 'Compartilhe o link com o médico.' });
+      qc.invalidateQueries({ queryKey: ['clinic-invites'] });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao enviar convite');
+      toast.error(err.message || 'Erro ao criar convite');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const copyInvite = async () => {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setLinkCopied(true);
+    toast.success('Link copiado!');
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const copyCode = async () => {
+    if (!code) return;
+    await navigator.clipboard.writeText(code);
+    setCodeCopied(true);
+    toast.success('Código copiado!');
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Adicionar médico</DialogTitle>
           <DialogDescription>
-            Enviaremos um convite por e-mail para o profissional acessar a sua clínica.
+            Convide um médico por e-mail ou compartilhe o código da clínica.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="med-name">Nome completo</Label>
-            <Input id="med-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Dr. João Silva" required autoFocus />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="med-email">E-mail</Label>
-            <Input id="med-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="joao@email.com" required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="med-reg">CRM / CRO</Label>
-              <Input id="med-reg" value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} placeholder="123456-SP" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="med-spec">Especialidade</Label>
-              <Input id="med-spec" value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Cardiologia" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="med-pass">Senha temporária</Label>
-            <Input id="med-pass" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 6 caracteres" minLength={6} required />
-            <p className="text-xs text-muted-foreground">Compartilhe esta senha com o médico. Ele poderá alterá-la depois.</p>
-          </div>
+        <Tabs defaultValue="invite" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="invite" className="gap-2"><Mail className="h-3.5 w-3.5" /> Convite</TabsTrigger>
+            <TabsTrigger value="code" className="gap-2"><KeyRound className="h-3.5 w-3.5" /> Código</TabsTrigger>
+          </TabsList>
 
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Enviando…' : 'Enviar convite'}
+          <TabsContent value="invite" className="space-y-4 pt-4">
+            {inviteUrl ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+                  <p className="text-sm font-medium">Convite criado para {form.name}</p>
+                  <p className="text-xs text-muted-foreground break-all font-mono">{inviteUrl}</p>
+                </div>
+                <Button onClick={copyInvite} className="w-full gap-2">
+                  {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {linkCopied ? 'Link copiado' : 'Copiar link'}
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => { reset(); }}>Criar outro convite</Button>
+              </div>
+            ) : (
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="med-name">Nome completo</Label>
+                  <Input id="med-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Dr. João Silva" required autoFocus />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="med-email">E-mail</Label>
+                  <Input id="med-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="joao@email.com" required />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="med-reg">CRM / CRO</Label>
+                    <Input id="med-reg" value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} placeholder="123456-SP" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="med-spec">Especialidade</Label>
+                    <Input id="med-spec" value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Cardiologia" />
+                  </div>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-2">
+                  <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                  <Button type="submit" disabled={submitting}>{submitting ? 'Criando…' : 'Criar convite'}</Button>
+                </DialogFooter>
+              </form>
+            )}
+          </TabsContent>
+
+          <TabsContent value="code" className="space-y-4 pt-4">
+            <div className="rounded-xl border bg-muted/30 p-4 space-y-3 text-center">
+              <p className="text-xs text-muted-foreground">Código permanente da clínica</p>
+              <code className="block text-2xl font-mono font-semibold tracking-widest">{code ?? '—'}</code>
+              <p className="text-xs text-muted-foreground">
+                Compartilhe com seus médicos. Eles informam este código ao se cadastrar e ficam vinculados automaticamente.
+              </p>
+            </div>
+            <Button onClick={copyCode} disabled={!code} className="w-full gap-2">
+              {codeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {codeCopied ? 'Copiado' : 'Copiar código'}
             </Button>
-          </DialogFooter>
-        </form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

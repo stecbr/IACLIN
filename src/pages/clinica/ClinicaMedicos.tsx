@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -8,9 +8,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, Stethoscope } from 'lucide-react';
+import { Plus, Stethoscope, Mail, X, Copy } from 'lucide-react';
 import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
+import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 interface MemberRow {
   id: string;
@@ -24,6 +26,7 @@ interface MemberRow {
 
 export default function ClinicaMedicos() {
   const { currentClinicId } = useAuth();
+  const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
 
   const { data: members = [], isLoading } = useQuery({
@@ -51,6 +54,33 @@ export default function ClinicaMedicos() {
     },
   });
 
+  const { data: invites = [] } = useQuery({
+    queryKey: ['clinic-invites', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clinic_invites')
+        .select('id, email, full_name, specialty, token, status, expires_at, created_at')
+        .eq('clinic_id', currentClinicId!)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const revokeInvite = async (id: string) => {
+    const { error } = await supabase.from('clinic_invites').update({ status: 'revoked' }).eq('id', id);
+    if (error) toast.error(error.message);
+    else { toast.success('Convite revogado'); qc.invalidateQueries({ queryKey: ['clinic-invites'] }); }
+  };
+
+  const copyInviteLink = async (token: string) => {
+    const url = `${window.location.origin}/auth?invite=${token}`;
+    await navigator.clipboard.writeText(url);
+    toast.success('Link copiado!');
+  };
+
   const initials = (name?: string | null) =>
     (name ?? 'M').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -61,6 +91,8 @@ export default function ClinicaMedicos() {
           <Plus className="h-4 w-4" /> Adicionar médico
         </Button>
       </PageHeader>
+
+      <ClinicInviteCodeCard />
 
       <Card>
         <CardContent className="p-0">
@@ -118,6 +150,48 @@ export default function ClinicaMedicos() {
           )}
         </CardContent>
       </Card>
+
+      {invites.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="px-6 py-4 border-b flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Convites pendentes ({invites.length})</h3>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Expira em</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invites.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-medium">{inv.full_name ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{inv.email}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs">
+                      {new Date(inv.expires_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => copyInviteLink(inv.token)} className="gap-1.5">
+                          <Copy className="h-3.5 w-3.5" /> Link
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => revokeInvite(inv.id)} className="text-destructive hover:text-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <AddMedicoDialog open={addOpen} onOpenChange={setAddOpen} />
     </div>

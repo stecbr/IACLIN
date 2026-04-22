@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2 } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 
@@ -44,6 +44,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl');
+  const inviteToken = searchParams.get('invite');
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -58,6 +59,14 @@ export default function Auth() {
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Clinic code field (when joining a clinic via shared code)
+  const [clinicCode, setClinicCode] = useState('');
+
+  // Invite info loaded from token
+  const [inviteInfo, setInviteInfo] = useState<{ clinic_name: string; email: string; full_name: string | null } | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
   // Clinic-specific fields
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
@@ -65,6 +74,42 @@ export default function Auth() {
   const [responsibleName, setResponsibleName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
+
+  // Load invite when token is in URL
+  useEffect(() => {
+    if (!inviteToken) return;
+    setInviteLoading(true);
+    (async () => {
+      const { data: invite } = await supabase
+        .from('clinic_invites')
+        .select('email, full_name, status, expires_at, clinic_id')
+        .eq('token', inviteToken)
+        .maybeSingle();
+      if (!invite) {
+        setInviteError('Convite inválido ou expirado');
+        setInviteLoading(false);
+        return;
+      }
+      if (invite.status !== 'pending') {
+        setInviteError('Este convite já foi usado ou revogado');
+        setInviteLoading(false);
+        return;
+      }
+      if (new Date(invite.expires_at) < new Date()) {
+        setInviteError('Este convite expirou');
+        setInviteLoading(false);
+        return;
+      }
+      const { data: clinic } = await supabase.from('clinics').select('name').eq('id', invite.clinic_id).maybeSingle();
+      setInviteInfo({ clinic_name: clinic?.name ?? 'clínica', email: invite.email, full_name: invite.full_name });
+      setIsLogin(false);
+      setUserType('profissional');
+      setProfSubType('dentista');
+      setEmail(invite.email);
+      if (invite.full_name) setFullName(invite.full_name);
+      setInviteLoading(false);
+    })();
+  }, [inviteToken]);
 
   const fetchCnpjData = async () => {
     const digits = cnpj.replace(/\D/g, '');
@@ -104,6 +149,13 @@ export default function Auth() {
   }
 
   if (user) {
+    // If user is logged in and there's an invite token, accept it then redirect
+    if (inviteToken) {
+      supabase.functions.invoke('accept-clinic-invite', { body: { token: inviteToken } }).then(({ error }) => {
+        if (error) toast.error(error.message);
+        else toast.success('Você foi vinculado à clínica!');
+      });
+    }
     if (returnUrl) return <Navigate to={returnUrl} replace />;
     if (isPatient) return <Navigate to="/paciente" replace />;
     return <Navigate to="/" replace />;
@@ -147,14 +199,16 @@ export default function Auth() {
         }
 
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
-        const { error } = await supabase.auth.signUp({
+        // If joining via invite token or clinic code, mark user as a member-only signup (no auto-admin/clinic)
+        const isJoiningExistingClinic = !!inviteToken || (userType === 'profissional' && clinicCode.trim().length > 0);
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
               full_name: userType === 'clinica' ? responsibleName : fullName,
-              user_type: userType,
+              user_type: isJoiningExistingClinic ? 'profissional_member' : userType,
               professional_subtype: profSubType,
               clinic_category: clinicCategory,
               ...(userType === 'cliente' && {
@@ -176,6 +230,21 @@ export default function Auth() {
         });
         if (error) throw error;
         toast.success('Conta criada! Verifique seu e-mail para confirmar.');
+
+        // After signup: if joining via invite or code, link the membership
+        if (signUpData.session) {
+          if (inviteToken) {
+            const { error: acceptErr } = await supabase.functions.invoke('accept-clinic-invite', { body: { token: inviteToken } });
+            if (acceptErr) toast.error('Conta criada, mas falhou ao vincular à clínica: ' + acceptErr.message);
+            else toast.success('Você foi vinculado à clínica!');
+          } else if (userType === 'profissional' && clinicCode.trim()) {
+            const { error: joinErr } = await supabase.functions.invoke('join-clinic-by-code', {
+              body: { code: clinicCode.trim().toUpperCase() },
+            });
+            if (joinErr) toast.error('Conta criada, mas código inválido: ' + joinErr.message);
+            else toast.success('Vínculo criado com a clínica!');
+          }
+        }
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -399,6 +468,21 @@ export default function Auth() {
                 </p>
               </div>
 
+              {inviteInfo && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <Mail className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-medium text-foreground">Convite de {inviteInfo.clinic_name}</p>
+                    <p className="text-muted-foreground mt-0.5">Crie sua conta para começar a atender nesta clínica.</p>
+                  </div>
+                </div>
+              )}
+              {inviteError && (
+                <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                  {inviteError}
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!isClinicSignup && (
                   <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
@@ -507,6 +591,20 @@ export default function Auth() {
                       />
                     </motion.div>
                   </>
+                )}
+
+                {userType === 'profissional' && !inviteToken && (
+                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
+                    <Label htmlFor="clinic-code" className="text-xs text-muted-foreground">Código da clínica (opcional)</Label>
+                    <Input
+                      id="clinic-code"
+                      value={clinicCode}
+                      onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
+                      placeholder="CLIN-XXXXXXXX"
+                      className="h-10 font-mono tracking-wider"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Tem código de uma clínica? Cole aqui para entrar na equipe automaticamente.</p>
+                  </motion.div>
                 )}
 
                 <motion.div variants={item} initial="initial" animate="animate" transition={{ delay: 0.28 }}>

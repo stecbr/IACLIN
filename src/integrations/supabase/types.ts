@@ -217,6 +217,62 @@ export type Database = {
           },
         ]
       }
+      clinic_invites: {
+        Row: {
+          accepted_at: string | null
+          clinic_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          registration_number: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          specialty: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          clinic_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          registration_number?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          specialty?: string | null
+          status?: string
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          clinic_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          registration_number?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          specialty?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_invites_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_members: {
         Row: {
           clinic_id: string
@@ -415,6 +471,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          invite_code: string | null
           legal_name: string | null
           logo_url: string | null
           name: string
@@ -434,6 +491,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          invite_code?: string | null
           legal_name?: string | null
           logo_url?: string | null
           name: string
@@ -453,6 +511,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          invite_code?: string | null
           legal_name?: string | null
           logo_url?: string | null
           name?: string
@@ -1180,6 +1239,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_clinic_invite_code: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
