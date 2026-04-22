@@ -35,23 +35,31 @@ export default function PatientBooking() {
       let patientId: string | null = null;
 
       // Try to find existing patient in this clinic linked to user
-      const { data: existingByUser } = await supabase
+      const { data: existingByUser, error: findUserErr } = await supabase
         .from('patients')
         .select('id')
         .eq('clinic_id', selection.clinicId)
         .eq('patient_user_id', user.id)
         .maybeSingle();
 
+      if (findUserErr) {
+        console.error('[booking] find patient by user_id failed', findUserErr);
+      }
+
       if (existingByUser) {
         patientId = existingByUser.id;
       } else if (account?.cpf) {
         // Try by CPF
-        const { data: existingByCpf } = await supabase
+        const { data: existingByCpf, error: findCpfErr } = await supabase
           .from('patients')
           .select('id')
           .eq('clinic_id', selection.clinicId)
           .eq('cpf', account.cpf)
           .maybeSingle();
+
+        if (findCpfErr) {
+          console.error('[booking] find patient by cpf failed', findCpfErr);
+        }
 
         if (existingByCpf) {
           patientId = existingByCpf.id;
@@ -82,7 +90,8 @@ export default function PatientBooking() {
           .single();
 
         if (createErr || !created) {
-          throw createErr ?? new Error('Falha ao criar paciente');
+          console.error('[booking] create patient failed', { error: createErr, payload: { clinic_id: selection.clinicId, cpf: account?.cpf, user_id: user.id } });
+          throw new Error(`Falha ao criar paciente: ${createErr?.message ?? 'erro desconhecido'} (code: ${createErr?.code ?? 'n/a'})`);
         }
         patientId = created.id;
       }
@@ -99,7 +108,10 @@ export default function PatientBooking() {
         notes: notes.trim() || null,
       });
 
-      if (apptErr) throw apptErr;
+      if (apptErr) {
+        console.error('[booking] create appointment failed', { error: apptErr, patientId, dentistId: selection.dentistId, clinicId: selection.clinicId });
+        throw new Error(`Falha ao criar agendamento: ${apptErr.message} (code: ${apptErr.code ?? 'n/a'})`);
+      }
 
       toast.success('Consulta agendada com sucesso!', {
         description: `${specialty.name} em ${selection.clinicName}.`,
@@ -107,9 +119,9 @@ export default function PatientBooking() {
       refetch();
       navigate('/paciente/agendas');
     } catch (err: any) {
-      console.error('Booking error:', err);
+      console.error('[booking] handleConfirm error:', err);
       toast.error('Não foi possível agendar', {
-        description: err?.message ?? 'Tente novamente em instantes.',
+        description: err?.message ?? err?.error_description ?? 'Tente novamente em instantes.',
       });
     } finally {
       setSubmitting(false);
