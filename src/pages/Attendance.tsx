@@ -183,17 +183,40 @@ export default function Attendance() {
     setSaving(true);
     try {
       let recordId = clinicalRecordId;
+      const symptomDuration = durationValue ? `${durationValue} ${durationUnit}` : null;
+      const cleanVitals = Object.fromEntries(
+        Object.entries(vitalSigns).filter(([, v]) => v !== undefined && v !== '')
+      );
+      const vitalsToSave = Object.keys(cleanVitals).length > 0 ? cleanVitals : null;
+      const cleanHypotheses = hypotheses.filter((h) => h.text.trim());
+      const hypothesesToSave = cleanHypotheses.length > 0 ? cleanHypotheses : null;
+
+      const recordPayload = {
+        notes: clinicalNotes || null,
+        diagnosis: diagnosis || null,
+        chief_complaint: chiefComplaint || null,
+        history_present_illness: hpi || null,
+        symptom_duration: symptomDuration,
+        physical_exam: physicalExam || null,
+        vital_signs: vitalsToSave,
+        hypotheses: hypothesesToSave,
+        severity: severity || null,
+        treatment_plan: treatmentPlan || null,
+        follow_up_date: followUpDate || null,
+        follow_up_reason: followUpReason || null,
+      };
 
       if (recordId) {
         // Update existing
         const { error } = await supabase
           .from('clinical_records')
-          .update({ notes: clinicalNotes || null, diagnosis: diagnosis || null })
+          .update(recordPayload)
           .eq('id', recordId);
         if (error) throw error;
 
-        // Delete old procedures and re-insert
+        // Delete old procedures + requests and re-insert
         await supabase.from('clinical_record_procedures').delete().eq('clinical_record_id', recordId);
+        await supabase.from('clinical_record_requests').delete().eq('clinical_record_id', recordId);
       } else {
         // Create new
         const { data, error } = await supabase
@@ -203,9 +226,8 @@ export default function Attendance() {
             patient_id: appointment.patient_id,
             dentist_id: user.id,
             clinic_id: currentClinicId ?? null,
-            notes: clinicalNotes || null,
-            diagnosis: diagnosis || null,
             status: 'in_progress',
+            ...recordPayload,
           })
           .select('id')
           .single();
@@ -228,6 +250,22 @@ export default function Attendance() {
           }))
         );
         if (procError) throw procError;
+      }
+
+      // Insert requests
+      const validRequests = requests.filter((r) => {
+        const v = Object.values(r.payload).join('').trim();
+        return v.length > 0;
+      });
+      if (validRequests.length > 0 && recordId) {
+        const { error: reqError } = await supabase.from('clinical_record_requests').insert(
+          validRequests.map((r) => ({
+            clinical_record_id: recordId!,
+            kind: r.kind,
+            payload: r.payload,
+          }))
+        );
+        if (reqError) throw reqError;
       }
 
       toast.success('Atendimento salvo!');
