@@ -468,6 +468,21 @@ export default function Auth() {
                 </p>
               </div>
 
+              {inviteInfo && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <Mail className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-medium text-foreground">Convite de {inviteInfo.clinic_name}</p>
+                    <p className="text-muted-foreground mt-0.5">Crie sua conta para começar a atender nesta clínica.</p>
+                  </div>
+                </div>
+              )}
+              {inviteError && (
+                <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                  {inviteError}
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!isClinicSignup && (
                   <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
