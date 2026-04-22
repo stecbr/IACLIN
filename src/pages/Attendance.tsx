@@ -191,7 +191,7 @@ export default function Attendance() {
       const cleanHypotheses = hypotheses.filter((h) => h.text.trim());
       const hypothesesToSave = cleanHypotheses.length > 0 ? cleanHypotheses : null;
 
-      const recordPayload = {
+      const recordPayload: any = {
         notes: clinicalNotes || null,
         diagnosis: diagnosis || null,
         chief_complaint: chiefComplaint || null,
@@ -228,7 +228,7 @@ export default function Attendance() {
             clinic_id: currentClinicId ?? null,
             status: 'in_progress',
             ...recordPayload,
-          })
+          } as any)
           .select('id')
           .single();
         if (error) throw error;
