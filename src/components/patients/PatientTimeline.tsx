@@ -137,17 +137,31 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
             </div>
 
             {/* Card */}
-            <div className="flex-1 ml-4 p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors group-hover:shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
+            {event.href ? (
+              <Link to={event.href} className="flex-1 ml-4 p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors group-hover:shadow-sm block">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
+                  </div>
+                  <time className="text-[10px] text-muted-foreground whitespace-nowrap mt-0.5">
+                    {format(new Date(event.date), "dd MMM yyyy", { locale: ptBR })}
+                  </time>
                 </div>
-                <time className="text-[10px] text-muted-foreground whitespace-nowrap mt-0.5">
-                  {format(new Date(event.date), "dd MMM yyyy", { locale: ptBR })}
-                </time>
+              </Link>
+            ) : (
+              <div className="flex-1 ml-4 p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors group-hover:shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
+                  </div>
+                  <time className="text-[10px] text-muted-foreground whitespace-nowrap mt-0.5">
+                    {format(new Date(event.date), "dd MMM yyyy", { locale: ptBR })}
+                  </time>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ))}
       </div>
