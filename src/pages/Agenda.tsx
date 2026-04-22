@@ -10,6 +10,7 @@ import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog
 import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
@@ -21,6 +22,8 @@ export default function Agenda() {
   const [selectedSlot, setSelectedSlot] = useState<{ date: Date; hour: number } | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const { user } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const isDentist = effectiveRole === 'dentist';
   const gridRef = useRef<HTMLDivElement>(null);
 
   const range = useMemo(() => {
@@ -33,7 +36,7 @@ export default function Agenda() {
   const { currentClinicId } = useAuth();
 
   const { data: appointments = [], refetch } = useQuery({
-    queryKey: ['appointments', range.start.toISOString(), range.end.toISOString(), currentClinicId],
+    queryKey: ['appointments', range.start.toISOString(), range.end.toISOString(), currentClinicId, isDentist ? user?.id : 'all'],
     queryFn: async () => {
       let query = supabase
         .from('appointments')
@@ -42,6 +45,7 @@ export default function Agenda() {
         .lte('start_time', addDays(range.end, 1).toISOString())
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      if (isDentist && user) query = query.eq('dentist_id', user.id);
       const { data, error } = await query;
       if (error) throw error;
       return data;

@@ -12,6 +12,7 @@ import {
   Building2,
   Stethoscope,
   Wallet,
+  User as UserIcon,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -23,6 +24,7 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import {
   Tooltip,
   TooltipContent,
@@ -63,7 +65,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { resolved } = useTheme();
   const { profile, signOut, user, clinicCategory, isClinicOwner } = useAuth();
-  const { filterNavItems } = useRoleAccess();
+  const { filterNavItems, effectiveRole } = useRoleAccess();
+  const isDentist = effectiveRole === 'dentist';
 
   const filteredMainNav = filterNavItems(mainNav);
   const filteredClinicNav = filterNavItems(
@@ -141,12 +144,15 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
           {collapsed ? (
             <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-8 w-8 object-contain flex-shrink-0" />
           ) : (
             <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-8 object-contain" />
           )}
+          </div>
+          <ClinicSwitcher />
         </div>
       </SidebarHeader>
 
@@ -183,7 +189,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isClinicOwner && (
+        {isClinicOwner && !isDentist && (
           <>
             <div className="mx-3 my-2">
               <div className="h-px bg-sidebar-border/60" />
@@ -224,7 +230,9 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {renderNavItem({ title: 'Configurações', url: '/settings', icon: Settings })}
+              {isDentist
+                ? renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })
+                : renderNavItem({ title: 'Configurações', url: '/settings', icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

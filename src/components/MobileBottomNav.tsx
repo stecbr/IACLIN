@@ -1,28 +1,42 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User } from 'lucide-react';
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useAuth } from '@/contexts/AuthContext';
 
-const allMainItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Agenda', url: '/agenda', icon: Calendar },
-  { title: 'Pacientes', url: '/patients', icon: Users },
-  { title: 'Financeiro', url: '/financial', icon: DollarSign },
-];
-
-const allMoreItems = [
-  { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
-  { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
-  { title: 'Configurações', url: '/settings', icon: Settings },
-];
-
 export function MobileBottomNav() {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
-  const { filterNavItems } = useRoleAccess();
+  const { filterNavItems, effectiveRole } = useRoleAccess();
   const { clinicCategory } = useAuth();
+  const isDentist = effectiveRole === 'dentist';
+
+  const allMainItems = isDentist
+    ? [
+        { title: 'Início', url: '/', icon: LayoutDashboard },
+        { title: 'Agenda', url: '/agenda', icon: Calendar },
+        { title: 'Pacientes', url: '/patients', icon: Users },
+        { title: 'Perfil', url: '/perfil', icon: User },
+      ]
+    : [
+        { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+        { title: 'Agenda', url: '/agenda', icon: Calendar },
+        { title: 'Pacientes', url: '/patients', icon: Users },
+        { title: 'Financeiro', url: '/financial', icon: DollarSign },
+      ];
+
+  const allMoreItems = isDentist
+    ? [
+        { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
+        { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+      ]
+    : [
+        { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
+        { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+        { title: 'Configurações', url: '/settings', icon: Settings },
+      ];
+
   const mainItems = filterNavItems(allMainItems);
   const moreItems = filterNavItems(
     allMoreItems.filter((item) => !('categories' in item) || item.categories.includes(clinicCategory))

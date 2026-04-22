@@ -19,6 +19,7 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
+import Profile from "./pages/Profile";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
 import SecretariaIA from "./pages/SecretariaIA";
@@ -124,6 +125,7 @@ const AppRoutes = () => (
     <Route path="/secretaria-ia" element={<ProtectedRoute><SecretariaIA /></ProtectedRoute>} />
     <Route path="/secretaria-ia/painel" element={<ProtectedRoute><SecretariaIAPainel /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

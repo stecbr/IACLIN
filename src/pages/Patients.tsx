@@ -29,6 +29,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Users } from 'lucide-react';
 import { SkeletonCards } from '@/components/SkeletonLoaders';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const AVATAR_GRADIENTS = [
   'from-blue-400 to-blue-600',
@@ -53,12 +54,27 @@ export default function Patients() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const navigate = useNavigate();
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, user } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const isDentist = effectiveRole === 'dentist';
   const { data: patients = [], isLoading, refetch } = useQuery({
-    queryKey: ['patients', currentClinicId],
+    queryKey: ['patients', currentClinicId, isDentist ? user?.id : 'all'],
     queryFn: async () => {
+      let allowedIds: string[] | null = null;
+      if (isDentist && user) {
+        const [aptRes, recRes] = await Promise.all([
+          supabase.from('appointments').select('patient_id').eq('dentist_id', user.id),
+          supabase.from('clinical_records').select('patient_id').eq('dentist_id', user.id),
+        ]);
+        allowedIds = Array.from(new Set([
+          ...(aptRes.data ?? []).map((a: any) => a.patient_id),
+          ...(recRes.data ?? []).map((r: any) => r.patient_id),
+        ]));
+        if (allowedIds.length === 0) return [];
+      }
       let query = supabase.from('patients').select('*').order('full_name');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      if (allowedIds) query = query.in('id', allowedIds);
       const { data, error } = await query;
       if (error) throw error;
       return data;

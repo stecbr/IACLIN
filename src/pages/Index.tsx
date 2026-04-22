@@ -13,6 +13,14 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useMemo } from 'react';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { MiniSparkline } from '@/components/dashboard/MiniSparkline';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import DentistHome from '@/pages/dentist/DentistHome';
+
+export default function IndexRouter() {
+  const { effectiveRole } = useRoleAccess();
+  if (effectiveRole === 'dentist') return <DentistHome />;
+  return <AdminHome />;
+}
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -21,7 +29,7 @@ function getGreeting() {
   return 'Boa noite';
 }
 
-export default function Index() {
+function AdminHome() {
   const { profile, currentClinicId } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
   const now = new Date();
