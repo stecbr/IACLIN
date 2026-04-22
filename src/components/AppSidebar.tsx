@@ -67,7 +67,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { resolved } = useTheme();
-  const { profile, signOut, user, clinicCategory, isClinicOwner } = useAuth();
+  const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
 
