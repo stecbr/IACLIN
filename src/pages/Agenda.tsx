@@ -52,7 +52,13 @@ export default function Agenda() {
   const { currentClinicId } = useAuth();
 
   const { data: appointments = [], refetch } = useQuery({
-    queryKey: ['appointments', range.start.toISOString(), range.end.toISOString(), currentClinicId, isDentist ? user?.id : 'all'],
+    queryKey: [
+      'appointments',
+      range.start.toISOString(),
+      range.end.toISOString(),
+      currentClinicId,
+      isDentist ? user?.id : doctorFilter.kind === 'one' ? doctorFilter.doctorId : 'all',
+    ],
     queryFn: async () => {
       let query = supabase
         .from('appointments')
@@ -62,6 +68,7 @@ export default function Agenda() {
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       if (isDentist && user) query = query.eq('dentist_id', user.id);
+      else if (doctorFilter.kind === 'one') query = query.eq('dentist_id', doctorFilter.doctorId);
       const { data, error } = await query;
       if (error) throw error;
       return data;
