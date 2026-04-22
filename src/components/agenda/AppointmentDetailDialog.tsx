@@ -106,6 +106,11 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   };
 
   const canStartAttendance = ['scheduled', 'confirmed'].includes(appointment.status);
+  const now = new Date();
+  const startsAt = parseISO(appointment.start_time);
+  const endsAt = parseISO(appointment.end_time);
+  const minutesUntilStart = (startsAt.getTime() - now.getTime()) / 60000;
+  const isStartingSoon = canStartAttendance && minutesUntilStart <= 30 && now.getTime() <= endsAt.getTime() + 60 * 60000;
   const canCancel = !['cancelled', 'completed'].includes(appointment.status);
 
   return (
@@ -221,9 +226,12 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
           {/* Actions */}
           <div className="flex gap-2 pt-2">
             {canStartAttendance && (
-              <Button className="flex-1 gap-2" onClick={handleStartAttendance}>
+              <Button
+                className={`flex-1 gap-2 ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
+                onClick={handleStartAttendance}
+              >
                 <Play className="h-4 w-4" />
-                Iniciar Atendimento
+                {isStartingSoon ? 'Iniciar atendimento agora' : 'Iniciar Atendimento'}
               </Button>
             )}
             {appointment.status === 'in_progress' && (
