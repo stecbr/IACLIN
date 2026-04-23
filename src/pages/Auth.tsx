@@ -181,35 +181,13 @@ export default function Auth() {
           }
         }
 
-        // Validate professional-specific fields (always requires clinic link)
-        const CODE_REGEX = /^CLIN-[A-Z2-9]{8}$/;
+        // Validate professional-specific fields
         if (userType === 'profissional') {
           if (!specialty.trim()) {
             toast.error('Selecione sua especialidade');
             setSubmitting(false);
             return;
           }
-        }
-        if (userType === 'profissional' && !inviteToken) {
-          const trimmed = clinicCode.trim().toUpperCase();
-          if (!CODE_REGEX.test(trimmed)) {
-            setClinicCodeError('Código inválido. Use CLIN-XXXXXXXX.');
-            toast.error('Informe um código de clínica válido');
-            setSubmitting(false);
-            return;
-          }
-          // Validate code exists before creating account
-          const { data: validation, error: valErr } = await supabase.functions.invoke('validate-clinic-code', {
-            body: { code: trimmed },
-          });
-          if (valErr || !validation?.valid) {
-            const msg = validation?.error || 'Código não encontrado. Peça à clínica para gerar um novo.';
-            setClinicCodeError(msg);
-            toast.error(msg);
-            setSubmitting(false);
-            return;
-          }
-          setClinicCodeError(null);
         }
 
         // Validate clinic-specific fields
