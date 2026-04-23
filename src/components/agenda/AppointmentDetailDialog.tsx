@@ -18,12 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { WaitingTimer } from '@/components/waiting-room/WaitingTimer';
 
 interface Appointment {
   id: string;
@@ -35,6 +36,8 @@ interface Appointment {
   status: string;
   notes: string | null;
   procedure_id: string | null;
+  presence_status?: string | null;
+  arrived_at?: string | null;
   patients?: { full_name: string } | null;
   procedures?: { name: string; color: string } | null;
 }
@@ -116,6 +119,8 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   const canCancel = !['cancelled', 'completed'].includes(appointment.status);
   const isCompleted = appointment.status === 'completed';
   const isInProgress = appointment.status === 'in_progress';
+  const presence = appointment.presence_status;
+  const showArrivedBanner = presence === 'arrived' && !!appointment.arrived_at;
 
   return (
     <>
@@ -227,6 +232,17 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
               </SelectContent>
             </Select>
           </div>
+
+          {/* Presence banner */}
+          {showArrivedBanner && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <UserCheck className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                Paciente já chegou —{' '}
+                <WaitingTimer since={appointment.arrived_at!} variant="full" />
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">

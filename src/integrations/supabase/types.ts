@@ -196,6 +196,7 @@ export type Database = {
       }
       appointments: {
         Row: {
+          arrived_at: string | null
           clinic_id: string | null
           created_at: string
           dentist_id: string
@@ -204,14 +205,17 @@ export type Database = {
           label: string | null
           notes: string | null
           patient_id: string
+          presence_status: string
           procedure_id: string | null
           room_id: string | null
           send_confirmation: boolean | null
+          service_started_at: string | null
           start_time: string
           status: string
           updated_at: string
         }
         Insert: {
+          arrived_at?: string | null
           clinic_id?: string | null
           created_at?: string
           dentist_id: string
@@ -220,14 +224,17 @@ export type Database = {
           label?: string | null
           notes?: string | null
           patient_id: string
+          presence_status?: string
           procedure_id?: string | null
           room_id?: string | null
           send_confirmation?: boolean | null
+          service_started_at?: string | null
           start_time: string
           status?: string
           updated_at?: string
         }
         Update: {
+          arrived_at?: string | null
           clinic_id?: string | null
           created_at?: string
           dentist_id?: string
@@ -236,9 +243,11 @@ export type Database = {
           label?: string | null
           notes?: string | null
           patient_id?: string
+          presence_status?: string
           procedure_id?: string | null
           room_id?: string | null
           send_confirmation?: boolean | null
+          service_started_at?: string | null
           start_time?: string
           status?: string
           updated_at?: string

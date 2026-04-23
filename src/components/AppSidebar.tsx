@@ -14,6 +14,7 @@ import {
   Wallet,
   User as UserIcon,
   ClipboardCheck,
+  DoorOpen,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -53,6 +54,7 @@ const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'veterinario', 'outro'];
 const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen, allowedRoles: ['admin', 'secretary'] },
   { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['dentist'] },
 ];
 
