@@ -110,7 +110,7 @@ export default function ClinicalMapPage({ forceMapType, patientId: forcedPatient
     queryKey: ['clinical-map', selectedPatientId, mapConfig?.mapType],
     queryFn: async () => {
       if (!selectedPatientId || !mapConfig) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('clinical_map_entries')
         .select('*')
         .eq('patient_id', selectedPatientId)
@@ -141,7 +141,7 @@ export default function ClinicalMapPage({ forceMapType, patientId: forcedPatient
         const k = parseInt(kcal, 10);
         if (!Number.isNaN(k)) payload.kcal = k;
       }
-      const { error } = await supabase.from('clinical_map_entries').insert({
+      const { error } = await (supabase as any).from('clinical_map_entries').insert({
         patient_id: selectedPatientId,
         clinic_id: currentClinicId,
         dentist_id: user.id,
