@@ -60,10 +60,6 @@ export default function Auth() {
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Clinic code field (when joining a clinic via shared code)
-  const [clinicCode, setClinicCode] = useState('');
-  const [clinicCodeError, setClinicCodeError] = useState<string | null>(null);
-
   // Professional fields (specialty / registration)
   const [specialty, setSpecialty] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
@@ -185,35 +181,13 @@ export default function Auth() {
           }
         }
 
-        // Validate professional-specific fields (always requires clinic link)
-        const CODE_REGEX = /^CLIN-[A-Z2-9]{8}$/;
+        // Validate professional-specific fields
         if (userType === 'profissional') {
           if (!specialty.trim()) {
             toast.error('Selecione sua especialidade');
             setSubmitting(false);
             return;
           }
-        }
-        if (userType === 'profissional' && !inviteToken) {
-          const trimmed = clinicCode.trim().toUpperCase();
-          if (!CODE_REGEX.test(trimmed)) {
-            setClinicCodeError('Código inválido. Use CLIN-XXXXXXXX.');
-            toast.error('Informe um código de clínica válido');
-            setSubmitting(false);
-            return;
-          }
-          // Validate code exists before creating account
-          const { data: validation, error: valErr } = await supabase.functions.invoke('validate-clinic-code', {
-            body: { code: trimmed },
-          });
-          if (valErr || !validation?.valid) {
-            const msg = validation?.error || 'Código não encontrado. Peça à clínica para gerar um novo.';
-            setClinicCodeError(msg);
-            toast.error(msg);
-            setSubmitting(false);
-            return;
-          }
-          setClinicCodeError(null);
         }
 
         // Validate clinic-specific fields
@@ -236,8 +210,8 @@ export default function Auth() {
         }
 
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
-        // If joining via invite token or clinic code, mark user as a member-only signup (no auto-admin/clinic)
-        const isJoiningExistingClinic = !!inviteToken || (userType === 'profissional' && clinicCode.trim().length > 0);
+        // If joining via invite token, mark user as a member-only signup (no auto-admin/clinic)
+        const isJoiningExistingClinic = !!inviteToken || userType === 'profissional';
         const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
@@ -272,26 +246,12 @@ export default function Auth() {
         if (error) throw error;
         toast.success('Conta criada! Verifique seu e-mail para confirmar.');
 
-        // After signup: if joining via invite or code, link the membership
+        // After signup: if joining via invite, link the membership
         if (signUpData.session) {
           if (inviteToken) {
             const { error: acceptErr } = await supabase.functions.invoke('accept-clinic-invite', { body: { token: inviteToken } });
             if (acceptErr) toast.error('Conta criada, mas falhou ao vincular à clínica: ' + acceptErr.message);
             else toast.success('Você foi vinculado à clínica!');
-          } else if (userType === 'profissional' && clinicCode.trim()) {
-            const { error: joinErr } = await supabase.functions.invoke('join-clinic-by-code', {
-              body: {
-                code: clinicCode.trim().toUpperCase(),
-                specialty: specialty.trim() || null,
-                registration_number: registrationNumber.trim() || null,
-              },
-            });
-            if (joinErr) {
-              toast.error('Conta criada, mas falhou ao vincular: ' + joinErr.message);
-              navigate('/aguardando-clinica', { replace: true });
-            } else {
-              toast.success('Vínculo criado com a clínica!');
-            }
           }
         }
       }
@@ -669,29 +629,6 @@ export default function Auth() {
                         className="h-10"
                       />
                     </motion.div>
-
-                    {!inviteToken && (
-                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
-                        <Label htmlFor="clinic-code">Código da clínica</Label>
-                        <Input
-                          id="clinic-code"
-                          value={clinicCode}
-                          onChange={(e) => {
-                            setClinicCodeError(null);
-                            setClinicCode(e.target.value.toUpperCase());
-                          }}
-                          placeholder="CLIN-XXXXXXXX"
-                          required
-                          maxLength={13}
-                          className={`h-10 font-mono tracking-wider ${clinicCodeError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                        />
-                        {clinicCodeError ? (
-                          <p className="text-[11px] text-destructive">{clinicCodeError}</p>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground">Cole o código que você recebeu da clínica para entrar na equipe.</p>
-                        )}
-                      </motion.div>
-                    )}
                   </>
                 )}
 
