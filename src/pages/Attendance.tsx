@@ -591,6 +591,12 @@ export default function Attendance() {
           </TabsContent>
         )}
       </Tabs>
+
+      <AttendanceSummaryModal
+        appointmentId={appointment.id}
+        open={showSummary}
+        onOpenChange={setShowSummary}
+      />
     </div>
   );
 }
