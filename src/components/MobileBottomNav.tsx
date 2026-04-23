@@ -4,13 +4,32 @@ import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
 
 export function MobileBottomNav() {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
   const { filterNavItems, effectiveRole } = useRoleAccess();
-  const { clinicCategory } = useAuth();
+  const { clinicCategory, user, currentClinicId } = useAuth();
   const isDentist = effectiveRole === 'dentist';
+
+  const { data: memberSpecialty } = useQuery({
+    queryKey: ['mobile-member-specialty', user?.id, currentClinicId],
+    queryFn: async () => {
+      if (!user?.id || !currentClinicId) return null;
+      const { data } = await supabase
+        .from('clinic_members')
+        .select('specialty')
+        .eq('user_id', user.id)
+        .eq('clinic_id', currentClinicId)
+        .maybeSingle();
+      return data?.specialty ?? null;
+    },
+    enabled: !!user?.id && !!currentClinicId && isDentist,
+  });
+  const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
 
   const allMainItems = isDentist
     ? [
@@ -28,7 +47,7 @@ export function MobileBottomNav() {
 
   const allMoreItems = isDentist
     ? [
-        { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
+        ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
         { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
       ]
     : [
