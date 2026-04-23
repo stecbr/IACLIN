@@ -310,7 +310,12 @@ export default function Attendance() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Atendimento finalizado!');
+      toast.success('Atendimento finalizado!', {
+        action: {
+          label: 'Ver resumo',
+          onClick: () => setShowSummary(true),
+        },
+      });
       navigate('/agenda');
     } catch (err: any) {
       toast.error(err.message);
