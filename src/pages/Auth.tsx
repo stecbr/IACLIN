@@ -629,29 +629,6 @@ export default function Auth() {
                         className="h-10"
                       />
                     </motion.div>
-
-                    {!inviteToken && (
-                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.23 }}>
-                        <Label htmlFor="clinic-code">Código da clínica</Label>
-                        <Input
-                          id="clinic-code"
-                          value={clinicCode}
-                          onChange={(e) => {
-                            setClinicCodeError(null);
-                            setClinicCode(e.target.value.toUpperCase());
-                          }}
-                          placeholder="CLIN-XXXXXXXX"
-                          required
-                          maxLength={13}
-                          className={`h-10 font-mono tracking-wider ${clinicCodeError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                        />
-                        {clinicCodeError ? (
-                          <p className="text-[11px] text-destructive">{clinicCodeError}</p>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground">Cole o código que você recebeu da clínica para entrar na equipe.</p>
-                        )}
-                      </motion.div>
-                    )}
                   </>
                 )}
 
