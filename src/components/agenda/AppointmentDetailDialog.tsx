@@ -18,9 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, FileText, Play, X } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye } from 'lucide-react';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
+import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
@@ -66,6 +67,7 @@ const statusColors: Record<string, string> = {
 export function AppointmentDetailDialog({ open, onOpenChange, appointment, onStatusChange }: Props) {
   const navigate = useNavigate();
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const { effectiveRole } = useRoleAccess();
   const canViewPatient = effectiveRole !== 'patient';
 
@@ -112,8 +114,11 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   const minutesUntilStart = (startsAt.getTime() - now.getTime()) / 60000;
   const isStartingSoon = canStartAttendance && minutesUntilStart <= 30 && now.getTime() <= endsAt.getTime() + 60 * 60000;
   const canCancel = !['cancelled', 'completed'].includes(appointment.status);
+  const isCompleted = appointment.status === 'completed';
+  const isInProgress = appointment.status === 'in_progress';
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
