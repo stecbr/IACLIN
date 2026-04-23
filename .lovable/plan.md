@@ -1,166 +1,110 @@
 
 
-# Plano: Fluxo completo de aprovação e atendimento da consulta
+# Plano: Modal de resumo do atendimento ao clicar em consulta concluída
 
-## Visão geral
+## O que vai acontecer
 
-Mudar o fluxo do agendamento de **direto** para **com aprovação**, ligando paciente → clínica → médico → atendimento. Hoje o paciente clica "Confirmar" e tenta gravar direto em `patients`/`appointments` (RLS bloqueia). Vamos transformar isso num pedido que entra numa fila de aprovação da clínica.
+Quando alguém (médico, clínica ou paciente) clicar numa consulta com status **Concluída** ou **Em atendimento**, abre um modal só-leitura com **todo o histórico clínico** que o médico preencheu durante o atendimento, organizado em seções limpas, mais botão para imprimir/exportar.
 
-## Fluxo novo
+## Componente novo: `AttendanceSummaryModal`
+
+Arquivo: `src/components/attendance/AttendanceSummaryModal.tsx`
+
+Modal único reaproveitado em todos os contextos. Recebe `appointmentId` e busca em paralelo:
+
+- `appointments` (com paciente, profissional, procedimento, clínica)
+- `clinical_records` por `appointment_id` (com `clinical_record_procedures` e `clinical_record_requests` aninhados)
+
+Layout em seções colapsáveis (todas abertas por padrão), exibindo apenas o que tem dado:
 
 ```text
-Paciente clica Confirmar
-        ↓
-[appointment_requests] status=pending  (criado via edge function segura)
-        ↓
-Clínica vê na aba "Aprovações" + sino de notificação
-        ↓
-Admin aprova → cria appointment status=scheduled
-        ↓
-Médico recebe sino "Nova consulta confirmada"
-Paciente recebe sino "Sua consulta foi confirmada"
-        ↓
-Médico vê detalhes, pode confirmar/reagendar
-        ↓
-Quando faltar ≤30min → botão "Iniciar atendimento" aparece
-        ↓
-Vai pra /atendimento/:id (tela clínica que já existe)
+┌─────────────────────────────────────────────────┐
+│ [Avatar] Flavio Batista                         │
+│         Cardiologia · Dr. Joel · 22/04 19:00    │
+│         [Concluída]                             │
+├─────────────────────────────────────────────────┤
+│ ▸ Avaliação                                     │
+│   Queixa principal · HDA · Duração · Exame      │
+│ ▸ Sinais vitais                                 │
+│   PA · FC · Temp · Sat · Glicemia               │
+│ ▸ Diagnóstico                                   │
+│   Hipóteses (badges) · Diagnóstico · Gravidade  │
+│ ▸ Conduta                                       │
+│   Plano · Retorno em DD/MM · Motivo             │
+│ ▸ Solicitações (3)                              │
+│   Exames, receitas, atestados (cards)           │
+│ ▸ Procedimentos realizados (2)                  │
+│   Lista com preço · total                       │
+│ ▸ Evolução / Anotações                          │
+├─────────────────────────────────────────────────┤
+│ [Imprimir]                            [Fechar]  │
+└─────────────────────────────────────────────────┘
 ```
 
-## Mudanças no banco
+Seções vazias aparecem como “Não informado” em cinza claro, em vez de sumirem totalmente, para deixar claro o que não foi preenchido.
 
-### Nova tabela `appointment_requests`
-- `id`, `patient_user_id`, `patient_account_snapshot` (jsonb com nome/cpf/phone)
-- `clinic_id`, `dentist_id`, `specialty`, `start_time`, `end_time`
-- `notes`, `status` (`pending` | `approved` | `rejected` | `cancelled`)
-- `created_at`, `decided_at`, `decided_by`, `rejection_reason`
-- `appointment_id` (preenchido quando aprovada)
+Imprimir = `window.print()` com CSS específico que esconde o resto da UI.
 
-### RLS
-- Paciente: vê e cria os próprios pedidos.
-- Membros da clínica: veem e atualizam pedidos da sua clínica.
-- Médico: vê pedidos onde `dentist_id = auth.uid()`.
+## Onde plugar o modal
 
-### Triggers de notificação
-- `INSERT` em `appointment_requests` → notifica todos admins da clínica (sino).
-- `UPDATE` para `approved` → notifica médico + paciente.
-- `UPDATE` para `rejected` → notifica paciente com motivo.
+### 1. Médico e secretária (Agenda)
+Arquivo: `src/components/agenda/AppointmentDetailDialog.tsx`
 
-## Edge functions
+- Quando `status === 'completed'` ou `status === 'in_progress'`: trocar os botões de ação por um botão **“Ver resumo do atendimento”** que abre o `AttendanceSummaryModal`.
+- Quando `status === 'completed'`: também esconder o botão “Iniciar atendimento” (já está) e mostrar o resumo como ação principal.
+- Para `in_progress`: mostrar tanto “Continuar atendimento” quanto “Ver resumo parcial”.
 
-### `request-appointment` (nova)
-Substitui o insert direto que dá erro de RLS:
-- Valida usuário autenticado e `patient_accounts`.
-- Valida slot ainda livre (sem outro `pending`/`approved` no mesmo horário).
-- Cria registro em `appointment_requests` com snapshot dos dados do paciente.
-- Retorna mensagem clara em caso de erro.
+### 2. Paciente (Minhas consultas)
+Arquivo: `src/components/patient/AppointmentDetailDrawer.tsx`
 
-### `approve-appointment-request` (nova)
-- Só admin/owner da clínica pode chamar.
-- Verifica se ainda está `pending`.
-- Encontra/cria `patients` na clínica (linka por CPF, cria se não existir).
-- Cria `appointments` com `status=scheduled`.
-- Atualiza request: `status=approved`, `appointment_id`, `decided_at/by`.
+- Adicionar uma nova seção “Resumo da consulta” quando `status === 'completed'`.
+- Mostrar inline um preview compacto (queixa principal, diagnóstico, conduta, próximo retorno) e um botão **“Ver resumo completo”** que abre o `AttendanceSummaryModal`.
+- Se ainda não houver `clinical_record` para a consulta concluída, mostrar mensagem amigável: “O médico ainda não publicou o resumo desta consulta.”
 
-### `reject-appointment-request` (nova)
-- Mesma autorização.
-- Atualiza status + `rejection_reason`.
+### 3. Painel do médico
+Arquivo: `src/pages/dentist/DentistHome.tsx`
 
-## Mudanças no frontend
+- Nos cards de “Próximas/Recentes consultas”, ao clicar numa consulta concluída, abrir o mesmo `AttendanceSummaryModal`.
 
-### Paciente
+### 4. Painel da clínica
+Arquivo: `src/pages/clinica/ClinicaHome.tsx` (e onde a clínica lista atendimentos do dia)
 
-**`src/pages/patient/PatientBooking.tsx`**
-- `handleConfirm` chama `request-appointment` (não insere mais direto).
-- Toast: "Pedido enviado! A clínica vai confirmar em breve."
-- Redireciona pra `/paciente/agendas` que mostrará o pedido pendente.
+- Mesma coisa: clicar na consulta concluída abre o modal.
 
-**`src/pages/patient/PatientAppointments.tsx`**
-- Adicionar seção "Pedidos pendentes" no topo, listando `appointment_requests` com status `pending`/`rejected`.
-- Badge amarelo "Aguardando confirmação" / vermelho "Recusado".
-- Botão "Cancelar pedido" enquanto pendente.
+## Permissões / RLS
 
-**`src/components/marketplace/BookingConfirmation.tsx`**
-- Mesma troca: chama `request-appointment`.
+A leitura já é coberta pelas policies existentes:
 
-### Clínica (admin)
+- **Médico/clínica**: `Clinic members can view clinical records` + `_procedures` + `_requests` via `user_belongs_to_clinic`.
+- **Paciente**: `Patients can view own clinical records` + `Patients can view own record requests` (via join com `patients.patient_user_id = auth.uid()`). 
 
-**Nova página `src/pages/clinica/ClinicaAprovacoes.tsx`** (`/clinica/aprovacoes`)
-- Lista de cards com pedidos `pending`: paciente, médico, especialidade, data/hora, observações.
-- Botões: **Aprovar** (verde) | **Reagendar** (abre dialog com sugestão de novo horário) | **Recusar** (pede motivo).
-- Tabs: Pendentes | Aprovadas | Recusadas (histórico).
-- Real-time via Supabase Realtime → atualiza a lista quando chega novo pedido.
+Ou seja, **nenhuma migration necessária**. O modal só faz `select`, e cada perfil verá só o que pode.
 
-**`src/components/AppSidebar.tsx`**
-- Novo item "Aprovações" com badge de contagem de pendentes (só pra admin).
+## Pequena melhoria de UX no Attendance
 
-**`src/components/NotificationBell.tsx`**
-- Já funciona — só garantir que `type=appointment_request` abra `/clinica/aprovacoes`.
+No `Attendance.tsx`, quando clica **Finalizar atendimento**, hoje ele só salva e volta para a agenda. Vou:
 
-### Médico
-
-**`src/pages/dentist/DentistHome.tsx`**
-- Card "Próximas consultas" mostra agendamentos aprovados com indicador "Confirmada pela clínica".
-- Quando faltar ≤30min pra `start_time`: botão verde **"Iniciar atendimento"** que leva pra `/atendimento/:appointmentId`.
-
-**`src/pages/Agenda.tsx`** (visão do médico)
-- No `AppointmentDetailDialog`, se faltarem ≤30min: botão destacado "Iniciar atendimento agora".
-- Adicionar botão "Reagendar" e "Confirmar presença" pro médico.
-
-**`src/components/agenda/AppointmentDetailDialog.tsx`**
-- Mostrar origem: "Agendado pelo paciente via app" quando vier de `appointment_requests`.
-
-### Tela de atendimento (já existe)
-- `/atendimento/:appointmentId` (`Attendance.tsx`) já tem todos os blocos clínicos que criamos antes (anamnese, vital signs, hipóteses, solicitações, etc.). Só precisa estar acessível via o botão novo. Sem mudanças nela.
-
-## Notificações (sino)
-
-| Evento | Quem recebe | Mensagem |
-|---|---|---|
-| Pedido criado | Admins da clínica | "Novo pedido de consulta de {paciente}" |
-| Pedido aprovado | Médico | "Nova consulta confirmada: {paciente} em {data}" |
-| Pedido aprovado | Paciente | "Sua consulta em {clínica} foi confirmada" |
-| Pedido recusado | Paciente | "Sua consulta foi recusada: {motivo}" |
-| Reagendamento | Paciente + Médico | "Consulta reagendada para {nova data}" |
-
-## Botão "Iniciar atendimento" — regra
-
-Aparece quando:
-- `appointment.status = 'scheduled'` ou `'confirmed'`
-- `now() >= start_time - 30min` E `now() <= end_time + 60min`
-- Usuário logado é o `dentist_id` do appointment
+- Trocar o `toast.success('Atendimento finalizado!')` por um toast com ação “Ver resumo” que abre o `AttendanceSummaryModal` na hora — assim o médico já confirma visualmente o que foi gravado.
 
 ## Arquivos tocados
 
-**Novos**
-- `supabase/functions/request-appointment/index.ts`
-- `supabase/functions/approve-appointment-request/index.ts`
-- `supabase/functions/reject-appointment-request/index.ts`
-- `src/pages/clinica/ClinicaAprovacoes.tsx`
-- `src/components/clinica/ApprovalCard.tsx`
-- `src/components/clinica/RescheduleDialog.tsx`
+**Novo**
+- `src/components/attendance/AttendanceSummaryModal.tsx`
 
 **Editados**
-- `src/pages/patient/PatientBooking.tsx`
-- `src/pages/patient/PatientAppointments.tsx`
-- `src/components/marketplace/BookingConfirmation.tsx`
-- `src/components/AppSidebar.tsx`
-- `src/pages/dentist/DentistHome.tsx`
-- `src/pages/Agenda.tsx`
-- `src/components/agenda/AppointmentDetailDialog.tsx`
-- `src/App.tsx` (rota nova)
-
-**Migrations**
-- Cria `appointment_requests` + RLS + triggers de notificação.
-- Habilita realtime na tabela.
+- `src/components/agenda/AppointmentDetailDialog.tsx` — botão “Ver resumo” quando concluída/em andamento
+- `src/components/patient/AppointmentDetailDrawer.tsx` — seção e botão de resumo quando concluída
+- `src/pages/dentist/DentistHome.tsx` — abrir modal nos cards de consulta concluída
+- `src/pages/clinica/ClinicaHome.tsx` — abrir modal nos cards de consulta concluída
+- `src/pages/Attendance.tsx` — toast com ação “Ver resumo” após finalizar
 
 ## O que NÃO muda
 
-- Tela `/atendimento/:id` continua igual (já tem os blocos clínicos).
-- Agenda interna da clínica (criada pela secretária) continua direto, sem aprovação — só o fluxo do paciente passa pela aprovação.
-- RLS de `patients`/`appointments` permanece restrita.
+- Tabela `clinical_records` e relacionadas — já guardam tudo (queixa, HDA, vitais, hipóteses, diagnóstico, conduta, retorno, solicitações, procedimentos, evolução).
+- Fluxo de salvar em `Attendance.tsx` — já funcional.
+- RLS — já permite leitura pelos 3 perfis.
 
-## Resultado final
+## Resultado esperado
 
-Você logará como Flávio → pedirá consulta com Joel → o pedido entra na fila da clínica do Lucas → Lucas (admin) aprova → Joel recebe sino + vê na agenda → quando chegar perto da hora, Joel clica "Iniciar atendimento" → preenche os blocos clínicos.
+Ao clicar na consulta do Flavio (concluída) na agenda do Joel, abre o modal com tudo: queixa principal, diagnóstico, plano, procedimentos com preço, solicitações geradas. O Lucas (admin da clínica) vê o mesmo. O Flavio, em **/paciente/agendas**, vê o resumo da consulta dele com um botão para imprimir.
 
