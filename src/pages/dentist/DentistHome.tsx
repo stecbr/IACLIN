@@ -1,16 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope } from 'lucide-react';
+import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope, Eye } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
+import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -21,6 +22,7 @@ function getGreeting() {
 
 export default function DentistHome() {
   const { user, profile, currentClinicId } = useAuth();
+  const [summaryAptId, setSummaryAptId] = useState<string | null>(null);
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -208,9 +210,20 @@ export default function DentistHome() {
                     <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
                       {statusLabels[apt.status] ?? apt.status}
                     </Badge>
-                    <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs">
-                      <Link to={`/atendimento/${apt.id}`}>Atender</Link>
-                    </Button>
+                    {apt.status === 'completed' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1"
+                        onClick={() => setSummaryAptId(apt.id)}
+                      >
+                        <Eye className="h-3 w-3" /> Ver resumo
+                      </Button>
+                    ) : (
+                      <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs">
+                        <Link to={`/atendimento/${apt.id}`}>Atender</Link>
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
