@@ -1,51 +1,28 @@
 
 
-# Plano: Remover campo "Código da clínica" do cadastro do médico
+# Plano: Estender horário da agenda para 00:00 – 23:59
 
 ## O que muda
 
-Na tela de cadastro `/auth` (quando o usuário escolhe **Profissional → Médico/Dentista**), vou **remover** o campo "Código da clínica" e seu texto auxiliar. O fluxo passa a ser:
+A grade da agenda hoje vai de **07:00 às 19:00** (13 linhas). Vou estender para **00:00 às 23:00** (24 linhas), cobrindo o dia inteiro até 23:59.
 
-```text
-ANTES:
-Cadastro → preenche dados + código da clínica → conta criada + vínculo
+## Arquivos editados
 
-DEPOIS:
-Cadastro → preenche só dados pessoais → conta criada
-       → redireciona para /aguardando-clinica
-       → médico cola o código da clínica lá
-       → vínculo criado
-```
+1. **`src/pages/Agenda.tsx`** (linha 24)
+   - Trocar `const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);`
+   - Por `const HOURS = Array.from({ length: 24 }, (_, i) => i);`
 
-Mantém só **um ponto** para informar o código (a tela `WaitingClinic`, que já está pronta e funcionando — segunda imagem).
+2. **`src/components/agenda/AgendaCompareView.tsx`** (linha 7)
+   - Mesma alteração para a visão de comparação entre médicos.
 
-## Arquivo editado
+## Detalhes de UX
 
-**`src/pages/Auth.tsx`**
+- A grade fica naturalmente rolável (já tem `overflow-y-auto` com `max-h-[calc(100vh-320px)]`), então as 24 linhas não quebram o layout.
+- Ao abrir a agenda, o scroll inicial continua no topo (00:00). Posso adicionar um auto-scroll para o horário comercial (~07:00) ou para a hora atual ao montar o componente, se você quiser — mas por padrão já fica funcional.
 
-1. Remover o bloco JSX do campo "Código da clínica" dentro do formulário de profissional (input + label + texto explicativo + erro).
-2. Remover do `handleSubmit` toda a validação de `clinicCode` e a chamada de `validate-clinic-code` antes do signup.
-3. Remover do bloco pós-signup a chamada de `join-clinic-by-code` baseada em `clinicCode`. O fluxo de invite por token (`inviteToken`) **continua igual**.
-4. Ajustar `isJoiningExistingClinic` para considerar apenas `inviteToken` (não mais o código).
-5. Manter os states `clinicCode`/`clinicCodeError` só se forem usados em outros lugares — caso não, removê-los junto.
+## O que NÃO muda
 
-## Como vai ficar o fluxo
-
-- Médico clica "Cadastre-se" → escolhe **Profissional → Médico** (ou Dentista).
-- Preenche: nome, e-mail, senha, **especialidade**, CRM (opcional). **Sem campo de código**.
-- Cria conta → como não tem clínica vinculada, o `AuthContext` já redireciona automaticamente para `/aguardando-clinica` (rota `WaitingClinic` que já existe).
-- Lá, o médico cola o `CLIN-XXXXXXXX` → clica em **Vincular à clínica** → vínculo é criado e ele entra no sistema.
-
-Convites por link (`?invite=...`) continuam funcionando como antes — esses não passam por `WaitingClinic` porque o token já vincula automaticamente.
-
-## Arquivos NÃO alterados
-
-- `src/pages/WaitingClinic.tsx` — segue como o único ponto de entrada do código.
-- `supabase/functions/join-clinic-by-code/index.ts` — segue ativo, usado pelo WaitingClinic.
-- `supabase/functions/validate-clinic-code/index.ts` — pode ficar (o WaitingClinic não usa, mas não atrapalha).
-- `AuthContext` e roteamento — já redirecionam médico sem clínica para `/aguardando-clinica`.
-
-## Resultado
-
-Tela de cadastro do médico fica mais curta e limpa, sem o campo "Código da clínica" — exatamente como você pediu (remover o primeiro ponto, manter o segundo).
+- Lógica de criação/exibição de agendamentos (continua usando `getHours()`).
+- Filtros, drag, e outras funcionalidades.
+- Disponibilidade do profissional em `Availability.tsx` (controle separado).
 
