@@ -60,10 +60,6 @@ export default function Auth() {
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Clinic code field (when joining a clinic via shared code)
-  const [clinicCode, setClinicCode] = useState('');
-  const [clinicCodeError, setClinicCodeError] = useState<string | null>(null);
-
   // Professional fields (specialty / registration)
   const [specialty, setSpecialty] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
