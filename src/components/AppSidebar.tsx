@@ -26,6 +26,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
+import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
 import {
   Tooltip,
   TooltipContent,
@@ -71,20 +72,49 @@ export function AppSidebar() {
   const { resolved } = useTheme();
   const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
-  const { simulatedRole } = useAuth();
+  const { simulatedRole, currentClinicId } = useAuth();
   const isDentist = effectiveRole === 'dentist';
+
+  // Doctor's specialty for dynamic clinical map item
+  const { data: memberSpecialty } = useQuery({
+    queryKey: ['member-specialty', user?.id, currentClinicId],
+    queryFn: async () => {
+      if (!user?.id || !currentClinicId) return null;
+      const { data } = await supabase
+        .from('clinic_members')
+        .select('specialty')
+        .eq('user_id', user.id)
+        .eq('clinic_id', currentClinicId)
+        .maybeSingle();
+      return data?.specialty ?? null;
+    },
+    enabled: !!user?.id && !!currentClinicId && isDentist,
+  });
+  const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
 
   // Defense in depth: gate by allowedRoles AND by route permission
   const filteredMainNav = filterNavItems(
     mainNav.filter((item) => item.allowedRoles.includes(effectiveRole))
   );
   const filteredClinicNav = filterNavItems(
-    clinicNav.filter(
-      (item) =>
-        item.categories.includes(clinicCategory) &&
-        item.allowedRoles.includes(effectiveRole)
-    )
+    clinicNav
+      .filter(
+        (item) =>
+          item.categories.includes(clinicCategory) &&
+          item.allowedRoles.includes(effectiveRole)
+      )
+      // For dentists: hide the static "Odontograma" item; we'll inject the dynamic map item below
+      .filter((item) => !(isDentist && item.url === '/odontogram'))
   );
+
+  // Inject dynamic map item for dentists with a known specialty
+  const finalClinicNav = isDentist && dynamicMap
+    ? [
+        ...filteredClinicNav.slice(0, 2),
+        { title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon, categories: ALL_CATEGORIES, allowedRoles: ['dentist'] as Role[] },
+        ...filteredClinicNav.slice(2),
+      ]
+    : filteredClinicNav;
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({
@@ -213,7 +243,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredClinicNav.map((item) =>
+              {finalClinicNav.map((item) =>
                 renderNavItem(item, item.url === '/clinica/aprovacoes' ? pendingCount : undefined)
               )}
             </SidebarMenu>

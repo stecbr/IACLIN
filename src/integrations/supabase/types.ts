@@ -409,6 +409,54 @@ export type Database = {
           },
         ]
       }
+      clinical_map_entries: {
+        Row: {
+          appointment_id: string | null
+          clinic_id: string | null
+          condition: string
+          created_at: string
+          dentist_id: string | null
+          id: string
+          map_type: string
+          notes: string | null
+          patient_id: string
+          payload: Json | null
+          region_code: string
+          severity: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          clinic_id?: string | null
+          condition: string
+          created_at?: string
+          dentist_id?: string | null
+          id?: string
+          map_type: string
+          notes?: string | null
+          patient_id: string
+          payload?: Json | null
+          region_code: string
+          severity?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          clinic_id?: string | null
+          condition?: string
+          created_at?: string
+          dentist_id?: string | null
+          id?: string
+          map_type?: string
+          notes?: string | null
+          patient_id?: string
+          payload?: Json | null
+          region_code?: string
+          severity?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clinical_record_procedures: {
         Row: {
           clinical_record_id: string
