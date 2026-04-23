@@ -233,6 +233,17 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
             </Select>
           </div>
 
+          {/* Presence banner */}
+          {showArrivedBanner && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <UserCheck className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                Paciente já chegou —{' '}
+                <WaitingTimer since={appointment.arrived_at!} variant="full" />
+              </p>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-2 pt-2">
             {isCompleted && (
