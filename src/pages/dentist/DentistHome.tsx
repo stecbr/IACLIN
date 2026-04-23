@@ -1,16 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope } from 'lucide-react';
+import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope, Eye } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
+import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -21,6 +22,7 @@ function getGreeting() {
 
 export default function DentistHome() {
   const { user, profile, currentClinicId } = useAuth();
+  const [summaryAptId, setSummaryAptId] = useState<string | null>(null);
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -208,9 +210,20 @@ export default function DentistHome() {
                     <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
                       {statusLabels[apt.status] ?? apt.status}
                     </Badge>
-                    <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs">
-                      <Link to={`/atendimento/${apt.id}`}>Atender</Link>
-                    </Button>
+                    {apt.status === 'completed' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1"
+                        onClick={() => setSummaryAptId(apt.id)}
+                      >
+                        <Eye className="h-3 w-3" /> Ver resumo
+                      </Button>
+                    ) : (
+                      <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs">
+                        <Link to={`/atendimento/${apt.id}`}>Atender</Link>
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -255,7 +268,11 @@ export default function DentistHome() {
           <CardContent>
             <div className="space-y-1">
               {upcoming.map((apt: any) => (
-                <div key={apt.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0">
+                <div
+                  key={apt.id}
+                  className={`flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 ${apt.status === 'completed' ? 'cursor-pointer hover:bg-muted/40 transition-colors' : ''}`}
+                  onClick={apt.status === 'completed' ? () => setSummaryAptId(apt.id) : undefined}
+                >
                   <div className="text-xs text-muted-foreground min-w-[120px]">
                     {format(parseISO(apt.start_time), "dd/MM 'às' HH:mm", { locale: ptBR })}
                   </div>
@@ -263,12 +280,21 @@ export default function DentistHome() {
                     <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? 'Consulta'}</p>
                   </div>
+                  {apt.status === 'completed' && (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
       )}
+
+      <AttendanceSummaryModal
+        appointmentId={summaryAptId}
+        open={!!summaryAptId}
+        onOpenChange={(o) => { if (!o) setSummaryAptId(null); }}
+      />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Calendar, Clock, MapPin, Phone, Building2, Stethoscope,
-  CheckCircle2, XCircle, ExternalLink, MessageCircle, FileText,
+  CheckCircle2, XCircle, ExternalLink, MessageCircle, FileText, Eye,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { geocodeAddress } from '@/lib/geocode';
 import { appointmentStatusMap, type AppointmentRow } from '@/hooks/usePatientData';
+import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 
 interface Props {
   appointment: AppointmentRow | null;
@@ -33,6 +34,7 @@ export function AppointmentDetailDrawer({ appointment, open, onOpenChange, onCha
   const mapInstance = useRef<L.Map | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Geocode when appointment changes
   useEffect(() => {
@@ -143,6 +145,7 @@ export function AppointmentDetailDrawer({ appointment, open, onOpenChange, onCha
 
   const isPast = new Date(appointment.start_time) < new Date();
   const canAct = !isPast && appointment.status !== 'cancelled' && appointment.status !== 'completed';
+  const isCompleted = appointment.status === 'completed';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -257,8 +260,30 @@ export function AppointmentDetailDrawer({ appointment, open, onOpenChange, onCha
               </div>
             </>
           )}
+
+          {isCompleted && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Resumo da consulta
+                </p>
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => setShowSummary(true)}
+                >
+                  <Eye className="h-4 w-4" /> Ver resumo completo
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </SheetContent>
+      <AttendanceSummaryModal
+        appointmentId={appointment.id}
+        open={showSummary}
+        onOpenChange={setShowSummary}
+      />
     </Sheet>
   );
 }

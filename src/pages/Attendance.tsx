@@ -20,6 +20,7 @@ import { VitalSignsForm, type VitalSigns } from '@/components/attendance/VitalSi
 import { HypothesesEditor, type Hypothesis } from '@/components/attendance/HypothesesEditor';
 import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
 import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
+import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 
 interface ProcedureRow {
   tempId: string;
@@ -42,6 +43,7 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [clinicalRecordId, setClinicalRecordId] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -308,7 +310,12 @@ export default function Attendance() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Atendimento finalizado!');
+      toast.success('Atendimento finalizado!', {
+        action: {
+          label: 'Ver resumo',
+          onClick: () => setShowSummary(true),
+        },
+      });
       navigate('/agenda');
     } catch (err: any) {
       toast.error(err.message);
@@ -584,6 +591,12 @@ export default function Attendance() {
           </TabsContent>
         )}
       </Tabs>
+
+      <AttendanceSummaryModal
+        appointmentId={appointment.id}
+        open={showSummary}
+        onOpenChange={setShowSummary}
+      />
     </div>
   );
 }

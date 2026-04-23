@@ -18,9 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, FileText, Play, X } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye } from 'lucide-react';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
+import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
@@ -66,6 +67,7 @@ const statusColors: Record<string, string> = {
 export function AppointmentDetailDialog({ open, onOpenChange, appointment, onStatusChange }: Props) {
   const navigate = useNavigate();
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const { effectiveRole } = useRoleAccess();
   const canViewPatient = effectiveRole !== 'patient';
 
@@ -112,8 +114,11 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   const minutesUntilStart = (startsAt.getTime() - now.getTime()) / 60000;
   const isStartingSoon = canStartAttendance && minutesUntilStart <= 30 && now.getTime() <= endsAt.getTime() + 60 * 60000;
   const canCancel = !['cancelled', 'completed'].includes(appointment.status);
+  const isCompleted = appointment.status === 'completed';
+  const isInProgress = appointment.status === 'in_progress';
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -225,6 +230,12 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">
+            {isCompleted && (
+              <Button className="flex-1 gap-2" onClick={() => setShowSummary(true)}>
+                <Eye className="h-4 w-4" />
+                Ver resumo do atendimento
+              </Button>
+            )}
             {canStartAttendance && (
               <Button
                 className={`flex-1 gap-2 ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
@@ -234,11 +245,17 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
                 {isStartingSoon ? 'Iniciar atendimento agora' : 'Iniciar Atendimento'}
               </Button>
             )}
-            {appointment.status === 'in_progress' && (
-              <Button className="flex-1 gap-2" onClick={handleStartAttendance}>
-                <Play className="h-4 w-4" />
-                Continuar Atendimento
-              </Button>
+            {isInProgress && (
+              <>
+                <Button className="flex-1 gap-2" onClick={handleStartAttendance}>
+                  <Play className="h-4 w-4" />
+                  Continuar Atendimento
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => setShowSummary(true)}>
+                  <Eye className="h-4 w-4" />
+                  Resumo parcial
+                </Button>
+              </>
             )}
             {canCancel && (
               <Button variant="outline" size="icon" onClick={handleCancel} disabled={updatingStatus}>
@@ -249,5 +266,11 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
         </div>
       </DialogContent>
     </Dialog>
+    <AttendanceSummaryModal
+      appointmentId={appointment.id}
+      open={showSummary}
+      onOpenChange={setShowSummary}
+    />
+    </>
   );
 }
