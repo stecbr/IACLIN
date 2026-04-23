@@ -133,7 +133,7 @@ export default function WaitingRoom() {
   ) => {
     setBusyId(id);
     try {
-      const updates: Record<string, unknown> = { presence_status: presence };
+      const updates: { presence_status: string; status?: string } = { presence_status: presence };
       if (presence === 'finished') updates.status = 'completed';
       if (presence === 'no_show') updates.status = 'no_show';
       const { error } = await supabase.from('appointments').update(updates).eq('id', id);
@@ -158,7 +158,7 @@ export default function WaitingRoom() {
     <div className="space-y-4">
       <PageHeader
         title="Sala de Espera"
-        subtitle="Acompanhe a chegada e o atendimento dos pacientes do dia"
+        description="Acompanhe a chegada e o atendimento dos pacientes do dia"
       >
         <div className="flex items-center gap-2">
           <Select value={doctorFilter} onValueChange={setDoctorFilter}>
