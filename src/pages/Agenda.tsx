@@ -19,6 +19,7 @@ import {
 } from '@/components/agenda/AgendaDoctorFilter';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { AgendaCompareView } from '@/components/agenda/AgendaCompareView';
+import { WaitingTimer } from '@/components/waiting-room/WaitingTimer';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -248,11 +249,16 @@ export default function Agenda() {
                           const procedureColor = (apt as any).procedures?.color ?? 'hsl(var(--primary))';
                           const showDoctorBadge = !isDentist && doctorFilter.kind === 'all';
                           const doctor = showDoctorBadge ? doctorById.get(apt.dentist_id) : null;
+                          const presence = apt.presence_status as string | undefined;
+                          const isArrived = presence === 'arrived' && apt.arrived_at;
+                          const isInService = presence === 'in_service';
                           return (
                             <Tooltip key={apt.id}>
                               <TooltipTrigger asChild>
                                 <div
-                                  className="relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer"
+                                  className={`relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${
+                                    isArrived ? 'ring-1 ring-amber-500/60' : isInService ? 'ring-1 ring-emerald-500/60' : ''
+                                  }`}
                                   onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   style={{
                                     backgroundColor: `${procedureColor}15`,
@@ -272,6 +278,18 @@ export default function Agenda() {
                                   <p className="text-muted-foreground truncate">
                                     {(apt as any).procedures?.name ?? 'Consulta'}
                                   </p>
+                                  {isArrived && (
+                                    <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      <WaitingTimer since={apt.arrived_at} variant="full" />
+                                    </div>
+                                  )}
+                                  {isInService && (
+                                    <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                      em atendimento
+                                    </div>
+                                  )}
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="right" className="max-w-[220px]">
@@ -281,6 +299,11 @@ export default function Agenda() {
                                   <p className="text-xs">{format(parseISO(apt.start_time), 'HH:mm')} - {format(parseISO(apt.end_time), 'HH:mm')}</p>
                                   <p className="text-xs capitalize">{statusLabels[apt.status] ?? apt.status}</p>
                                   {doctor && <p className="text-xs">Dr(a). {doctor.full_name}</p>}
+                                  {isArrived && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                                      Chegou às {format(parseISO(apt.arrived_at), 'HH:mm')}
+                                    </p>
+                                  )}
                                   {apt.notes && <p className="text-xs text-muted-foreground italic">{apt.notes}</p>}
                                 </div>
                               </TooltipContent>

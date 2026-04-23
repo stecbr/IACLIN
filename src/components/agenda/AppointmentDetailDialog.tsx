@@ -18,12 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { WaitingTimer } from '@/components/waiting-room/WaitingTimer';
 
 interface Appointment {
   id: string;
@@ -35,6 +36,8 @@ interface Appointment {
   status: string;
   notes: string | null;
   procedure_id: string | null;
+  presence_status?: string | null;
+  arrived_at?: string | null;
   patients?: { full_name: string } | null;
   procedures?: { name: string; color: string } | null;
 }
@@ -116,6 +119,8 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   const canCancel = !['cancelled', 'completed'].includes(appointment.status);
   const isCompleted = appointment.status === 'completed';
   const isInProgress = appointment.status === 'in_progress';
+  const presence = appointment.presence_status;
+  const showArrivedBanner = presence === 'arrived' && !!appointment.arrived_at;
 
   return (
     <>
