@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import type { DoctorOption } from './AgendaDoctorFilter';
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 const statusLabels: Record<string, string> = {
   scheduled: 'Agendada',
