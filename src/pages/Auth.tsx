@@ -210,8 +210,8 @@ export default function Auth() {
         }
 
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
-        // If joining via invite token or clinic code, mark user as a member-only signup (no auto-admin/clinic)
-        const isJoiningExistingClinic = !!inviteToken || (userType === 'profissional' && clinicCode.trim().length > 0);
+        // If joining via invite token, mark user as a member-only signup (no auto-admin/clinic)
+        const isJoiningExistingClinic = !!inviteToken || userType === 'profissional';
         const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
@@ -246,26 +246,12 @@ export default function Auth() {
         if (error) throw error;
         toast.success('Conta criada! Verifique seu e-mail para confirmar.');
 
-        // After signup: if joining via invite or code, link the membership
+        // After signup: if joining via invite, link the membership
         if (signUpData.session) {
           if (inviteToken) {
             const { error: acceptErr } = await supabase.functions.invoke('accept-clinic-invite', { body: { token: inviteToken } });
             if (acceptErr) toast.error('Conta criada, mas falhou ao vincular à clínica: ' + acceptErr.message);
             else toast.success('Você foi vinculado à clínica!');
-          } else if (userType === 'profissional' && clinicCode.trim()) {
-            const { error: joinErr } = await supabase.functions.invoke('join-clinic-by-code', {
-              body: {
-                code: clinicCode.trim().toUpperCase(),
-                specialty: specialty.trim() || null,
-                registration_number: registrationNumber.trim() || null,
-              },
-            });
-            if (joinErr) {
-              toast.error('Conta criada, mas falhou ao vincular: ' + joinErr.message);
-              navigate('/aguardando-clinica', { replace: true });
-            } else {
-              toast.success('Vínculo criado com a clínica!');
-            }
           }
         }
       }
