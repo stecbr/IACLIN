@@ -21,7 +21,7 @@ import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { AgendaCompareView } from '@/components/agenda/AgendaCompareView';
 
 type View = 'day' | 'week' | 'month';
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 7);
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
