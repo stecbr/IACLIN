@@ -230,6 +230,12 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">
+            {isCompleted && (
+              <Button className="flex-1 gap-2" onClick={() => setShowSummary(true)}>
+                <Eye className="h-4 w-4" />
+                Ver resumo do atendimento
+              </Button>
+            )}
             {canStartAttendance && (
               <Button
                 className={`flex-1 gap-2 ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
@@ -239,11 +245,17 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
                 {isStartingSoon ? 'Iniciar atendimento agora' : 'Iniciar Atendimento'}
               </Button>
             )}
-            {appointment.status === 'in_progress' && (
-              <Button className="flex-1 gap-2" onClick={handleStartAttendance}>
-                <Play className="h-4 w-4" />
-                Continuar Atendimento
-              </Button>
+            {isInProgress && (
+              <>
+                <Button className="flex-1 gap-2" onClick={handleStartAttendance}>
+                  <Play className="h-4 w-4" />
+                  Continuar Atendimento
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => setShowSummary(true)}>
+                  <Eye className="h-4 w-4" />
+                  Resumo parcial
+                </Button>
+              </>
             )}
             {canCancel && (
               <Button variant="outline" size="icon" onClick={handleCancel} disabled={updatingStatus}>
@@ -254,5 +266,11 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
         </div>
       </DialogContent>
     </Dialog>
+    <AttendanceSummaryModal
+      appointmentId={appointment.id}
+      open={showSummary}
+      onOpenChange={setShowSummary}
+    />
+    </>
   );
 }
