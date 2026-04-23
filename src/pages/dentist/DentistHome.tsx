@@ -268,7 +268,11 @@ export default function DentistHome() {
           <CardContent>
             <div className="space-y-1">
               {upcoming.map((apt: any) => (
-                <div key={apt.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0">
+                <div
+                  key={apt.id}
+                  className={`flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 ${apt.status === 'completed' ? 'cursor-pointer hover:bg-muted/40 transition-colors' : ''}`}
+                  onClick={apt.status === 'completed' ? () => setSummaryAptId(apt.id) : undefined}
+                >
                   <div className="text-xs text-muted-foreground min-w-[120px]">
                     {format(parseISO(apt.start_time), "dd/MM 'às' HH:mm", { locale: ptBR })}
                   </div>
@@ -276,12 +280,21 @@ export default function DentistHome() {
                     <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? 'Consulta'}</p>
                   </div>
+                  {apt.status === 'completed' && (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
       )}
+
+      <AttendanceSummaryModal
+        appointmentId={summaryAptId}
+        open={!!summaryAptId}
+        onOpenChange={(o) => { if (!o) setSummaryAptId(null); }}
+      />
     </div>
   );
 }
