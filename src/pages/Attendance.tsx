@@ -151,7 +151,11 @@ export default function Attendance() {
   // Mark appointment as in_progress on first load
   useEffect(() => {
     if (appointment && ['scheduled', 'confirmed'].includes(appointment.status)) {
-      supabase.from('appointments').update({ status: 'in_progress' }).eq('id', appointment.id).then();
+      supabase
+        .from('appointments')
+        .update({ status: 'in_progress', presence_status: 'in_service' })
+        .eq('id', appointment.id)
+        .then();
     }
   }, [appointment]);
 

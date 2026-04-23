@@ -27,6 +27,7 @@ import MarketplaceBooking from "./pages/MarketplaceBooking";
 import SecretariaIA from "./pages/SecretariaIA";
 import SecretariaIAPainel from "./pages/SecretariaIAPainel";
 import Availability from "./pages/Availability";
+import WaitingRoom from "./pages/WaitingRoom";
 import ClinicaHome from "./pages/clinica/ClinicaHome";
 import ClinicaMedicos from "./pages/clinica/ClinicaMedicos";
 import ClinicaAprovacoes from "./pages/clinica/ClinicaAprovacoes";
@@ -142,6 +143,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/disponibilidade" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
+    <Route path="/sala-de-espera" element={<ProtectedRoute><WaitingRoom /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
     <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
     <Route path="/clinica" element={<ProtectedRoute><ClinicaHome /></ProtectedRoute>} />
