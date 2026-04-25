@@ -1,207 +1,159 @@
+… # Plano: Caixa de Ferramentas — Ondas 2 e 3
 
+Continuação do que já foi entregue na Onda 1 (Anestésico, Timer, Retorno). Agora finalizamos as 6 ferramentas restantes + o overlay flutuante dentro do atendimento.
 
-# Plano: Caixa de Ferramentas Clínicas do Dentista
+## 🗄️ Migração de banco (única, pequena)
 
-## Contexto
+Uma migração só, agrupando tudo:
 
-Hoje o dentista tem agenda, pacientes, odontograma e orçamentos. O que falta é o **kit de ferramentas que ele usa entre uma consulta e outra** — coisas tipo "preciso de uma calculadora de anestesia agora", "quero uma referência rápida de prescrição", "vou marcar o próximo retorno desse paciente em 7 dias". Essas micro-ferramentas existem hoje em apps soltos no celular do dentista; vamos centralizar tudo dentro do IACLIN.
+1. **Nova tabela `prescription_templates`**
+   - `id uuid PK`, `clinic_id uuid not null`, `dentist_id uuid` (nullable — null = template da clínica, preenchido = template pessoal)
+   - `name text not null`, `category text` (ex: "pos_extracao", "antibiotico", "analgesico")
+   - `content jsonb not null` — array de itens `{ medication, dosage, frequency, duration, instructions }`
+   - `is_default boolean default false` — marca os templates pré-instalados
+   - `created_at`, `updated_at`
+   - **RLS**: `user_belongs_to_clinic` para SELECT/INSERT/UPDATE, admin para DELETE
+   - Trigger `update_updated_at_column`
 
-## Módulo central: `/ferramentas` (Caixa de Ferramentas)
+2. **`profiles`**: adicionar `signature_url text` (nullable) — URL da assinatura digital escaneada no bucket `clinic-assets`.
 
-Nova área no menu lateral do dentista, **abaixo do mapa clínico**, com ícone `Briefcase` ou `Stethoscope`. Tela única com cards grandes (estilo "app drawer" do iOS), cada um abrindo uma ferramenta específica. Mobile-first, otimizada para uso rápido com luva.
+3. **`clinical_records`**: adicionar `procedure_duration_seconds integer` (nullable) — preenchido pelo Timer ao parar.
 
-```text
-┌─────────────────────────────────────────────┐
-│  Ferramentas Clínicas                       │
-├─────────────┬─────────────┬─────────────────┤
-│ 💉 Anestesia│ 💊 Receituário│ 📅 Próx. Retorno│
-├─────────────┼─────────────┼─────────────────┤
-│ 📸 Foto     │ 🎤 Ditado   │ 🦷 Atlas Dentes │
-├─────────────┼─────────────┼─────────────────┤
-│ ⏱ Timer     │ 📋 Atestado │ 🧮 Conversor   │
-└─────────────┴─────────────┴─────────────────┘
-```
+4. **Seed opcional** (pode ficar para depois): inserir 4 templates default (`is_default=true`, `dentist_id=null`) para cada clínica via função, ou simplesmente entregar como **constantes em `src/lib/prescriptionTemplates.ts`** que aparecem mesmo quando a tabela está vazia. Vou pelo segundo caminho — mais simples e funciona offline.
 
-## Ferramentas (cada uma é um modal/drawer dentro de `/ferramentas`)
+## 📦 Onda 2 — Documentos clínicos
 
-### 1. 💉 Calculadora de Anestésico
-A mais pedida na rotina odontológica. Entrada:
-- Peso do paciente (kg)
-- Anestésico usado (Lidocaína 2%, Mepivacaína 2%, Articaína 4%, Bupivacaína 0.5% — tabela embutida)
-- Vasoconstritor (com ou sem)
+### 2.1 `src/lib/prescriptionTemplates.ts`
+Constantes com os 4 modelos prontos:
+- **Pós-extração**: Dipirona 500mg + Ibuprofeno 600mg (3 dias)
+- **Profilaxia antibiótica** (endocardite): Amoxicilina 2g 1h antes
+- **Pulpite aguda SOS**: Nimesulida 100mg + Dipirona 1g
+- **Pós-cirúrgico de implante**: Amoxicilina 500mg 7 dias + Dipirona + Bochecho clorexidina 0,12%
 
-Saída em destaque grande:
-- **Dose máxima segura**: ex. "Até 7 tubetes de Lidocaína 2% c/ epi"
-- **Alerta vermelho** se o paciente tiver alergia/condição registrada na anamnese
-- Histórico das últimas 5 calculadas (cache local)
+Cada item já com posologia, frequência, duração e instruções padrão. Usuário pode editar antes de gerar.
 
-Sem dependência de IA — fórmulas clássicas (mg/kg). Lookup integrado com `anamneses` do paciente selecionado para puxar peso e alergias automaticamente.
+### 2.2 `src/lib/generatePrescriptionPdf.ts` e `src/lib/generateCertificatePdf.ts`
+Reaproveitar a estrutura de `generateBudgetPdf.ts` (jsPDF + cabeçalho da clínica). Diferenças:
+- **Receita**: cabeçalho "RECEITUÁRIO" + dados do paciente + lista numerada de medicamentos + "Uso oral/tópico" + bloco de assinatura com `signature_url` (se existir) + nome/CRO do dentista + data/local.
+- **Atestado**: cabeçalho "ATESTADO" + texto livre baseado no template + CID-10 opcional + assinatura.
 
-### 2. 💊 Receituário rápido
-Modelos de prescrição prontos para situações comuns em odontologia:
-- Pós-extração (analgésico + anti-inflamatório)
-- Profilaxia antibiótica (endocardite)
-- Pulpite aguda (combinação SOS)
-- Pós-cirúrgico de implante
+Retornam `Blob` para upload no `patient-files` e download direto.
 
+### 2.3 `PrescriptionPad.tsx`
 Fluxo:
-1. Escolhe o modelo
-2. Busca paciente (autocomplete em `patients`)
-3. Ajusta dosagem se quiser
-4. Gera **PDF com cabeçalho da clínica + assinatura digital do dentista** (reaproveita `generateBudgetPdf.ts`)
-5. Salva em `documents` do paciente automaticamente
-6. Botão "Enviar por WhatsApp" (link `wa.me`)
+1. Seleciona template (cards) ou começa em branco
+2. Autocomplete de paciente (`patients` via `clinic_id`)
+3. Editor de itens (medicamento, posologia, frequência, duração, instruções) — adiciona/remove linhas
+4. Preview do PDF embutido
+5. Ações: **Salvar como meu template** (grava em `prescription_templates` com `dentist_id = auth.uid()`), **Gerar PDF** (faz upload em `patient-files/<patient_id>/prescriptions/`, registra em `documents` com `category='prescription'`), **Enviar WhatsApp** (abre `wa.me/<phone>?text=Sua receita: <signed-url>`)
 
-Tabela nova `prescription_templates` (clinic-scoped, editável pelo dentista para criar seus próprios modelos).
+### 2.4 `CertificateGenerator.tsx`
+Mais simples que receituário. Dois modos:
+- **Comparecimento**: "esteve em atendimento odontológico de [hh:mm] às [hh:mm] em [data]" — preenche automático puxando do último `appointment` do paciente no dia
+- **Afastamento**: "necessita afastamento por [X] dias a partir de [data]" + dropdown CID-10 opcional (lista curta odonto: K02, K04, K05, K07, K08, K12, S02.5)
 
-### 3. 📅 Próximo retorno
-Tela rápida de **agendamento de retorno** sem sair do contexto da consulta:
-- "Voltar em [7 dias / 15 / 30 / 60 / 90 / 6 meses / 1 ano]"
-- Sugere automaticamente o próximo slot livre da agenda do dentista
-- Cria o `appointment` com `label = 'Retorno'` em 1 clique
-- Opção "Lembrar paciente 24h antes via WhatsApp"
+Mesmas ações: salvar em `documents` (`category='medical_certificate'`) + WhatsApp.
 
-### 4. 📸 Foto clínica rápida
-Acessa câmera do dispositivo (`navigator.mediaDevices.getUserMedia`):
-- 1 clique tira a foto
-- Tag automática: dente/região (puxando do contexto se vier do mapa clínico) + data + dentista
-- Salva direto em `documents` do paciente com categoria "foto_clinica"
-- Comparação lado-a-lado com fotos anteriores ("antes/depois")
+### 2.5 `ClinicalCamera.tsx`
+- `navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })`
+- Preview ao vivo + botão grande de captura
+- Após capturar: campos de tag (região/dente, observação curta)
+- Upload em `patient-files/<patient_id>/clinical_photos/<timestamp>.jpg`
+- Registra em `documents` com `category='clinical_photo'` e metadata no nome
+- Galeria de fotos anteriores do paciente embaixo, com toggle "comparar antes/depois" (lado a lado)
+- Fallback para input `<input type="file" accept="image/*" capture="environment">` em navegadores sem getUserMedia
 
-Útil para clareamento, ortodontia, lesões de pele em derma, etc.
+## 🛠️ Onda 3 — Recursos avançados + Overlay
 
-### 5. 🎤 Ditado por voz
-Botão grande de microfone. Dentista fala, vira texto automaticamente. Texto vai para:
-- Notas do prontuário em andamento (se houver `clinical_record` aberto)
-- Ou clipboard para colar em qualquer lugar
+### 3.1 `VoiceDictation.tsx`
+- Botão grande microfone (estado: idle/listening/processing)
+- `window.SpeechRecognition || window.webkitSpeechRecognition`, `lang='pt-BR'`, `continuous=true`, `interimResults=true`
+- Transcrição em tempo real numa `<textarea>` editável
+- 2 destinos:
+  - **Copiar para clipboard** (sempre disponível)
+  - **Anexar ao prontuário em andamento** — só ativa se houver `clinical_record` com `status='in_progress'` do dentista logado (busca via query). Acrescenta no campo `notes`.
+- Aviso amigável se navegador não suportar (Safari iOS antigo)
 
-Usa Web Speech API (gratuito, no navegador). Modo offline-friendly. Nada de IA paga.
+### 3.2 `ToothAtlas.tsx` (Odonto only)
+- Reutiliza componente `ToothMap.tsx` existente em modo "atlas" (sem persistência)
+- Click num dente → drawer lateral com:
+  - Notação FDI/Universal
+  - Tipo (incisivo/canino/pré-molar/molar)
+  - Nº médio de raízes e canais
+  - Procedimentos comuns (lista curta)
+  - "Mostrar para o paciente" — modo fullscreen com texto grande
+- Dados estáticos em `src/lib/toothAtlasData.ts`
+- Aparece no `ToolsHome` apenas se `clinic.category === 'odonto'`
 
-### 6. 🦷 Atlas anatômico interativo (apenas Odonto)
-Referência visual: clica num dente → mostra:
-- Anatomia (raízes, canais, número médio)
-- Procedimentos comumente realizados
-- Posição na arcada
+### 3.3 `QuickReference.tsx`
+4 abas internas:
+- **Conversor**: mL ↔ tubetes (1 tubete = 1.8mL)
+- **Anticoagulantes**: tabela tempo de hemostasia (Varfarina, Rivaroxabana, Apixabana, AAS, Clopidogrel)
+- **ASA**: classificação I-VI com descrição
+- **EVA**: escala visual 0-10 colorida, modo "mostrar ao paciente" fullscreen
 
-Funciona como **referência rápida** durante explicação ao paciente ("olha, esse é o seu dente 36, tem 3 canais"). Vira ferramenta de **comunicação com o paciente**, não só do dentista. Para outras especialidades (cardio, derma, etc.) o atlas é diferente — versão MVP só Odonto.
+Tudo estático em `src/lib/clinicalReferenceData.ts`. Zero dependência externa.
 
-### 7. ⏱ Timer de procedimento
-Cronômetro grande, simples:
-- Start/Stop/Reset
-- Salva tempo no `clinical_record` em andamento ao parar
-- Útil para procedimentos com tempo crítico (ácido fosfórico 15s, polimerização 20s) — **presets nomeados**: Condicionamento ácido (15s), Fotopolimerização (20s), Profilaxia (60s), etc.
-- Beep sonoro ao terminar
-- Funciona em segundo plano se mudar de aba
+### 3.4 `ToolsOverlay.tsx` — botão flutuante no atendimento
+**O ganho de UX mais importante.**
 
-### 8. 📋 Gerador de Atestado
-Modelo de atestado pronto, 1 clique:
-- Paciente (autocomplete)
-- "Esteve em atendimento odontológico em [data] das [hora] às [hora]"
-- Ou: "Necessita afastamento por [X dias] a partir de [data]"
-- CID-10 opcional (lista comum em odonto: K02, K04, K07…)
-- Gera PDF com assinatura, salva em `documents`, manda por WhatsApp
+- Componente posicionado `fixed bottom-20 right-4 z-40` em `Attendance.tsx`
+- FAB redondo com ícone `Wrench`/`Briefcase`
+- Ao clicar: expande em **leque/grid** com 4 atalhos: Anestésico, Timer, Ditado, Receituário
+- Cada atalho abre o componente correspondente em `Sheet` lateral (mobile-first), **sem sair da tela do prontuário**
+- Contexto pré-carregado: paciente atual já selecionado nas ferramentas (passa `patientId` via prop)
+- Anestésico já puxa peso/alergias da `anamneses` do paciente em atendimento
+- Ditado já direciona para o `clinical_record` aberto
 
-### 9. 🧮 Conversor & Tabelas rápidas
-Conversores e referências de bolso:
-- mL ↔ tubetes anestésicos
-- Tabela de tempo de hemostasia por anticoagulante
-- Tabela ASA (avaliação de risco pré-cirúrgico)
-- Escala de dor (EVA visual para mostrar ao paciente)
+## 🧭 Integração no resto do app
 
-Tudo offline, dados estáticos no código. Útil em consulta sem conectividade.
+### `ToolsHome.tsx` (atualização)
+- Trocar os cards "em breve" pelos componentes prontos
+- Manter o `Dialog` que já existe para abrir cada ferramenta
+- Ocultar "Atlas de Dentes" se a categoria da clínica não for `odonto`
 
-## Mudanças no banco
+### `Attendance.tsx`
+- Adicionar `<ToolsOverlay patientId={...} clinicalRecordId={...} />` no fim do JSX
+- Quando o Timer é parado dentro do overlay, fazer `UPDATE clinical_records SET procedure_duration_seconds = X` no record atual
 
-Mínimas, focadas no essencial:
+### `PatientDocuments.tsx` (já existe)
+- Adicionar ícones diferenciados para as novas categorias: `prescription` 💊, `medical_certificate` 📋, `clinical_photo` 📸
+- Filtro por categoria no topo
 
-1. **`prescription_templates`** (nova): `id, clinic_id, dentist_id, name, content (jsonb), is_default, created_at`. RLS por clínica.
-2. **`profiles`**: adicionar `signature_url` (text, nullable) — assinatura digital escaneada para PDFs de receita/atestado.
-3. **`documents`**: já tem `category` — só passamos a usar valores novos: `prescription`, `medical_certificate`, `clinical_photo`.
-4. **`clinical_records`**: adicionar `procedure_duration_seconds` (int, nullable) para o timer.
+## 📁 Arquivos
 
-Sem novas migrações pesadas — só ALTER TABLE simples.
-
-## Onde isso vive na navegação do dentista
-
-**Sidebar** (`AppSidebar.tsx`):
-```text
-Principal:
-  - Dashboard
-  - Agenda
-  - Disponibilidade
-
-Clínica:
-  - Pacientes
-  - Aprovações
-  - Odontograma (mapa dinâmico)
-  - 🆕 Ferramentas Clínicas    ← NOVO
-  - Orçamentos
-
-Rodapé: Meu Perfil
-```
-
-**Mobile bottom nav**: trocar o atual "Mais" para abrir uma folha com **Ferramentas + Odontograma + Orçamentos** juntos. Dá pra acessar com 1 toque mesmo de luva.
-
-**Atalho contextual**: dentro de `Attendance.tsx` (atendimento em andamento), botão flutuante 🛠️ no canto que abre as 3-4 ferramentas mais usadas em modo overlay (Anestesia, Timer, Ditado, Receituário) sem sair da tela do prontuário. Esse é o **maior ganho de UX** — ferramenta na mão durante o atendimento.
-
-## Fora de escopo (deixar para depois)
-
-- IA que sugere prescrição baseada no diagnóstico — bom mas requer aprovação clínica.
-- Integração com leitor de raio-X / scanner intra-oral — depende de hardware.
-- Reconhecimento de imagem para diagnóstico de cárie — fora do MVP.
-- Atlas anatômico para outras especialidades além de odonto.
-
-## Arquivos novos
-
-- `src/pages/dentist/ToolsHome.tsx` — grade de ferramentas
-- `src/components/dentist/tools/AnestheticCalculator.tsx`
+**Novos:**
 - `src/components/dentist/tools/PrescriptionPad.tsx`
-- `src/components/dentist/tools/QuickReturn.tsx`
+- `src/components/dentist/tools/CertificateGenerator.tsx`
 - `src/components/dentist/tools/ClinicalCamera.tsx`
 - `src/components/dentist/tools/VoiceDictation.tsx`
 - `src/components/dentist/tools/ToothAtlas.tsx`
-- `src/components/dentist/tools/ProcedureTimer.tsx`
-- `src/components/dentist/tools/CertificateGenerator.tsx`
 - `src/components/dentist/tools/QuickReference.tsx`
-- `src/components/dentist/tools/ToolsOverlay.tsx` — overlay flutuante para usar dentro do atendimento
-- `src/lib/anestheticDoses.ts` — tabela de fármacos e doses máximas
-- `src/lib/prescriptionTemplates.ts` — modelos pré-definidos
-- Migração: criar `prescription_templates`, adicionar `signature_url` em `profiles`, `procedure_duration_seconds` em `clinical_records`
+- `src/components/dentist/tools/ToolsOverlay.tsx`
+- `src/lib/prescriptionTemplates.ts`
+- `src/lib/generatePrescriptionPdf.ts`
+- `src/lib/generateCertificatePdf.ts`
+- `src/lib/toothAtlasData.ts`
+- `src/lib/clinicalReferenceData.ts`
+- Migração SQL: `prescription_templates` + `profiles.signature_url` + `clinical_records.procedure_duration_seconds`
 
-## Arquivos editados
+**Editados:**
+- `src/pages/dentist/ToolsHome.tsx` — destrava os 6 cards restantes, esconde Atlas para não-odonto
+- `src/pages/Attendance.tsx` — monta o `ToolsOverlay` + persiste duração do timer
+- `src/pages/Profile.tsx` — campo de upload de assinatura digital (`signature_url`)
+- `src/components/patients/PatientDocuments.tsx` — ícones e filtro por categoria
 
-- `src/App.tsx` — registrar rota `/ferramentas` (e sub-rotas se necessário)
-- `src/components/AppSidebar.tsx` — novo item "Ferramentas Clínicas" para `dentist`
-- `src/components/MobileBottomNav.tsx` — agrupar ferramentas no bottom sheet
-- `src/hooks/useRoleAccess.ts` — permissão da rota
-- `src/pages/Attendance.tsx` — botão flutuante do `ToolsOverlay`
-- `src/lib/generateBudgetPdf.ts` ou novo `generatePrescriptionPdf.ts` reaproveitando estrutura
+## ✋ Fora de escopo (continua adiado)
 
-## Onda de entrega sugerida
+- IA sugerindo prescrição
+- Atlas para outras especialidades
+- Reconhecimento de voz com IA paga (Whisper) — fica só Web Speech nativo
+- Assinatura digital com certificado ICP-Brasil
 
-Para não virar um sprint gigante, entregar em 3 ondas:
+## ✅ Resultado
 
-**Onda 1 — As 3 ferramentas mais pedidas no dia a dia (sprint pequeno)**
-- Calculadora de Anestésico
-- Timer de Procedimento (com presets)
-- Próximo Retorno em 1 clique
-
-**Onda 2 — Documentos**
-- Receituário rápido + assinatura digital
-- Gerador de Atestado
-- Foto clínica
-
-**Onda 3 — Plus**
-- Ditado por voz
-- Atlas anatômico
-- Conversores e tabelas
-- Overlay flutuante dentro do atendimento
-
-## Resultado esperado
-
-O dentista para de pular entre 3 apps no celular (calculadora de anestesia, gerador de receita, cronômetro) e tem **tudo dentro do IACLIN**, com os dados do paciente já carregados (peso, alergias, histórico). Vira um diferencial real: não é "mais um sistema de gestão", é a **ferramenta clínica do dia a dia**.
+Com isso fechamos as 9 ferramentas + overlay. O dentista entra em atendimento, e tudo que ele precisa (calculadora, timer, microfone, receita, foto) está a 1 toque do prontuário aberto, com paciente já carregado.
 
 ---
 
-**Recomendo começar pela Onda 1** (Anestésico + Timer + Retorno) — é o que ele usa **toda consulta**, e em 1 sprint já entrega valor percebido imediato. Me confirma se faz sentido, ou se prefere começar por outro recorte (ex: focar primeiro em receituário/atestado, que é mais "papelada").
-
+**Tudo certo para iniciar tão logo você aprovar.** 
