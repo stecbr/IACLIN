@@ -31,6 +31,7 @@ import WaitingRoom from "./pages/WaitingRoom";
 import ClinicaHome from "./pages/clinica/ClinicaHome";
 import ClinicaMedicos from "./pages/clinica/ClinicaMedicos";
 import ClinicaAprovacoes from "./pages/clinica/ClinicaAprovacoes";
+import ToolsHome from "./pages/dentist/ToolsHome";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
@@ -151,6 +152,7 @@ const AppRoutes = () => (
     <Route path="/clinica/aprovacoes" element={<ProtectedRoute><ClinicaAprovacoes /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/mapa-clinico" element={<ProtectedRoute><ClinicalMapPage /></ProtectedRoute>} />
+    <Route path="/ferramentas" element={<ProtectedRoute><ToolsHome /></ProtectedRoute>} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />

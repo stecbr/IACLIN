@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen, Briefcase } from 'lucide-react';
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -47,6 +47,7 @@ export function MobileBottomNav() {
 
   const allMoreItems = isDentist
     ? [
+        { title: 'Ferramentas', url: '/ferramentas', icon: Briefcase },
         ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
         { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
       ]
