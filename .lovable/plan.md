@@ -1,127 +1,207 @@
 
 
-# Plano: Check-in / Sala de Espera Digital
+# Plano: Caixa de Ferramentas Clínicas do Dentista
 
-## Conceito
+## Contexto
 
-Adicionar um **status de presença** no agendamento (separado do status clínico) que a recepção atualiza ao longo do dia. O médico vê na agenda, em tempo real, quem já chegou e está esperando.
+Hoje o dentista tem agenda, pacientes, odontograma e orçamentos. O que falta é o **kit de ferramentas que ele usa entre uma consulta e outra** — coisas tipo "preciso de uma calculadora de anestesia agora", "quero uma referência rápida de prescrição", "vou marcar o próximo retorno desse paciente em 7 dias". Essas micro-ferramentas existem hoje em apps soltos no celular do dentista; vamos centralizar tudo dentro do IACLIN.
+
+## Módulo central: `/ferramentas` (Caixa de Ferramentas)
+
+Nova área no menu lateral do dentista, **abaixo do mapa clínico**, com ícone `Briefcase` ou `Stethoscope`. Tela única com cards grandes (estilo "app drawer" do iOS), cada um abrindo uma ferramenta específica. Mobile-first, otimizada para uso rápido com luva.
 
 ```text
-Status clínico (já existe):  scheduled → confirmed → completed → cancelled
-Status presença (novo):      not_arrived → arrived → in_service → finished
+┌─────────────────────────────────────────────┐
+│  Ferramentas Clínicas                       │
+├─────────────┬─────────────┬─────────────────┤
+│ 💉 Anestesia│ 💊 Receituário│ 📅 Próx. Retorno│
+├─────────────┼─────────────┼─────────────────┤
+│ 📸 Foto     │ 🎤 Ditado   │ 🦷 Atlas Dentes │
+├─────────────┼─────────────┼─────────────────┤
+│ ⏱ Timer     │ 📋 Atestado │ 🧮 Conversor   │
+└─────────────┴─────────────┴─────────────────┘
 ```
 
-Os dois andam juntos: uma consulta `confirmed` pode estar `arrived` (paciente na recepção) ou `in_service` (já entrou no consultório).
+## Ferramentas (cada uma é um modal/drawer dentro de `/ferramentas`)
 
-## Como vai funcionar (fluxo do dia)
+### 1. 💉 Calculadora de Anestésico
+A mais pedida na rotina odontológica. Entrada:
+- Peso do paciente (kg)
+- Anestésico usado (Lidocaína 2%, Mepivacaína 2%, Articaína 4%, Bupivacaína 0.5% — tabela embutida)
+- Vasoconstritor (com ou sem)
 
-1. **Paciente chega na clínica** → recepção abre o painel "Sala de Espera" → clica em "Marcar chegada" no card do paciente.
-2. Card vira amarelo, aparece um cronômetro: "Esperando há 5 min".
-3. **Médico vê na agenda**: o slot do paciente ganha um badge verde "Chegou" + tempo de espera.
-4. Médico chama o paciente → clica "Iniciar atendimento" (já existe o botão de iniciar consulta) → status presença vira `in_service`.
-5. Ao finalizar a consulta → vira `finished` automaticamente.
+Saída em destaque grande:
+- **Dose máxima segura**: ex. "Até 7 tubetes de Lidocaína 2% c/ epi"
+- **Alerta vermelho** se o paciente tiver alergia/condição registrada na anamnese
+- Histórico das últimas 5 calculadas (cache local)
+
+Sem dependência de IA — fórmulas clássicas (mg/kg). Lookup integrado com `anamneses` do paciente selecionado para puxar peso e alergias automaticamente.
+
+### 2. 💊 Receituário rápido
+Modelos de prescrição prontos para situações comuns em odontologia:
+- Pós-extração (analgésico + anti-inflamatório)
+- Profilaxia antibiótica (endocardite)
+- Pulpite aguda (combinação SOS)
+- Pós-cirúrgico de implante
+
+Fluxo:
+1. Escolhe o modelo
+2. Busca paciente (autocomplete em `patients`)
+3. Ajusta dosagem se quiser
+4. Gera **PDF com cabeçalho da clínica + assinatura digital do dentista** (reaproveita `generateBudgetPdf.ts`)
+5. Salva em `documents` do paciente automaticamente
+6. Botão "Enviar por WhatsApp" (link `wa.me`)
+
+Tabela nova `prescription_templates` (clinic-scoped, editável pelo dentista para criar seus próprios modelos).
+
+### 3. 📅 Próximo retorno
+Tela rápida de **agendamento de retorno** sem sair do contexto da consulta:
+- "Voltar em [7 dias / 15 / 30 / 60 / 90 / 6 meses / 1 ano]"
+- Sugere automaticamente o próximo slot livre da agenda do dentista
+- Cria o `appointment` com `label = 'Retorno'` em 1 clique
+- Opção "Lembrar paciente 24h antes via WhatsApp"
+
+### 4. 📸 Foto clínica rápida
+Acessa câmera do dispositivo (`navigator.mediaDevices.getUserMedia`):
+- 1 clique tira a foto
+- Tag automática: dente/região (puxando do contexto se vier do mapa clínico) + data + dentista
+- Salva direto em `documents` do paciente com categoria "foto_clinica"
+- Comparação lado-a-lado com fotos anteriores ("antes/depois")
+
+Útil para clareamento, ortodontia, lesões de pele em derma, etc.
+
+### 5. 🎤 Ditado por voz
+Botão grande de microfone. Dentista fala, vira texto automaticamente. Texto vai para:
+- Notas do prontuário em andamento (se houver `clinical_record` aberto)
+- Ou clipboard para colar em qualquer lugar
+
+Usa Web Speech API (gratuito, no navegador). Modo offline-friendly. Nada de IA paga.
+
+### 6. 🦷 Atlas anatômico interativo (apenas Odonto)
+Referência visual: clica num dente → mostra:
+- Anatomia (raízes, canais, número médio)
+- Procedimentos comumente realizados
+- Posição na arcada
+
+Funciona como **referência rápida** durante explicação ao paciente ("olha, esse é o seu dente 36, tem 3 canais"). Vira ferramenta de **comunicação com o paciente**, não só do dentista. Para outras especialidades (cardio, derma, etc.) o atlas é diferente — versão MVP só Odonto.
+
+### 7. ⏱ Timer de procedimento
+Cronômetro grande, simples:
+- Start/Stop/Reset
+- Salva tempo no `clinical_record` em andamento ao parar
+- Útil para procedimentos com tempo crítico (ácido fosfórico 15s, polimerização 20s) — **presets nomeados**: Condicionamento ácido (15s), Fotopolimerização (20s), Profilaxia (60s), etc.
+- Beep sonoro ao terminar
+- Funciona em segundo plano se mudar de aba
+
+### 8. 📋 Gerador de Atestado
+Modelo de atestado pronto, 1 clique:
+- Paciente (autocomplete)
+- "Esteve em atendimento odontológico em [data] das [hora] às [hora]"
+- Ou: "Necessita afastamento por [X dias] a partir de [data]"
+- CID-10 opcional (lista comum em odonto: K02, K04, K07…)
+- Gera PDF com assinatura, salva em `documents`, manda por WhatsApp
+
+### 9. 🧮 Conversor & Tabelas rápidas
+Conversores e referências de bolso:
+- mL ↔ tubetes anestésicos
+- Tabela de tempo de hemostasia por anticoagulante
+- Tabela ASA (avaliação de risco pré-cirúrgico)
+- Escala de dor (EVA visual para mostrar ao paciente)
+
+Tudo offline, dados estáticos no código. Útil em consulta sem conectividade.
 
 ## Mudanças no banco
 
-**Migração**: adicionar coluna `presence_status` em `appointments`:
-- Valores: `not_arrived` (default) | `arrived` | `in_service` | `finished` | `no_show`
-- Coluna extra `arrived_at` (timestamp) para calcular tempo de espera.
-- Coluna extra `service_started_at` (timestamp) para histórico/métricas.
+Mínimas, focadas no essencial:
 
-Atualização automática:
-- Quando `status` muda para `completed` → `presence_status = 'finished'`.
-- Quando atendimento é iniciado (`Attendance.tsx` cria `clinical_record`) → `presence_status = 'in_service'` e `service_started_at = now()`.
+1. **`prescription_templates`** (nova): `id, clinic_id, dentist_id, name, content (jsonb), is_default, created_at`. RLS por clínica.
+2. **`profiles`**: adicionar `signature_url` (text, nullable) — assinatura digital escaneada para PDFs de receita/atestado.
+3. **`documents`**: já tem `category` — só passamos a usar valores novos: `prescription`, `medical_certificate`, `clinical_photo`.
+4. **`clinical_records`**: adicionar `procedure_duration_seconds` (int, nullable) para o timer.
 
-## Telas e componentes novos
+Sem novas migrações pesadas — só ALTER TABLE simples.
 
-### 1. Nova página: `/sala-de-espera` (`src/pages/WaitingRoom.tsx`)
+## Onde isso vive na navegação do dentista
 
-Painel dedicado para a recepção, com 3 colunas tipo Kanban:
-
+**Sidebar** (`AppSidebar.tsx`):
 ```text
-┌─────────────────┬─────────────────┬─────────────────┐
-│  AGUARDADOS     │  NA RECEPÇÃO    │  EM ATENDIMENTO │
-│  (hoje)         │  (já chegaram)  │                 │
-├─────────────────┼─────────────────┼─────────────────┤
-│ 09:00 Maria S.  │ ⏱ 12 min        │ ⏱ 5 min         │
-│ Dr. João        │ Carlos P.       │ Ana L.          │
-│ [Marcar chegada]│ Dr. João        │ Dr. Pedro       │
-├─────────────────┼─────────────────┤                 │
-│ 09:30 José R.   │ ⏱ 3 min         │                 │
-│ Dr. Pedro       │ Lucia M.        │                 │
-│ [Marcar chegada]│ Dr. Pedro       │                 │
-└─────────────────┴─────────────────┴─────────────────┘
+Principal:
+  - Dashboard
+  - Agenda
+  - Disponibilidade
+
+Clínica:
+  - Pacientes
+  - Aprovações
+  - Odontograma (mapa dinâmico)
+  - 🆕 Ferramentas Clínicas    ← NOVO
+  - Orçamentos
+
+Rodapé: Meu Perfil
 ```
 
-- Lista todas as consultas do **dia atual**.
-- Filtro por médico (dropdown opcional).
-- Atualização em tempo real via Supabase Realtime (já usado no projeto).
-- Botões grandes, otimizado para tablet/touchscreen na recepção.
-- Acesso: **admin + secretary** (recepção).
+**Mobile bottom nav**: trocar o atual "Mais" para abrir uma folha com **Ferramentas + Odontograma + Orçamentos** juntos. Dá pra acessar com 1 toque mesmo de luva.
 
-### 2. Badge na agenda (`src/pages/Agenda.tsx` + `AppointmentDetailDialog.tsx`)
+**Atalho contextual**: dentro de `Attendance.tsx` (atendimento em andamento), botão flutuante 🛠️ no canto que abre as 3-4 ferramentas mais usadas em modo overlay (Anestesia, Timer, Ditado, Receituário) sem sair da tela do prontuário. Esse é o **maior ganho de UX** — ferramenta na mão durante o atendimento.
 
-No card de cada agendamento da agenda do médico, adicionar um indicador visual quando `presence_status = 'arrived'`:
-- Pequeno ponto verde + texto "Aguardando há 12 min" no canto do card.
-- Cor diferente da borda do card.
-- Tooltip com horário exato da chegada.
+## Fora de escopo (deixar para depois)
 
-### 3. Item no menu lateral
+- IA que sugere prescrição baseada no diagnóstico — bom mas requer aprovação clínica.
+- Integração com leitor de raio-X / scanner intra-oral — depende de hardware.
+- Reconhecimento de imagem para diagnóstico de cárie — fora do MVP.
+- Atlas anatômico para outras especialidades além de odonto.
 
-Adicionar **"Sala de Espera"** no `AppSidebar` (ícone `Users` ou `ClipboardCheck`), visível só para `admin` e `secretary`. Atualizar `useRoleAccess.ts` com a nova rota.
+## Arquivos novos
 
-### 4. Mobile bottom nav
+- `src/pages/dentist/ToolsHome.tsx` — grade de ferramentas
+- `src/components/dentist/tools/AnestheticCalculator.tsx`
+- `src/components/dentist/tools/PrescriptionPad.tsx`
+- `src/components/dentist/tools/QuickReturn.tsx`
+- `src/components/dentist/tools/ClinicalCamera.tsx`
+- `src/components/dentist/tools/VoiceDictation.tsx`
+- `src/components/dentist/tools/ToothAtlas.tsx`
+- `src/components/dentist/tools/ProcedureTimer.tsx`
+- `src/components/dentist/tools/CertificateGenerator.tsx`
+- `src/components/dentist/tools/QuickReference.tsx`
+- `src/components/dentist/tools/ToolsOverlay.tsx` — overlay flutuante para usar dentro do atendimento
+- `src/lib/anestheticDoses.ts` — tabela de fármacos e doses máximas
+- `src/lib/prescriptionTemplates.ts` — modelos pré-definidos
+- Migração: criar `prescription_templates`, adicionar `signature_url` em `profiles`, `procedure_duration_seconds` em `clinical_records`
 
-Adicionar atalho para a sala de espera no `MobileBottomNav` para a recepção.
+## Arquivos editados
 
-## Componente: `WaitingRoomCard.tsx`
+- `src/App.tsx` — registrar rota `/ferramentas` (e sub-rotas se necessário)
+- `src/components/AppSidebar.tsx` — novo item "Ferramentas Clínicas" para `dentist`
+- `src/components/MobileBottomNav.tsx` — agrupar ferramentas no bottom sheet
+- `src/hooks/useRoleAccess.ts` — permissão da rota
+- `src/pages/Attendance.tsx` — botão flutuante do `ToolsOverlay`
+- `src/lib/generateBudgetPdf.ts` ou novo `generatePrescriptionPdf.ts` reaproveitando estrutura
 
-Card individual de cada paciente com:
-- Nome, foto/avatar
-- Médico, especialidade
-- Horário marcado vs hora atual (atrasado? adiantado?)
-- Cronômetro vivo de espera (atualiza a cada 30s)
-- Botões de ação contextual: `[Chegou]` → `[Iniciar atendimento]` → `[Finalizar]`
-- Botão `[Marcar falta]` (vira `no_show`)
+## Onda de entrega sugerida
 
-## Realtime
+Para não virar um sprint gigante, entregar em 3 ondas:
 
-Subscription na tabela `appointments` filtrada por `clinic_id` + `start_time` do dia atual:
-- Quando recepção muda `presence_status`, médico vê na agenda dele em ~1s.
-- Quando médico inicia atendimento, recepção vê o paciente sair da coluna "Recepção" e ir para "Em atendimento".
+**Onda 1 — As 3 ferramentas mais pedidas no dia a dia (sprint pequeno)**
+- Calculadora de Anestésico
+- Timer de Procedimento (com presets)
+- Próximo Retorno em 1 clique
 
-## Métricas (bônus, opcional)
+**Onda 2 — Documentos**
+- Receituário rápido + assinatura digital
+- Gerador de Atestado
+- Foto clínica
 
-Como `arrived_at` e `service_started_at` ficam salvos, dá para mostrar no dashboard:
-- Tempo médio de espera no mês.
-- Pacientes que esperaram mais de 30 min (alerta de qualidade).
-
-## Arquivos criados/editados
-
-**Novos:**
-- `src/pages/WaitingRoom.tsx`
-- `src/components/waiting-room/WaitingRoomCard.tsx`
-- `src/components/waiting-room/WaitingTimer.tsx` (cronômetro vivo)
-- Migração SQL: adicionar `presence_status`, `arrived_at`, `service_started_at` em `appointments`.
-
-**Editados:**
-- `src/App.tsx` — registrar rota `/sala-de-espera`.
-- `src/components/AppSidebar.tsx` — novo item de menu.
-- `src/components/MobileBottomNav.tsx` — atalho mobile (recepção).
-- `src/hooks/useRoleAccess.ts` — permissão `admin`/`secretary`.
-- `src/pages/Agenda.tsx` + `src/components/agenda/AppointmentDetailDialog.tsx` — badge de chegada e tempo de espera.
-- `src/pages/Attendance.tsx` — ao iniciar atendimento, atualizar `presence_status = 'in_service'`.
-
-## Fora do escopo (deixar para depois)
-
-- Chamada por número/painel de TV na sala de espera (estilo banco).
-- Notificação WhatsApp automática "É a sua vez".
-- Estimativa de tempo de espera para o paciente.
+**Onda 3 — Plus**
+- Ditado por voz
+- Atlas anatômico
+- Conversores e tabelas
+- Overlay flutuante dentro do atendimento
 
 ## Resultado esperado
 
-- **Recepção** abre `/sala-de-espera` no tablet, vê todos do dia, marca chegadas.
-- **Médico** vê na agenda quem já está esperando, sem precisar perguntar para a recepção.
-- **Paciente** é atendido mais rápido, sem esquecimento.
-- Tudo em tempo real, sincronizado entre todos os dispositivos da clínica.
+O dentista para de pular entre 3 apps no celular (calculadora de anestesia, gerador de receita, cronômetro) e tem **tudo dentro do IACLIN**, com os dados do paciente já carregados (peso, alergias, histórico). Vira um diferencial real: não é "mais um sistema de gestão", é a **ferramenta clínica do dia a dia**.
+
+---
+
+**Recomendo começar pela Onda 1** (Anestésico + Timer + Retorno) — é o que ele usa **toda consulta**, e em 1 sprint já entrega valor percebido imediato. Me confirma se faz sentido, ou se prefere começar por outro recorte (ex: focar primeiro em receituário/atestado, que é mais "papelada").
 
