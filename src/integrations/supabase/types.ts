@@ -562,6 +562,7 @@ export type Database = {
           notes: string | null
           patient_id: string
           physical_exam: string | null
+          procedure_duration_seconds: number | null
           severity: string | null
           status: string
           symptom_duration: string | null
@@ -584,6 +585,7 @@ export type Database = {
           notes?: string | null
           patient_id: string
           physical_exam?: string | null
+          procedure_duration_seconds?: number | null
           severity?: string | null
           status?: string
           symptom_duration?: string | null
@@ -606,6 +608,7 @@ export type Database = {
           notes?: string | null
           patient_id?: string
           physical_exam?: string | null
+          procedure_duration_seconds?: number | null
           severity?: string | null
           status?: string
           symptom_duration?: string | null
@@ -1129,6 +1132,42 @@ export type Database = {
           },
         ]
       }
+      prescription_templates: {
+        Row: {
+          category: string | null
+          clinic_id: string
+          content: Json
+          created_at: string
+          dentist_id: string | null
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          clinic_id: string
+          content?: Json
+          created_at?: string
+          dentist_id?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          clinic_id?: string
+          content?: Json
+          created_at?: string
+          dentist_id?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       procedures: {
         Row: {
           category: string
@@ -1211,6 +1250,7 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          signature_url: string | null
           updated_at: string
         }
         Insert: {
@@ -1219,6 +1259,7 @@ export type Database = {
           full_name?: string | null
           id: string
           phone?: string | null
+          signature_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -1227,6 +1268,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          signature_url?: string | null
           updated_at?: string
         }
         Relationships: []
