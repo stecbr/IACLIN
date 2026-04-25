@@ -9,7 +9,6 @@ import {
   Stethoscope,
   Syringe,
   Timer,
-  Tooth,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import {
