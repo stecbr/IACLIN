@@ -15,9 +15,10 @@ export function ToothAtlas() {
         Toque num dente para ver anatomia e procedimentos comuns.
       </p>
       <ToothMap
+        patientId=""
         entries={[]}
         onRegionClick={setSelected}
-        selectedRegion={selected ?? undefined}
+        selectedRegion={selected ?? null}
       />
       {info && num && (
         <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
