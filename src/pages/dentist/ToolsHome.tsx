@@ -21,6 +21,13 @@ import {
 import { AnestheticCalculator } from '@/components/dentist/tools/AnestheticCalculator';
 import { ProcedureTimer } from '@/components/dentist/tools/ProcedureTimer';
 import { QuickReturn } from '@/components/dentist/tools/QuickReturn';
+import { PrescriptionPad } from '@/components/dentist/tools/PrescriptionPad';
+import { CertificateGenerator } from '@/components/dentist/tools/CertificateGenerator';
+import { ClinicalCamera } from '@/components/dentist/tools/ClinicalCamera';
+import { VoiceDictation } from '@/components/dentist/tools/VoiceDictation';
+import { ToothAtlas } from '@/components/dentist/tools/ToothAtlas';
+import { QuickReference } from '@/components/dentist/tools/QuickReference';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 type ToolId =
@@ -74,7 +81,7 @@ const TOOLS: Tool[] = [
     description: 'Modelos prontos + PDF',
     icon: Pill,
     color: 'from-sky-500/15 to-sky-500/5 text-sky-600 dark:text-sky-400',
-    available: false,
+    available: true,
   },
   {
     id: 'certificate',
@@ -82,7 +89,7 @@ const TOOLS: Tool[] = [
     description: 'Comparecimento e afastamento',
     icon: FileText,
     color: 'from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400',
-    available: false,
+    available: true,
   },
   {
     id: 'photo',
@@ -90,7 +97,7 @@ const TOOLS: Tool[] = [
     description: 'Antes/depois pela câmera',
     icon: Camera,
     color: 'from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-600 dark:text-fuchsia-400',
-    available: false,
+    available: true,
   },
   {
     id: 'voice',
@@ -98,7 +105,7 @@ const TOOLS: Tool[] = [
     description: 'Fale, vira anotação',
     icon: Mic,
     color: 'from-blue-500/15 to-blue-500/5 text-blue-600 dark:text-blue-400',
-    available: false,
+    available: true,
   },
   {
     id: 'atlas',
@@ -106,7 +113,7 @@ const TOOLS: Tool[] = [
     description: 'Anatomia para o paciente',
     icon: Stethoscope,
     color: 'from-teal-500/15 to-teal-500/5 text-teal-600 dark:text-teal-400',
-    available: false,
+    available: true,
   },
   {
     id: 'reference',
@@ -114,7 +121,7 @@ const TOOLS: Tool[] = [
     description: 'mL/tubete, ASA, EVA',
     icon: Clipboard,
     color: 'from-slate-500/15 to-slate-500/5 text-slate-600 dark:text-slate-400',
-    available: false,
+    available: true,
   },
 ];
 
@@ -140,7 +147,11 @@ const TOOL_DETAILS: Record<ToolId, { title: string; description: string }> = {
 };
 
 export default function ToolsHome() {
+  const { activeClinic } = useAuth();
   const [open, setOpen] = useState<ToolId | null>(null);
+
+  const isOdonto = activeClinic?.category === 'odonto';
+  const visibleTools = TOOLS.filter((t) => t.id !== 'atlas' || isOdonto);
 
   const renderToolBody = (id: ToolId) => {
     switch (id) {
@@ -150,6 +161,18 @@ export default function ToolsHome() {
         return <ProcedureTimer />;
       case 'return':
         return <QuickReturn />;
+      case 'prescription':
+        return <PrescriptionPad />;
+      case 'certificate':
+        return <CertificateGenerator />;
+      case 'photo':
+        return <ClinicalCamera />;
+      case 'voice':
+        return <VoiceDictation />;
+      case 'atlas':
+        return <ToothAtlas />;
+      case 'reference':
+        return <QuickReference />;
       default:
         return null;
     }
@@ -163,7 +186,7 @@ export default function ToolsHome() {
       />
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-        {TOOLS.map((tool) => {
+        {visibleTools.map((tool) => {
           const Icon = tool.icon;
           return (
             <button
