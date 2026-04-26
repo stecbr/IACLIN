@@ -147,10 +147,10 @@ const TOOL_DETAILS: Record<ToolId, { title: string; description: string }> = {
 };
 
 export default function ToolsHome() {
-  const { activeClinic } = useAuth();
+  const { clinicCategory } = useAuth();
   const [open, setOpen] = useState<ToolId | null>(null);
 
-  const isOdonto = activeClinic?.category === 'odonto';
+  const isOdonto = clinicCategory === 'odonto';
   const visibleTools = TOOLS.filter((t) => t.id !== 'atlas' || isOdonto);
 
   const renderToolBody = (id: ToolId) => {
