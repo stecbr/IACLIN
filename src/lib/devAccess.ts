@@ -3,6 +3,7 @@
 export const DEV_EMAILS: string[] = [
   'lucasferreiraceara@gmail.com',
   'endrya161624@gmail.com',
+  'juniormelo884@gmail.com',
 ];
 
 export function isDevEmail(email: string | null | undefined): boolean {
