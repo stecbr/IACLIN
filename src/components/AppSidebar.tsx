@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   DoorOpen,
   Briefcase,
+  Brain,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -95,6 +96,7 @@ export function AppSidebar() {
     enabled: !!user?.id && !!currentClinicId && isDentist,
   });
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
+  const isPsi = isDentist && dynamicMap?.mapType === 'psyche';
 
   // Defense in depth: gate by allowedRoles AND by route permission
   const filteredMainNav = filterNavItems(
@@ -109,16 +111,26 @@ export function AppSidebar() {
       )
       // For dentists: hide the static "Odontograma" item; we'll inject the dynamic map item below
       .filter((item) => !(isDentist && item.url === '/odontogram'))
+      // For psychologists: hide budgets and generic clinical tools — replaced by Psi tools
+      .filter((item) => !(isPsi && (item.url === '/budgets' || item.url === '/ferramentas')))
   );
 
   // Inject dynamic map item for dentists with a known specialty
-  const finalClinicNav = isDentist && dynamicMap
+  let finalClinicNav = isDentist && dynamicMap
     ? [
         ...filteredClinicNav.slice(0, 2),
         { title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon, categories: ALL_CATEGORIES, allowedRoles: ['dentist'] as Role[] },
         ...filteredClinicNav.slice(2),
       ]
     : filteredClinicNav;
+
+  // Inject Psi toolbox for psychologists
+  if (isPsi) {
+    finalClinicNav = [
+      ...finalClinicNav,
+      { title: 'Ferramentas do Psicólogo', url: '/psi/ferramentas', icon: Brain, categories: ALL_CATEGORIES, allowedRoles: ['dentist'] as Role[] },
+    ];
+  }
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({
