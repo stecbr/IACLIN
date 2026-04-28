@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen, Briefcase, Brain } from 'lucide-react';
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -30,6 +30,7 @@ export function MobileBottomNav() {
     enabled: !!user?.id && !!currentClinicId && isDentist,
   });
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
+  const isPsi = isDentist && dynamicMap?.mapType === 'psyche';
 
   const allMainItems = isDentist
     ? [
@@ -46,11 +47,16 @@ export function MobileBottomNav() {
       ];
 
   const allMoreItems = isDentist
-    ? [
-        { title: 'Ferramentas', url: '/ferramentas', icon: Briefcase },
-        ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
-        { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
-      ]
+    ? isPsi
+      ? [
+          { title: 'Ferramentas do Psicólogo', url: '/psi/ferramentas', icon: Brain },
+          ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
+        ]
+      : [
+          { title: 'Ferramentas', url: '/ferramentas', icon: Briefcase },
+          ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
+          { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+        ]
     : [
         { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen },
         { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
