@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 
 export interface CertificatePdfData {
   mode: 'attendance' | 'leave';
