@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { PrescriptionItem } from './prescriptionTemplates';
+import { registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 
 export interface PrescriptionPdfData {
   items: PrescriptionItem[];
@@ -111,7 +112,7 @@ export async function generatePrescriptionPdf(data: PrescriptionPdfData) {
     ${sigHtml ? `<div class="sig-img">${sigHtml}</div>` : ''}
     <hr/>
     <p>${dentist.full_name}</p>
-    <p class="reg">${dentist.registration_number ? `CRO/CRM ${dentist.registration_number}` : ''}${dentist.specialty ? ` · ${dentist.specialty}` : ''}</p>
+    <p class="reg">${dentist.registration_number ? `${registrationLabelForSpecialty(dentist.specialty)} ${dentist.registration_number}` : ''}${dentist.specialty ? ` · ${dentist.specialty}` : ''}</p>
   </div>
 
   <div class="footer">${clinic?.city ?? ''}${clinic?.city && clinic?.state ? '/' : ''}${clinic?.state ?? ''}, ${today}</div>
