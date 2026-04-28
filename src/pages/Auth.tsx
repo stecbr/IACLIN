@@ -668,13 +668,13 @@ export default function Auth() {
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="registration" className="text-xs text-muted-foreground">
-                        {profSubType === 'dentista' ? 'CRO' : 'CRM'} <span className="text-destructive">*</span>
+                        {registrationLabelForSpecialty(specialty)} <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="registration"
                         value={registrationNumber}
                         onChange={(e) => setRegistrationNumber(e.target.value)}
-                        placeholder={profSubType === 'dentista' ? 'Ex: CRO-SP 12345' : 'Ex: CRM-SP 12345'}
+                        placeholder={registrationPlaceholderForSpecialty(specialty)}
                         required
                         className="h-10"
                       />
