@@ -288,6 +288,16 @@ export async function syncAgendaAppointments(clinicId: string) {
   }
 }
 
+export async function syncClinicAvailability(clinicId: string) {
+  if (!isAiBackendConfigured()) return;
+  try {
+    const availability = await buildAvailabilitySlots(clinicId);
+    await silent(aiBackend.syncAvailability({ clinic_id: clinicId, availability }));
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[ai-sync] syncClinicAvailability:', err);
+  }
+}
+
 // ============================================================
 // useAiSync — dispara o snapshot inicial e o polling de IA-pending
 // ============================================================
