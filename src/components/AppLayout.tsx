@@ -12,6 +12,8 @@ import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
 import logoDark from '@/assets/logo-dark.png';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAiSync } from '@/hooks/useAiSync';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -26,6 +28,9 @@ const breadcrumbMap: Record<string, string> = {
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { resolved, setTheme } = useTheme();
+  const { currentClinicId } = useAuth();
+  // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget)
+  useAiSync(currentClinicId);
 
   const getBreadcrumb = () => {
     const path = location.pathname;

@@ -1,0 +1,408 @@
+import { useEffect, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  aiBackend,
+  isAiBackendConfigured,
+  type SyncPatientPayload,
+  type SyncDoctor,
+  type SyncAppointmentItem,
+  type SyncAvailabilitySlot,
+} from '@/lib/aiBackend';
+
+// ============================================================
+// useAiSync — sincroniza dados da clínica com o backend da IA.
+//
+// Política: TODAS as chamadas são fire-and-forget. Erros são
+// silenciados (apenas console.warn) — a UI nunca deve bloquear
+// nem mostrar loading/erro por causa de falha de sync.
+// ============================================================
+
+const POLL_INTERVAL_MS = 30_000;
+
+function silent<T>(p: Promise<T>): Promise<T | null> {
+  return p.catch((err) => {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn('[ai-sync] falhou:', err?.message ?? err);
+    }
+    return null;
+  });
+}
+
+// ---------- Builders de payload (a partir do Supabase) ----------
+
+async function buildConfigSnapshot(clinicId: string) {
+  const [clinicRes, procRes, plansRes, roomsRes, membersRes] = await Promise.all([
+    supabase.from('clinics').select('business_hours').eq('id', clinicId).maybeSingle(),
+    supabase.from('procedures').select('id, name, default_duration, category').eq('is_active', true),
+    supabase.from('insurance_plans').select('id, name, ans_code').eq('clinic_id', clinicId).eq('is_active', true),
+    supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId).eq('is_active', true),
+    supabase.from('clinic_members').select('user_id, role, specialty').eq('clinic_id', clinicId),
+  ]);
+
+  const memberRows = (membersRes.data ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
+  const userIds = memberRows.map((m) => m.user_id);
+  const profilesRes = userIds.length
+    ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
+    : { data: [] as Array<{ id: string; full_name: string | null }> };
+  const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name]));
+
+  const doctors: SyncDoctor[] = memberRows.map((m) => ({
+    user_id: m.user_id,
+    full_name: profileMap.get(m.user_id) ?? '—',
+    role: m.role,
+    specialty: m.specialty,
+    active: true,
+  }));
+
+  return {
+    clinic_id: clinicId,
+    business_hours: (clinicRes.data?.business_hours as Record<string, unknown> | null) ?? null,
+    procedures: (procRes.data ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      duration_min: p.default_duration ?? 30,
+      category: p.category,
+    })),
+    insurance_plans: (plansRes.data ?? []).map((ip) => ({
+      id: ip.id,
+      name: ip.name,
+      code: ip.ans_code ?? null,
+    })),
+    rooms: (roomsRes.data ?? []).map((r) => ({ id: r.id, name: r.name })),
+    doctors,
+  };
+}
+
+async function buildDoctorsBatch(clinicId: string) {
+  const { data: rows } = await supabase
+    .from('clinic_members')
+    .select('user_id, role, specialty')
+    .eq('clinic_id', clinicId);
+  const memberRows = (rows ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
+  const userIds = memberRows.map((m) => m.user_id);
+  const profilesRes = userIds.length
+    ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
+    : { data: [] as Array<{ id: string; full_name: string | null }> };
+  const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name]));
+  return memberRows.map((m) => ({
+    user_id: m.user_id,
+    full_name: profileMap.get(m.user_id) ?? '—',
+    role: m.role,
+    specialty: m.specialty,
+    active: true,
+  }));
+}
+
+async function buildPatientsBatch(clinicId: string): Promise<SyncPatientPayload[]> {
+  const { data: patients } = await supabase
+    .from('patients')
+    .select('id, full_name, phone, cpf, patient_user_id')
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+
+  const list = (patients ?? []) as Array<{
+    id: string;
+    full_name: string;
+    phone: string | null;
+    cpf: string | null;
+    patient_user_id: string | null;
+  }>;
+  if (list.length === 0) return [];
+
+  const ids = list.map((p) => p.id);
+
+  const [txRes, accountsRes, anamnesesRes, apptsRes] = await Promise.all([
+    supabase
+      .from('financial_transactions')
+      .select('patient_id, amount, type, status')
+      .in('patient_id', ids)
+      .eq('clinic_id', clinicId)
+      .eq('status', 'pending')
+      .eq('type', 'income'),
+    list.some((p) => p.cpf)
+      ? supabase.from('patient_accounts').select('id, cpf, phone').in('cpf', list.map((p) => p.cpf).filter(Boolean) as string[])
+      : Promise.resolve({ data: [] as Array<{ id: string; cpf: string; phone: string | null }> }),
+    supabase.from('anamneses').select('patient_id, allergies, medications, notes').in('patient_id', ids),
+    supabase
+      .from('appointments')
+      .select('id, patient_id, start_time, status, procedures(name)')
+      .in('patient_id', ids)
+      .eq('clinic_id', clinicId)
+      .order('start_time', { ascending: true }),
+  ]);
+
+  const balanceMap = new Map<string, number>();
+  for (const t of (txRes.data ?? []) as Array<{ patient_id: string | null; amount: number }>) {
+    if (!t.patient_id) continue;
+    balanceMap.set(t.patient_id, (balanceMap.get(t.patient_id) ?? 0) + Number(t.amount ?? 0));
+  }
+
+  const accountByCpf = new Map(
+    ((accountsRes.data ?? []) as Array<{ id: string; cpf: string; phone: string | null }>).map((a) => [a.cpf, a]),
+  );
+
+  const anamneseByPatient = new Map(
+    ((anamnesesRes.data ?? []) as Array<{
+      patient_id: string;
+      allergies: string | null;
+      medications: string | null;
+      notes: string | null;
+    }>).map((a) => [a.patient_id, a]),
+  );
+
+  const now = Date.now();
+  type Appt = { id: string; patient_id: string; start_time: string; status: string; procedures: { name: string } | null };
+  const lastByPatient = new Map<string, Appt>();
+  const nextByPatient = new Map<string, Appt>();
+  for (const a of (apptsRes.data ?? []) as unknown as Appt[]) {
+    const t = new Date(a.start_time).getTime();
+    if (t <= now) {
+      const cur = lastByPatient.get(a.patient_id);
+      if (!cur || new Date(cur.start_time).getTime() < t) lastByPatient.set(a.patient_id, a);
+    } else {
+      const cur = nextByPatient.get(a.patient_id);
+      if (!cur || new Date(cur.start_time).getTime() > t) nextByPatient.set(a.patient_id, a);
+    }
+  }
+
+  return list.map((p) => {
+    const acc = p.cpf ? accountByCpf.get(p.cpf) : undefined;
+    const ana = anamneseByPatient.get(p.id);
+    const last = lastByPatient.get(p.id);
+    const next = nextByPatient.get(p.id);
+    return {
+      id: p.id,
+      clinic_id: clinicId,
+      account_id: acc?.id ?? null,
+      full_name: p.full_name,
+      phone: acc?.phone ?? p.phone ?? null,
+      balance: balanceMap.get(p.id) ?? 0,
+      last_appointment: last
+        ? {
+            id: last.id,
+            start_time: last.start_time,
+            status: last.status,
+            procedure_name: last.procedures?.name ?? null,
+          }
+        : null,
+      next_appointment: next
+        ? {
+            id: next.id,
+            start_time: next.start_time,
+            status: next.status,
+            procedure_name: next.procedures?.name ?? null,
+          }
+        : null,
+      anamnese: ana
+        ? { allergies: ana.allergies, medications: ana.medications, notes: ana.notes }
+        : null,
+    };
+  });
+}
+
+async function buildAvailabilitySlots(clinicId: string): Promise<SyncAvailabilitySlot[]> {
+  const { data } = await supabase
+    .from('professional_availability')
+    .select('user_id, work_date, start_time, end_time')
+    .eq('clinic_id', clinicId);
+  return ((data ?? []) as Array<{ user_id: string; work_date: string; start_time: string; end_time: string }>).map(
+    (s) => {
+      // work_date no formato YYYY-MM-DD — calcular day_of_week local
+      const [y, m, d] = s.work_date.split('-').map(Number);
+      const dow = new Date(y, (m ?? 1) - 1, d ?? 1).getDay();
+      return {
+        professional_id: s.user_id,
+        day_of_week: dow,
+        start_time: s.start_time?.slice(0, 5) ?? s.start_time,
+        end_time: s.end_time?.slice(0, 5) ?? s.end_time,
+      };
+    },
+  );
+}
+
+async function buildAppointmentsNext30(clinicId: string): Promise<SyncAppointmentItem[]> {
+  const start = new Date();
+  const end = new Date();
+  end.setDate(end.getDate() + 30);
+  const { data } = await supabase
+    .from('appointments')
+    .select('id, dentist_id, start_time, end_time, status')
+    .eq('clinic_id', clinicId)
+    .gte('start_time', start.toISOString())
+    .lte('start_time', end.toISOString())
+    .neq('status', 'cancelled');
+  return ((data ?? []) as SyncAppointmentItem[]).map((a) => ({
+    id: a.id,
+    dentist_id: a.dentist_id,
+    start_time: a.start_time,
+    end_time: a.end_time,
+    status: a.status,
+  }));
+}
+
+// ============================================================
+// Helpers exportados — chamados por mutations específicas
+// ============================================================
+
+export async function syncOnePatient(patientId: string, clinicId: string) {
+  if (!isAiBackendConfigured()) return;
+  try {
+    const list = await buildPatientsBatch(clinicId);
+    const one = list.find((p) => p.id === patientId);
+    if (!one) return;
+    await silent(aiBackend.syncPatient(one));
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[ai-sync] syncOnePatient:', err);
+  }
+}
+
+export async function syncOneDoctor(payload: {
+  clinicId: string;
+  userId: string;
+  fullName: string;
+  role: string;
+  specialty: string | null;
+  active: boolean;
+}) {
+  if (!isAiBackendConfigured()) return;
+  await silent(
+    aiBackend.syncDoctor({
+      clinic_id: payload.clinicId,
+      user_id: payload.userId,
+      full_name: payload.fullName,
+      role: payload.role,
+      specialty: payload.specialty,
+      active: payload.active,
+    }),
+  );
+}
+
+export async function syncAgendaAppointments(clinicId: string) {
+  if (!isAiBackendConfigured()) return;
+  try {
+    const appointments = await buildAppointmentsNext30(clinicId);
+    await silent(aiBackend.syncAppointments({ clinic_id: clinicId, appointments }));
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[ai-sync] syncAgendaAppointments:', err);
+  }
+}
+
+export async function syncClinicAvailability(clinicId: string) {
+  if (!isAiBackendConfigured()) return;
+  try {
+    const availability = await buildAvailabilitySlots(clinicId);
+    await silent(aiBackend.syncAvailability({ clinic_id: clinicId, availability }));
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[ai-sync] syncClinicAvailability:', err);
+  }
+}
+
+// ============================================================
+// useAiSync — dispara o snapshot inicial e o polling de IA-pending
+// ============================================================
+
+export function useAiSync(clinicId: string | null | undefined) {
+  const lastSyncedClinicRef = useRef<string | null>(null);
+
+  // Snapshot inicial (fire-and-forget) sempre que a clínica muda
+  useEffect(() => {
+    if (!clinicId || !isAiBackendConfigured()) return;
+    if (lastSyncedClinicRef.current === clinicId) return;
+    lastSyncedClinicRef.current = clinicId;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const [config, doctors, patients, availability] = await Promise.all([
+          buildConfigSnapshot(clinicId),
+          buildDoctorsBatch(clinicId),
+          buildPatientsBatch(clinicId),
+          buildAvailabilitySlots(clinicId),
+        ]);
+        if (cancelled) return;
+        await Promise.all([
+          silent(aiBackend.syncConfig(config)),
+          silent(aiBackend.syncDoctors({ clinic_id: clinicId, doctors })),
+          silent(aiBackend.syncPatients(patients)),
+          silent(aiBackend.syncAvailability({ clinic_id: clinicId, availability })),
+        ]);
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[ai-sync] snapshot inicial:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clinicId]);
+
+  // Polling: pega agendamentos criados pela IA pendentes e grava no Supabase
+  useEffect(() => {
+    if (!clinicId || !isAiBackendConfigured()) return;
+
+    let stopped = false;
+
+    const tick = async () => {
+      try {
+        const res = await aiBackend.getAiPendingAppointments(clinicId);
+        const items = res?.data ?? [];
+        if (stopped || items.length === 0) return;
+
+        for (const item of items) {
+          if (stopped) break;
+          try {
+            const insertPayload: Record<string, unknown> = {
+              clinic_id: clinicId,
+              dentist_id: item.dentist_id,
+              patient_id: item.patient_id,
+              start_time: item.start_time,
+              end_time: item.end_time,
+              status: item.status ?? 'scheduled',
+              notes: item.notes ?? null,
+              procedure_id: item.procedure_id ?? null,
+            };
+            // patient_id é obrigatório no Supabase; pular se IA ainda não vinculou
+            if (!insertPayload.patient_id) continue;
+
+            const { data: inserted, error } = await supabase
+              .from('appointments')
+              .insert(insertPayload as any)
+              .select('id')
+              .single();
+            if (error || !inserted) {
+              if (import.meta.env.DEV) console.warn('[ai-sync] insert appointment falhou:', error?.message);
+              continue;
+            }
+            await silent(aiBackend.confirmAiAppointmentSync(clinicId, item.id, inserted.id));
+          } catch (err) {
+            if (import.meta.env.DEV) console.warn('[ai-sync] processar item IA:', err);
+          }
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[ai-sync] polling:', err);
+      }
+    };
+
+    // Primeira execução imediata + intervalo
+    tick();
+    const id = window.setInterval(tick, POLL_INTERVAL_MS);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [clinicId]);
+
+  // Helper exposto para forçar sync de availability após mutations
+  const refreshAvailability = useCallback(async () => {
+    if (!clinicId || !isAiBackendConfigured()) return;
+    try {
+      const availability = await buildAvailabilitySlots(clinicId);
+      await silent(aiBackend.syncAvailability({ clinic_id: clinicId, availability }));
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('[ai-sync] refreshAvailability:', err);
+    }
+  }, [clinicId]);
+
+  return { refreshAvailability };
+}

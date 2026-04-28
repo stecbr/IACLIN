@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { toLocalDateStr } from '@/lib/holidays';
 import type { HolidayInfo } from '@/lib/holidays';
+import { syncClinicAvailability } from '@/hooks/useAiSync';
 
 export interface Shift {
   id: string;
@@ -53,6 +54,7 @@ export function DayShiftsPanel({ date, shifts, clinicId, userId, holiday }: DayS
     onSuccess: () => {
       invalidate();
       toast.success('Turno adicionado');
+      syncClinicAvailability(clinicId);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -65,6 +67,7 @@ export function DayShiftsPanel({ date, shifts, clinicId, userId, holiday }: DayS
     onSuccess: () => {
       invalidate();
       toast.success('Turno removido');
+      syncClinicAvailability(clinicId);
     },
     onError: (err: Error) => toast.error(err.message),
   });

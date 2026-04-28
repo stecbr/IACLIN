@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { syncOnePatient } from '@/hooks/useAiSync';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -86,10 +87,16 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
         const { error } = await supabase.from('patients').update(payload).eq('id', patient.id);
         if (error) throw error;
         toast.success('Paciente atualizado!');
+        if (clinicId) syncOnePatient(patient.id, clinicId);
       } else {
-        const { error } = await supabase.from('patients').insert({ ...payload, clinic_id: clinicId ?? null });
+        const { data: inserted, error } = await supabase
+          .from('patients')
+          .insert({ ...payload, clinic_id: clinicId ?? null })
+          .select('id')
+          .single();
         if (error) throw error;
         toast.success('Paciente cadastrado!');
+        if (clinicId && inserted?.id) syncOnePatient(inserted.id, clinicId);
       }
 
       onSuccess();

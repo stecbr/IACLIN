@@ -20,6 +20,7 @@ import {
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { AgendaCompareView } from '@/components/agenda/AgendaCompareView';
 import { WaitingTimer } from '@/components/waiting-room/WaitingTimer';
+import { syncAgendaAppointments } from '@/hooks/useAiSync';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -96,6 +97,11 @@ export default function Agenda() {
       gridRef.current.scrollTop = scrollTo;
     }
   }, [view]);
+
+  // Sync agendamentos dos próximos 30 dias para a Secretária IA (fire-and-forget)
+  useEffect(() => {
+    if (currentClinicId) syncAgendaAppointments(currentClinicId);
+  }, [currentClinicId]);
 
   const navigate = (dir: 1 | -1) => {
     const fn = dir === 1
