@@ -5,7 +5,7 @@
 
 // URL do backend externo da Secretária IA.
 // Prioridade: variável de ambiente VITE_AI_BACKEND_URL > fallback hardcoded.
-const DEFAULT_AI_BACKEND_URL = 'https://baths-whale-hygiene-chapters.trycloudflare.com';
+const DEFAULT_AI_BACKEND_URL = 'https://beef-returning-publisher-plymouth.trycloudflare.com';
 const RAW_URL = (import.meta.env.VITE_AI_BACKEND_URL as string | undefined)?.trim() || DEFAULT_AI_BACKEND_URL;
 const BASE_URL = RAW_URL ? RAW_URL.replace(/\/$/, '') : null;
 
