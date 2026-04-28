@@ -1,6 +1,6 @@
-import { Bone, Footprints, PersonStanding, Utensils, Activity, type LucideIcon } from 'lucide-react';
+import { Bone, Footprints, PersonStanding, Utensils, Activity, Brain, type LucideIcon } from 'lucide-react';
 
-export type MapType = 'tooth' | 'foot' | 'body' | 'meal' | 'musculoskeletal';
+export type MapType = 'tooth' | 'foot' | 'body' | 'meal' | 'musculoskeletal' | 'psyche';
 
 export interface MapConfig {
   mapType: MapType;
@@ -47,6 +47,14 @@ export const MAP_BY_SPECIALTY: Record<string, MapConfig> = {
   fisioterapeuta: { mapType: 'musculoskeletal', label: 'Mapa Musculoesquelético', icon: Activity, description: 'Articulações e grupos musculares' },
   ortopedia: { mapType: 'musculoskeletal', label: 'Mapa Musculoesquelético', icon: Activity, description: 'Articulações e grupos musculares' },
   reumatologia: { mapType: 'musculoskeletal', label: 'Mapa Musculoesquelético', icon: Activity, description: 'Articulações e grupos musculares' },
+
+  // Psicologia → Mapa Psíquico (áreas da vida)
+  psicologia: { mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain, description: 'Áreas da vida e estado emocional' },
+  psicologo: { mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain, description: 'Áreas da vida e estado emocional' },
+  psicanalise: { mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain, description: 'Áreas da vida e estado emocional' },
+  psicoterapia: { mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain, description: 'Áreas da vida e estado emocional' },
+  neuropsicologia: { mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain, description: 'Áreas da vida e estado emocional' },
+  psiquiatria: { mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain, description: 'Áreas da vida e estado emocional' },
 };
 
 function normalize(s: string | null | undefined): string {
@@ -121,6 +129,14 @@ export const CONDITIONS_BY_MAP: Record<MapType, ConditionOption[]> = {
     { value: 'inflammation', label: 'Inflamação', color: '#EC4899' },
     { value: 'weakness', label: 'Fraqueza', color: '#06B6D4' },
     { value: 'injury', label: 'Lesão', color: '#B91C1C' },
+  ],
+  psyche: [
+    { value: 'stable', label: 'Estável', color: '#22C55E' },
+    { value: 'improving', label: 'Em melhora', color: '#06B6D4' },
+    { value: 'worsening', label: 'Em piora', color: '#F59E0B' },
+    { value: 'crisis', label: 'Em crise', color: '#EF4444' },
+    { value: 'goal', label: 'Meta terapêutica', color: '#8B5CF6' },
+    { value: 'resource', label: 'Recurso/apoio', color: '#3B82F6' },
   ],
 };
 
