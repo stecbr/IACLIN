@@ -10,7 +10,12 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { Copy, Mail, KeyRound, Check } from 'lucide-react';
 import { useEffect } from 'react';
-import { SpecialtySelect } from '@/components/SpecialtySelect';
+import {
+  SpecialtySelect,
+  registrationLabelForSpecialty,
+  registrationPlaceholderForSpecialty,
+  validateRegistrationForSpecialty,
+} from '@/components/SpecialtySelect';
 
 interface Props {
   open: boolean;
@@ -49,6 +54,11 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
     }
     if (!form.specialty.trim()) {
       toast.error('Selecione a especialidade do médico');
+      return;
+    }
+    const regError = validateRegistrationForSpecialty(form.registration, form.specialty);
+    if (regError) {
+      toast.error(regError);
       return;
     }
     setSubmitting(true);
@@ -130,8 +140,13 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="med-reg">CRM / CRO</Label>
-                    <Input id="med-reg" value={form.registration} onChange={(e) => setForm({ ...form, registration: e.target.value })} placeholder="123456-SP" />
+                    <Label htmlFor="med-reg">{registrationLabelForSpecialty(form.specialty)}</Label>
+                    <Input
+                      id="med-reg"
+                      value={form.registration}
+                      onChange={(e) => setForm({ ...form, registration: e.target.value })}
+                      placeholder={registrationPlaceholderForSpecialty(form.specialty)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="med-spec">Especialidade <span className="text-destructive">*</span></Label>

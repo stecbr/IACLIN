@@ -181,3 +181,46 @@ export function isCatalogSpecialty(value: string | null | undefined): boolean {
   if (!value) return false;
   return SPECIALTIES.some((s) => s.id === value);
 }
+
+/**
+ * Returns the proper professional registration label based on the specialty.
+ * - Odontology specialties → 'CRO'
+ * - All other specialties (medical, aesthetic, vet, other) → 'CRM'
+ */
+export function registrationLabelForSpecialty(
+  specialtyId: string | null | undefined,
+): 'CRO' | 'CRM' {
+  if (!specialtyId) return 'CRM';
+  const s = SPECIALTIES.find((x) => x.id === specialtyId);
+  return s?.category === 'odonto' ? 'CRO' : 'CRM';
+}
+
+export function registrationPlaceholderForSpecialty(
+  specialtyId: string | null | undefined,
+): string {
+  return `Digite seu ${registrationLabelForSpecialty(specialtyId)}`;
+}
+
+/**
+ * Light validation: makes sure the user did not paste a CRM number for an odonto
+ * specialty (or a CRO for a medical one). Returns null if OK, else an error message.
+ * Only checks an explicit textual prefix — pure numeric values are always accepted.
+ */
+export function validateRegistrationForSpecialty(
+  registration: string,
+  specialtyId: string | null | undefined,
+): string | null {
+  const trimmed = (registration ?? '').trim();
+  if (!trimmed) return null;
+  const expected = registrationLabelForSpecialty(specialtyId);
+  const upper = trimmed.toUpperCase();
+  const startsWithCRO = /^CRO\b/.test(upper);
+  const startsWithCRM = /^CRM\b/.test(upper);
+  if (expected === 'CRO' && startsWithCRM) {
+    return 'Esta especialidade é de Odontologia — informe um CRO, não um CRM.';
+  }
+  if (expected === 'CRM' && startsWithCRO) {
+    return 'Esta especialidade é da área médica — informe um CRM, não um CRO.';
+  }
+  return null;
+}

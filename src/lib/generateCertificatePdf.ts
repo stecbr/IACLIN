@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 
 export interface CertificatePdfData {
   mode: 'attendance' | 'leave';
@@ -105,7 +106,7 @@ export async function generateCertificatePdf(data: CertificatePdfData) {
     ${sigHtml ? `<div class="sig-img">${sigHtml}</div>` : ''}
     <hr/>
     <p>${dentist.full_name}</p>
-    <p class="reg">${dentist.registration_number ? `CRO/CRM ${dentist.registration_number}` : ''}${dentist.specialty ? ` · ${dentist.specialty}` : ''}</p>
+    <p class="reg">${dentist.registration_number ? `${registrationLabelForSpecialty(dentist.specialty)} ${dentist.registration_number}` : ''}${dentist.specialty ? ` · ${dentist.specialty}` : ''}</p>
   </div>
 
   <div class="footer">${clinic?.city ?? ''}${clinic?.city && clinic?.state ? '/' : ''}${clinic?.state ?? ''}, ${today}</div>

@@ -1,39 +1,51 @@
-## Diagnóstico
+## Objetivo
 
-Investiguei o `src/lib/aiBackend.ts` e os logs de rede. O bug **não é** o que o prompt suspeita:
+Ajustar **apenas** a lógica do campo de registro profissional para alternar entre **CRO** (odonto) e **CRM** (médico/demais) conforme a especialidade selecionada — sem mexer em layout, cores ou outras áreas.
 
-1. ✅ `connectWhatsApp` existe e usa `request()` corretamente (linhas 188-191).
-2. ✅ Header `bypass-tunnel-reminder: true` **já está aplicado** em todas as chamadas (linha 168 do `request()`).
-3. ❌ A `VITE_AI_BACKEND_URL` **não existe** no `.env` do projeto. Lovable não expõe painel para variáveis `VITE_*` do front — o `.env` é gerenciado automaticamente e contém só as chaves do Supabase. Por isso o código está caindo no fallback hardcoded.
+## Como detectar o tipo
 
-**Causa raiz:** o fallback aponta para `https://baths-whale-hygiene-chapters.trycloudflare.com`, que é o túnel Cloudflare **antigo e morto**. Confirmado nos network logs: a chamada `GET .../appointments?source=ai&sync_status=pending` retorna `Failed to fetch`. Túneis `trycloudflare.com` gratuitos são efêmeros e expiram.
+Já existe `category` em `SPECIALTIES` (`src/components/patient/booking/SpecialtyStep.tsx`):
+- `category === 'odonto'` → **CRO**
+- qualquer outra (`medico`, `estetica`, `veterinario`, `outro`) → **CRM**
 
-A URL nova (`beef-returning-publisher-plymouth.trycloudflare.com`) que você passou nunca foi gravada em lugar nenhum.
-
-## Mudança
-
-Trocar uma única linha em `src/lib/aiBackend.ts`:
+Criarei 2 helpers em `src/components/SpecialtySelect.tsx` (já é o lugar canônico de utilidades de especialidade):
 
 ```ts
-// antes
-const DEFAULT_AI_BACKEND_URL = 'https://baths-whale-hygiene-chapters.trycloudflare.com';
-
-// depois
-const DEFAULT_AI_BACKEND_URL = 'https://beef-returning-publisher-plymouth.trycloudflare.com';
+export function registrationLabelForSpecialty(specialtyId?: string | null): 'CRO' | 'CRM' {
+  const s = SPECIALTIES.find(x => x.id === specialtyId);
+  return s?.category === 'odonto' ? 'CRO' : 'CRM';
+}
+export function registrationPlaceholderForSpecialty(specialtyId?: string | null): string {
+  return `Digite seu ${registrationLabelForSpecialty(specialtyId)}`;
+}
 ```
 
-Isso resolve imediatamente o "Failed to fetch" no botão Conectar WhatsApp e em todos os syncs da Secretária IA.
+## Pontos a ajustar (somente o campo de registro)
 
-## Aviso importante (próxima ocorrência)
+1. **`src/pages/Auth.tsx`** (cadastro do profissional, linha ~659)
+   - Trocar `<Label>` fixo e `placeholder` do input `registration` para usarem os helpers, baseados em `selectedSpecialty`.
+   - Na submissão (linhas ~214/255/284): se a especialidade for odonto e o registro estiver explicitamente marcado/colado como "CRM ..." (ou vice-versa), bloquear com mensagem amigável. Validação leve via prefixo: se o usuário digitar `CRM` num cadastro odonto (ou `CRO` num médico), exibir toast de erro e impedir o submit. O valor salvo no banco continua sendo só o número (campo `registration_number`); o tipo é inferido pela especialidade.
 
-Túneis `trycloudflare.com` quebram com frequência (horas/dias). Toda vez que o backend reiniciar com URL nova, vou ter que repetir essa troca de fallback e republicar. Soluções permanentes para considerar depois:
+2. **`src/pages/Profile.tsx`** (perfil do profissional, linha ~139)
+   - Mesmo tratamento: label e placeholder dinâmicos a partir de `specialty` selecionado. Aplicar a mesma validação leve no save (linha ~73) usando os helpers.
 
-- Salvar a URL numa tabela de config (ex: `clinic_settings.ai_backend_url`) e o front lê de lá → você atualiza pelo painel sem deploy.
-- Mover as chamadas para uma edge function do Lovable Cloud, que guarda a URL como secret editável.
-- Subir o backend num domínio estável (Cloudflare Tunnel autenticado, Fly.io, Render, Railway).
+3. **`src/components/clinica/AddMedicoDialog.tsx`** (admin adicionando médico, linha ~134)
+   - Label e placeholder dinâmicos com base no `form.specialty`. Mesma validação leve antes de chamar o invite (linha ~62).
 
-Posso plugar qualquer uma dessas depois — basta pedir.
+4. **Exibições "CRO/CRM" hardcoded** (apenas troca de string para coerência, sem mudar layout):
+   - `src/lib/generateCertificatePdf.ts` (linha 108) e `src/lib/generatePrescriptionPdf.ts` (linha 114): substituir o literal `CRO/CRM` por `registrationLabelForSpecialty(dentist.specialty)` para que o PDF mostre apenas o termo correto.
+   - `src/pages/clinica/ClinicaMedicos.tsx` (linha 178): manter o número como está; opcionalmente prefixar com o label correto da especialidade do membro (`CRO 12345` / `CRM 12345`).
 
-## Arquivos
+## O que NÃO será alterado
 
-- `src/lib/aiBackend.ts` — trocar `DEFAULT_AI_BACKEND_URL`.
+- Layout, cores, espaçamentos, ícones e estrutura geral das telas.
+- Tela da Clínica (apenas o input do diálogo de adicionar médico).
+- Schema do banco (mantém `registration_number`; o tipo é derivado da especialidade).
+- Fluxos de autenticação, agenda, financeiro, etc.
+
+## Critérios de aceite
+
+- Selecionar "Clínico Geral" / "Cardiologia" / "Pediatria" → label **CRM**, placeholder "Digite seu CRM".
+- Selecionar "Dentista" / "Limpeza Dental" / "Cirurgia Bucomaxilofacial" → label **CRO**, placeholder "Digite seu CRO".
+- Tentar salvar dentista com valor começando por "CRM" (ou médico com "CRO") → toast de erro e submit bloqueado.
+- O label correto aparece no perfil após o cadastro e nos PDFs gerados.

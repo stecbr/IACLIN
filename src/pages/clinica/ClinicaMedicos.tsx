@@ -13,7 +13,7 @@ import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
 import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { SpecialtySelect, specialtyLabel, isCatalogSpecialty } from '@/components/SpecialtySelect';
+import { SpecialtySelect, specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { syncOneDoctor } from '@/hooks/useAiSync';
 
@@ -175,7 +175,11 @@ export default function ClinicaMedicos() {
                         <span className="font-medium">{m.profile?.full_name ?? '—'}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{m.registration_number ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {m.registration_number
+                        ? `${registrationLabelForSpecialty(m.specialty)} ${m.registration_number}`
+                        : '—'}
+                    </TableCell>
                     <TableCell>
                       {editingId === m.id ? (
                         <div className="flex items-center gap-1.5">

@@ -10,7 +10,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
-import { SpecialtySelect } from '@/components/SpecialtySelect';
+import {
+  SpecialtySelect,
+  registrationLabelForSpecialty,
+  registrationPlaceholderForSpecialty,
+  validateRegistrationForSpecialty,
+} from '@/components/SpecialtySelect';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
@@ -212,7 +217,13 @@ export default function Auth() {
             return;
           }
           if (!registrationNumber.trim()) {
-            toast.error(profSubType === 'dentista' ? 'Informe seu CRO' : 'Informe seu CRM');
+            toast.error(`Informe seu ${registrationLabelForSpecialty(specialty)}`);
+            setSubmitting(false);
+            return;
+          }
+          const regError = validateRegistrationForSpecialty(registrationNumber, specialty);
+          if (regError) {
+            toast.error(regError);
             setSubmitting(false);
             return;
           }
@@ -657,13 +668,13 @@ export default function Auth() {
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="registration" className="text-xs text-muted-foreground">
-                        {profSubType === 'dentista' ? 'CRO' : 'CRM'} <span className="text-destructive">*</span>
+                        {registrationLabelForSpecialty(specialty)} <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="registration"
                         value={registrationNumber}
                         onChange={(e) => setRegistrationNumber(e.target.value)}
-                        placeholder={profSubType === 'dentista' ? 'Ex: CRO-SP 12345' : 'Ex: CRM-SP 12345'}
+                        placeholder={registrationPlaceholderForSpecialty(specialty)}
                         required
                         className="h-10"
                       />
