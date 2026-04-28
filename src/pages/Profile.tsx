@@ -15,7 +15,6 @@ import {
   registrationLabelForSpecialty,
   registrationPlaceholderForSpecialty,
   validateRegistrationForSpecialty,
-  specialtyLabel,
 } from '@/components/SpecialtySelect';
 
 export default function Profile() {
