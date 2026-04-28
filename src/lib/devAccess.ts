@@ -2,6 +2,7 @@
 // (alternar visões Clínica / Médico / Paciente sem precisar de logins separados)
 export const DEV_EMAILS: string[] = [
   'lucasferreiraceara@gmail.com',
+  'endrya161624@gmail.com',
 ];
 
 export function isDevEmail(email: string | null | undefined): boolean {
