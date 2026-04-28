@@ -228,7 +228,7 @@ export default function ClinicaMedicos() {
                       {m.is_owner ? (
                         <Badge variant="default">Administrador</Badge>
                       ) : (
-                        <Badge variant="secondary" className="capitalize">{m.role}</Badge>
+                        <Badge variant="secondary">Profissional</Badge>
                       )}
                     </TableCell>
                   </TableRow>
