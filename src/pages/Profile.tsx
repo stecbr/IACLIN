@@ -11,6 +11,12 @@ import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Building2, Save, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  registrationLabelForSpecialty,
+  registrationPlaceholderForSpecialty,
+  validateRegistrationForSpecialty,
+  specialtyLabel,
+} from '@/components/SpecialtySelect';
 
 export default function Profile() {
   const { user, profile, currentClinicId, clinics } = useAuth();
@@ -64,6 +70,8 @@ export default function Profile() {
   const saveProfile = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('no user');
+      const regError = validateRegistrationForSpecialty(registrationNumber, specialty);
+      if (regError) throw new Error(regError);
       const { error: pErr } = await supabase.from('profiles')
         .update({ full_name: fullName, phone })
         .eq('id', user.id);
@@ -135,8 +143,13 @@ export default function Profile() {
                 <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Ex: Ortodontia" />
               </div>
               <div>
-                <Label htmlFor="reg">Registro profissional</Label>
-                <Input id="reg" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="Ex: CRO-SP 12345" />
+                <Label htmlFor="reg">{registrationLabelForSpecialty(specialty)}</Label>
+                <Input
+                  id="reg"
+                  value={registrationNumber}
+                  onChange={(e) => setRegistrationNumber(e.target.value)}
+                  placeholder={registrationPlaceholderForSpecialty(specialty)}
+                />
               </div>
             </div>
           )}
