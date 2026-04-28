@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { SpecialtySelect, specialtyLabel, isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { syncOneDoctor } from '@/hooks/useAiSync';
 
 interface MemberRow {
   id: string;
@@ -109,6 +110,16 @@ export default function ClinicaMedicos() {
     toast.success('Especialidade atualizada');
     setEditingId(null);
     qc.invalidateQueries({ queryKey: ['clinica-medicos', currentClinicId] });
+    if (currentClinicId) {
+      syncOneDoctor({
+        clinicId: currentClinicId,
+        userId: m.user_id,
+        fullName: m.profile?.full_name ?? '—',
+        role: m.role,
+        specialty: editValue,
+        active: true,
+      });
+    }
   };
 
   const initials = (name?: string | null) =>
