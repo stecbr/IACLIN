@@ -156,21 +156,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!BASE_URL) {
     throw new Error(NOT_CONFIGURED_MSG);
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'bypass-tunnel-reminder': 'true',
-      ...(init?.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Backend IA respondeu ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`
-    );
+  // Timeout para evitar requisições penduradas quando o backend IA está fora.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'bypass-tunnel-reminder': 'true',
+        ...(init?.headers || {}),
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(
+        `Backend IA respondeu ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`
+      );
+    }
+    return res.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.json() as Promise<T>;
 }
 
 export const aiBackend = {
