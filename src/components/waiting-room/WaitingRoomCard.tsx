@@ -8,6 +8,7 @@ import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope } from 'lucide
 import { WaitingTimer } from './WaitingTimer';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { useNavigate } from 'react-router-dom';
+import { specialtyLabel } from '@/components/SpecialtySelect';
 
 export interface WaitingRoomAppointment {
   id: string;
@@ -112,7 +113,7 @@ export function WaitingRoomCard({
           <Stethoscope className="h-3.5 w-3.5" />
           <span className="truncate">
             Dr(a). {appointment.dentist_name}
-            {appointment.dentist_specialty ? ` • ${appointment.dentist_specialty}` : ''}
+            {appointment.dentist_specialty ? ` • ${specialtyLabel(appointment.dentist_specialty)}` : ''}
           </span>
         </div>
       )}

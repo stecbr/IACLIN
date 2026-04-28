@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { User, Stethoscope, Calendar, Clock, CheckCircle2, X, CalendarClock } from 'lucide-react';
+import { specialtyLabel } from '@/components/SpecialtySelect';
 
 export interface AppointmentRequest {
   id: string;
@@ -68,7 +69,7 @@ export function ApprovalCard({ request, onApprove, onReschedule, onReject, loadi
             <span className="truncate">{request.dentist_name ?? '—'}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="truncate capitalize">{request.specialty ?? 'Consulta'}</span>
+            <span className="truncate">{request.specialty ? specialtyLabel(request.specialty) : 'Consulta'}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Calendar className="h-3.5 w-3.5" />

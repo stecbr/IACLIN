@@ -42,7 +42,16 @@ import PatientHistory from "./pages/patient/PatientHistory";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientSettings from "./pages/patient/PatientSettings";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, currentClinicId, isPatient, roles, simulatedRole } = useAuth();

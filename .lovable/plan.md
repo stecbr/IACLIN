@@ -1,143 +1,88 @@
+## Diagnóstico — onde estão exatamente os bugs
 
-# Painel personalizado para Psicólogo
+### Bug 3 — Especialidade vira "Dentista" depois de salvar (raiz)
 
-Hoje a navegação do dentista (`role = dentist`) é a mesma para qualquer especialidade — psicólogo recebe "Orçamentos", "Ferramentas Clínicas" (com calculadora de anestésico, atlas de dentes, etc) e nenhum mapa próprio. Vamos personalizar pela `clinic_members.specialty = psicologia`.
+O `SpecialtySelect` armazena o **id** do catálogo (ex.: `clinico-geral`), não o nome. O fluxo de cadastro do médico passa por:
 
----
+1. **Cadastro autônomo (Auth.tsx)**: usuário escolhe "Médico" → vai pro `Onboarding` (dono de clínica). Aqui `profSubType = 'medico'` e `specialty` é gravado em `raw_user_meta_data`, mas **o trigger `handle_new_user` ignora completamente esse campo** para o tipo `profissional` — só cria `user_roles` (admin). A especialidade nunca é persistida em `clinic_members` (que é criada depois pelo `auto_link_clinic_owner` sem specialty). Resultado: o médico-dono fica com `clinic_members.specialty = NULL`. Quando outras telas exibem o "papel" elas caem no fallback hardcoded `dentist: 'Dentista'` (TeamSection.tsx:18) ou no badge `m.role` ("dentist") capitalizado.
 
-## 1. Navegação (sidebar + bottom nav)
+2. **Cadastro via convite (accept-clinic-invite)**: o convite é criado com `role = 'dentist'` por default (clinic_invites.role default), e mesmo quando o `AddMedicoDialog` envia uma especialidade, ela é sempre tratada como `role = 'dentist'`. Daí o badge de função sempre mostra "Dentista" mesmo para um Clínico Geral médico.
 
-Quando o profissional logado for `dentist` **e** `specialty = psicologia`:
+3. **Display**: vários pontos exibem o **id cru** em vez de chamar `specialtyLabel()` — ex.: `WaitingRoomCard.tsx`, `ApprovalCard.tsx`, e o sidebar/nav, fazendo "clinico-geral" aparecer como id ou `Dentista` como fallback de role.
 
-- **Remover:** "Orçamentos" (`/budgets`) e "Ferramentas Clínicas" (`/ferramentas`)
-- **Adicionar:** "Ferramentas do Psicólogo" (`/psi/ferramentas`) — caixa própria
-- **Mapa clínico:** novo "Mapa Psíquico" (`/mapa-clinico` continua, agora com `mapType = 'psyche'`)
+### Bug 2 — Tela do Médico carrega componentes da Clínica
 
-Implementação: usa o `mapRegistry` existente (já mapeia specialty → mapa) e estende com lógica análoga em `AppSidebar.tsx` / `MobileBottomNav.tsx` para esconder/trocar itens quando `specialty` é de psicologia.
+Em `Auth.tsx` linha 109, o fluxo de convite força `setProfSubType('dentista')` independentemente da especialidade médica. Combinado com o trigger que só cria role `dentist` para `profissional_member`, todo médico convidado entra como "dentist" → o `AppSidebar` injeta itens odontológicos (Odontograma, Mapa Clínico de dente) e o `IndexRouter` envia para `DentistHome`, que é o painel correto, mas com **categoria de clínica `odonto`** herdada incorretamente quando a clínica é `medico`. Além disso:
 
----
+- O `AppSidebar` filtra módulos por `clinicCategory` — uma clínica criada via `handle_new_user` é gravada com categoria fixa `'outro'` (migration linha 52), nunca `'medico'`, mesmo quando o dono escolheu Médico no signup. Isso faz o painel mostrar uma mistura genérica (alguns itens odonto + outros).
+- `clinic_category` chega do signup (`profSubType === 'medico' ? 'medico' : 'odonto'`) mas é ignorada pelo trigger.
 
-## 2. Mapa Psíquico (novo `mapType = 'psyche'`)
+### Bug 1 — Performance da tela do Médico
 
-Painel visual com **8 áreas da vida**, cada uma marcável por sessão com humor/intensidade e nota:
+O culpado principal é o `useAiSync` montado em `AppLayout` (linha 33). Ele dispara para **todo perfil** logado, incluindo médicos:
 
-```text
-┌───────────┬───────────┬───────────┐
-│  Humor    │   Sono    │ Ansiedade │
-├───────────┼───────────┼───────────┤
-│ Família   │ Trabalho  │ Relação   │
-├───────────┼───────────┼───────────┤
-│  Auto-    │  Corpo /  │           │
-│ estima    │ somat.    │           │
-└───────────┴───────────┴───────────┘
-```
+- 4 snapshots paralelos pesados (`buildConfigSnapshot`, `buildDoctorsBatch`, `buildPatientsBatch`, `buildAvailabilitySlots`) — `buildPatientsBatch` faz 5 queries dependentes e processa todos os pacientes da clínica.
+- Polling a cada 30s no `getAiPendingAppointments` que faz fetch HTTP externo.
+- Quando `VITE_AI_BACKEND_URL` está definida mas o servidor não responde, cada chamada fica pendente por minutos antes de timeout, mantendo conexões abertas (a clínica admin não sente pq o snapshot já rodou; mas o médico, ao trocar de página, fica esperando).
 
-- Reaproveita tabela `clinical_map_entries` (já tem `map_type`, `region_code`, `severity`, `notes`).
-- Condições: `stable`, `improving`, `worsening`, `crisis`, `goal`.
-- Linha do tempo lateral mostrando evolução da área selecionada nas últimas sessões.
+Secundariamente: `DentistHome` faz 5 queries em série sem `staleTime` configurado no `QueryClient` (App.tsx:45 cria `new QueryClient()` sem defaults), então cada navegação refaz tudo.
 
-Novo componente: `src/components/clinical-map/PsycheMap.tsx` + entradas em `mapRegistry.ts` (`psicologia → psyche`) e em `CONDITIONS_BY_MAP.psyche`.
+### Bug 4 — Validação/persistência
+
+- Senha mínima 6 caracteres — ok.
+- Email/CRM/nome — ok no front.
+- **CRM/specialty do dono nunca chegam ao banco** (vide bug 3.1).
+- Redirecionamento pós-cadastro: o trigger inicia o usuário sem clínica (no caso `profissional_member` antes do invite) → manda para `/aguardando-clinica`. Após `accept-clinic-invite`, o `currentClinicId` no contexto não é refetchado automaticamente — o usuário precisa recarregar a página.
 
 ---
 
-## 3. Caixa de Ferramentas do Psicólogo (`/psi/ferramentas`)
+## Plano de correção (ordem de impacto)
 
-Nova `PsiToolsHome.tsx` no mesmo padrão visual da `ToolsHome.tsx` atual, com 8 cards:
+### 1. Fix de especialidade (mais crítico)
 
-| Ferramenta | O que faz |
-|---|---|
-| **Escalas Clínicas** | Aplicar PHQ-9 (depressão), GAD-7 (ansiedade), BDI-II, BAI, PSS-10 (estresse), AUDIT, escala de risco suicida (Columbia C-SSRS resumida). Calcula escore, classifica gravidade, salva no prontuário. |
-| **Diário de Humor** | Registro rápido por data: humor 1–10, sono, energia, ansiedade, pensamento intrusivo, evento gatilho. Vira gráfico. |
-| **Evolução SOAP** | Modelo estruturado (Subjetivo/Objetivo/Avaliação/Plano) + campo "tarefa de casa" + risco. Salva em `clinical_records`. |
-| **Timer de Sessão 50min** | Cronômetro com aviso aos 45min e 50min, pausa, e auto-preenche `procedure_duration_seconds`. (Reaproveita `ProcedureTimer` ajustado.) |
-| **Genograma rápido** | Editor leve de família (3 gerações) salvo como JSON no prontuário. |
-| **Plano Terapêutico** | Lista de objetivos terapêuticos com status (em curso / atingido / revisar) — substitui "Orçamentos". |
-| **Conversores e Tabelas** | Critérios DSM-5 resumidos (TDM, TAG, TEPT, TOC), escala EVA emocional, faixas das escalas clínicas. |
-| **Ditado por Voz** | Reaproveita `VoiceDictation` existente. |
+- **Migração SQL** — atualizar `handle_new_user`:
+  - Para `user_type = 'profissional'` (médico/dentista dono), criar `clinic_members` com `specialty` e `registration_number` lidos do `raw_user_meta_data` no momento certo (depois da clinic do `auto_link_clinic_owner`, ou ajustar `auto_link_clinic_owner` para ler do `auth.users.raw_user_meta_data` do owner).
+  - Para `user_type = 'clinica'`, ler `clinic_category` do meta e gravar em `clinics.category` (não fixar `'outro'`).
+- **Migração SQL** — `clinic_invites.role` default → ler do payload já passa o role na edge function `create-clinic-invite`; revisar para enviar `'dentist'` apenas quando categoria for `odonto`, senão `'dentist'` continua valendo no enum (não há `medico`), mas isso é só label — a UI deve mostrar a **especialidade**, não o role.
+- **TeamSection.tsx** — remover map hardcoded `dentist: 'Dentista'`; usar `specialtyLabel(member.specialty)` quando houver.
+- **ClinicaMedicos.tsx** — substituir `<Badge>{m.role}</Badge>` por badge baseado em `is_owner`/contexto, e mover a especialidade para coluna principal (já existe).
+- **WaitingRoomCard.tsx, ApprovalCard.tsx** — passar `dentist_specialty` por `specialtyLabel()`.
 
----
+### 2. Fix de mistura Clínica/Médico
 
-## 4. Documentos do Psicólogo
+- **Auth.tsx** — remover `setProfSubType('dentista')` forçado no fluxo de convite (linha 109); ler do `clinic_invites.specialty` ou da categoria da clínica.
+- **handle_new_user** (mesma migração acima) — gravar `clinics.category` com a categoria escolhida no signup.
+- **AppSidebar.tsx** — confirmar que `categories` filtram corretamente itens odonto quando categoria for `medico`. Já está implementado, só vai funcionar uma vez que a categoria seja gravada certa.
+- **Pós-aceite de convite** — em `Auth.tsx` linha 156, após `accept-clinic-invite` chamar `window.location.reload()` ou refetch do AuthContext, para o `currentClinicId` ser populado imediatamente.
 
-Novo conjunto de geradores PDF (segue padrão `generatePrescriptionPdf.ts`):
+### 3. Fix de performance do painel Médico
 
-1. **Atestado de comparecimento** — reaproveita `generateCertificatePdf.ts` (sem alteração).
-2. **Declaração para escola/empresa** — modelo "está em acompanhamento psicológico desde X, com sessões semanais/quinzenais".
-3. **Relatório/Laudo psicológico (CFP)** — estrutura oficial: identificação, demanda, procedimentos, análise, conclusão, com aviso ético do CFP no rodapé.
-4. **Encaminhamento** — para psiquiatra, neuro, fonoaudiólogo, com motivo e dados do paciente.
+- **AppLayout.tsx** — só montar `useAiSync` quando `effectiveRole === 'admin'` (médicos não precisam disparar snapshot da clínica inteira nem polling de novos appointments — isso é responsabilidade do admin/secretária).
+- **App.tsx** — configurar `QueryClient` com defaults: `staleTime: 60_000`, `refetchOnWindowFocus: false` para evitar refetches a cada tab focus.
+- **useAiSync.ts** — adicionar timeout de 5s nas chamadas `aiBackend.*` para que falhas de rede não fiquem pendentes infinitamente; envolver `tick()` em `AbortController` no cleanup.
+- **DentistHome.tsx** — paralelizar as queries via `useQueries` (ou simplesmente confiar em `staleTime` global) — mudança opcional, ganho marginal vs. as duas anteriores.
 
-Novos arquivos: `src/lib/generatePsiDeclarationPdf.ts`, `generatePsiReportPdf.ts`, `generatePsiReferralPdf.ts`. Acessíveis pela aba "Documentos" da Caixa de Ferramentas e pelo overlay durante a sessão.
+### 4. Validações finais
 
----
-
-## 5. Overlay durante a sessão
-
-`ToolsOverlay.tsx` (FAB no `Attendance.tsx`) ganha versão psi quando specialty = psicologia: botões **Escala**, **Humor**, **SOAP**, **Timer 50min**, **Ditado**, **Laudo** — em vez de calculadora de anestésico/receituário.
+- Tornar `CRM/CRO` obrigatório no `Auth.tsx` para `userType === 'profissional'` (hoje é opcional).
+- Após signup bem-sucedido com `session`, se for `userType === 'profissional'` (dono), redirecionar para `/onboarding` em vez de deixar o `ProtectedRoute` decidir (evita o flash da tela de "aguardando clínica").
 
 ---
 
-## 6. Banco de Dados
+## Detalhes técnicos para implementação
 
-Tudo cabe nas tabelas existentes — **não precisa migração**:
+**Arquivos a editar:**
+- `supabase/migrations/<nova>.sql` — atualizar `handle_new_user` (gravar `clinic_category` em `clinics.category`) + atualizar `auto_link_clinic_owner` (gravar `specialty`/`registration_number` lidos do meta do owner).
+- `src/pages/Auth.tsx` — remover hardcode de `dentista` no fluxo de invite; reload pós-accept; CRM obrigatório.
+- `src/components/AppLayout.tsx` — gate do `useAiSync` por role.
+- `src/App.tsx` — defaults do `QueryClient`.
+- `src/hooks/useAiSync.ts` — timeout/abort nas chamadas externas.
+- `src/components/settings/TeamSection.tsx` — remover label hardcoded.
+- `src/pages/clinica/ClinicaMedicos.tsx` — badge de role neutro.
+- `src/components/waiting-room/WaitingRoomCard.tsx`, `src/components/clinica/ApprovalCard.tsx` — usar `specialtyLabel()`.
 
-- Mapa Psíquico → `clinical_map_entries` (`map_type='psyche'`, `region_code='mood'|'sleep'|...`, `severity`, `notes`).
-- Escalas aplicadas → `clinical_record_requests` (`kind='psi_scale'`, `payload={scale, answers, score, classification}`).
-- Diário de humor → `clinical_record_requests` (`kind='psi_mood'`).
-- Plano terapêutico → `treatment_plans` + `treatment_plan_items` (status já existe), só muda o rótulo na UI.
-
----
-
-## 7. Detalhes técnicos
-
-- **`mapRegistry.ts`**: adicionar `MapType = '... | psyche'`, mapear `psicologia / psicologo / psicanalise / psicoterapia / neuropsicologia` → `{ mapType: 'psyche', label: 'Mapa Psíquico', icon: Brain }`. Adicionar `CONDITIONS_BY_MAP.psyche`.
-- **`AppSidebar.tsx`**: adicionar flag `isPsi = isDentist && memberSpecialty é psicologia`. Filtrar `clinicNav` removendo `/budgets` e `/ferramentas`, injetar item `Ferramentas do Psicólogo` (`/psi/ferramentas`, ícone `Brain`).
-- **`MobileBottomNav.tsx`**: mesma lógica no `allMoreItems`.
-- **`useRoleAccess.ts`**: adicionar rota `/psi/ferramentas` permitida para `['admin', 'dentist']`.
-- **`App.tsx`**: registrar rota `/psi/ferramentas` → `PsiToolsHome`.
-- **`ClinicalMapPage.tsx`**: adicionar `case 'psyche'` no switch de mapas e helper `getPsycheRegionLabel`.
-- Bibliotecas auxiliares: `src/lib/psiScales.ts` (PHQ-9, GAD-7, etc com perguntas/escores), `src/lib/psiReferenceData.ts` (DSM-5 resumido), `src/lib/psyMapData.ts` (8 áreas).
+**Sem mudanças de layout** — só correções de dados, lógica condicional e display de strings.
 
 ---
 
-## Arquivos novos
-
-```text
-src/components/clinical-map/PsycheMap.tsx
-src/pages/psi/PsiToolsHome.tsx
-src/components/psi/PsiScales.tsx
-src/components/psi/MoodDiary.tsx
-src/components/psi/SoapNote.tsx
-src/components/psi/SessionTimer.tsx
-src/components/psi/Genogram.tsx
-src/components/psi/TherapyPlan.tsx
-src/components/psi/PsiReference.tsx
-src/components/psi/PsiDocuments.tsx
-src/lib/psiScales.ts
-src/lib/psiReferenceData.ts
-src/lib/psyMapData.ts
-src/lib/generatePsiDeclarationPdf.ts
-src/lib/generatePsiReportPdf.ts
-src/lib/generatePsiReferralPdf.ts
-```
-
-## Arquivos editados
-
-```text
-src/components/AppSidebar.tsx        (esconder budgets/ferramentas + injetar psi)
-src/components/MobileBottomNav.tsx   (mesma lógica)
-src/components/clinical-map/mapRegistry.ts  (specialty psicologia → psyche)
-src/components/clinical-map/ClinicalMapPage.tsx  (case psyche)
-src/components/dentist/tools/ToolsOverlay.tsx  (variante psi no Attendance)
-src/hooks/useRoleAccess.ts           (rota /psi/ferramentas)
-src/App.tsx                          (registrar rota)
-```
-
----
-
-## Fora do escopo
-
-- Aplicação interativa do paciente para responder escalas em casa (fica para depois).
-- Integração com CRP / e-Psi (governo).
-- Vídeo-sessão (telepsicologia) — já existe meio em outro módulo.
-
-Posso seguir por essa ordem: **(1) registry + sidebar/nav** → **(2) Mapa Psíquico** → **(3) Caixa de Ferramentas** (escalas + SOAP + timer + humor) → **(4) Documentos** → **(5) Overlay no atendimento**. Confirma?
+Quer que eu já inclua a parte do **role/specialty do dono ao criar a clínica** (passo 1 da migração SQL — exige `auto_link_clinic_owner` ler do `auth.users.raw_user_meta_data->>'specialty'`) ou prefere dividir essa migração em uma etapa separada para revisar antes?

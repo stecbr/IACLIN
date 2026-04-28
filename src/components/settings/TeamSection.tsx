@@ -14,8 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const roleLabels: Record<string, string> = {
-  admin: 'Admin',
-  dentist: 'Dentista',
+  admin: 'Administrador',
+  dentist: 'Profissional',
   secretary: 'Secretária',
 };
 

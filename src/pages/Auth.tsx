@@ -84,7 +84,7 @@ export default function Auth() {
     (async () => {
       const { data: invite } = await supabase
         .from('clinic_invites')
-        .select('email, full_name, status, expires_at, clinic_id')
+        .select('email, full_name, status, expires_at, clinic_id, specialty')
         .eq('token', inviteToken)
         .maybeSingle();
       if (!invite) {
@@ -102,11 +102,18 @@ export default function Auth() {
         setInviteLoading(false);
         return;
       }
-      const { data: clinic } = await supabase.from('clinics').select('name').eq('id', invite.clinic_id).maybeSingle();
+      const { data: clinic } = await supabase
+        .from('clinics')
+        .select('name, category')
+        .eq('id', invite.clinic_id)
+        .maybeSingle();
       setInviteInfo({ clinic_name: clinic?.name ?? 'clínica', email: invite.email, full_name: invite.full_name });
       setIsLogin(false);
       setUserType('profissional');
-      setProfSubType('dentista');
+      // Inferir subtype a partir da categoria da clínica (não forçar 'dentista').
+      setProfSubType((clinic?.category === 'odonto' ? 'dentista' : 'medico'));
+      // Pré-selecionar a especialidade do convite, se houver.
+      if (invite.specialty) setSpecialty(invite.specialty);
       setEmail(invite.email);
       if (invite.full_name) setFullName(invite.full_name);
       setInviteLoading(false);
@@ -153,10 +160,26 @@ export default function Auth() {
   if (user) {
     // If user is logged in and there's an invite token, accept it then redirect
     if (inviteToken) {
-      supabase.functions.invoke('accept-clinic-invite', { body: { token: inviteToken } }).then(({ error }) => {
-        if (error) toast.error(error.message);
-        else toast.success('Você foi vinculado à clínica!');
-      });
+      supabase.functions
+        .invoke('accept-clinic-invite', { body: { token: inviteToken } })
+        .then(({ error }) => {
+          if (error) {
+            toast.error(error.message);
+          } else {
+            toast.success('Você foi vinculado à clínica!');
+            // Recarrega para o AuthContext refetchar a nova clínica vinculada.
+            setTimeout(() => window.location.replace(returnUrl ?? '/'), 400);
+          }
+        });
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <motion.div
+            className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+          />
+        </div>
+      );
     }
     if (returnUrl) return <Navigate to={returnUrl} replace />;
     if (isPatient) return <Navigate to="/paciente" replace />;
@@ -185,6 +208,11 @@ export default function Auth() {
         if (userType === 'profissional') {
           if (!specialty.trim()) {
             toast.error('Selecione sua especialidade');
+            setSubmitting(false);
+            return;
+          }
+          if (!registrationNumber.trim()) {
+            toast.error(profSubType === 'dentista' ? 'Informe seu CRO' : 'Informe seu CRM');
             setSubmitting(false);
             return;
           }
@@ -249,9 +277,19 @@ export default function Auth() {
         // After signup: if joining via invite, link the membership
         if (signUpData.session) {
           if (inviteToken) {
-            const { error: acceptErr } = await supabase.functions.invoke('accept-clinic-invite', { body: { token: inviteToken } });
-            if (acceptErr) toast.error('Conta criada, mas falhou ao vincular à clínica: ' + acceptErr.message);
-            else toast.success('Você foi vinculado à clínica!');
+            const { error: acceptErr } = await supabase.functions.invoke('accept-clinic-invite', {
+              body: {
+                token: inviteToken,
+                specialty: specialty.trim() || null,
+                registration_number: registrationNumber.trim() || null,
+              },
+            });
+            if (acceptErr) {
+              toast.error('Conta criada, mas falhou ao vincular à clínica: ' + acceptErr.message);
+            } else {
+              toast.success('Você foi vinculado à clínica!');
+              setTimeout(() => window.location.replace('/'), 400);
+            }
           }
         }
       }
@@ -619,13 +657,14 @@ export default function Auth() {
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="registration" className="text-xs text-muted-foreground">
-                        {profSubType === 'dentista' ? 'CRO' : 'CRM'} (opcional)
+                        {profSubType === 'dentista' ? 'CRO' : 'CRM'} <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="registration"
                         value={registrationNumber}
                         onChange={(e) => setRegistrationNumber(e.target.value)}
                         placeholder={profSubType === 'dentista' ? 'Ex: CRO-SP 12345' : 'Ex: CRM-SP 12345'}
+                        required
                         className="h-10"
                       />
                     </motion.div>

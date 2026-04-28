@@ -14,6 +14,7 @@ import logoLight from '@/assets/logo-light.png';
 import logoDark from '@/assets/logo-dark.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiSync } from '@/hooks/useAiSync';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -29,8 +30,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { resolved, setTheme } = useTheme();
   const { currentClinicId } = useAuth();
-  // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget)
-  useAiSync(currentClinicId);
+  const { effectiveRole } = useRoleAccess();
+  // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget).
+  // Só roda para admin (dono/secretária da clínica). Médicos não disparam o sync,
+  // pois não precisam abrir snapshot completo nem polling externo.
+  useAiSync(effectiveRole === 'admin' ? currentClinicId : null);
 
   const getBreadcrumb = () => {
     const path = location.pathname;
