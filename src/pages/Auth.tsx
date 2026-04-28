@@ -217,7 +217,9 @@ export default function Auth() {
             return;
           }
           if (!registrationNumber.trim()) {
-            toast.error(`Informe seu ${registrationLabelForSpecialty(specialty)}`);
+            const fallbackLabel = profSubType === 'dentista' ? 'CRO' : 'CRM';
+            const label = specialty ? registrationLabelForSpecialty(specialty) : fallbackLabel;
+            toast.error(`Informe seu ${label}`);
             setSubmitting(false);
             return;
           }
