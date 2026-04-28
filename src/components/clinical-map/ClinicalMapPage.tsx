@@ -25,6 +25,7 @@ import { FootMap, getFootRegionLabel } from './FootMap';
 import { BodyMap, getBodyRegionLabel } from './BodyMap';
 import { MealMap, getMealRegionLabel } from './MealMap';
 import { MusculoskeletalMap, getMusculoskeletalRegionLabel } from './MusculoskeletalMap';
+import { PsycheMap, getPsycheRegionLabel } from './PsycheMap';
 import type { ClinicalMapEntry } from './types';
 
 function getRegionLabel(mapType: MapType, regionCode: string): string {
@@ -34,6 +35,7 @@ function getRegionLabel(mapType: MapType, regionCode: string): string {
     case 'body': return getBodyRegionLabel(regionCode);
     case 'meal': return getMealRegionLabel(regionCode);
     case 'musculoskeletal': return getMusculoskeletalRegionLabel(regionCode);
+    case 'psyche': return getPsycheRegionLabel(regionCode);
   }
 }
 
@@ -85,6 +87,7 @@ export default function ClinicalMapPage({ forceMapType, patientId: forcedPatient
         body: { label: 'Mapa Corporal', description: 'Achados anatômicos por região' },
         meal: { label: 'Diário Alimentar', description: 'Refeições e hábitos alimentares' },
         musculoskeletal: { label: 'Mapa Musculoesquelético', description: 'Articulações e grupos musculares' },
+        psyche: { label: 'Mapa Psíquico', description: 'Áreas da vida e estado emocional' },
       };
       const preset = presets[forceMapType];
       return { mapType: forceMapType, label: preset.label, description: preset.description, icon: FileHeart };
@@ -183,6 +186,7 @@ export default function ClinicalMapPage({ forceMapType, patientId: forcedPatient
     body: BodyMap,
     meal: MealMap,
     musculoskeletal: MusculoskeletalMap,
+    psyche: PsycheMap,
   }[mapConfig.mapType];
 
   return (
