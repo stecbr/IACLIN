@@ -32,6 +32,126 @@ export interface ConversationTestResponse {
   reply: string;
 }
 
+// ============================================================
+// Sync types — payloads enviados ao backend externo da IA
+// ============================================================
+
+export interface SyncProcedure {
+  id: string;
+  name: string;
+  duration_min: number;
+  category: string;
+}
+
+export interface SyncInsurancePlan {
+  id: string;
+  name: string;
+  code: string | null;
+}
+
+export interface SyncRoom {
+  id: string;
+  name: string;
+}
+
+export interface SyncDoctor {
+  user_id: string;
+  full_name: string;
+  role: string;
+  specialty: string | null;
+  active?: boolean;
+}
+
+export interface SyncConfigPayload {
+  clinic_id: string;
+  business_hours: Record<string, unknown> | null;
+  procedures: SyncProcedure[];
+  insurance_plans: SyncInsurancePlan[];
+  rooms: SyncRoom[];
+  doctors: SyncDoctor[];
+}
+
+export interface SyncDoctorsBatchPayload {
+  clinic_id: string;
+  doctors: Required<SyncDoctor>[];
+}
+
+export interface SyncDoctorPayload {
+  clinic_id: string;
+  user_id: string;
+  full_name: string;
+  role: string;
+  specialty: string | null;
+  active: boolean;
+}
+
+export interface SyncPatientAppointmentRef {
+  id: string;
+  start_time: string;
+  status: string;
+  procedure_name: string | null;
+}
+
+export interface SyncPatientAnamnese {
+  allergies: string | null;
+  medications: string | null;
+  notes: string | null;
+}
+
+export interface SyncPatientPayload {
+  id: string;
+  clinic_id: string;
+  account_id: string | null;
+  full_name: string;
+  phone: string | null;
+  balance: number;
+  last_appointment: SyncPatientAppointmentRef | null;
+  next_appointment: SyncPatientAppointmentRef | null;
+  anamnese: SyncPatientAnamnese | null;
+}
+
+export interface SyncAvailabilitySlot {
+  professional_id: string;
+  day_of_week: number; // 0=domingo .. 6=sábado
+  start_time: string;  // "HH:MM"
+  end_time: string;    // "HH:MM"
+}
+
+export interface SyncAvailabilityPayload {
+  clinic_id: string;
+  availability: SyncAvailabilitySlot[];
+}
+
+export interface SyncAppointmentItem {
+  id: string;
+  dentist_id: string;
+  start_time: string; // ISO 8601
+  end_time: string;   // ISO 8601
+  status: string;
+}
+
+export interface SyncAppointmentsPayload {
+  clinic_id: string;
+  appointments: SyncAppointmentItem[];
+}
+
+export interface AiCreatedAppointment {
+  id: string;
+  clinic_id: string;
+  dentist_id: string;
+  patient_phone?: string | null;
+  patient_name?: string | null;
+  patient_id?: string | null;
+  start_time: string;
+  end_time: string;
+  status?: string;
+  procedure_id?: string | null;
+  notes?: string | null;
+  source?: string;
+  sync_status?: string;
+  [key: string]: unknown;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!BASE_URL) {
     throw new Error(NOT_CONFIGURED_MSG);
@@ -72,4 +192,77 @@ export const aiBackend = {
     request<{ success: boolean }>(`/api/clinics/${clinicId}/whatsapp/disconnect`, {
       method: 'DELETE',
     }),
+
+  // ============================================================
+  // Sync — envia snapshot dos dados da clínica para a Secretária IA
+  // ============================================================
+
+  /** 1. Sync da configuração geral da clínica */
+  syncConfig: (payload: SyncConfigPayload) =>
+    request<{ ok: boolean }>(`/api/sync/config`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 2a. Sync em lote de médicos (ao carregar a clínica) */
+  syncDoctors: (payload: SyncDoctorsBatchPayload) =>
+    request<{ ok: boolean }>(`/api/sync/doctors`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 2b. Sync individual de médico (add/edit/remove) */
+  syncDoctor: (payload: SyncDoctorPayload) =>
+    request<{ ok: boolean }>(`/api/sync/doctor`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 3a. Sync individual de paciente (criação/edição) */
+  syncPatient: (payload: SyncPatientPayload) =>
+    request<{ ok: boolean }>(`/api/sync/patient`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 3b. Sync em lote de pacientes (ao carregar a clínica) */
+  syncPatients: (patients: SyncPatientPayload[]) =>
+    request<{ ok: boolean }>(`/api/sync/patients`, {
+      method: 'POST',
+      body: JSON.stringify({ patients }),
+    }),
+
+  /** 4. Sync de disponibilidade dos profissionais */
+  syncAvailability: (payload: SyncAvailabilityPayload) =>
+    request<{ ok: boolean }>(`/api/sync/availability`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 5. Sync de agendamentos existentes (próximos 30 dias, status != cancelled) */
+  syncAppointments: (payload: SyncAppointmentsPayload) =>
+    request<{ ok: boolean }>(`/api/sync/appointments`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** 6a. Buscar agendamentos criados pela IA pendentes de sincronização */
+  getAiPendingAppointments: (clinicId: string) =>
+    request<{ ok: boolean; data: AiCreatedAppointment[] }>(
+      `/api/clinics/${clinicId}/appointments?source=ai&sync_status=pending`,
+    ),
+
+  /** 6b. Confirmar ao backend que um agendamento da IA foi gravado no Supabase */
+  confirmAiAppointmentSync: (
+    clinicId: string,
+    appointmentId: string,
+    supabaseId: string,
+  ) =>
+    request<{ ok: boolean }>(
+      `/api/clinics/${clinicId}/appointments/${appointmentId}/sync-confirm`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ supabase_id: supabaseId }),
+      },
+    ),
 };
