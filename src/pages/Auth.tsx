@@ -217,7 +217,9 @@ export default function Auth() {
             return;
           }
           if (!registrationNumber.trim()) {
-            toast.error(`Informe seu ${registrationLabelForSpecialty(specialty)}`);
+            const fallbackLabel = profSubType === 'dentista' ? 'CRO' : 'CRM';
+            const label = specialty ? registrationLabelForSpecialty(specialty) : fallbackLabel;
+            toast.error(`Informe seu ${label}`);
             setSubmitting(false);
             return;
           }
@@ -668,13 +670,19 @@ export default function Auth() {
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="registration" className="text-xs text-muted-foreground">
-                        {registrationLabelForSpecialty(specialty)} <span className="text-destructive">*</span>
+                        {specialty
+                          ? registrationLabelForSpecialty(specialty)
+                          : profSubType === 'dentista' ? 'CRO' : 'CRM'} <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="registration"
                         value={registrationNumber}
                         onChange={(e) => setRegistrationNumber(e.target.value)}
-                        placeholder={registrationPlaceholderForSpecialty(specialty)}
+                        placeholder={
+                          specialty
+                            ? registrationPlaceholderForSpecialty(specialty)
+                            : profSubType === 'dentista' ? 'Digite seu CRO' : 'Digite seu CRM'
+                        }
                         required
                         className="h-10"
                       />
