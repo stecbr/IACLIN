@@ -3,6 +3,7 @@ import { Sun, Moon } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { PatientSidebar } from '@/components/PatientSidebar';
 import { PatientNotificationBell } from '@/components/patient/PatientNotificationBell';
+import { DevRoleSwitcher } from '@/components/DevRoleSwitcher';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
@@ -49,6 +50,7 @@ export function PatientLayout() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <DevRoleSwitcher />
               <PatientNotificationBell />
               <button
                 onClick={toggleTheme}
