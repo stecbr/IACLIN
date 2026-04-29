@@ -8,14 +8,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, Pencil, Check, X as XIcon } from 'lucide-react';
+import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle } from 'lucide-react';
 import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
 import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { SpecialtySelect, specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
+import { specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { syncOneDoctor } from '@/hooks/useAiSync';
 
 interface MemberRow {
   id: string;
@@ -31,9 +30,6 @@ export default function ClinicaMedicos() {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [savingEdit, setSavingEdit] = useState(false);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['clinica-medicos', currentClinicId],
@@ -85,41 +81,6 @@ export default function ClinicaMedicos() {
     const url = `${window.location.origin}/auth?invite=${token}`;
     await navigator.clipboard.writeText(url);
     toast.success('Link copiado!');
-  };
-
-  const startEdit = (m: MemberRow) => {
-    setEditingId(m.id);
-    setEditValue(m.specialty ?? '');
-  };
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditValue('');
-  };
-  const saveEdit = async (m: MemberRow) => {
-    if (!editValue) {
-      toast.error('Selecione uma especialidade');
-      return;
-    }
-    setSavingEdit(true);
-    const { error } = await supabase
-      .from('clinic_members')
-      .update({ specialty: editValue } as any)
-      .eq('id', m.id);
-    setSavingEdit(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Especialidade atualizada');
-    setEditingId(null);
-    qc.invalidateQueries({ queryKey: ['clinica-medicos', currentClinicId] });
-    if (currentClinicId) {
-      syncOneDoctor({
-        clinicId: currentClinicId,
-        userId: m.user_id,
-        fullName: m.profile?.full_name ?? '—',
-        role: m.role,
-        specialty: editValue,
-        active: true,
-      });
-    }
   };
 
   const initials = (name?: string | null) =>
@@ -181,52 +142,29 @@ export default function ClinicaMedicos() {
                         : '—'}
                     </TableCell>
                     <TableCell>
-                      {editingId === m.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="min-w-[200px]">
-                            <SpecialtySelect value={editValue} onChange={setEditValue} placeholder="Selecione" />
-                          </div>
-                          <Button size="sm" variant="ghost" onClick={() => saveEdit(m)} disabled={savingEdit || !editValue}>
-                            <Check className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                            <XIcon className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          {m.specialty ? (
-                            <>
-                              <span className={isCatalogSpecialty(m.specialty) ? 'text-foreground' : 'text-muted-foreground'}>
-                                {specialtyLabel(m.specialty)}
-                              </span>
-                              {!isCatalogSpecialty(m.specialty) && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <AlertTriangle className="h-3.5 w-3.5 text-warning cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs text-xs">
-                                      Especialidade fora do catálogo. Este médico não aparece nas buscas dos pacientes. Edite para corrigir.
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
-                            onClick={() => startEdit(m)}
-                            aria-label="Editar especialidade"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {m.specialty ? (
+                          <>
+                            <span className={isCatalogSpecialty(m.specialty) ? 'text-foreground' : 'text-muted-foreground'}>
+                              {specialtyLabel(m.specialty)}
+                            </span>
+                            {!isCatalogSpecialty(m.specialty) && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-3.5 w-3.5 text-warning cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-xs">
+                                    Especialidade fora do catálogo. Este profissional não aparece nas buscas dos pacientes.
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {m.is_owner ? (
