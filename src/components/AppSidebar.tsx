@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
+import { specialtyCategoryOf } from '@/components/SpecialtySelect';
 import {
   Tooltip,
   TooltipContent,
@@ -97,6 +98,14 @@ export function AppSidebar() {
   });
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
   const isPsi = isDentist && dynamicMap?.mapType === 'psyche';
+  const specialtyCat = isDentist ? specialtyCategoryOf(memberSpecialty) : 'outro';
+  const isAesthetic = isDentist && specialtyCat === 'estetica';
+  // Pick the right Tools route per specialty
+  const toolsUrl = isPsi
+    ? '/psi/ferramentas'
+    : isAesthetic
+      ? '/estetica/ferramentas'
+      : '/ferramentas';
 
   // Defense in depth: gate by allowedRoles AND by route permission
   const filteredMainNav = filterNavItems(
@@ -113,6 +122,12 @@ export function AppSidebar() {
       .filter((item) => !(isDentist && item.url === '/odontogram'))
       // For psychologists: hide budgets and generic clinical tools — replaced by Psi tools
       .filter((item) => !(isPsi && (item.url === '/budgets' || item.url === '/ferramentas')))
+      // Rewrite the generic Tools URL based on the doctor's specialty
+      .map((item) =>
+        item.url === '/ferramentas' && toolsUrl !== '/ferramentas'
+          ? { ...item, url: toolsUrl }
+          : item,
+      )
   );
 
   // Inject dynamic map item for dentists with a known specialty
