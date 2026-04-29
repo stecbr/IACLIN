@@ -8,13 +8,23 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle } from 'lucide-react';
+import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, UserMinus } from 'lucide-react';
 import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
 import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface MemberRow {
   id: string;
@@ -27,9 +37,11 @@ interface MemberRow {
 }
 
 export default function ClinicaMedicos() {
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, user } = useAuth();
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [unlinkTarget, setUnlinkTarget] = useState<MemberRow | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['clinica-medicos', currentClinicId],
@@ -83,6 +95,20 @@ export default function ClinicaMedicos() {
     toast.success('Link copiado!');
   };
 
+  const handleUnlink = async () => {
+    if (!unlinkTarget) return;
+    setUnlinking(true);
+    const { error } = await supabase.from('clinic_members').delete().eq('id', unlinkTarget.id);
+    setUnlinking(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Profissional desvinculado');
+    setUnlinkTarget(null);
+    qc.invalidateQueries({ queryKey: ['clinica-medicos'] });
+  };
+
   const initials = (name?: string | null) =>
     (name ?? 'M').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -121,6 +147,7 @@ export default function ClinicaMedicos() {
                   <TableHead>CRM / CRO</TableHead>
                   <TableHead>Especialidade</TableHead>
                   <TableHead>Função</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -171,6 +198,29 @@ export default function ClinicaMedicos() {
                         <Badge variant="default">Administrador</Badge>
                       ) : (
                         <Badge variant="secondary">Profissional</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!m.is_owner && m.user_id !== user?.id ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setUnlinkTarget(m)}
+                              >
+                                <UserMinus className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="text-xs">
+                              Desvincular da clínica
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -239,6 +289,31 @@ export default function ClinicaMedicos() {
       )}
 
       <AddMedicoDialog open={addOpen} onOpenChange={setAddOpen} />
+
+      <AlertDialog open={!!unlinkTarget} onOpenChange={(o) => !o && setUnlinkTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desvincular profissional?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{unlinkTarget?.profile?.full_name ?? 'Este profissional'}</strong> perderá o acesso à clínica
+              imediatamente. Ele poderá ser vinculado novamente através do código da clínica.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unlinking}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleUnlink();
+              }}
+              disabled={unlinking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {unlinking ? 'Desvinculando...' : 'Desvincular'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

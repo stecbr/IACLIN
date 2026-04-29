@@ -5,6 +5,7 @@ import { Building2, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,6 +71,16 @@ export default function WaitingClinic() {
             Para começar a atender, informe o código da clínica que você recebeu.
           </p>
         </div>
+
+        <Alert className="mb-5 border-amber-500/40 bg-amber-500/5 text-foreground">
+          <AlertTitle className="text-sm font-semibold">
+            Você está sem vínculo com nenhuma clínica
+          </AlertTitle>
+          <AlertDescription className="text-xs text-muted-foreground mt-1">
+            No momento o acesso à plataforma não é permitido. Entre em contato com a sua clínica para
+            solicitar um novo vínculo, ou informe abaixo o código de vinculação fornecido por ela.
+          </AlertDescription>
+        </Alert>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
