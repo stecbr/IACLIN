@@ -16,6 +16,7 @@ import {
   registrationPlaceholderForSpecialty,
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
+import { getFamilyConfig } from '@/lib/specialtyFamily';
 
 export default function Profile() {
   const { user, profile, currentClinicId, clinics } = useAuth();
@@ -106,6 +107,9 @@ export default function Profile() {
   const initials = (fullName || profile?.full_name || user?.email || 'U')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
+  const familyConfig = getFamilyConfig(specialty);
+  const regLabel = familyConfig.registrationLabel;
+
   return (
     <div className="space-y-6 max-w-3xl">
       <PageHeader title="Meu Perfil" description="Dados pessoais e profissionais" />
@@ -142,18 +146,18 @@ export default function Profile() {
                 <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Ex: Ortodontia" />
               </div>
               <div>
-                <Label htmlFor="reg">{registrationLabelForSpecialty(specialty)}</Label>
+                <Label htmlFor="reg">{regLabel}</Label>
                 <Input
                   id="reg"
                   value={registrationNumber}
                   onChange={(e) => setRegistrationNumber(e.target.value)}
-                  placeholder={registrationPlaceholderForSpecialty(specialty)}
+                  placeholder={`Digite seu ${regLabel}`}
                   className={!member?.registration_number ? 'border-amber-500/60 focus-visible:ring-amber-500/40' : undefined}
                 />
                 {!member?.registration_number && (
                   <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
                     <AlertCircle className="h-3 w-3" />
-                    Complete seu {registrationLabelForSpecialty(specialty)} para emitir receitas e atestados.
+                    Complete seu {regLabel} para emitir receitas e atestados.
                   </p>
                 )}
               </div>

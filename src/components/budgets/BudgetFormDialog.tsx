@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { specialtyCategoryOf } from '@/components/SpecialtySelect';
+import { getFamilyConfig } from '@/lib/specialtyFamily';
 
 interface PlanItem {
   procedure_id: string;
@@ -61,18 +61,19 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
     },
   });
 
-  const specialtyCat = specialtyCategoryOf(memberSpecialty);
-  const showToothField = specialtyCat === 'odonto';
+  const family = getFamilyConfig(memberSpecialty);
+  const showToothField = family.hasTooth;
+  const procedureCategory = family.procedureCategory;
 
   const { data: procedures = [] } = useQuery({
-    queryKey: ['procedures-select', specialtyCat],
+    queryKey: ['procedures-select', procedureCategory],
     queryFn: async () => {
       // Try filtered first; fall back to all if the catalog has nothing for this specialty
       const { data: scoped } = await supabase
         .from('procedures')
         .select('id, name, default_price, category, specialty_category')
         .eq('is_active', true)
-        .eq('specialty_category', specialtyCat)
+        .eq('specialty_category', procedureCategory)
         .order('name');
       if (scoped && scoped.length > 0) return scoped;
       const { data } = await supabase
@@ -190,8 +191,12 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder={
-                specialtyCat === 'odonto' ? 'Ex: Restaurações + Clareamento' :
-                specialtyCat === 'estetica' ? 'Ex: Toxina Botulínica + Preenchimento' :
+                family.family === 'odonto' ? 'Ex: Restaurações + Clareamento' :
+                family.family === 'aesthetic' ? 'Ex: Toxina Botulínica + Preenchimento' :
+                family.family === 'nutrition' ? 'Ex: Plano alimentar + Acompanhamento' :
+                family.family === 'physio' ? 'Ex: 10 sessões + Avaliação' :
+                family.family === 'medical' ? 'Ex: Consulta + Exames' :
+                family.family === 'podology' ? 'Ex: Curativo + Atendimento mensal' :
                 'Ex: Avaliação + Procedimento'
               }
             />
