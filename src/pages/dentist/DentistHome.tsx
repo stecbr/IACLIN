@@ -207,7 +207,7 @@ export default function DentistHome() {
           </CardHeader>
           <CardContent>
             {todayApts.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma consulta agendada para hoje 🎉</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">{`Nenhuma ${family.appointmentNoun} agendada para hoje 🎉`}</p>
             ) : (
               <div className="space-y-1">
                 {todayApts.map((apt: any) => (
@@ -221,7 +221,7 @@ export default function DentistHome() {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? 'Consulta'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
                     </div>
                     <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
                       {statusLabels[apt.status] ?? apt.status}
