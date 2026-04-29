@@ -201,6 +201,17 @@ export function registrationPlaceholderForSpecialty(
   return `Digite seu ${registrationLabelForSpecialty(specialtyId)}`;
 }
 
+export type SpecialtyCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
+
+/** Returns the high-level category for a stored specialty id (defaults to 'outro'). */
+export function specialtyCategoryOf(
+  specialtyId: string | null | undefined,
+): SpecialtyCategory {
+  if (!specialtyId) return 'outro';
+  const found = SPECIALTIES.find((s) => s.id === specialtyId);
+  return (found?.category ?? 'outro') as SpecialtyCategory;
+}
+
 /**
  * Light validation: makes sure the user did not paste a CRM number for an odonto
  * specialty (or a CRO for a medical one). Returns null if OK, else an error message.
