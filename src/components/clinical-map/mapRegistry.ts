@@ -37,6 +37,11 @@ export const MAP_BY_SPECIALTY: Record<string, MapConfig> = {
   neurologia: { mapType: 'body', label: 'Mapa Corporal', icon: PersonStanding, description: 'Achados anatômicos por região' },
   pediatria: { mapType: 'body', label: 'Mapa Corporal', icon: PersonStanding, description: 'Achados anatômicos por região' },
   dermatologia: { mapType: 'body', label: 'Mapa Dermatológico', icon: PersonStanding, description: 'Lesões e condições da pele' },
+  dermatologia_clinica_e_cirurgica: { mapType: 'body', label: 'Mapa Dermatológico', icon: PersonStanding, description: 'Lesões e condições da pele' },
+  cirurgia_plastica: { mapType: 'body', label: 'Mapa Corporal', icon: PersonStanding, description: 'Marcações pré e pós-operatórias' },
+  cirurgia_geral: { mapType: 'body', label: 'Mapa Corporal', icon: PersonStanding, description: 'Achados anatômicos por região' },
+  ginecologia: { mapType: 'body', label: 'Mapa Corporal', icon: PersonStanding, description: 'Achados anatômicos por região' },
+  urologia: { mapType: 'body', label: 'Mapa Corporal', icon: PersonStanding, description: 'Achados anatômicos por região' },
 
   // Nutrição → Diário Alimentar
   nutricao: { mapType: 'meal', label: 'Diário Alimentar', icon: Utensils, description: 'Refeições e hábitos alimentares' },
