@@ -316,12 +316,14 @@ export default function SecretariaIA() {
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
       // Sincroniza com o backend externo da Secretária IA — fire-and-forget
       if (currentClinicId && isAiBackendConfigured()) {
+        console.log('[ai-sync] updateAiConfig vai disparar', { currentClinicId, isConfigured: isAiBackendConfigured(), custom_prompt: vars.custom_prompt?.slice(0, 50) });
         aiBackend
           .updateAiConfig(currentClinicId, {
             custom_prompt: vars.custom_prompt,
             enabled: vars.enabled,
           })
-          .catch(() => {});
+          .then(() => console.log('[ai-sync] updateAiConfig OK'))
+          .catch((err) => console.error('[ai-sync] updateAiConfig ERRO:', err));
       }
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
