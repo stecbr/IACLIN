@@ -1,126 +1,163 @@
-## Diagnóstico do problema
+# Personalização completa por especialidade
 
-Investiguei o caso do **Marcio Batista** (`specialty = 'cirurgia-plastica'`, `registration_number = NULL`) e identifiquei 3 problemas distintos no painel do médico:
+## O problema
 
-### 1. CRM não aparece
-- O backfill anterior trouxe a especialidade do `auth.users.raw_user_meta_data`, mas o campo `registration_number` continua `NULL` no `clinic_members`.
-- Causa: na tela de cadastro inicial (signup), nem todos os usuários preencheram o CRM, ou ele não foi propagado para o metadata. O `Profile.tsx` permite editar, mas o card "CRM" simplesmente fica vazio sem orientação.
+Hoje todo profissional não-odonto/não-psi cai numa tela genérica que herda visual e ferramentas de odontologia: cirurgião plástico vê "Atlas de Dentes", nutricionista veria os mesmos dentes, clínico geral também. Precisamos de uma **trilha por família clínica**, com dashboard, ferramentas, mapa, terminologia e catálogo próprios.
 
-### 2. Ferramentas Clínicas mostram itens odontológicos
-- `src/pages/dentist/ToolsHome.tsx` é **único para todos os "dentists"** (papel interno do sistema, usado também para médicos). Mostra: Calculadora de Anestésico (com fármacos odonto), Atlas de Dentes, Receituário (templates odonto), Atestado, Foto Clínica, Timer, etc.
-- Já existe precedente: psicólogos têm `PsiToolsHome` e o sidebar troca quando `mapType === 'psyche'`. Falta um equivalente para Cirurgia Plástica / áreas estéticas e médicas.
+## Estratégia: agrupar por famílias clínicas
 
-### 3. Orçamentos com catálogo odontológico
-- `BudgetFormDialog` busca `procedures` sem filtro. A tabela `procedures` hoje **só tem categorias odonto** (Periodontia, Endodontia, Restauração, Prótese, Cirurgia bucal, Estética dental, etc.). Campo "Dente" é fixo no formulário.
-- Não há campo `specialty` na tabela `procedures` para segregar por especialidade médica.
+Em vez de criar uma tela por especialidade (60+), agrupamos por **família** com ferramentas comuns. Cada família tem: Home com KPIs próprios, ToolsHome próprio, Mapa Clínico, catálogo de procedimentos filtrado, terminologia ("paciente"/"cliente", "consulta"/"sessão") e ícone/acento visual.
+
+### Famílias (sem veterinário)
+
+| Família | Especialidades | Mapa | Ferramentas-chave |
+|---|---|---|---|
+| **Odontologia** *(já existe)* | Dentista, Orto, Endo, Perio, Implanto, Odontoped, Bucomaxilo | Odontograma | Atlas de dentes, Anestésico odonto |
+| **Estética / Cir. Plástica** *(já existe)* | Cir. Plástica, Dermato estética | Mapa Corporal | Calc. Botox, Áreas faciais, Foto antes/depois |
+| **Psicologia / Saúde Mental** *(já existe)* | Psico, Psiquiatria, Psicanálise, Neuropsico | Mapa Psíquico | Escalas (PHQ-9, GAD-7), Diário de Humor, SOAP |
+| **Médico Clínico** *(novo)* | Clínico Geral, Cardio, Pneumo, Endócrino, Gastro, Neuro, Pediatria, Geriatria, Infecto, Reumato, Hemato, Nefro, Gineco, Urologia | Mapa Corporal | Risco cardiovascular, IMC/SC, CID-10, Receituário |
+| **Nutrição** *(novo)* | Nutrição, Nutrólogo | Diário Alimentar | IMC + circunferências, Recordatório 24h, Plano alimentar, Equivalentes |
+| **Fisio / Reabilitação** *(novo)* | Fisioterapia, Ortopedia, RPG, Quiropraxia | Musculoesquelético | Goniômetro, Escala EVA, Testes ortopédicos |
+| **Podologia** *(novo)* | Podologia | Mapa do Pé | Risco diabético, Curativos, Áreas do pé |
+| **Genérico** *(novo)* | Fono, T. Ocupacional, Acupuntura, Homeopatia e demais | Mapa Corporal | Receituário, Atestado, Foto, Voz, Timer |
+
+Mapas já existem no `mapRegistry.ts` para todas. Falta a camada de Home + ToolsHome + filtragem de catálogo.
 
 ---
 
-## Plano de correção
+## Plano de implementação
 
-### Parte A — CRM/CRO no perfil (correção rápida)
+### 1. Helper central de família (`src/lib/specialtyFamily.ts` — novo)
 
-Em `src/pages/Profile.tsx`:
-- Quando `member.registration_number` está vazio, exibir o input com **destaque visual** (borda âmbar + texto "Complete seu CRM/CRO para emitir receitas e atestados").
-- Sem mexer no fluxo de signup (conforme pedido anterior). O médico preenche uma vez no perfil e fica salvo.
+Ponto único de verdade que recebe a `specialty` do `clinic_members` e devolve:
 
-### Parte B — Catálogo de procedimentos por especialidade
+```ts
+type SpecialtyFamily =
+  | 'odonto' | 'aesthetic' | 'psi' | 'medical'
+  | 'nutrition' | 'physio' | 'podology' | 'generic';
 
-**Migração SQL:**
-1. Adicionar coluna `specialty_category` em `public.procedures`:
-   - Valores: `odonto`, `medico`, `estetica`, `veterinario`, `outro` (mesmo enum/strings do `clinics.category`).
-2. Marcar todas as ~procedures existentes como `specialty_category = 'odonto'` (preservando dados atuais).
-3. Inserir um catálogo inicial de **procedimentos de Cirurgia Plástica / Estética** (categoria `estetica`):
-   - Consulta / Avaliação estética
-   - Aplicação de Toxina Botulínica
-   - Preenchimento com Ácido Hialurônico
-   - Bioestimulador de colágeno
-   - Peeling químico
-   - Rinoplastia (avaliação)
-   - Mamoplastia (avaliação)
-   - Lipoaspiração (avaliação)
-   - Abdominoplastia (avaliação)
-   - Blefaroplastia (avaliação)
-   - Otoplastia (avaliação)
-   - Curativo / Retirada de pontos
-   - Sessão de pós-operatório
+interface FamilyConfig {
+  family: SpecialtyFamily;
+  label: string;            // "Cirurgião Plástico", "Nutricionista"…
+  homeRoute: string;
+  toolsRoute: string;
+  patientNoun: string;      // "paciente" | "cliente"
+  appointmentNoun: string;  // "consulta" | "sessão" | "atendimento"
+  accentColor: string;
+  registrationLabel: 'CRO'|'CRM'|'CRN'|'CRP'|'CREFITO'|'CR';
+}
+```
 
-   *(Sem preços fixos — `default_price = 0`, clínica ajusta nas Configurações)*
+`getSpecialtyFamily(specialtyId)` cobre todas as 60+ especialidades já catalogadas em `SpecialtyStep.tsx`.
 
-**Frontend (`BudgetFormDialog.tsx`):**
-- Buscar a `specialty` do médico logado (`clinic_members`).
-- Mapear `specialty → specialty_category` usando a categoria do `SPECIALTIES` catalog (ex.: `cirurgia-plastica` → `estetica`).
-- Filtrar `procedures` pela categoria correspondente. Fallback: se não houver procedimentos para a categoria, mostrar todos.
-- Esconder o campo **"Dente"** quando a categoria não for `odonto`.
-- Substituir placeholder do título de "Restaurações + Clareamento" para algo neutro ("Ex: Toxina Botulínica + Preenchimento" para estética).
+### 2. Roteador de Home dinâmico
 
-### Parte C — Ferramentas Clínicas por especialidade
+`src/pages/Index.tsx` hoje só tem 2 ramos. Trocar por:
 
-Criar **`src/pages/aesthetic/AestheticToolsHome.tsx`** com ferramentas voltadas para Cirurgia Plástica / áreas estéticas:
+```text
+IndexRouter
+ ├─ patient → PatientHome
+ ├─ admin/secretary → AdminHome (sem mudança)
+ └─ dentist (profissional clínico)
+      └─ switch family
+           ├─ odonto      → DentistHome (atual)
+           ├─ psi         → PsiHome (novo)
+           ├─ aesthetic   → AestheticHome (novo)
+           ├─ nutrition   → NutritionHome (novo)
+           ├─ physio      → PhysioHome (novo)
+           ├─ medical     → MedicalHome (novo)
+           ├─ podology    → PodologyHome (novo)
+           └─ generic     → GenericClinicianHome (novo)
+```
 
-| Ferramenta | Função |
-|---|---|
-| Receituário | Reusar `PrescriptionPad` (já é genérico, não é odonto-específico) |
-| Atestado | Reusar `CertificateGenerator` |
-| Foto Clínica (antes/depois) | Reusar `ClinicalCamera` — útil em estética |
-| Timer de Procedimento | Reusar `ProcedureTimer` (genérico) |
-| Ditado por Voz | Reusar `VoiceDictation` |
-| Calculadora de Toxina Botulínica | **Nova** — unidades por região facial (glabela, frontal, periorbital, etc.) |
-| Tabela de Áreas Faciais | **Nova** — referência rápida de doses padrão para BTX e preenchedor |
-| Próximo Retorno | Reusar `QuickReturn` |
+Cada Home reusa um `ProfessionalHomeBase` (esqueleto de KPIs + agenda do dia + aniversariantes + próximas) com:
+- Linguagem certa ("Sessões hoje", "Clientes ativos")
+- KPIs próprios: nutrição mostra "Planos alimentares ativos"; psi mostra "Sessões esta semana"; estética mostra "Procedimentos do mês"; fisio mostra "Sessões realizadas".
+- Atalhos para as ferramentas da família.
 
-*Removidos: Atlas de Dentes, Calculadora de Anestésico odonto.*
+### 3. ToolsHome por família
 
-**Roteamento e sidebar (`AppSidebar.tsx`):**
-- Estender a lógica de "Psi" para detectar categoria estética. Adicionar helper `getToolsRouteForSpecialty(specialty)`:
-  - `psyche` → `/psi/ferramentas`
-  - `estetica` (cirurgia plástica, dermatologia estética) → `/estetica/ferramentas`
-  - Resto → `/ferramentas` (atual)
-- O item "Ferramentas Clínicas" no sidebar passa a apontar para a rota certa por especialidade.
-- Mesma lógica esconde "Orçamentos" para psi (já existe) — mantemos Orçamentos visível para estética, mas com catálogo correto.
+Já existem 3: `ToolsHome` (odonto), `AestheticToolsHome`, `PsiToolsHome`. Faltam:
 
-### Parte D — Mapa Clínico para Cirurgia Plástica
+- **NutritionToolsHome**: IMC + circunferências, Recordatório 24h, Lista de equivalentes, Plano alimentar PDF, Receituário, Atestado, Foto, Voz.
+- **PhysioToolsHome**: Goniômetro, EVA, Testes ortopédicos rápidos (Lasègue, Phalen…), Receituário, Atestado, Timer, Voz.
+- **MedicalToolsHome**: Risco cardiovascular (Framingham simplificado), IMC/SC, CID-10 busca, Receituário, Atestado, Foto, Voz, Timer.
+- **PodologyToolsHome**: FootMap reusado, questionário de risco diabético, guia de curativos, Receituário, Atestado, Foto, Voz.
+- **GenericToolsHome**: só ferramentas neutras (Receituário, Atestado, Foto, Voz, Timer, Próximo Retorno).
 
-Em `src/components/clinical-map/mapRegistry.ts`:
-- Adicionar entradas para `cirurgia_plastica` e `dermatologia_clinica_e_cirurgica` apontando para `mapType: 'body'` (Mapa Corporal já existente) — assim o Marcio terá o mapa correto no lugar do "Odontograma" no sidebar (que já está oculto para não-odonto, mas o item dinâmico ficava ausente).
+Cada uma tem ~80 linhas (padrão do `AestheticToolsHome`). Componentes pesados ficam em `src/components/<family>/`.
+
+### 4. Sidebar e Mobile Nav dinâmicos
+
+`AppSidebar.tsx` já tem lógica para psi/estética. Generalizar via `getSpecialtyFamily`:
+- "Ferramentas Clínicas" → `family.toolsRoute`.
+- "Mapa Clínico" → `getMapForSpecialty` (já cobre tudo).
+- "Odontograma" continua só para `family === 'odonto'`.
+- "Orçamentos" continua para todos exceto psi.
+- `MobileBottomNav.tsx`: mesmo tratamento no item "Mais".
+
+### 5. Catálogo de procedimentos por família
+
+Coluna `procedures.specialty_category` já existe. Refinar:
+- Inserir catálogos iniciais (~10 procedimentos cada) para nutrição, fisio, médico clínico e podologia.
+- `BudgetFormDialog` já filtra; passa a derivar a categoria via `getSpecialtyFamily`.
+- Esconder campo "Dente" sempre que `family !== 'odonto'`.
+
+### 6. Limpezas
+
+- `Profile.tsx`: label do registro vira dinâmica (CRO/CRM/CRN/CRP/CREFITO).
+- Varrer textos "consulta odontológica", placeholders odonto e neutralizar onde fizer sentido.
 
 ---
 
 ## Detalhes técnicos
 
-**Mapa de especialidade → categoria** (helper novo em `SpecialtySelect.tsx`):
-```ts
-export function specialtyCategoryOf(id: string): 'odonto'|'medico'|'estetica'|'veterinario'|'outro' {
-  return SPECIALTIES.find(s => s.id === id)?.category ?? 'outro';
-}
-```
+**Arquivos novos:**
+- `src/lib/specialtyFamily.ts`
+- `src/components/dashboard/ProfessionalHomeBase.tsx`
+- `src/pages/medical/MedicalHome.tsx` + `MedicalToolsHome.tsx`
+- `src/pages/nutrition/NutritionHome.tsx` + `NutritionToolsHome.tsx`
+- `src/pages/physio/PhysioHome.tsx` + `PhysioToolsHome.tsx`
+- `src/pages/podology/PodologyHome.tsx` + `PodologyToolsHome.tsx`
+- `src/pages/aesthetic/AestheticHome.tsx` (ToolsHome já existe)
+- `src/pages/psi/PsiHome.tsx` (ToolsHome já existe)
+- `src/pages/generic/GenericClinicianHome.tsx` + `GenericToolsHome.tsx`
+- Componentes:
+  - `src/components/medical/RiskCalculator.tsx`, `BmiBsa.tsx`, `Cid10Search.tsx`
+  - `src/components/nutrition/ImcCalculator.tsx`, `Recall24h.tsx`, `MealPlanBuilder.tsx`, `FoodEquivalents.tsx`
+  - `src/components/physio/Goniometer.tsx`, `PainScale.tsx`, `OrthoTests.tsx`
+  - `src/components/podology/DiabeticRisk.tsx`, `WoundGuide.tsx`
 
-**Arquivos a editar:**
-- `src/pages/Profile.tsx` — destaque visual no CRM vazio
-- `src/components/budgets/BudgetFormDialog.tsx` — filtrar procedures, esconder "Dente"
-- `src/components/SpecialtySelect.tsx` — exportar `specialtyCategoryOf`
-- `src/components/clinical-map/mapRegistry.ts` — adicionar cirurgia_plastica, dermatologia
-- `src/components/AppSidebar.tsx` — rota dinâmica de Ferramentas
-- `src/App.tsx` — registrar rota `/estetica/ferramentas`
+**Arquivos editados:**
+- `src/pages/Index.tsx` (roteador por família)
+- `src/components/AppSidebar.tsx`
+- `src/components/MobileBottomNav.tsx`
+- `src/components/budgets/BudgetFormDialog.tsx`
+- `src/pages/Profile.tsx`
+- `src/App.tsx` (registrar novas rotas)
+- `src/hooks/useRoleAccess.ts` (liberar para `dentist`)
 
-**Arquivos a criar:**
-- `src/pages/aesthetic/AestheticToolsHome.tsx`
-- `src/components/aesthetic/BotoxCalculator.tsx`
-- `src/components/aesthetic/FacialAreasReference.tsx`
+**Migração SQL:** INSERT dos catálogos iniciais (~40 procedimentos para 4 famílias novas).
 
-**Migração SQL:**
-- `ALTER TABLE procedures ADD COLUMN specialty_category text DEFAULT 'odonto'`
-- `UPDATE procedures SET specialty_category='odonto' WHERE specialty_category IS NULL`
-- `INSERT` no catálogo de estética (~13 procedimentos)
-
-**Sem mudanças em:** signup, edge functions, RBAC, config.toml.
+**Sem mudanças em:** signup, RBAC, edge functions, config.toml, auth.
 
 ---
 
-## Resultado esperado para o Marcio
+## Resultado esperado
 
-- Sidebar mostra "**Mapa Corporal**" (em vez de Odontograma).
-- "**Ferramentas Clínicas**" abre o painel de estética (BTX, preenchimento, foto clínica, etc.).
-- "**Orçamentos** → Novo Orçamento" lista procedimentos de Cirurgia Plástica / Estética, sem campo "Dente".
-- "**Meu Perfil**" destaca o campo CRM vazio, pedindo preenchimento.
-- Mesma lógica vale automaticamente para qualquer outro médico de Cirurgia Plástica / Dermatologia Estética que se cadastre depois.
+| Profissional | O que vê ao logar |
+|---|---|
+| Cirurgião plástico | Home estética, Mapa Corporal, Botox/Áreas/Foto, catálogo de cir. plástica. **Zero dente.** |
+| Nutricionista | Home nutrição, Diário Alimentar, IMC + Recordatório + Plano alimentar. **Zero dente, zero anestésico.** |
+| Clínico geral | Home médica, Mapa Corporal, Risco CV + CID-10 + IMC, consultas médicas. |
+| Fisioterapeuta | Home fisio, Musculoesquelético, Goniômetro + EVA + testes. |
+| Podólogo | Home podologia, Mapa do Pé, Risco diabético + curativos. |
+| Psicólogo | (já existente) Home psi, Mapa Psíquico, Escalas + SOAP. |
+| Dentista | (já existente) Home odonto, Odontograma, Atlas + anestésico. |
+| Genérico (fono/TO/etc.) | Home neutra, Mapa Corporal, ferramentas universais. |
+
+A regra "**não vê o que não é seu**" passa a valer pra todo o app.
+
+## Tamanho
+
+Trabalho grande mas mecânico — repete 5x o padrão "Home + ToolsHome + componentes". Posso entregar em **uma única implementação** se aprovado.

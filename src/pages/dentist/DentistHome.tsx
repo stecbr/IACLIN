@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope, Eye } from 'lucide-react';
+import { getFamilyConfig } from '@/lib/specialtyFamily';
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -24,6 +25,21 @@ export default function DentistHome() {
   const { user, profile, currentClinicId } = useAuth();
   const [summaryAptId, setSummaryAptId] = useState<string | null>(null);
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
+
+  // Doctor's specialty family — drives terminology in this dashboard
+  const { data: memberSpecialty } = useQuery({
+    queryKey: ['dentist-home-specialty', user?.id, currentClinicId],
+    enabled: !!user?.id && !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase.from('clinic_members')
+        .select('specialty').eq('user_id', user!.id).eq('clinic_id', currentClinicId!).maybeSingle();
+      return data?.specialty ?? null;
+    },
+  });
+  const family = getFamilyConfig(memberSpecialty);
+  const apptCap = family.appointmentNoun.charAt(0).toUpperCase() + family.appointmentNoun.slice(1);
+  const apptCapPlural = family.appointmentNounPlural.charAt(0).toUpperCase() + family.appointmentNounPlural.slice(1);
+
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
@@ -146,8 +162,8 @@ export default function DentistHome() {
   };
 
   const kpiCards = [
-    { title: 'Consultas Hoje', value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
-    { title: 'Atendimentos no Mês', value: kpis.completed, desc: `de ${kpis.total} agendados`, icon: Stethoscope, color: 'text-success', bg: 'bg-success/10' },
+    { title: `${apptCapPlural} Hoje`, value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
+    { title: `${apptCapPlural} no Mês`, value: kpis.completed, desc: `de ${kpis.total} agendados`, icon: family.icon, color: 'text-success', bg: 'bg-success/10' },
     { title: 'Pacientes Únicos', value: kpis.uniquePatients, desc: 'atendidos este mês', icon: Users, color: 'text-warning', bg: 'bg-warning/10' },
     { title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, color: 'text-blue-500', bg: 'bg-blue-500/10' },
   ];
@@ -191,7 +207,7 @@ export default function DentistHome() {
           </CardHeader>
           <CardContent>
             {todayApts.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma consulta agendada para hoje 🎉</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">{`Nenhuma ${family.appointmentNoun} agendada para hoje 🎉`}</p>
             ) : (
               <div className="space-y-1">
                 {todayApts.map((apt: any) => (
@@ -205,7 +221,7 @@ export default function DentistHome() {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? 'Consulta'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
                     </div>
                     <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
                       {statusLabels[apt.status] ?? apt.status}

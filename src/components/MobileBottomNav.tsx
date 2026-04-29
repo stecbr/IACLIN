@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
+import { getFamilyConfig } from '@/lib/specialtyFamily';
 
 export function MobileBottomNav() {
   const location = useLocation();
@@ -30,7 +31,9 @@ export function MobileBottomNav() {
     enabled: !!user?.id && !!currentClinicId && isDentist,
   });
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
-  const isPsi = isDentist && dynamicMap?.mapType === 'psyche';
+  const familyConfig = isDentist ? getFamilyConfig(memberSpecialty) : null;
+  const isPsi = familyConfig?.family === 'psi';
+  const toolsUrl = familyConfig?.toolsRoute ?? '/ferramentas';
 
   const allMainItems = isDentist
     ? [
@@ -49,11 +52,11 @@ export function MobileBottomNav() {
   const allMoreItems = isDentist
     ? isPsi
       ? [
-          { title: 'Ferramentas do Psicólogo', url: '/psi/ferramentas', icon: Brain },
+          { title: 'Ferramentas do Psicólogo', url: toolsUrl, icon: Brain },
           ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
         ]
       : [
-          { title: 'Ferramentas', url: '/ferramentas', icon: Briefcase },
+          { title: 'Ferramentas', url: toolsUrl, icon: Briefcase },
           ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
           { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
         ]

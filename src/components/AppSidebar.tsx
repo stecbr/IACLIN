@@ -30,7 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
-import { specialtyCategoryOf } from '@/components/SpecialtySelect';
+import { getFamilyConfig } from '@/lib/specialtyFamily';
 import {
   Tooltip,
   TooltipContent,
@@ -52,7 +52,7 @@ import {
 } from '@/components/ui/sidebar';
 
 type Role = 'admin' | 'dentist' | 'secretary' | 'patient';
-const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'veterinario', 'outro'];
+const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'outro'];
 
 const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
@@ -97,15 +97,11 @@ export function AppSidebar() {
     enabled: !!user?.id && !!currentClinicId && isDentist,
   });
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
-  const isPsi = isDentist && dynamicMap?.mapType === 'psyche';
-  const specialtyCat = isDentist ? specialtyCategoryOf(memberSpecialty) : 'outro';
-  const isAesthetic = isDentist && specialtyCat === 'estetica';
-  // Pick the right Tools route per specialty
-  const toolsUrl = isPsi
-    ? '/psi/ferramentas'
-    : isAesthetic
-      ? '/estetica/ferramentas'
-      : '/ferramentas';
+  const familyConfig = isDentist ? getFamilyConfig(memberSpecialty) : null;
+  const isPsi = familyConfig?.family === 'psi';
+  const isOdonto = familyConfig?.family === 'odonto';
+  // Pick the right Tools route per specialty family
+  const toolsUrl = familyConfig?.toolsRoute ?? '/ferramentas';
 
   // Defense in depth: gate by allowedRoles AND by route permission
   const filteredMainNav = filterNavItems(
@@ -120,8 +116,10 @@ export function AppSidebar() {
       )
       // For dentists: hide the static "Odontograma" item; we'll inject the dynamic map item below
       .filter((item) => !(isDentist && item.url === '/odontogram'))
-      // For psychologists: hide budgets and generic clinical tools — replaced by Psi tools
-      .filter((item) => !(isPsi && (item.url === '/budgets' || item.url === '/ferramentas')))
+      // Odontograma só faz sentido para a família odonto
+      .filter((item) => !(item.url === '/odontogram' && !isOdonto))
+      // Psicólogos não usam orçamentos — só sessões
+      .filter((item) => !(isPsi && item.url === '/budgets'))
       // Rewrite the generic Tools URL based on the doctor's specialty
       .map((item) =>
         item.url === '/ferramentas' && toolsUrl !== '/ferramentas'
