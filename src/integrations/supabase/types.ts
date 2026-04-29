@@ -1180,6 +1180,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          specialty_category: string
         }
         Insert: {
           category: string
@@ -1192,6 +1193,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          specialty_category?: string
         }
         Update: {
           category?: string
@@ -1204,6 +1206,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          specialty_category?: string
         }
         Relationships: []
       }

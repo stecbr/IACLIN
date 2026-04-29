@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { specialtyCategoryOf } from '@/components/SpecialtySelect';
 
 interface PlanItem {
   procedure_id: string;
@@ -45,10 +46,40 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
     },
   });
 
-  const { data: procedures = [] } = useQuery({
-    queryKey: ['procedures-select'],
+  // Doctor's specialty in the current clinic — used to filter the procedure catalog
+  const { data: memberSpecialty } = useQuery({
+    queryKey: ['budget-member-specialty', user?.id, currentClinicId],
+    enabled: !!user?.id && !!currentClinicId,
     queryFn: async () => {
-      const { data } = await supabase.from('procedures').select('id, name, default_price, category').eq('is_active', true).order('name');
+      const { data } = await supabase
+        .from('clinic_members')
+        .select('specialty')
+        .eq('user_id', user!.id)
+        .eq('clinic_id', currentClinicId!)
+        .maybeSingle();
+      return data?.specialty ?? null;
+    },
+  });
+
+  const specialtyCat = specialtyCategoryOf(memberSpecialty);
+  const showToothField = specialtyCat === 'odonto';
+
+  const { data: procedures = [] } = useQuery({
+    queryKey: ['procedures-select', specialtyCat],
+    queryFn: async () => {
+      // Try filtered first; fall back to all if the catalog has nothing for this specialty
+      const { data: scoped } = await supabase
+        .from('procedures')
+        .select('id, name, default_price, category, specialty_category')
+        .eq('is_active', true)
+        .eq('specialty_category', specialtyCat)
+        .order('name');
+      if (scoped && scoped.length > 0) return scoped;
+      const { data } = await supabase
+        .from('procedures')
+        .select('id, name, default_price, category, specialty_category')
+        .eq('is_active', true)
+        .order('name');
       return data ?? [];
     },
   });
@@ -153,10 +184,18 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Título *</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Restaurações + Clareamento" />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Título *</Label>
+            <Input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder={
+                specialtyCat === 'odonto' ? 'Ex: Restaurações + Clareamento' :
+                specialtyCat === 'estetica' ? 'Ex: Toxina Botulínica + Preenchimento' :
+                'Ex: Avaliação + Procedimento'
+              }
+            />
+          </div>
           </div>
 
           <div className="space-y-1.5">
@@ -176,7 +215,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
 
             {items.map((item, idx) => (
               <div key={idx} className="rounded-lg border border-border/50 p-3 space-y-3 bg-muted/20">
-                <div className="grid gap-3 sm:grid-cols-[1fr_80px_100px_32px]">
+                <div className={`grid gap-3 ${showToothField ? 'sm:grid-cols-[1fr_80px_100px_32px]' : 'sm:grid-cols-[1fr_100px_32px]'}`}>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Procedimento</Label>
                     <Select value={item.procedure_id} onValueChange={v => updateItem(idx, 'procedure_id', v)}>
@@ -192,18 +231,20 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Dente</Label>
-                    <Input
-                      className="h-9"
-                      value={item.tooth_number}
-                      onChange={e => updateItem(idx, 'tooth_number', e.target.value)}
-                      placeholder="Ex: 14"
-                      type="number"
-                      min="1"
-                      max="48"
-                    />
-                  </div>
+                  {showToothField && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Dente</Label>
+                      <Input
+                        className="h-9"
+                        value={item.tooth_number}
+                        onChange={e => updateItem(idx, 'tooth_number', e.target.value)}
+                        placeholder="Ex: 14"
+                        type="number"
+                        min="1"
+                        max="48"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
                     <Input
