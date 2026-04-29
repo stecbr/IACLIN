@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Save, KeyRound } from 'lucide-react';
+import { Building2, Save, KeyRound, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   registrationLabelForSpecialty,
@@ -148,7 +148,14 @@ export default function Profile() {
                   value={registrationNumber}
                   onChange={(e) => setRegistrationNumber(e.target.value)}
                   placeholder={registrationPlaceholderForSpecialty(specialty)}
+                  className={!member?.registration_number ? 'border-amber-500/60 focus-visible:ring-amber-500/40' : undefined}
                 />
+                {!member?.registration_number && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-3 w-3" />
+                    Complete seu {registrationLabelForSpecialty(specialty)} para emitir receitas e atestados.
+                  </p>
+                )}
               </div>
             </div>
           )}
