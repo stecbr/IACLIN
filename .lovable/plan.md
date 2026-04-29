@@ -1,53 +1,55 @@
-# Sincronizar configuração da IA com o backend externo
+## Diagnóstico
 
-## Contexto confirmado
+Confirmei pelo código (`src/pages/Auth.tsx` linhas 213-232 e 256-286) e pelo banco de dados:
 
-Na tela **Treinamento da IA** (`src/pages/SecretariaIA.tsx`), a mutation `saveConfig` já faz upsert em `ai_secretary_config` no Supabase com:
-- `custom_prompt` (text) — string final do prompt (variável `builtPrompt`)
-- `enabled` (boolean) — corresponde ao toggle "IA Ativa" / "IA Pausada"
+**No cadastro (`/auth`)**, o profissional **já informa** especialidade e CRM/CRO/CRP. Esses campos são enviados ao `supabase.auth.signUp` dentro de `options.data` (`raw_user_meta_data`) — ou seja, ficam guardados em `auth.users` desde o signup.
 
-São exatamente os campos que o backend externo espera. Vamos reaproveitar 1:1.
+**O bug está na edge function `join-clinic-by-code`**: quando o profissional entra com o código da clínica, a função insere em `clinic_members` passando `specialty` e `registration_number` somente se o front enviar (e o front não envia). Ela **ignora** os metadados do `auth.users` que já foram preenchidos no signup. Resultado: `null` em ambos os campos.
 
-## Mudanças
+Foi exatamente isso que aconteceu com o Marcio Batista, Dr. Freitas, Luan, Gabriela, Joel etc. Todos cadastraram com especialidade no signup, mas ao usar o código da clínica esses dados foram descartados.
 
-### 1. `src/lib/aiBackend.ts`
-Adicionar um método tipado dedicado seguindo o padrão dos demais (sem expor `request` genérico):
+## Solução (somente backend, sem alterar UI)
 
-```ts
-updateAiConfig: (clinicId: string, payload: { custom_prompt: string; enabled: boolean }) =>
-  request<{ ok: boolean }>(`/api/data/ai_secretary_config/config-${clinicId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  }),
+### 1. Corrigir `supabase/functions/join-clinic-by-code/index.ts`
+
+Buscar `raw_user_meta_data` do usuário autenticado (via `admin.auth.admin.getUserById(user.id)`) e usar `specialty` / `registration_number` de lá como fallback quando o body não os envia. Lógica:
+
+```
+finalSpecialty = body.specialty || user.user_metadata.specialty
+finalReg       = body.registration_number || user.user_metadata.registration_number
 ```
 
-### 2. `src/pages/SecretariaIA.tsx`
-No `onSuccess` da mutation `saveConfig` (linha ~311), adicionar a chamada **fire-and-forget** logo depois da atualização de estado local, usando os mesmos valores que acabaram de ir pro Supabase (`vars.custom_prompt`, `vars.enabled`):
+Assim, qualquer médico/dentista que já preencheu no cadastro entra na clínica com os dados corretos automaticamente, sem precisar mudar o front.
 
-```ts
-onSuccess: (_data, vars) => {
-  // ... lógica existente (toast, setSavedPrompt, setPrompt) ...
+### 2. Backfill dos médicos já cadastrados
 
-  // Sincroniza com backend externo da Secretária IA — não bloqueia UI
-  if (currentClinicId && isAiBackendConfigured()) {
-    aiBackend
-      .updateAiConfig(currentClinicId, {
-        custom_prompt: vars.custom_prompt,
-        enabled: vars.enabled,
-      })
-      .catch(() => {});
-  }
-},
-```
+Atualizar via SQL os `clinic_members` existentes que têm `specialty` ou `registration_number` nulo, copiando os valores de `auth.users.raw_user_meta_data` do respectivo usuário. Isso corrige Marcio Batista, Dr. Freitas, Luan, Gabriela e qualquer outro afetado, sem precisar recadastrar.
 
-## Garantias
+### 3. Reverter a edição inline de Especialidade/CRM em `/clinica/medicos`
 
-- **Não bloqueia UI**: chamada assíncrona, erro silenciado com `.catch(() => {})`.
-- **Não mostra erro ao usuário**: nenhum toast adicional.
-- **Sem inventar campos**: usa exatamente `custom_prompt` e `enabled`, idênticos ao schema do Supabase e ao state da tela.
-- **Guarda de configuração**: só dispara se o backend IA estiver configurado (`isAiBackendConfigured()`), evitando exceção quando `VITE_AI_BACKEND_URL` não está setada.
-- **Sem alterar fluxo do Supabase**: a persistência principal continua sendo o upsert atual; o PATCH é apenas espelhamento.
+Hoje a página `ClinicaMedicos.tsx` permite o admin editar a Especialidade clicando no lápis (linhas 91-110 e 175-204 do arquivo). Conforme sua regra ("CRM/CRO são dados do cadastro do médico, não pode ser editado"), vou:
 
-## Arquivos editados
-- `src/lib/aiBackend.ts` (novo método `updateAiConfig`)
-- `src/pages/SecretariaIA.tsx` (chamada fire-and-forget no `onSuccess`)
+- **Remover** o ícone de lápis e o input inline da coluna **Especialidade**
+- A coluna **CRM/CRO** já é só leitura — fica como está
+- A função `syncOneDoctor` continua sendo chamada apenas em fluxos legítimos (não mais no edit manual)
+
+Resultado: a tabela passa a ser estritamente informativa, refletindo fielmente o que o profissional cadastrou.
+
+## Arquivos alterados
+
+- `supabase/functions/join-clinic-by-code/index.ts` — fallback para metadados do `auth.users`
+- `src/pages/clinica/ClinicaMedicos.tsx` — remover edição inline de especialidade
+- Migração SQL — backfill dos `clinic_members` afetados a partir de `auth.users.raw_user_meta_data`
+
+## Sem alterações em
+
+- `src/pages/WaitingClinic.tsx` (você pediu para não tocar)
+- `src/pages/Auth.tsx` (já coleta corretamente)
+- `supabase/functions/accept-clinic-invite/index.ts` (já funciona com fallback do convite)
+- Schema do banco
+
+## Resultado esperado
+
+- Próximos médicos que entrarem por código vão ter especialidade e CRM/CRO automaticamente preenchidos a partir do que digitaram no signup.
+- Marcio Batista e os demais já cadastrados terão os dados restaurados pelo backfill.
+- Admin não consegue mais editar especialidade/CRM pela tela — esses dados ficam imutáveis e fiéis ao cadastro do profissional.

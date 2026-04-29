@@ -36,16 +36,64 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Código de clínica não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Fallback: pull specialty / registration from the user's signup metadata
+    // (auth.users.raw_user_meta_data) when the client doesn't pass them.
+    let metaSpecialty: string | null = null;
+    let metaRegistration: string | null = null;
+    try {
+      const { data: full } = await admin.auth.admin.getUserById(user.id);
+      const md = (full?.user?.user_metadata ?? {}) as Record<string, unknown>;
+      const s = typeof md.specialty === "string" ? md.specialty.trim() : "";
+      const r = typeof md.registration_number === "string" ? md.registration_number.trim() : "";
+      metaSpecialty = s || null;
+      metaRegistration = r || null;
+    } catch (_) {
+      // ignore — fallback simply stays null
+    }
+
+    const finalSpecialty =
+      (typeof specialty === "string" && specialty.trim()) ? specialty.trim() : metaSpecialty;
+    const finalRegistration =
+      (typeof registration_number === "string" && registration_number.trim())
+        ? registration_number.trim()
+        : metaRegistration;
+
     const { error: memErr } = await admin.from("clinic_members").insert({
       clinic_id: clinic.id,
       user_id: user.id,
       role: "dentist",
-      specialty: specialty?.trim() || null,
-      registration_number: registration_number?.trim() || null,
+      specialty: finalSpecialty,
+      registration_number: finalRegistration,
       is_owner: false,
     });
     if (memErr && !memErr.message.includes("duplicate")) {
       return new Response(JSON.stringify({ error: memErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // If membership already existed but had no specialty/registration, backfill it.
+    if (memErr && memErr.message.includes("duplicate") && (finalSpecialty || finalRegistration)) {
+      const updates: Record<string, string> = {};
+      if (finalSpecialty) updates.specialty = finalSpecialty;
+      if (finalRegistration) updates.registration_number = finalRegistration;
+      // Only fill in nulls, don't overwrite existing values.
+      const { data: existing } = await admin
+        .from("clinic_members")
+        .select("specialty, registration_number")
+        .eq("clinic_id", clinic.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const patch: Record<string, string> = {};
+      if (existing && !existing.specialty && updates.specialty) patch.specialty = updates.specialty;
+      if (existing && !existing.registration_number && updates.registration_number) {
+        patch.registration_number = updates.registration_number;
+      }
+      if (Object.keys(patch).length > 0) {
+        await admin
+          .from("clinic_members")
+          .update(patch)
+          .eq("clinic_id", clinic.id)
+          .eq("user_id", user.id);
+      }
     }
 
     await admin.from("user_roles").insert({ user_id: user.id, role: "dentist" }).select();
