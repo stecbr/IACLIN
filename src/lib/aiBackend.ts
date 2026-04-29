@@ -273,4 +273,14 @@ export const aiBackend = {
         body: JSON.stringify({ supabase_id: supabaseId }),
       },
     ),
+
+  /** 7. Atualiza config da Secretária IA (prompt + enabled) no backend externo */
+  updateAiConfig: (
+    clinicId: string,
+    payload: { custom_prompt: string; enabled: boolean },
+  ) =>
+    request<{ ok: boolean }>(`/api/data/ai_secretary_config/config-${clinicId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
 };

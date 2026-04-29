@@ -314,6 +314,15 @@ export default function SecretariaIA() {
       setPrompt(vars.custom_prompt);
       setSavedSections(sections);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
+      // Sincroniza com o backend externo da Secretária IA — fire-and-forget
+      if (currentClinicId && isAiBackendConfigured()) {
+        aiBackend
+          .updateAiConfig(currentClinicId, {
+            custom_prompt: vars.custom_prompt,
+            enabled: vars.enabled,
+          })
+          .catch(() => {});
+      }
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
   });
