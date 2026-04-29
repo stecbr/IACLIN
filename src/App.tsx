@@ -34,6 +34,7 @@ import ClinicaAprovacoes from "./pages/clinica/ClinicaAprovacoes";
 import ToolsHome from "./pages/dentist/ToolsHome";
 import PsiToolsHome from "./pages/psi/PsiToolsHome";
 import AestheticToolsHome from "./pages/aesthetic/AestheticToolsHome";
+import FamilyToolsHome from "./pages/family/FamilyToolsHome";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
@@ -166,6 +167,10 @@ const AppRoutes = () => (
     <Route path="/ferramentas" element={<ProtectedRoute><ToolsHome /></ProtectedRoute>} />
     <Route path="/psi/ferramentas" element={<ProtectedRoute><PsiToolsHome /></ProtectedRoute>} />
     <Route path="/estetica/ferramentas" element={<ProtectedRoute><AestheticToolsHome /></ProtectedRoute>} />
+    <Route path="/medico/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
+    <Route path="/nutricao/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
+    <Route path="/fisio/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
+    <Route path="/podologia/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
