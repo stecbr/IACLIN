@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, ArrowRight, Loader2, Search, Stethoscope, Heart, PawPrint, MoreHorizontal } from 'lucide-react';
+import { Building2, ArrowRight, Loader2, Search, Stethoscope, Heart, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,6 @@ const categories = [
   { value: 'odonto', label: 'Odontológico', icon: Heart, description: 'Clínica odontológica' },
   { value: 'medico', label: 'Médico', icon: Stethoscope, description: 'Clínica médica geral' },
   { value: 'estetica', label: 'Estética', icon: Heart, description: 'Estética e dermatologia' },
-  { value: 'veterinario', label: 'Veterinário', icon: PawPrint, description: 'Clínica veterinária' },
   { value: 'outro', label: 'Outro', icon: MoreHorizontal, description: 'Outro tipo de clínica' },
 ] as const;
 
