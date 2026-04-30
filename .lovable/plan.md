@@ -1,45 +1,37 @@
-## Objetivo
+# Resumo Executivo IACLIN — Material para Investidores
 
-Permitir que o admin/dono da clínica desvincule médicos/dentistas na tela `/clinica/medicos`, e garantir que, ao tentar acessar a plataforma sem vínculo, o profissional veja um aviso claro com a opção de inserir o código de vinculação ou contatar a clínica.
+Vou produzir **três artefatos** prontos para apresentação a investidores, todos com o mesmo conteúdo executivo, mas otimizados para diferentes contextos de uso:
 
-## Mudanças
+1. **PDF** (`/mnt/documents/IACLIN_Resumo_Executivo.pdf`) — para envio por e-mail e leitura.
+2. **PPTX** (`/mnt/documents/IACLIN_Resumo_Executivo.pptx`) — para pitch ao vivo.
+3. **DOCX** (`/mnt/documents/IACLIN_Resumo_Executivo.docx`) — versão editável.
 
-### 1. Botão "Desvincular" em `src/pages/clinica/ClinicaMedicos.tsx`
+## Conteúdo (mesmo em todos os formatos)
 
-- Adicionar coluna **"Ações"** na tabela de membros.
-- Para cada linha que **não seja o owner** (e não seja o próprio usuário logado), exibir um botão ícone `UserMinus` (variant ghost, vermelho).
-- Ao clicar, abrir um `AlertDialog` de confirmação:
-  - Título: "Desvincular profissional?"
-  - Descrição: "{nome} perderá o acesso à clínica imediatamente. Ele poderá ser vinculado novamente através do código da clínica."
-- Confirmação executa:
-  ```ts
-  await supabase.from('clinic_members').delete().eq('id', member.id);
-  ```
-  (RLS já permite: "Owners and admins can delete clinic members").
-- Mostrar `toast.success('Profissional desvinculado')` e invalidar a query `['clinica-medicos']`.
+Estrutura completa conforme solicitado:
 
-### 2. Aviso aprimorado em `src/pages/WaitingClinic.tsx`
+1. **Visão Geral** — IACLIN, plataforma SaaS de gestão clínica multiespecialidade; resolve fragmentação operacional, agenda, prontuário e gestão financeira; público: clínicas odontológicas, médicas, estéticas, psicologia, nutrição, fisioterapia e podologia; proposta de valor: plataforma única, inteligente e escalável.
+2. **O que já foi desenvolvido** — cadastro de clínicas otimizado, cadastro de profissionais (médicos e dentistas), sistema dinâmico de especialidades (60+ especialidades em 7 famílias), lógica adaptativa CRM/CRO/CRP/CRN/CREFITO, autenticação robusta com RBAC (Admin/Dentista/Secretária), interface responsiva (desktop + mobile com bottom nav iOS), separação clara entre ambiente da clínica e do profissional.
+3. **Evolução e melhorias** — refinamento da experiência do profissional, otimização de performance e fluidez, padronização do catálogo de especialidades, isolamento correto entre estado da clínica e do profissional, persistência confiável de dados.
+4. **Diferenciais** — interface Apple-like minimalista, arquitetura multi-tenant escalável, lógica inteligente por tipo de profissional, foco em usabilidade, base preparada para agenda, prontuário, financeiro, marketplace e IA.
+5. **Estágio atual** — MVP avançado, validado em testes internos, pronto para próximas implementações.
+6. **Próximos passos** — agenda inteligente com lembretes, prontuário eletrônico completo, gestão financeira, integrações (WhatsApp, pagamentos, operadoras de saúde).
+7. **Visão de crescimento** — escalabilidade multi-clínica, modelo SaaS recorrente, expansão multi-especialidade, marketplace B2C estilo Doctoralia.
 
-A rota `/aguardando-clinica` já existe e o `ProtectedRoute` em `App.tsx` já redireciona dentists/profissionais sem clínica para lá. Vamos apenas refinar o conteúdo visual:
+## Design
 
-- Adicionar um bloco `Alert` (variant destructive suave / amber) acima do formulário com o texto exato pedido:
+- **Paleta**: azul executivo (#1E2761 / #1C7293) com acento branco — transmite confiança e tecnologia em saúde.
+- **Tipografia**: Georgia para títulos + Calibri para corpo (PPTX/DOCX); fontes equivalentes no PDF (ReportLab).
+- **Slides PPTX (~12 slides)**: capa, visão geral, problema, o que já foi feito (com destaques visuais), evolução, diferenciais (cards), estágio atual, roadmap (timeline), visão de crescimento, encerramento.
+- **PDF (~4-5 páginas)**: capa elegante + seções com hierarquia visual clara.
+- **DOCX**: documento profissional editável, mesmas seções, US Letter, margens 1".
 
-  > **Você está sem vínculo com nenhuma clínica**
-  > No momento o acesso à plataforma não é permitido. Entre em contato com a sua clínica para solicitar um novo vínculo, ou informe abaixo o código de vinculação fornecido por ela.
+## Implementação técnica
 
-- Manter o input atual `CLIN-XXXXXXXX` + botão "Vincular à clínica" + botão "Sair".
-- Garantir que, quando um membro é removido enquanto está logado, ao recarregar/refazer fetch o `AuthContext` detecte `clinics.length === 0` e o `ProtectedRoute` redirecione para `/aguardando-clinica` automaticamente (já funciona).
+- PPTX: `pptxgenjs` (Node).
+- DOCX: biblioteca `docx` (Node).
+- PDF: `reportlab` (Python) com Platypus.
+- QA visual obrigatório: converto cada artefato em imagens (LibreOffice + pdftoppm) e inspeciono página/slide por página antes de entregar. Ajusto qualquer overflow, sobreposição ou contraste antes da entrega final.
+- Saída em `/mnt/documents/` com tags `<lov-artifact>` para download imediato.
 
-### 3. Detalhes técnicos
-
-- Reutilizar `AlertDialog` de `@/components/ui/alert-dialog`.
-- Ícone `UserMinus` de `lucide-react`.
-- Não mexer em RLS nem migrations — o delete em `clinic_members` já é permitido para owners/admins.
-- Não permitir desvincular o próprio owner (já filtrado); também esconder o botão para o usuário logado por segurança.
-
-## Arquivos afetados
-
-- `src/pages/clinica/ClinicaMedicos.tsx` — adiciona coluna Ações + dialog de confirmação + mutation de delete.
-- `src/pages/WaitingClinic.tsx` — adiciona Alert com a mensagem solicitada acima do formulário.
-
-Sem mudanças de banco de dados.
+Após aprovação, executo a geração e entrego os três arquivos prontos.
