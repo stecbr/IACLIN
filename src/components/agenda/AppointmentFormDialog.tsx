@@ -8,6 +8,16 @@ import { ptBR } from 'date-fns/locale';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -50,6 +60,10 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [returnDays, setReturnDays] = useState<number | null>(null);
   const [roomId, setRoomId] = useState('');
   const [sendConfirmation, setSendConfirmation] = useState(false);
+  const [replaceConfirm, setReplaceConfirm] = useState<null | {
+    existing: NonNullable<Awaited<ReturnType<typeof checkAppointmentConflicts>>['existing']>;
+    newStart: Date;
+  }>(null);
 
   const buildLocalDateTime = (dateValue: string, timeValue: string) => {
     const [year, month, day] = dateValue.split('-').map(Number);
@@ -142,29 +156,35 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     return slots;
   }, [dayAppointments, showFreeSlots, duration]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!patientId || !user) { toast.error('Selecione um paciente'); return; }
-    setLoading(true);
-    try {
-      const startDt = buildLocalDateTime(date, startTime);
-      const endDt = new Date(startDt.getTime() + duration * 60000);
+  const resetForm = () => {
+    setPatientId(''); setProcedureId(''); setNotes(''); setLabel('');
+    setReturnDays(null); setRoomId(''); setSendConfirmation(false);
+  };
 
-      // Validate conflicts before insert
-      const conflict = await checkAppointmentConflicts({
-        supabase,
-        patientId,
-        dentistId: user.id,
-        startTime: startDt,
-        endTime: endDt,
-      });
-      if (!conflict.ok) {
-        toast.error(conflict.message ?? 'Conflito de agendamento.');
-        setLoading(false);
-        return;
-      }
+  const performInsert = async (replaceExistingId?: string) => {
+    if (!user) return;
+    const startDt = buildLocalDateTime(date, startTime);
+    const endDt = new Date(startDt.getTime() + duration * 60000);
 
-      const { error } = await supabase.from('appointments').insert({
+    if (replaceExistingId) {
+      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', replaceExistingId);
+    }
+
+    // Re-check after potential cancellation (doctor overlap should still block)
+    const conflict = await checkAppointmentConflicts({
+      supabase,
+      patientId,
+      dentistId: user.id,
+      startTime: startDt,
+      endTime: endDt,
+      ignoreAppointmentId: replaceExistingId,
+    });
+    if (!conflict.ok) {
+      toast.error(conflict.message ?? 'Conflito de agendamento.');
+      return false;
+    }
+
+    const { error } = await supabase.from('appointments').insert({
         patient_id: patientId,
         dentist_id: user.id,
         procedure_id: procedureId || null,
@@ -176,26 +196,22 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         send_confirmation: sendConfirmation,
         clinic_id: currentClinicId ?? null,
       });
-      if (error) throw error;
+    if (error) throw error;
 
-      // If return scheduling, create the return appointment too
-      if (returnDays && returnDays > 0) {
-        const returnDate = addDays(startDt, returnDays);
-        const returnEnd = new Date(returnDate.getTime() + duration * 60000);
-        const returnConflict = await checkAppointmentConflicts({
-          supabase,
-          patientId,
-          dentistId: user.id,
-          startTime: returnDate,
-          endTime: returnEnd,
-        });
-        if (!returnConflict.ok) {
-          toast.warning(`Consulta agendada, mas o retorno não foi criado: ${returnConflict.message}`);
-          onSuccess();
-          onOpenChange(false);
-          setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null); setRoomId(''); setSendConfirmation(false);
-          return;
-        }
+    // Return appointment
+    if (returnDays && returnDays > 0) {
+      const returnDate = addDays(startDt, returnDays);
+      const returnEnd = new Date(returnDate.getTime() + duration * 60000);
+      const returnConflict = await checkAppointmentConflicts({
+        supabase,
+        patientId,
+        dentistId: user.id,
+        startTime: returnDate,
+        endTime: returnEnd,
+      });
+      if (!returnConflict.ok) {
+        toast.warning(`Consulta agendada, mas o retorno não foi criado: ${returnConflict.message}`);
+      } else {
         await supabase.from('appointments').insert({
           patient_id: patientId,
           dentist_id: user.id,
@@ -208,13 +224,64 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           clinic_id: currentClinicId ?? null,
         });
         toast.success(`Consulta agendada + retorno em ${returnDays} dias!`);
-      } else {
-        toast.success('Consulta agendada!');
+        return true;
+      }
+    }
+    toast.success(replaceExistingId ? 'Consulta reagendada!' : 'Consulta agendada!');
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patientId || !user) { toast.error('Selecione um paciente'); return; }
+    setLoading(true);
+    try {
+      const startDt = buildLocalDateTime(date, startTime);
+      const endDt = new Date(startDt.getTime() + duration * 60000);
+
+      const conflict = await checkAppointmentConflicts({
+        supabase,
+        patientId,
+        dentistId: user.id,
+        startTime: startDt,
+        endTime: endDt,
+      });
+
+      if (!conflict.ok) {
+        if (conflict.type === 'patient_overlap' && conflict.existing) {
+          setReplaceConfirm({ existing: conflict.existing, newStart: startDt });
+          setLoading(false);
+          return;
+        }
+        toast.error(conflict.message ?? 'Conflito de agendamento.');
+        setLoading(false);
+        return;
       }
 
-      onSuccess();
-      onOpenChange(false);
-      setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null); setRoomId(''); setSendConfirmation(false);
+      const ok = await performInsert();
+      if (ok) {
+        onSuccess();
+        onOpenChange(false);
+        resetForm();
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmReplace = async () => {
+    if (!replaceConfirm) return;
+    setLoading(true);
+    try {
+      const ok = await performInsert(replaceConfirm.existing.id);
+      if (ok) {
+        setReplaceConfirm(null);
+        onSuccess();
+        onOpenChange(false);
+        resetForm();
+      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -413,6 +480,30 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           </div>
         </form>
       </DialogContent>
+      <AlertDialog open={!!replaceConfirm} onOpenChange={(o) => !o && setReplaceConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Paciente já tem consulta nesse horário</AlertDialogTitle>
+            <AlertDialogDescription>
+              {replaceConfirm ? (
+                <>
+                  O paciente já tem consulta com <strong>Dr(a). {replaceConfirm.existing.dentistName}</strong>{' '}
+                  das <strong>{format(new Date(replaceConfirm.existing.startTime), 'HH:mm')}</strong> às{' '}
+                  <strong>{format(new Date(replaceConfirm.existing.endTime), 'HH:mm')}</strong>. Se continuar,
+                  a consulta anterior será <strong>cancelada</strong> e substituída pelo novo horário (
+                  <strong>{format(replaceConfirm.newStart, 'HH:mm')}</strong>).
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Manter atual</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReplace} disabled={loading}>
+              Sim, reagendar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

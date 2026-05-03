@@ -13,6 +13,16 @@ export interface ConflictCheckParams {
 export interface ConflictResult {
   ok: boolean;
   message?: string;
+  /** Type of conflict so UI can decide how to react */
+  type?: 'patient_overlap' | 'doctor_overlap';
+  /** Conflicting record (only set for patient_overlap so the UI can offer to replace it) */
+  existing?: {
+    id: string;
+    dentistId: string;
+    dentistName: string;
+    startTime: string;
+    endTime: string;
+  };
 }
 
 async function getDentistName(
@@ -60,7 +70,15 @@ export async function checkAppointmentConflicts({
       const name = await getDentistName(supabase, conflict.dentist_id);
       return {
         ok: false,
+        type: 'patient_overlap',
         message: `O paciente já tem consulta com Dr(a). ${name} das ${format(new Date(conflict.start_time), 'HH:mm')} às ${format(new Date(conflict.end_time), 'HH:mm')}.`,
+        existing: {
+          id: conflict.id,
+          dentistId: conflict.dentist_id,
+          dentistName: name,
+          startTime: conflict.start_time,
+          endTime: conflict.end_time,
+        },
       };
     }
   }
@@ -80,6 +98,7 @@ export async function checkAppointmentConflicts({
       const conflict = data[0];
       return {
         ok: false,
+        type: 'doctor_overlap',
         message: `Você já tem atendimento marcado das ${format(new Date(conflict.start_time), 'HH:mm')} às ${format(new Date(conflict.end_time), 'HH:mm')}.`,
       };
     }

@@ -4,6 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePatientData } from '@/hooks/usePatientData';
@@ -12,8 +22,20 @@ import { SpecialtyStep, type Specialty } from '@/components/patient/booking/Spec
 import { DateStep } from '@/components/patient/booking/DateStep';
 import { ClinicDoctorStep, type BookingSelection } from '@/components/patient/booking/ClinicDoctorStep';
 import { SummaryStep } from '@/components/patient/booking/SummaryStep';
+import { format } from 'date-fns';
 
 type Step = 1 | 2 | 3 | 4;
+
+type ConflictInfo = {
+  message: string;
+  existing: {
+    kind: 'appointment' | 'request';
+    id: string;
+    dentistName: string;
+    startTime: string;
+    endTime: string;
+  };
+};
 
 export default function PatientBooking() {
   const navigate = useNavigate();
@@ -26,8 +48,9 @@ export default function PatientBooking() {
   const [selection, setSelection] = useState<BookingSelection | null>(null);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [conflict, setConflict] = useState<ConflictInfo | null>(null);
 
-  const handleConfirm = async () => {
+  const submitBooking = async (replace?: { id: string; kind: 'appointment' | 'request' }) => {
     if (!selection || !specialty || !user) return;
     setSubmitting(true);
     try {
@@ -39,15 +62,48 @@ export default function PatientBooking() {
           startTime: selection.startTime.toISOString(),
           endTime: selection.endTime.toISOString(),
           notes: notes.trim() || null,
+          ...(replace ? { replaceExistingId: replace.id, replaceKind: replace.kind } : {}),
         },
       });
 
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      // Detect structured conflict (patient overlap) -> open confirmation dialog
+      const payload = (data as any) ?? null;
+      // supabase-js returns error for non-2xx; the body is in error.context.response
+      let conflictPayload: any = null;
+      if (error) {
+        const ctx: any = (error as any)?.context;
+        try {
+          if (ctx?.body) {
+            const parsed = typeof ctx.body === 'string' ? JSON.parse(ctx.body) : ctx.body;
+            if (parsed?.conflict) conflictPayload = parsed;
+          } else if (ctx?.response && typeof ctx.response.json === 'function') {
+            const parsed = await ctx.response.clone().json();
+            if (parsed?.conflict) conflictPayload = parsed;
+          }
+        } catch {
+          /* ignore */
+        }
+      } else if (payload?.conflict) {
+        conflictPayload = payload;
+      }
 
-      toast.success('Pedido enviado!', {
-        description: `A ${selection.clinicName} vai confirmar sua consulta de ${specialty.name} em breve.`,
+      if (conflictPayload && !replace) {
+        setConflict({
+          message: conflictPayload.message,
+          existing: conflictPayload.existing,
+        });
+        return;
+      }
+
+      if (error) throw error;
+      if (payload?.error) throw new Error(payload.error);
+
+      toast.success(replace ? 'Consulta reagendada!' : 'Pedido enviado!', {
+        description: replace
+          ? `Sua consulta anterior foi cancelada e o novo horário foi enviado para confirmação.`
+          : `A ${selection.clinicName} vai confirmar sua consulta de ${specialty.name} em breve.`,
       });
+      setConflict(null);
       refetch();
       navigate('/paciente/agendas');
     } catch (err: any) {
@@ -58,6 +114,13 @@ export default function PatientBooking() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleConfirm = () => submitBooking();
+
+  const handleConfirmReplace = () => {
+    if (!conflict) return;
+    submitBooking({ id: conflict.existing.id, kind: conflict.existing.kind });
   };
 
   const goBack = () => {
@@ -135,6 +198,36 @@ export default function PatientBooking() {
           )}
         </motion.div>
       </AnimatePresence>
+
+      <AlertDialog open={!!conflict} onOpenChange={(open) => !open && setConflict(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você já tem uma consulta nesse horário</AlertDialogTitle>
+            <AlertDialogDescription>
+              {conflict ? (
+                <>
+                  Sua consulta com <strong>Dr(a). {conflict.existing.dentistName}</strong> das{' '}
+                  <strong>{format(new Date(conflict.existing.startTime), 'HH:mm')}</strong> às{' '}
+                  <strong>{format(new Date(conflict.existing.endTime), 'HH:mm')}</strong> será{' '}
+                  <strong>cancelada</strong> e substituída pelo novo horário{' '}
+                  {selection && (
+                    <>
+                      (<strong>{format(selection.startTime, 'HH:mm')}</strong>)
+                    </>
+                  )}
+                  . Deseja continuar?
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Manter atual</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReplace} disabled={submitting}>
+              Sim, reagendar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

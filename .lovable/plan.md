@@ -1,74 +1,63 @@
-# Validação de Conflitos de Agendamento
+## Objetivo
 
-## Regras (revisadas)
+Quando o paciente tentar agendar um horário que conflita com outra consulta/pedido dele mesmo (mesmo médico ou outro), em vez de bloquear, mostrar um **diálogo de confirmação**:
 
-1. **Paciente** pode ter várias consultas no mesmo dia, **desde que**:
-   - não tenha outra consulta com o **mesmo médico** no mesmo dia, e
-   - não tenha outra consulta em **horário sobreposto** (com qualquer médico).
-2. **Médico** não pode ter outro atendimento sobreposto no mesmo horário.
-3. Mensagens de erro devem mencionar o **nome do médico** envolvido.
+> "Você já tem uma consulta com Dr(a). Joel às 08:30. Se continuar, esse agendamento será cancelado e substituído pelo novo horário (10:00). Deseja continuar?"
 
-Aplicar nos dois fluxos:
-- Equipe da clínica → `src/components/agenda/AppointmentFormDialog.tsx`
-- Paciente (auto-agendamento) → `supabase/functions/request-appointment/index.ts`
+Se confirmar → o agendamento antigo é cancelado e o novo é criado. Se não → mantém tudo como está.
 
----
+## Comportamento
 
-## 1. AppointmentFormDialog (clínica)
+1. Paciente seleciona horário e clica em "Confirmar".
+2. Frontend chama `request-appointment` normalmente.
+3. Edge function detecta conflito do **próprio paciente** e, em vez de retornar erro 409 genérico, retorna `409` com payload estruturado:
+   ```json
+   {
+     "conflict": true,
+     "type": "patient_overlap" | "patient_same_doctor",
+     "message": "Você já tem consulta com Dr(a). Joel às 08:30.",
+     "existing": { "kind": "appointment" | "request", "id": "...", "dentistName": "Joel", "startTime": "...", "endTime": "..." }
+   }
+   ```
+4. Frontend abre `AlertDialog`:
+   - Título: "Você já tem uma consulta nesse dia"
+   - Descrição: "Sua consulta com Dr(a). {nome} das {HH:mm} às {HH:mm} será **cancelada** e substituída por este novo horário ({nova HH:mm}). Deseja continuar?"
+   - Botões: "Cancelar" / "Sim, reagendar"
+5. Ao confirmar, chama `request-appointment` novamente passando `replaceExistingId` e `replaceKind` ('appointment' ou 'request').
+6. Edge function, com `replaceExistingId` válido (e pertencente ao mesmo `patient_user_id`):
+   - `appointment` → `UPDATE appointments SET status='cancelled'`
+   - `request` → `UPDATE appointment_requests SET status='cancelled'`
+   - Em seguida cria o novo `appointment_request` normalmente.
+7. Conflitos com **horário do médico** (não do paciente) continuam sendo bloqueio puro (409), pois o paciente não tem autoridade para cancelar agenda de outro paciente.
 
-Antes do `INSERT`, rodar 3 checagens (em `appointments`, status ≠ cancelled, sobre o intervalo `[startDt, endDt)`):
+## Arquivos afetados
 
-**a) Mesmo médico + mesmo paciente no mesmo dia**
-- Filtrar `patient_id = X`, `dentist_id = user.id`, `start_time` entre início e fim do dia.
-- Se houver: toast `"Este paciente já tem consulta com Dr(a). {nome} neste dia."`
+**`supabase/functions/request-appointment/index.ts`**
+- Reestruturar respostas de conflito do paciente para retornar `{ conflict: true, type, message, existing }`.
+- Aceitar campos opcionais `replaceExistingId` e `replaceKind` no body.
+- Quando recebidos: validar ownership (o registro pertence ao `userId`), cancelar o registro antigo (UPDATE status='cancelled'), e prosseguir com a checagem dos demais conflitos (médico, etc.) e a inserção.
+- Conflitos do médico permanecem como erro bloqueante.
 
-**b) Sobreposição de horário do paciente (qualquer médico)**
-- Filtrar `patient_id = X`, `start_time < endDt`, `end_time > startDt`.
-- Se houver: toast `"O paciente já tem consulta com Dr(a). {nome} das {HH:mm} às {HH:mm}."`
+**`src/pages/patient/PatientBooking.tsx`**
+- No `handleConfirm`, ao receber resposta com `conflict: true`, abrir um `AlertDialog` (estado `confirmReplace`) com a mensagem montada a partir de `existing`.
+- Ao confirmar, reinvocar `request-appointment` com `replaceExistingId` + `replaceKind`.
+- Mostrar toast de sucesso adaptado ("Sua consulta foi reagendada").
 
-**c) Sobreposição de horário do médico**
-- Filtrar `dentist_id = user.id`, `start_time < endDt`, `end_time > startDt`.
-- Se houver: toast `"Você já tem atendimento marcado das {HH:mm} às {HH:mm}."`
+**`src/components/agenda/AppointmentFormDialog.tsx`** (admin/manual booking)
+- Mesma lógica de confirmação: quando `checkAppointmentConflicts` detectar overlap **do próprio paciente**, abrir um `AlertDialog` perguntando se deseja substituir; se sim, cancelar o antigo e criar o novo.
+- Conflitos do dentista continuam bloqueantes.
 
-Resolver nome do médico via `profiles.full_name` (lookup por `dentist_id`).
-
-Aplicar a mesma validação ao **agendamento de retorno** (returnDays).
-
----
-
-## 2. Edge function `request-appointment` (paciente)
-
-Substituir a checagem atual (igualdade de `start_time`) por sobreposição e adicionar bloqueio por mesmo médico no mesmo dia.
-
-Usando `admin` client:
-
-**a) Sobreposição em `appointments` do dentista** → 409 `"Este horário não está mais disponível com Dr(a). {nome}."`
-
-**b) Sobreposição em `appointment_requests` (status pending|approved) do dentista** → 409 `"Já existe um pedido para um horário em conflito com Dr(a). {nome}."`
-
-**c) Mesmo médico + mesmo paciente no mesmo dia**
-- Buscar registro de `patients` do usuário (`patient_user_id = userId`) para obter `patient_id`s, então:
-  - `appointments`: `patient_id IN (...)`, `dentist_id = X`, dia = D, status ≠ cancelled.
-  - `appointment_requests`: `patient_user_id = userId`, `dentist_id = X`, dia = D, status IN (pending, approved).
-- Se houver: 409 `"Você já tem consulta agendada com Dr(a). {nome} neste dia."`
-
-**d) Sobreposição de horário do paciente com qualquer médico**
-- `appointments` do paciente no intervalo + `appointment_requests` (pending|approved) do paciente no intervalo.
-- Se houver: 409 `"Você já tem consulta com Dr(a). {nome} das {HH:mm} às {HH:mm}."`
-
-Nome do dentista via `profiles.full_name`.
-
----
+**`src/lib/appointmentConflicts.ts`**
+- Estender `ConflictResult` para incluir `type` e `existing` (id, dentistId, dentistName, startTime, endTime, kind) quando o conflito for do paciente — para que a UI possa montar o diálogo.
 
 ## Detalhes técnicos
 
-- Criar `src/lib/appointmentConflicts.ts` com helper `checkAppointmentConflicts({ supabase, patientId, dentistId, startTime, endTime })` retornando `{ ok, message? }`. Reutilizado no dialog (consulta principal e retorno).
-- Mensagens via `toast.error` (sonner).
-- Sem migrations nem mudanças de schema/UI.
-- Datas: usar limites de dia em horário local (já há helpers `startOfDay`/`endOfDay`).
+- A edge function lê `Authorization` e usa o cliente `supabaseUser` para garantir que o registro a cancelar pertence ao paciente (consulta com filtro `patient_user_id = userId` ou via `patients.patient_user_id`). Assim respeitamos RLS de "Patients can cancel own pending requests" e a policy de update de appointments do paciente.
+- O fluxo segue idempotente: se o `replaceExistingId` não existir mais ou já estiver cancelado, apenas ignora e prossegue.
+- Mensagens em pt-BR, formato `HH:mm` com `date-fns`/manual a partir de ISO.
+- Sem mudanças de schema — todo o trabalho é em código.
 
-## Arquivos modificados
+## Não incluso
 
-- `src/lib/appointmentConflicts.ts` (novo)
-- `src/components/agenda/AppointmentFormDialog.tsx` (validação no submit + retorno)
-- `supabase/functions/request-appointment/index.ts` (substituir checagens e adicionar regras)
+- Não altera a regra de "mesmo médico no mesmo dia" (já removida; agora vale sobreposição).
+- Não mexe em notificações; o trigger existente já notifica cancelamentos.
