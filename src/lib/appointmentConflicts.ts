@@ -1,4 +1,4 @@
-import { startOfDay, endOfDay, format } from 'date-fns';
+import { format } from 'date-fns';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface ConflictCheckParams {
@@ -41,33 +41,10 @@ export async function checkAppointmentConflicts({
   endTime,
   ignoreAppointmentId,
 }: ConflictCheckParams): Promise<ConflictResult> {
-  const dayStart = startOfDay(startTime).toISOString();
-  const dayEnd = endOfDay(startTime).toISOString();
   const startIso = startTime.toISOString();
   const endIso = endTime.toISOString();
 
-  // a) Same patient + same doctor on the same day
-  {
-    let q = supabase
-      .from('appointments')
-      .select('id, dentist_id')
-      .eq('patient_id', patientId)
-      .eq('dentist_id', dentistId)
-      .gte('start_time', dayStart)
-      .lte('start_time', dayEnd)
-      .neq('status', 'cancelled');
-    if (ignoreAppointmentId) q = q.neq('id', ignoreAppointmentId);
-    const { data } = await q.limit(1);
-    if (data && data.length > 0) {
-      const name = await getDentistName(supabase, dentistId);
-      return {
-        ok: false,
-        message: `Este paciente já tem consulta com Dr(a). ${name} neste dia.`,
-      };
-    }
-  }
-
-  // b) Patient time overlap (any doctor)
+  // a) Patient time overlap (any doctor)
   {
     let q = supabase
       .from('appointments')

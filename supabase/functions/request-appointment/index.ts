@@ -79,8 +79,6 @@ Deno.serve(async (req) => {
 
     const start = new Date(startTime);
     const end = new Date(endTime);
-    const dayStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0)).toISOString();
-    const dayEnd = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 23, 59, 59, 999)).toISOString();
 
     const json = (status: number, error: string) =>
       new Response(JSON.stringify({ error }), {
@@ -125,37 +123,7 @@ Deno.serve(async (req) => {
       .eq('patient_user_id', userId);
     const patientIds = (patientRows ?? []).map((p: any) => p.id);
 
-    // c) Same patient + same doctor on the same day
-    if (patientIds.length > 0) {
-      const { data } = await admin
-        .from('appointments')
-        .select('id')
-        .in('patient_id', patientIds)
-        .eq('dentist_id', dentistId)
-        .gte('start_time', dayStart)
-        .lte('start_time', dayEnd)
-        .neq('status', 'cancelled')
-        .limit(1);
-      if (data && data.length > 0) {
-        return json(409, `Você já tem consulta agendada com Dr(a). ${dentistName} neste dia.`);
-      }
-    }
-    {
-      const { data } = await admin
-        .from('appointment_requests')
-        .select('id')
-        .eq('patient_user_id', userId)
-        .eq('dentist_id', dentistId)
-        .gte('start_time', dayStart)
-        .lte('start_time', dayEnd)
-        .in('status', ['pending', 'approved'])
-        .limit(1);
-      if (data && data.length > 0) {
-        return json(409, `Você já tem um pedido com Dr(a). ${dentistName} neste dia.`);
-      }
-    }
-
-    // d) Patient time overlap (any doctor)
+    // c) Patient time overlap (any doctor)
     if (patientIds.length > 0) {
       const { data } = await admin
         .from('appointments')
