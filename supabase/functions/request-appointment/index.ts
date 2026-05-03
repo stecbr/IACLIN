@@ -5,6 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function fmtHM(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,7 +27,7 @@ Deno.serve(async (req) => {
     const supabaseUser = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     );
 
     const { data: userData, error: userErr } = await supabaseUser.auth.getUser();
@@ -46,10 +51,10 @@ Deno.serve(async (req) => {
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Load patient account
+    // Patient account
     const { data: account, error: accErr } = await admin
       .from('patient_accounts')
       .select('full_name, cpf, phone, date_of_birth, insurance_provider, insurance_number')
@@ -60,39 +65,128 @@ Deno.serve(async (req) => {
     if (!account) {
       return new Response(
         JSON.stringify({ error: 'Cadastro de paciente incompleto. Atualize seu perfil.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // Check slot availability — block if there's an approved appointment or pending/approved request
-    const { data: existingAppt } = await admin
-      .from('appointments')
-      .select('id')
-      .eq('dentist_id', dentistId)
-      .eq('start_time', startTime)
-      .neq('status', 'cancelled')
+    // Resolve dentist name (used in messages)
+    const { data: dentistProfile } = await admin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', dentistId)
       .maybeSingle();
+    const dentistName = (dentistProfile?.full_name as string) || 'profissional';
 
-    if (existingAppt) {
-      return new Response(
-        JSON.stringify({ error: 'Este horário acabou de ser ocupado. Escolha outro.' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const dayStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0)).toISOString();
+    const dayEnd = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 23, 59, 59, 999)).toISOString();
+
+    const json = (status: number, error: string) =>
+      new Response(JSON.stringify({ error }), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    // a) Doctor overlap in appointments
+    {
+      const { data } = await admin
+        .from('appointments')
+        .select('id')
+        .eq('dentist_id', dentistId)
+        .lt('start_time', end.toISOString())
+        .gt('end_time', start.toISOString())
+        .neq('status', 'cancelled')
+        .limit(1);
+      if (data && data.length > 0) {
+        return json(409, `Este horário não está mais disponível com Dr(a). ${dentistName}.`);
+      }
     }
 
-    const { data: existingReq } = await admin
-      .from('appointment_requests')
-      .select('id')
-      .eq('dentist_id', dentistId)
-      .eq('start_time', startTime)
-      .in('status', ['pending', 'approved'])
-      .maybeSingle();
+    // b) Doctor overlap in pending/approved requests
+    {
+      const { data } = await admin
+        .from('appointment_requests')
+        .select('id')
+        .eq('dentist_id', dentistId)
+        .lt('start_time', end.toISOString())
+        .gt('end_time', start.toISOString())
+        .in('status', ['pending', 'approved'])
+        .limit(1);
+      if (data && data.length > 0) {
+        return json(409, `Já existe um pedido em conflito com Dr(a). ${dentistName} neste horário.`);
+      }
+    }
 
-    if (existingReq) {
-      return new Response(
-        JSON.stringify({ error: 'Já existe um pedido para este horário.' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Resolve patient_id rows linked to this user (via patient_user_id)
+    const { data: patientRows } = await admin
+      .from('patients')
+      .select('id')
+      .eq('patient_user_id', userId);
+    const patientIds = (patientRows ?? []).map((p: any) => p.id);
+
+    // c) Same patient + same doctor on the same day
+    if (patientIds.length > 0) {
+      const { data } = await admin
+        .from('appointments')
+        .select('id')
+        .in('patient_id', patientIds)
+        .eq('dentist_id', dentistId)
+        .gte('start_time', dayStart)
+        .lte('start_time', dayEnd)
+        .neq('status', 'cancelled')
+        .limit(1);
+      if (data && data.length > 0) {
+        return json(409, `Você já tem consulta agendada com Dr(a). ${dentistName} neste dia.`);
+      }
+    }
+    {
+      const { data } = await admin
+        .from('appointment_requests')
+        .select('id')
+        .eq('patient_user_id', userId)
+        .eq('dentist_id', dentistId)
+        .gte('start_time', dayStart)
+        .lte('start_time', dayEnd)
+        .in('status', ['pending', 'approved'])
+        .limit(1);
+      if (data && data.length > 0) {
+        return json(409, `Você já tem um pedido com Dr(a). ${dentistName} neste dia.`);
+      }
+    }
+
+    // d) Patient time overlap (any doctor)
+    if (patientIds.length > 0) {
+      const { data } = await admin
+        .from('appointments')
+        .select('id, dentist_id, start_time, end_time')
+        .in('patient_id', patientIds)
+        .lt('start_time', end.toISOString())
+        .gt('end_time', start.toISOString())
+        .neq('status', 'cancelled')
+        .limit(1);
+      if (data && data.length > 0) {
+        const c = data[0] as any;
+        const { data: dp } = await admin.from('profiles').select('full_name').eq('id', c.dentist_id).maybeSingle();
+        const name = (dp?.full_name as string) || 'outro profissional';
+        return json(409, `Você já tem consulta com Dr(a). ${name} das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`);
+      }
+    }
+    {
+      const { data } = await admin
+        .from('appointment_requests')
+        .select('id, dentist_id, start_time, end_time')
+        .eq('patient_user_id', userId)
+        .lt('start_time', end.toISOString())
+        .gt('end_time', start.toISOString())
+        .in('status', ['pending', 'approved'])
+        .limit(1);
+      if (data && data.length > 0) {
+        const c = data[0] as any;
+        const { data: dp } = await admin.from('profiles').select('full_name').eq('id', c.dentist_id).maybeSingle();
+        const name = (dp?.full_name as string) || 'outro profissional';
+        return json(409, `Você já tem um pedido com Dr(a). ${name} das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`);
+      }
     }
 
     const { data: created, error: insErr } = await admin
@@ -120,7 +214,7 @@ Deno.serve(async (req) => {
     console.error('[request-appointment] error', err);
     return new Response(
       JSON.stringify({ error: (err as Error).message ?? 'Erro inesperado' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });

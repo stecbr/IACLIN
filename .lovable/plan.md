@@ -1,37 +1,74 @@
-# Resumo Executivo IACLIN — Material para Investidores
+# Validação de Conflitos de Agendamento
 
-Vou produzir **três artefatos** prontos para apresentação a investidores, todos com o mesmo conteúdo executivo, mas otimizados para diferentes contextos de uso:
+## Regras (revisadas)
 
-1. **PDF** (`/mnt/documents/IACLIN_Resumo_Executivo.pdf`) — para envio por e-mail e leitura.
-2. **PPTX** (`/mnt/documents/IACLIN_Resumo_Executivo.pptx`) — para pitch ao vivo.
-3. **DOCX** (`/mnt/documents/IACLIN_Resumo_Executivo.docx`) — versão editável.
+1. **Paciente** pode ter várias consultas no mesmo dia, **desde que**:
+   - não tenha outra consulta com o **mesmo médico** no mesmo dia, e
+   - não tenha outra consulta em **horário sobreposto** (com qualquer médico).
+2. **Médico** não pode ter outro atendimento sobreposto no mesmo horário.
+3. Mensagens de erro devem mencionar o **nome do médico** envolvido.
 
-## Conteúdo (mesmo em todos os formatos)
+Aplicar nos dois fluxos:
+- Equipe da clínica → `src/components/agenda/AppointmentFormDialog.tsx`
+- Paciente (auto-agendamento) → `supabase/functions/request-appointment/index.ts`
 
-Estrutura completa conforme solicitado:
+---
 
-1. **Visão Geral** — IACLIN, plataforma SaaS de gestão clínica multiespecialidade; resolve fragmentação operacional, agenda, prontuário e gestão financeira; público: clínicas odontológicas, médicas, estéticas, psicologia, nutrição, fisioterapia e podologia; proposta de valor: plataforma única, inteligente e escalável.
-2. **O que já foi desenvolvido** — cadastro de clínicas otimizado, cadastro de profissionais (médicos e dentistas), sistema dinâmico de especialidades (60+ especialidades em 7 famílias), lógica adaptativa CRM/CRO/CRP/CRN/CREFITO, autenticação robusta com RBAC (Admin/Dentista/Secretária), interface responsiva (desktop + mobile com bottom nav iOS), separação clara entre ambiente da clínica e do profissional.
-3. **Evolução e melhorias** — refinamento da experiência do profissional, otimização de performance e fluidez, padronização do catálogo de especialidades, isolamento correto entre estado da clínica e do profissional, persistência confiável de dados.
-4. **Diferenciais** — interface Apple-like minimalista, arquitetura multi-tenant escalável, lógica inteligente por tipo de profissional, foco em usabilidade, base preparada para agenda, prontuário, financeiro, marketplace e IA.
-5. **Estágio atual** — MVP avançado, validado em testes internos, pronto para próximas implementações.
-6. **Próximos passos** — agenda inteligente com lembretes, prontuário eletrônico completo, gestão financeira, integrações (WhatsApp, pagamentos, operadoras de saúde).
-7. **Visão de crescimento** — escalabilidade multi-clínica, modelo SaaS recorrente, expansão multi-especialidade, marketplace B2C estilo Doctoralia.
+## 1. AppointmentFormDialog (clínica)
 
-## Design
+Antes do `INSERT`, rodar 3 checagens (em `appointments`, status ≠ cancelled, sobre o intervalo `[startDt, endDt)`):
 
-- **Paleta**: azul executivo (#1E2761 / #1C7293) com acento branco — transmite confiança e tecnologia em saúde.
-- **Tipografia**: Georgia para títulos + Calibri para corpo (PPTX/DOCX); fontes equivalentes no PDF (ReportLab).
-- **Slides PPTX (~12 slides)**: capa, visão geral, problema, o que já foi feito (com destaques visuais), evolução, diferenciais (cards), estágio atual, roadmap (timeline), visão de crescimento, encerramento.
-- **PDF (~4-5 páginas)**: capa elegante + seções com hierarquia visual clara.
-- **DOCX**: documento profissional editável, mesmas seções, US Letter, margens 1".
+**a) Mesmo médico + mesmo paciente no mesmo dia**
+- Filtrar `patient_id = X`, `dentist_id = user.id`, `start_time` entre início e fim do dia.
+- Se houver: toast `"Este paciente já tem consulta com Dr(a). {nome} neste dia."`
 
-## Implementação técnica
+**b) Sobreposição de horário do paciente (qualquer médico)**
+- Filtrar `patient_id = X`, `start_time < endDt`, `end_time > startDt`.
+- Se houver: toast `"O paciente já tem consulta com Dr(a). {nome} das {HH:mm} às {HH:mm}."`
 
-- PPTX: `pptxgenjs` (Node).
-- DOCX: biblioteca `docx` (Node).
-- PDF: `reportlab` (Python) com Platypus.
-- QA visual obrigatório: converto cada artefato em imagens (LibreOffice + pdftoppm) e inspeciono página/slide por página antes de entregar. Ajusto qualquer overflow, sobreposição ou contraste antes da entrega final.
-- Saída em `/mnt/documents/` com tags `<lov-artifact>` para download imediato.
+**c) Sobreposição de horário do médico**
+- Filtrar `dentist_id = user.id`, `start_time < endDt`, `end_time > startDt`.
+- Se houver: toast `"Você já tem atendimento marcado das {HH:mm} às {HH:mm}."`
 
-Após aprovação, executo a geração e entrego os três arquivos prontos.
+Resolver nome do médico via `profiles.full_name` (lookup por `dentist_id`).
+
+Aplicar a mesma validação ao **agendamento de retorno** (returnDays).
+
+---
+
+## 2. Edge function `request-appointment` (paciente)
+
+Substituir a checagem atual (igualdade de `start_time`) por sobreposição e adicionar bloqueio por mesmo médico no mesmo dia.
+
+Usando `admin` client:
+
+**a) Sobreposição em `appointments` do dentista** → 409 `"Este horário não está mais disponível com Dr(a). {nome}."`
+
+**b) Sobreposição em `appointment_requests` (status pending|approved) do dentista** → 409 `"Já existe um pedido para um horário em conflito com Dr(a). {nome}."`
+
+**c) Mesmo médico + mesmo paciente no mesmo dia**
+- Buscar registro de `patients` do usuário (`patient_user_id = userId`) para obter `patient_id`s, então:
+  - `appointments`: `patient_id IN (...)`, `dentist_id = X`, dia = D, status ≠ cancelled.
+  - `appointment_requests`: `patient_user_id = userId`, `dentist_id = X`, dia = D, status IN (pending, approved).
+- Se houver: 409 `"Você já tem consulta agendada com Dr(a). {nome} neste dia."`
+
+**d) Sobreposição de horário do paciente com qualquer médico**
+- `appointments` do paciente no intervalo + `appointment_requests` (pending|approved) do paciente no intervalo.
+- Se houver: 409 `"Você já tem consulta com Dr(a). {nome} das {HH:mm} às {HH:mm}."`
+
+Nome do dentista via `profiles.full_name`.
+
+---
+
+## Detalhes técnicos
+
+- Criar `src/lib/appointmentConflicts.ts` com helper `checkAppointmentConflicts({ supabase, patientId, dentistId, startTime, endTime })` retornando `{ ok, message? }`. Reutilizado no dialog (consulta principal e retorno).
+- Mensagens via `toast.error` (sonner).
+- Sem migrations nem mudanças de schema/UI.
+- Datas: usar limites de dia em horário local (já há helpers `startOfDay`/`endOfDay`).
+
+## Arquivos modificados
+
+- `src/lib/appointmentConflicts.ts` (novo)
+- `src/components/agenda/AppointmentFormDialog.tsx` (validação no submit + retorno)
+- `supabase/functions/request-appointment/index.ts` (substituir checagens e adicionar regras)

@@ -18,6 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Clock, Search, CalendarPlus, MessageCircle, Armchair } from 'lucide-react';
+import { checkAppointmentConflicts } from '@/lib/appointmentConflicts';
 
 interface Props {
   open: boolean;
@@ -149,6 +150,20 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       const startDt = buildLocalDateTime(date, startTime);
       const endDt = new Date(startDt.getTime() + duration * 60000);
 
+      // Validate conflicts before insert
+      const conflict = await checkAppointmentConflicts({
+        supabase,
+        patientId,
+        dentistId: user.id,
+        startTime: startDt,
+        endTime: endDt,
+      });
+      if (!conflict.ok) {
+        toast.error(conflict.message ?? 'Conflito de agendamento.');
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.from('appointments').insert({
         patient_id: patientId,
         dentist_id: user.id,
@@ -167,6 +182,20 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       if (returnDays && returnDays > 0) {
         const returnDate = addDays(startDt, returnDays);
         const returnEnd = new Date(returnDate.getTime() + duration * 60000);
+        const returnConflict = await checkAppointmentConflicts({
+          supabase,
+          patientId,
+          dentistId: user.id,
+          startTime: returnDate,
+          endTime: returnEnd,
+        });
+        if (!returnConflict.ok) {
+          toast.warning(`Consulta agendada, mas o retorno não foi criado: ${returnConflict.message}`);
+          onSuccess();
+          onOpenChange(false);
+          setPatientId(''); setProcedureId(''); setNotes(''); setLabel(''); setReturnDays(null); setRoomId(''); setSendConfirmation(false);
+          return;
+        }
         await supabase.from('appointments').insert({
           patient_id: patientId,
           dentist_id: user.id,
