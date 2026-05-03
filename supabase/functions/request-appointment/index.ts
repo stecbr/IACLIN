@@ -40,7 +40,16 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     const body = await req.json();
-    const { clinicId, dentistId, specialty, startTime, endTime, notes } = body ?? {};
+    const {
+      clinicId,
+      dentistId,
+      specialty,
+      startTime,
+      endTime,
+      notes,
+      replaceExistingId,
+      replaceKind,
+    } = body ?? {};
 
     if (!clinicId || !dentistId || !startTime || !endTime) {
       return new Response(JSON.stringify({ error: 'Dados incompletos' }), {
@@ -86,6 +95,55 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
+    const conflictJson = (payload: {
+      type: 'patient_overlap_appointment' | 'patient_overlap_request';
+      message: string;
+      existing: {
+        kind: 'appointment' | 'request';
+        id: string;
+        dentistId: string;
+        dentistName: string;
+        startTime: string;
+        endTime: string;
+      };
+    }) =>
+      new Response(JSON.stringify({ conflict: true, ...payload }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    // If client confirmed a replacement, cancel the old record first (with ownership check).
+    if (replaceExistingId && (replaceKind === 'appointment' || replaceKind === 'request')) {
+      if (replaceKind === 'appointment') {
+        // Validate the appointment belongs to a patient row owned by this user
+        const { data: appt } = await admin
+          .from('appointments')
+          .select('id, patient_id')
+          .eq('id', replaceExistingId)
+          .maybeSingle();
+        if (appt) {
+          const { data: pat } = await admin
+            .from('patients')
+            .select('id')
+            .eq('id', appt.patient_id)
+            .eq('patient_user_id', userId)
+            .maybeSingle();
+          if (pat) {
+            await admin
+              .from('appointments')
+              .update({ status: 'cancelled' })
+              .eq('id', replaceExistingId);
+          }
+        }
+      } else {
+        await admin
+          .from('appointment_requests')
+          .update({ status: 'cancelled' })
+          .eq('id', replaceExistingId)
+          .eq('patient_user_id', userId);
+      }
+    }
+
     // a) Doctor overlap in appointments
     {
       const { data } = await admin
@@ -95,6 +153,7 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .neq('status', 'cancelled')
+        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
         .limit(1);
       if (data && data.length > 0) {
         return json(409, `Este horário não está mais disponível com Dr(a). ${dentistName}.`);
@@ -110,6 +169,7 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .in('status', ['pending', 'approved'])
+        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
         .limit(1);
       if (data && data.length > 0) {
         return json(409, `Já existe um pedido em conflito com Dr(a). ${dentistName} neste horário.`);
@@ -123,7 +183,7 @@ Deno.serve(async (req) => {
       .eq('patient_user_id', userId);
     const patientIds = (patientRows ?? []).map((p: any) => p.id);
 
-    // c) Patient time overlap (any doctor)
+    // c) Patient time overlap (any doctor) — return structured conflict so UI can offer reschedule
     if (patientIds.length > 0) {
       const { data } = await admin
         .from('appointments')
@@ -132,12 +192,24 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .neq('status', 'cancelled')
+        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
         .limit(1);
       if (data && data.length > 0) {
         const c = data[0] as any;
         const { data: dp } = await admin.from('profiles').select('full_name').eq('id', c.dentist_id).maybeSingle();
         const name = (dp?.full_name as string) || 'outro profissional';
-        return json(409, `Você já tem consulta com Dr(a). ${name} das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`);
+        return conflictJson({
+          type: 'patient_overlap_appointment',
+          message: `Você já tem consulta com Dr(a). ${name} das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`,
+          existing: {
+            kind: 'appointment',
+            id: c.id,
+            dentistId: c.dentist_id,
+            dentistName: name,
+            startTime: c.start_time,
+            endTime: c.end_time,
+          },
+        });
       }
     }
     {
@@ -148,12 +220,24 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .in('status', ['pending', 'approved'])
+        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
         .limit(1);
       if (data && data.length > 0) {
         const c = data[0] as any;
         const { data: dp } = await admin.from('profiles').select('full_name').eq('id', c.dentist_id).maybeSingle();
         const name = (dp?.full_name as string) || 'outro profissional';
-        return json(409, `Você já tem um pedido com Dr(a). ${name} das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`);
+        return conflictJson({
+          type: 'patient_overlap_request',
+          message: `Você já tem um pedido com Dr(a). ${name} das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`,
+          existing: {
+            kind: 'request',
+            id: c.id,
+            dentistId: c.dentist_id,
+            dentistName: name,
+            startTime: c.start_time,
+            endTime: c.end_time,
+          },
+        });
       }
     }
 
