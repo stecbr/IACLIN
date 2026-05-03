@@ -1,4 +1,4 @@
-import { startOfDay, endOfDay, format } from 'date-fns';
+import { format } from 'date-fns';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface ConflictCheckParams {
