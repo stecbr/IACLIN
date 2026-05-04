@@ -34,7 +34,7 @@ function localDayUtcRange(iso: string | Date): { startUtc: string; endUtc: strin
   const ymd = localDateKey(iso);
   // Sao_Paulo is UTC-3 year-round (no DST).
   const startUtc = new Date(`${ymd}T00:00:00-03:00`).toISOString();
-  const endUtc = new Date(`${ymd}T24:00:00-03:00`).toISOString();
+  const endUtc = new Date(new Date(`${ymd}T00:00:00-03:00`).getTime() + 24 * 60 * 60 * 1000).toISOString();
   return { startUtc, endUtc };
 }
 
