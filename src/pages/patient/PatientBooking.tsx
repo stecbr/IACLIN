@@ -66,23 +66,23 @@ export default function PatientBooking() {
         },
       });
 
-      // Detect structured conflict (patient overlap) -> open confirmation dialog
+      // Detect structured conflict (patient overlap) -> open confirmation dialog.
+      // supabase.functions.invoke returns FunctionsHttpError whose `context` is a Response on non-2xx.
       const payload = (data as any) ?? null;
-      // supabase-js returns error for non-2xx; the body is in error.context.response
       let conflictPayload: any = null;
+      let parsedError: any = null;
       if (error) {
         const ctx: any = (error as any)?.context;
         try {
-          if (ctx?.body) {
-            const parsed = typeof ctx.body === 'string' ? JSON.parse(ctx.body) : ctx.body;
-            if (parsed?.conflict) conflictPayload = parsed;
-          } else if (ctx?.response && typeof ctx.response.json === 'function') {
-            const parsed = await ctx.response.clone().json();
-            if (parsed?.conflict) conflictPayload = parsed;
+          if (ctx && typeof ctx.clone === 'function') {
+            parsedError = await ctx.clone().json();
+          } else if (ctx?.body) {
+            parsedError = typeof ctx.body === 'string' ? JSON.parse(ctx.body) : ctx.body;
           }
         } catch {
-          /* ignore */
+          /* ignore parse errors */
         }
+        if (parsedError?.conflict) conflictPayload = parsedError;
       } else if (payload?.conflict) {
         conflictPayload = payload;
       }
@@ -95,7 +95,9 @@ export default function PatientBooking() {
         return;
       }
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(parsedError?.error ?? (error as any).message ?? 'Erro ao agendar');
+      }
       if (payload?.error) throw new Error(payload.error);
 
       toast.success(replace ? 'Consulta reagendada!' : 'Pedido enviado!', {
