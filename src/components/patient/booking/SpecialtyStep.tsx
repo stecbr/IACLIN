@@ -41,7 +41,6 @@ export const SPECIALTIES: Specialty[] = [
 
   // C
   { id: 'cardiologia', name: 'Cardiologia', icon: Heart, category: 'medico' },
-  // (cardiologia já está marcada como popular abaixo via override, mantida apenas uma vez)
   { id: 'cirurgia-bucomaxilofacial', name: 'Cirurgia Bucomaxilofacial', icon: Scissors, category: 'odonto' },
   { id: 'cirurgia-cardiaca', name: 'Cirurgia Cardíaca / Hemodinâmica', icon: Heart, category: 'medico' },
   { id: 'cirurgia-cardiovascular', name: 'Cirurgia Cardiovascular', icon: Heart, category: 'medico' },
