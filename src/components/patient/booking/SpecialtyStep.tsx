@@ -40,7 +40,7 @@ export const SPECIALTIES: Specialty[] = [
   { id: 'avaliacao-risco-cirurgico', name: 'Avaliação de Risco Cirúrgico', icon: ClipboardCheck, category: 'medico' },
 
   // C
-  { id: 'cardiologia', name: 'Cardiologia', icon: Heart, category: 'medico' },
+  { id: 'cardiologia', name: 'Cardiologia', icon: Heart, category: 'medico', popular: true },
   { id: 'cirurgia-bucomaxilofacial', name: 'Cirurgia Bucomaxilofacial', icon: Scissors, category: 'odonto' },
   { id: 'cirurgia-cardiaca', name: 'Cirurgia Cardíaca / Hemodinâmica', icon: Heart, category: 'medico' },
   { id: 'cirurgia-cardiovascular', name: 'Cirurgia Cardiovascular', icon: Heart, category: 'medico' },
@@ -54,7 +54,7 @@ export const SPECIALTIES: Specialty[] = [
   { id: 'cirurgia-vascular-periferica', name: 'Cirurgia Vascular Periférica', icon: Activity, category: 'medico' },
 
   // D
-  { id: 'dermatologia', name: 'Dermatologia Clínica e Cirúrgica', icon: Hand, category: 'medico' },
+  { id: 'dermatologia', name: 'Dermatologia Clínica e Cirúrgica', icon: Hand, category: 'medico', popular: true },
   { id: 'dor-cabeca', name: 'Dor de Cabeça (Cefaleia)', icon: Brain, category: 'medico' },
   { id: 'dor-costas', name: 'Dor nas Costas (Lombalgia)', icon: PersonStanding, category: 'medico' },
   { id: 'dor-estomago', name: 'Dor no Estômago (Refluxo)', icon: Flame, category: 'medico' },
@@ -118,7 +118,7 @@ export const SPECIALTIES: Specialty[] = [
   { id: 'urologia', name: 'Urologia', icon: Droplet, category: 'medico' },
 
   // Extras (kept from previous list — useful for medical clinics)
-  { id: 'pediatra', name: 'Pediatra', icon: Baby, category: 'medico' },
+  { id: 'pediatra', name: 'Pediatra', icon: Baby, category: 'medico', popular: true },
   { id: 'ginecologista', name: 'Ginecologista', icon: Flower2, category: 'medico' },
   { id: 'estetica', name: 'Estética', icon: Sparkles, category: 'estetica' },
 ];
