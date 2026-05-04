@@ -7,7 +7,35 @@ const corsHeaders = {
 
 function fmtHM(iso: string) {
   const d = new Date(iso);
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  // Format in America/Sao_Paulo so the message matches what the user sees.
+  const fmt = new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Sao_Paulo',
+  });
+  return fmt.format(d);
+}
+
+/** Returns the local YYYY-MM-DD for an ISO timestamp in America/Sao_Paulo */
+function localDateKey(iso: string | Date): string {
+  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
+  return fmt.format(d); // en-CA gives YYYY-MM-DD
+}
+
+/** UTC range covering the local Sao_Paulo day for a given timestamp. */
+function localDayUtcRange(iso: string | Date): { startUtc: string; endUtc: string } {
+  const ymd = localDateKey(iso);
+  // Sao_Paulo is UTC-3 year-round (no DST).
+  const startUtc = new Date(`${ymd}T00:00:00-03:00`).toISOString();
+  const endUtc = new Date(`${ymd}T24:00:00-03:00`).toISOString();
+  return { startUtc, endUtc };
 }
 
 Deno.serve(async (req) => {
@@ -144,7 +172,73 @@ Deno.serve(async (req) => {
       }
     }
 
-    // a) Doctor overlap in appointments
+    // Resolve patient_id rows linked to this user (via patient_user_id)
+    const { data: patientRows } = await admin
+      .from('patients')
+      .select('id')
+      .eq('patient_user_id', userId);
+    const patientIds = (patientRows ?? []).map((p: any) => p.id);
+
+    const { startUtc: dayStartUtc, endUtc: dayEndUtc } = localDayUtcRange(start);
+    const replaceGuard = replaceExistingId ?? '00000000-0000-0000-0000-000000000000';
+
+    // 1) Same patient + same doctor on the same local day -> structured conflict (offer replace)
+    if (patientIds.length > 0) {
+      const { data } = await admin
+        .from('appointments')
+        .select('id, dentist_id, start_time, end_time')
+        .in('patient_id', patientIds)
+        .eq('dentist_id', dentistId)
+        .gte('start_time', dayStartUtc)
+        .lt('start_time', dayEndUtc)
+        .neq('status', 'cancelled')
+        .neq('id', replaceGuard)
+        .limit(1);
+      if (data && data.length > 0) {
+        const c = data[0] as any;
+        return conflictJson({
+          type: 'patient_overlap_appointment',
+          message: `Você já tem consulta com Dr(a). ${dentistName} neste dia, das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`,
+          existing: {
+            kind: 'appointment',
+            id: c.id,
+            dentistId: c.dentist_id,
+            dentistName,
+            startTime: c.start_time,
+            endTime: c.end_time,
+          },
+        });
+      }
+    }
+    {
+      const { data } = await admin
+        .from('appointment_requests')
+        .select('id, dentist_id, start_time, end_time')
+        .eq('patient_user_id', userId)
+        .eq('dentist_id', dentistId)
+        .gte('start_time', dayStartUtc)
+        .lt('start_time', dayEndUtc)
+        .in('status', ['pending', 'approved'])
+        .neq('id', replaceGuard)
+        .limit(1);
+      if (data && data.length > 0) {
+        const c = data[0] as any;
+        return conflictJson({
+          type: 'patient_overlap_request',
+          message: `Você já tem um pedido com Dr(a). ${dentistName} neste dia, das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`,
+          existing: {
+            kind: 'request',
+            id: c.id,
+            dentistId: c.dentist_id,
+            dentistName,
+            startTime: c.start_time,
+            endTime: c.end_time,
+          },
+        });
+      }
+    }
+
+    // 2) Doctor overlap in appointments (other patient)
     {
       const { data } = await admin
         .from('appointments')
@@ -153,14 +247,14 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .neq('status', 'cancelled')
-        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
+        .neq('id', replaceGuard)
         .limit(1);
       if (data && data.length > 0) {
         return json(409, `Este horário não está mais disponível com Dr(a). ${dentistName}.`);
       }
     }
 
-    // b) Doctor overlap in pending/approved requests
+    // 3) Doctor overlap in pending/approved requests (other patient)
     {
       const { data } = await admin
         .from('appointment_requests')
@@ -169,21 +263,14 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .in('status', ['pending', 'approved'])
-        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
+        .neq('id', replaceGuard)
         .limit(1);
       if (data && data.length > 0) {
         return json(409, `Já existe um pedido em conflito com Dr(a). ${dentistName} neste horário.`);
       }
     }
 
-    // Resolve patient_id rows linked to this user (via patient_user_id)
-    const { data: patientRows } = await admin
-      .from('patients')
-      .select('id')
-      .eq('patient_user_id', userId);
-    const patientIds = (patientRows ?? []).map((p: any) => p.id);
-
-    // c) Patient time overlap (any doctor) — return structured conflict so UI can offer reschedule
+    // 4) Patient time overlap with ANOTHER doctor at the same time -> structured conflict
     if (patientIds.length > 0) {
       const { data } = await admin
         .from('appointments')
@@ -192,7 +279,7 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .neq('status', 'cancelled')
-        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
+        .neq('id', replaceGuard)
         .limit(1);
       if (data && data.length > 0) {
         const c = data[0] as any;
@@ -220,7 +307,7 @@ Deno.serve(async (req) => {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString())
         .in('status', ['pending', 'approved'])
-        .neq('id', replaceExistingId ?? '00000000-0000-0000-0000-000000000000')
+        .neq('id', replaceGuard)
         .limit(1);
       if (data && data.length > 0) {
         const c = data[0] as any;

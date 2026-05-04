@@ -1,63 +1,44 @@
-## Objetivo
+Entendi o problema: hoje o sistema só está detectando conflito quando o horário sobrepõe exatamente a outra consulta/pedido. Por isso o paciente consegue marcar com o mesmo médico no mesmo dia em horários diferentes, por exemplo 08:00, 10:00 e 11:00. Também confirmei no banco que existem múltiplas consultas/pedidos do mesmo paciente com o mesmo profissional no mesmo dia.
 
-Quando o paciente tentar agendar um horário que conflita com outra consulta/pedido dele mesmo (mesmo médico ou outro), em vez de bloquear, mostrar um **diálogo de confirmação**:
+Plano de correção:
 
-> "Você já tem uma consulta com Dr(a). Joel às 08:30. Se continuar, esse agendamento será cancelado e substituído pelo novo horário (10:00). Deseja continuar?"
+1. Ajustar a regra central da função de agendamento do paciente
+   - Em `supabase/functions/request-appointment/index.ts`, antes de criar um novo pedido, validar:
+     - Se o paciente já tem consulta aprovada/agendada com o mesmo médico no mesmo dia.
+     - Se o paciente já tem pedido pendente/aprovado com o mesmo médico no mesmo dia.
+   - Essa validação deve usar o dia local da consulta, no fuso `America/Sao_Paulo`, para não depender de UTC.
+   - Quando encontrar esse caso, a função deve retornar `409` estruturado com os dados da consulta/pedido existente, para abrir o aviso de reagendamento em vez de simplesmente bloquear.
 
-Se confirmar → o agendamento antigo é cancelado e o novo é criado. Se não → mantém tudo como está.
+2. Manter bloqueios realmente duros para agenda do médico
+   - Se outro paciente já ocupa exatamente aquele horário com o médico, continua bloqueado.
+   - Se já existe pedido pendente/aprovado de outro paciente naquele horário com o médico, continua bloqueado.
+   - Se for o mesmo paciente e mesmo médico no mesmo dia, vira aviso de substituição/reagendamento.
 
-## Comportamento
+3. Corrigir a ordem das validações
+   - Hoje a função checa ocupação do médico antes de checar se é o próprio paciente tentando remarcar. Isso pode transformar um caso de reagendamento em erro duro.
+   - Vou priorizar a checagem de conflito do próprio paciente primeiro, retornando o aviso correto.
+   - Depois, se o paciente confirmar a troca, a função cancela o registro antigo e cria o novo pedido.
 
-1. Paciente seleciona horário e clica em "Confirmar".
-2. Frontend chama `request-appointment` normalmente.
-3. Edge function detecta conflito do **próprio paciente** e, em vez de retornar erro 409 genérico, retorna `409` com payload estruturado:
-   ```json
-   {
-     "conflict": true,
-     "type": "patient_overlap" | "patient_same_doctor",
-     "message": "Você já tem consulta com Dr(a). Joel às 08:30.",
-     "existing": { "kind": "appointment" | "request", "id": "...", "dentistName": "Joel", "startTime": "...", "endTime": "..." }
-   }
-   ```
-4. Frontend abre `AlertDialog`:
-   - Título: "Você já tem uma consulta nesse dia"
-   - Descrição: "Sua consulta com Dr(a). {nome} das {HH:mm} às {HH:mm} será **cancelada** e substituída por este novo horário ({nova HH:mm}). Deseja continuar?"
-   - Botões: "Cancelar" / "Sim, reagendar"
-5. Ao confirmar, chama `request-appointment` novamente passando `replaceExistingId` e `replaceKind` ('appointment' ou 'request').
-6. Edge function, com `replaceExistingId` válido (e pertencente ao mesmo `patient_user_id`):
-   - `appointment` → `UPDATE appointments SET status='cancelled'`
-   - `request` → `UPDATE appointment_requests SET status='cancelled'`
-   - Em seguida cria o novo `appointment_request` normalmente.
-7. Conflitos com **horário do médico** (não do paciente) continuam sendo bloqueio puro (409), pois o paciente não tem autoridade para cancelar agenda de outro paciente.
+4. Atualizar a lógica compartilhada da agenda interna
+   - Em `src/lib/appointmentConflicts.ts`, mudar a regra para também detectar “mesmo paciente + mesmo médico + mesmo dia”, não apenas sobreposição de horário.
+   - Isso garante consistência quando a clínica/secretária agenda manualmente.
 
-## Arquivos afetados
+5. Ajustar a tela de escolha de horários do paciente
+   - Em `src/components/patient/booking/ClinicDoctorStep.tsx`, não deixar o horário bloqueado só por pedido recusado.
+   - Continuar bloqueando horários ocupados por consultas agendadas e pedidos pendentes/aprovados de outros pacientes.
+   - Para pedidos/consultas do próprio paciente com o mesmo médico no mesmo dia, permitir selecionar outro horário, porque essa seleção vai cair no aviso de reagendamento.
 
-**`supabase/functions/request-appointment/index.ts`**
-- Reestruturar respostas de conflito do paciente para retornar `{ conflict: true, type, message, existing }`.
-- Aceitar campos opcionais `replaceExistingId` e `replaceKind` no body.
-- Quando recebidos: validar ownership (o registro pertence ao `userId`), cancelar o registro antigo (UPDATE status='cancelled'), e prosseguir com a checagem dos demais conflitos (médico, etc.) e a inserção.
-- Conflitos do médico permanecem como erro bloqueante.
+6. Ajustar o texto do aviso
+   - Em `src/pages/patient/PatientBooking.tsx`, trocar o título genérico “Você já tem uma consulta nesse horário” por algo que cubra o caso correto:
+     - “Você já tem consulta com este profissional neste dia”
+   - O corpo do aviso informará que a consulta/pedido atual será cancelado/substituído se o paciente continuar.
 
-**`src/pages/patient/PatientBooking.tsx`**
-- No `handleConfirm`, ao receber resposta com `conflict: true`, abrir um `AlertDialog` (estado `confirmReplace`) com a mensagem montada a partir de `existing`.
-- Ao confirmar, reinvocar `request-appointment` com `replaceExistingId` + `replaceKind`.
-- Mostrar toast de sucesso adaptado ("Sua consulta foi reagendada").
+7. Revalidar a função publicada
+   - Depois das mudanças, redeploy da função `request-appointment`.
+   - Validar nos dados atuais que, para o paciente Flavio com Dr. Marcio no dia 08/05, uma nova tentativa com outro horário retorna conflito estruturado em vez de sucesso direto.
 
-**`src/components/agenda/AppointmentFormDialog.tsx`** (admin/manual booking)
-- Mesma lógica de confirmação: quando `checkAppointmentConflicts` detectar overlap **do próprio paciente**, abrir um `AlertDialog` perguntando se deseja substituir; se sim, cancelar o antigo e criar o novo.
-- Conflitos do dentista continuam bloqueantes.
-
-**`src/lib/appointmentConflicts.ts`**
-- Estender `ConflictResult` para incluir `type` e `existing` (id, dentistId, dentistName, startTime, endTime, kind) quando o conflito for do paciente — para que a UI possa montar o diálogo.
-
-## Detalhes técnicos
-
-- A edge function lê `Authorization` e usa o cliente `supabaseUser` para garantir que o registro a cancelar pertence ao paciente (consulta com filtro `patient_user_id = userId` ou via `patients.patient_user_id`). Assim respeitamos RLS de "Patients can cancel own pending requests" e a policy de update de appointments do paciente.
-- O fluxo segue idempotente: se o `replaceExistingId` não existir mais ou já estiver cancelado, apenas ignora e prossegue.
-- Mensagens em pt-BR, formato `HH:mm` com `date-fns`/manual a partir de ISO.
-- Sem mudanças de schema — todo o trabalho é em código.
-
-## Não incluso
-
-- Não altera a regra de "mesmo médico no mesmo dia" (já removida; agora vale sobreposição).
-- Não mexe em notificações; o trigger existente já notifica cancelamentos.
+Resultado esperado:
+- Paciente pode ter consultas no mesmo dia com médicos diferentes, desde que não seja no mesmo horário.
+- Paciente não pode marcar duas consultas/pedidos com o mesmo médico no mesmo dia sem aviso.
+- Ao escolher outro horário com o mesmo médico no mesmo dia, aparece confirmação: a consulta/pedido anterior será perdido/cancelado e substituído pelo novo pedido.
+- Horário recusado pela clínica deixa de ficar bloqueado para nova escolha.
