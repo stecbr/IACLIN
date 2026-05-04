@@ -127,7 +127,7 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
       const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
 
-      const [{ data: profs }, { data: clinicsData }, { data: appts }] = await Promise.all([
+      const [{ data: profs }, { data: clinicsData }, { data: appts }, { data: reqs }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, avatar_url').in('id', activeUserIds),
         supabase.from('clinics').select('id, name, address, city').in('id', activeClinicIds),
         supabase
@@ -137,6 +137,13 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
           .gte('start_time', dayStart.toISOString())
           .lte('start_time', dayEnd.toISOString())
           .neq('status', 'cancelled'),
+        supabase
+          .from('appointment_requests')
+          .select('dentist_id, start_time, status, clinic_id')
+          .in('clinic_id', activeClinicIds)
+          .gte('start_time', dayStart.toISOString())
+          .lte('start_time', dayEnd.toISOString())
+          .in('status', ['pending', 'approved']),
       ]);
 
       const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
@@ -170,10 +177,14 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
         });
       }
 
-      // Booked slots per clinic
+      // Booked slots per clinic (confirmed appointments + pending/approved requests)
       for (const a of (appts ?? []) as any[]) {
         const entry = byClinic.get(a.clinic_id);
         if (entry) entry.bookedSlots.add(`${a.dentist_id}|${a.start_time}`);
+      }
+      for (const r of (reqs ?? []) as any[]) {
+        const entry = byClinic.get(r.clinic_id);
+        if (entry) entry.bookedSlots.add(`${r.dentist_id}|${r.start_time}`);
       }
 
       const result = Array.from(byClinic.values());
