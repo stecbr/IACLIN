@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 import {
@@ -81,6 +82,8 @@ export default function Auth() {
   const [responsibleName, setResponsibleName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
+  const [cnpjFetched, setCnpjFetched] = useState(false);
+  const [cnpjHint, setCnpjHint] = useState<string | null>(null);
 
   // Load invite when token is in URL
   useEffect(() => {
@@ -125,13 +128,14 @@ export default function Auth() {
     })();
   }, [inviteToken]);
 
-  const fetchCnpjData = async () => {
+  const fetchCnpjData = async (silent = false) => {
     const digits = cnpj.replace(/\D/g, '');
     if (digits.length !== 14) {
-      toast.error('CNPJ deve ter 14 dígitos');
+      if (!silent) setCnpjHint('Informe os 14 dígitos do CNPJ.');
       return;
     }
     setFetchingCnpj(true);
+    setCnpjHint(null);
     try {
       const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
       if (!res.ok) throw new Error('CNPJ não encontrado');
@@ -142,11 +146,34 @@ export default function Auth() {
       if (data.ddd_telefone_1 && !phone) {
         setPhone(`(${data.ddd_telefone_1.slice(0, 2)}) ${data.ddd_telefone_1.slice(2)}`);
       }
-      toast.success('Dados preenchidos automaticamente!');
+      setCnpjFetched(true);
+      setCnpjHint(null);
     } catch {
-      toast.error('Não foi possível buscar o CNPJ.');
+      setCnpjHint('Não conseguimos preencher automaticamente. Você pode digitar os dados manualmente.');
     } finally {
       setFetchingCnpj(false);
+    }
+  };
+
+  // Auto-fetch when CNPJ reaches 14 digits (debounced)
+  useEffect(() => {
+    const digits = cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      setCnpjFetched(false);
+      return;
+    }
+    const t = setTimeout(() => { fetchCnpjData(true); }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cnpj]);
+
+  const handleGoogleSignIn = async () => {
+    const result = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      toast('Não foi possível iniciar o login com Google. Tente novamente.');
+      return;
     }
   };
 
@@ -251,8 +278,9 @@ export default function Auth() {
         }
 
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
-        // If joining via invite token, mark user as a member-only signup (no auto-admin/clinic)
-        const isJoiningExistingClinic = !!inviteToken || userType === 'profissional';
+        // Only treat as "joining a clinic" when there is an actual invite token.
+        // Without an invite, a professional becomes the owner of their own clinic.
+        const isJoiningExistingClinic = !!inviteToken;
         const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
@@ -285,7 +313,7 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast.success('Conta criada! Verifique seu e-mail para confirmar.');
+        toast.success('Conta criada com sucesso. Redirecionando…');
 
         // After signup: if joining via invite, link the membership
         if (signUpData.session) {
@@ -307,7 +335,19 @@ export default function Auth() {
         }
       }
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = String(error?.message ?? '');
+      if (/already registered|user already exists|already_exists/i.test(msg)) {
+        toast('Este e-mail já tem cadastro. Tente fazer login.', {
+          action: {
+            label: 'Ir para o login',
+            onClick: () => { setIsLogin(true); setUserType(null); setProfSubType(null); },
+          },
+        });
+      } else if (/invalid login credentials/i.test(msg)) {
+        toast('E-mail ou senha incorretos.');
+      } else {
+        toast(msg || 'Algo deu errado. Tente novamente.');
+      }
     } finally {
       setSubmitting(false);
     }
