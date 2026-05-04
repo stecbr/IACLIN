@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Building2, LogOut, Loader2 } from 'lucide-react';
+import { Building2, LogOut, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,8 +19,29 @@ export default function WaitingClinic() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creatingOwn, setCreatingOwn] = useState(false);
 
   const valid = CODE_REGEX.test(code.trim());
+
+  const handleCreateOwnClinic = async () => {
+    setCreatingOwn(true);
+    setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('create-own-clinic', { body: {} });
+      if (fnErr || (data && data.error)) {
+        const msg = (data && data.error) || fnErr?.message || 'Não foi possível criar seu consultório.';
+        setError(msg);
+        toast(msg);
+        return;
+      }
+      toast.success('Consultório criado! Carregando seu painel…');
+      setTimeout(() => window.location.assign('/'), 600);
+    } catch (err: any) {
+      setError(err?.message || 'Erro inesperado');
+    } finally {
+      setCreatingOwn(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,15 +93,29 @@ export default function WaitingClinic() {
           </p>
         </div>
 
-        <Alert className="mb-5 border-amber-500/40 bg-amber-500/5 text-foreground">
+        <Alert className="mb-5 border-border bg-muted/40 text-foreground">
           <AlertTitle className="text-sm font-semibold">
-            Você está sem vínculo com nenhuma clínica
+            Você ainda não está em nenhuma clínica
           </AlertTitle>
           <AlertDescription className="text-xs text-muted-foreground mt-1">
-            No momento o acesso à plataforma não é permitido. Entre em contato com a sua clínica para
-            solicitar um novo vínculo, ou informe abaixo o código de vinculação fornecido por ela.
+            Você pode criar seu próprio consultório agora ou inserir um código de uma clínica que vai te receber.
           </AlertDescription>
         </Alert>
+
+        <Button
+          type="button"
+          className="w-full h-10 mb-4"
+          onClick={handleCreateOwnClinic}
+          disabled={creatingOwn}
+        >
+          {creatingOwn ? <Loader2 className="h-4 w-4 animate-spin" /> : (<><Plus className="h-4 w-4 mr-1.5" /> Criar meu consultório agora</>)}
+        </Button>
+
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">ou tenho um código</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -93,14 +128,14 @@ export default function WaitingClinic() {
                 setCode(e.target.value.toUpperCase());
               }}
               placeholder="CLIN-XXXXXXXX"
-              className={`h-10 font-mono tracking-wider ${error ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+              className={`h-10 font-mono tracking-wider ${error ? 'border-muted-foreground/40' : ''}`}
               autoFocus
               maxLength={13}
             />
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && <p className="text-xs text-muted-foreground">{error}</p>}
           </div>
 
-          <Button type="submit" className="w-full h-10" disabled={!valid || loading}>
+          <Button type="submit" variant="outline" className="w-full h-10" disabled={!valid || loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Vincular à clínica'}
           </Button>
         </form>

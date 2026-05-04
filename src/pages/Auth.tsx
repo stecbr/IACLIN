@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 import {
@@ -81,6 +82,8 @@ export default function Auth() {
   const [responsibleName, setResponsibleName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
+  const [cnpjFetched, setCnpjFetched] = useState(false);
+  const [cnpjHint, setCnpjHint] = useState<string | null>(null);
 
   // Load invite when token is in URL
   useEffect(() => {
@@ -125,13 +128,14 @@ export default function Auth() {
     })();
   }, [inviteToken]);
 
-  const fetchCnpjData = async () => {
+  const fetchCnpjData = async (silent = false) => {
     const digits = cnpj.replace(/\D/g, '');
     if (digits.length !== 14) {
-      toast.error('CNPJ deve ter 14 dígitos');
+      if (!silent) setCnpjHint('Informe os 14 dígitos do CNPJ.');
       return;
     }
     setFetchingCnpj(true);
+    setCnpjHint(null);
     try {
       const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
       if (!res.ok) throw new Error('CNPJ não encontrado');
@@ -142,11 +146,34 @@ export default function Auth() {
       if (data.ddd_telefone_1 && !phone) {
         setPhone(`(${data.ddd_telefone_1.slice(0, 2)}) ${data.ddd_telefone_1.slice(2)}`);
       }
-      toast.success('Dados preenchidos automaticamente!');
+      setCnpjFetched(true);
+      setCnpjHint(null);
     } catch {
-      toast.error('Não foi possível buscar o CNPJ.');
+      setCnpjHint('Não conseguimos preencher automaticamente. Você pode digitar os dados manualmente.');
     } finally {
       setFetchingCnpj(false);
+    }
+  };
+
+  // Auto-fetch when CNPJ reaches 14 digits (debounced)
+  useEffect(() => {
+    const digits = cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) {
+      setCnpjFetched(false);
+      return;
+    }
+    const t = setTimeout(() => { fetchCnpjData(true); }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cnpj]);
+
+  const handleGoogleSignIn = async () => {
+    const result = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      toast('Não foi possível iniciar o login com Google. Tente novamente.');
+      return;
     }
   };
 
@@ -251,8 +278,9 @@ export default function Auth() {
         }
 
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
-        // If joining via invite token, mark user as a member-only signup (no auto-admin/clinic)
-        const isJoiningExistingClinic = !!inviteToken || userType === 'profissional';
+        // Only treat as "joining a clinic" when there is an actual invite token.
+        // Without an invite, a professional becomes the owner of their own clinic.
+        const isJoiningExistingClinic = !!inviteToken;
         const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
@@ -285,7 +313,7 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast.success('Conta criada! Verifique seu e-mail para confirmar.');
+        toast.success('Conta criada com sucesso. Redirecionando…');
 
         // After signup: if joining via invite, link the membership
         if (signUpData.session) {
@@ -307,7 +335,19 @@ export default function Auth() {
         }
       }
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = String(error?.message ?? '');
+      if (/already registered|user already exists|already_exists/i.test(msg)) {
+        toast('Este e-mail já tem cadastro. Tente fazer login.', {
+          action: {
+            label: 'Ir para o login',
+            onClick: () => { setIsLogin(true); setUserType(null); setProfSubType(null); },
+          },
+        });
+      } else if (/invalid login credentials/i.test(msg)) {
+        toast('E-mail ou senha incorretos.');
+      } else {
+        toast(msg || 'Algo deu errado. Tente novamente.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -412,6 +452,21 @@ export default function Auth() {
                 </motion.div>
               </form>
 
+              <div className="my-4 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">ou</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <Button type="button" variant="outline" className="w-full h-10" onClick={handleGoogleSignIn}>
+                <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.83z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38z"/>
+                </svg>
+                Continuar com Google
+              </Button>
+
               <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
                 <button type="button" onClick={() => { setIsLogin(false); setUserType(null); setProfSubType(null); }} className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   Não tem conta? Cadastre-se
@@ -426,6 +481,21 @@ export default function Auth() {
               <div className="text-center mb-6">
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Crie sua conta</h1>
                 <p className="mt-1 text-sm text-muted-foreground">Como você vai usar o IACLIN?</p>
+              </div>
+
+              <Button type="button" variant="outline" className="w-full h-10 mb-4" onClick={handleGoogleSignIn}>
+                <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.83z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38z"/>
+                </svg>
+                Continuar com Google
+              </Button>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">ou escolha um perfil</span>
+                <div className="h-px flex-1 bg-border" />
               </div>
 
               <motion.div className="space-y-3" variants={stagger} initial="initial" animate="animate">
@@ -564,10 +634,13 @@ export default function Auth() {
                           id="cnpj" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))}
                           placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric" autoFocus
                         />
-                        <Button type="button" variant="outline" size="icon" onClick={fetchCnpjData} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
-                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        <Button type="button" variant="outline" size="icon" onClick={() => fetchCnpjData(false)} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
+                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : cnpjFetched ? <Check className="h-4 w-4 text-muted-foreground" /> : <Search className="h-4 w-4" />}
                         </Button>
                       </div>
+                      {cnpjHint && (
+                        <p className="text-[11px] text-muted-foreground">{cnpjHint}</p>
+                      )}
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
                       <Label htmlFor="legal-name">Razão Social</Label>
