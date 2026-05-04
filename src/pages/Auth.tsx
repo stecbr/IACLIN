@@ -604,10 +604,13 @@ export default function Auth() {
                           id="cnpj" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))}
                           placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric" autoFocus
                         />
-                        <Button type="button" variant="outline" size="icon" onClick={fetchCnpjData} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
-                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        <Button type="button" variant="outline" size="icon" onClick={() => fetchCnpjData(false)} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
+                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : cnpjFetched ? <Check className="h-4 w-4 text-muted-foreground" /> : <Search className="h-4 w-4" />}
                         </Button>
                       </div>
+                      {cnpjHint && (
+                        <p className="text-[11px] text-muted-foreground">{cnpjHint}</p>
+                      )}
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
                       <Label htmlFor="legal-name">Razão Social</Label>
