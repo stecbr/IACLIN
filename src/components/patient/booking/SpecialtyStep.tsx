@@ -27,9 +27,9 @@ export const SPECIALTIES: Specialty[] = [
   // Popular shortcuts
   { id: 'clinico-geral', name: 'Clínico Geral', icon: Stethoscope, category: 'medico', popular: true },
   { id: 'dentista', name: 'Dentista', icon: Smile, category: 'odonto', popular: true },
-  { id: 'limpeza-dental', name: 'Limpeza Dental', icon: Sparkles, category: 'odonto', popular: true },
-  { id: 'renovacao-receitas', name: 'Renovação de Receitas', icon: Pill, category: 'medico', popular: true },
-  { id: 'avaliacao', name: 'Avaliação', icon: FileText, category: 'medico', popular: true },
+  { id: 'cardiologia-pop', name: 'Cardiologia', icon: Heart, category: 'medico', popular: true },
+  { id: 'pediatra-pop', name: 'Pediatra', icon: Baby, category: 'medico', popular: true },
+  { id: 'dermatologia-pop', name: 'Dermatologia', icon: Hand, category: 'medico', popular: true },
 
   // A
   { id: 'acupuntura', name: 'Acupuntura', icon: Sparkle, category: 'medico' },
