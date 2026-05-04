@@ -1,63 +1,63 @@
-## Problema
+# Teste E2E Final — Sprint 1
 
-Quando uma consulta é cancelada (pelo paciente, secretaria ou médico), o horário **deveria voltar a ficar livre**, mas continua bloqueado em alguns casos.
+Objetivo: validar, sem intervenção manual, todo o fluxo de agendamento paciente↔clínica antes de fechar a Sprint 1.
 
-### Diagnóstico
+## Estratégia
 
-A grade de horários em `ClinicDoctorStep.tsx` calcula slots ocupados juntando duas fontes:
+Como o fluxo cruza UI do paciente, UI da clínica e regras de negócio no Edge Function `request-appointment` + triggers SQL, a validação será feita em duas camadas combinadas:
 
-1. `appointments` com `status != 'cancelled'` ✅ (cancelamento libera o slot)
-2. `appointment_requests` com `status IN ('pending','approved')` ⚠️
+1. **Camada de regras** (rápida, determinística): chamadas diretas ao edge function `request-appointment` via `supabase--curl_edge_functions` + leituras com `supabase--read_query` para confirmar estado das tabelas após cada passo.
+2. **Camada de UI** (smoke): navegação no preview com browser tools para confirmar que o grid de horários, notificações e telas de aprovação refletem o estado correto.
 
-**A falha está no caso 2**: quando um pedido é **aprovado**, ele gera uma `appointment` (status `scheduled`) e o `appointment_request` permanece com status `approved` apontando para ela (`appointment_id`).
+Os testes usam um paciente e uma clínica reais já existentes no banco (identificados por consulta antes de começar). Nenhum dado é deletado — apenas marcado como `cancelled` ao final, exatamente como em produção.
 
-Se depois alguém cancela a consulta:
-- `appointments.status` vira `cancelled` ✅
-- mas `appointment_requests.status` continua `approved` ❌
+## Cenários a validar
 
-Resultado: o slot permanece marcado como ocupado pelo `appointment_request` aprovado, mesmo a consulta tendo sido cancelada. O mesmo acontece quando o paciente cancela seu próprio pedido aprovado pelo `PatientAppointments` — só o `appointment_requests` é atualizado, não a `appointments` (e vice-versa).
-
-Há também um detalhe: a query da grade não filtra por `end_time > dayStart`, mas isso não afeta o caso atual (todos slots são pelo `start_time` do dia).
-
-## Solução
-
-### 1. Trigger no banco para sincronizar cancelamentos (raiz do problema)
-
-Criar um trigger em `appointments` que, ao mudar status para `cancelled`, atualiza o `appointment_requests` vinculado para `cancelled` também. E vice-versa: ao cancelar um `appointment_request` aprovado, cancelar a `appointment` correspondente.
-
-```sql
--- Quando a appointment é cancelada, cancela o request vinculado
-CREATE FUNCTION sync_request_on_appointment_cancel() ...
-  IF NEW.status = 'cancelled' AND OLD.status <> 'cancelled' THEN
-    UPDATE appointment_requests
-      SET status = 'cancelled'
-      WHERE appointment_id = NEW.id
-        AND status IN ('pending','approved');
-  END IF;
-
--- Quando o request aprovado é cancelado, cancela a appointment
-CREATE FUNCTION sync_appointment_on_request_cancel() ...
-  IF NEW.status = 'cancelled' AND OLD.status = 'approved' AND NEW.appointment_id IS NOT NULL THEN
-    UPDATE appointments
-      SET status = 'cancelled'
-      WHERE id = NEW.appointment_id AND status <> 'cancelled';
-  END IF;
+```text
+1. Solicitação            paciente cria request    -> appointment_requests.status = pending
+2. Recusa                 clínica recusa           -> request.status = rejected
+                                                    grid libera o slot
+3. Conflito mesmo dia     paciente tenta de novo   -> 409 patient_overlap (após aprovação no passo 4)
+4. Aprovação              clínica aprova           -> appointment criado, request.status = approved
+5. Cancel pelo paciente   paciente cancela request -> trigger cancela appointment automaticamente
+6. Cancel pela clínica    clínica cancela appt     -> trigger cancela request automaticamente
+7. Liberação de slot      após cada cancel/recusa  -> horário some das ocupações no grid
 ```
 
-Isso garante que **qualquer caminho de cancelamento** (paciente em `PatientAppointments`, secretaria/médico em `AppointmentDetailDialog`, edge function `request-appointment` ao substituir, ou edge function de rejeição) libere o slot consistentemente.
+## Passos do agente (em build mode)
 
-### 2. Endurecer a grade do paciente
+### Setup
+- `read_query`: localizar 1 clínica ativa, 1 dentista membro dessa clínica, 1 paciente com `patient_user_id` preenchido. Capturar IDs.
+- `read_query`: escolher uma data futura (D+2) e 3 horários distintos (08:00, 09:00, 10:00 BRT) que estejam livres para o dentista escolhido.
 
-Em `src/components/patient/booking/ClinicDoctorStep.tsx`, na query de `appointment_requests`, manter o filtro `IN ('pending','approved')` (já está correto) — após o trigger, requests vinculados a appointments canceladas estarão com status `cancelled` e serão automaticamente excluídos.
+### Execução dos cenários
+Para cada cenário, usar `supabase--curl_edge_functions` quando partir do paciente (chama `request-appointment`) e `read_query` + insert tool para simular ações da clínica/triggers (UPDATE em `appointment_requests`/`appointments`).
 
-### 3. Validação
+Após cada passo:
+- `read_query` em `appointment_requests` e `appointments` filtrando pelos IDs gerados.
+- Asserção: status esperado bate com observado.
+- Para "liberação de slot": rodar a mesma query usada por `ClinicDoctorStep` (requests `pending`/`approved` + appointments não-cancelados) e confirmar que o horário não aparece.
 
-Após aplicar:
-- Cancelar uma consulta agendada na agenda da clínica → o slot some da grade pública.
-- Paciente cancelar seu pedido em "Minhas consultas" → consulta aprovada também é cancelada e libera o slot.
-- Reagendamento via fluxo de "Substituir" continua funcionando (já cancela o registro antigo manualmente, e o trigger é idempotente).
+### Validação de UI (smoke)
+- `browser--navigate_to_sandbox` em `/paciente/agendar` logado como paciente de teste — confirmar que slot recusado/cancelado volta a aparecer disponível.
+- `browser--navigate_to_sandbox` em `/clinica/aprovacoes` — confirmar que pedido pendente aparece e que ações refletem.
 
-## Arquivos afetados
+### Cleanup
+- Cancelar todos os registros criados pelo teste (`status = cancelled`) para não poluir a agenda real.
 
-- **Migração SQL nova**: criar 2 triggers (`appointments` AFTER UPDATE, `appointment_requests` AFTER UPDATE).
-- Nenhuma alteração necessária no front, edge functions, ou RLS — a lógica de cancelamento existente passa a ser "completa" automaticamente.
+## Entregável
+
+Um relatório no chat com tabela:
+
+| # | Cenário | Esperado | Observado | Status |
+
+Mais qualquer bug encontrado e a correção aplicada (se houver).
+
+## Detalhes técnicos
+
+- Edge function alvo: `supabase/functions/request-appointment/index.ts` (já valida `patient_overlap_appointment`, `patient_overlap_request`, conflito de doutor).
+- Triggers já existentes: `sync_request_on_appointment_cancel`, `sync_appointment_on_request_cancel` — testados pelos passos 5 e 6.
+- Sem alterações de schema. Sem alterações de código a menos que o teste revele bug.
+- Auth token do paciente para `curl_edge_functions`: aproveitar sessão do preview se o paciente de teste estiver logado; caso contrário, executar via `service_role` simulando a chamada com header de Authorization válido (impersonating via JWT do usuário paciente lido do `auth.users` — se não viável, faço signup/login programático de um paciente dedicado de teste).
+
+Aprove para eu executar o teste.
