@@ -204,20 +204,19 @@ export default function PatientBooking() {
       <AlertDialog open={!!conflict} onOpenChange={(open) => !open && setConflict(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Você já tem uma consulta nesse horário</AlertDialogTitle>
+            <AlertDialogTitle>Você já tem consulta com este profissional</AlertDialogTitle>
             <AlertDialogDescription>
               {conflict ? (
                 <>
-                  Sua consulta com <strong>Dr(a). {conflict.existing.dentistName}</strong> das{' '}
-                  <strong>{format(new Date(conflict.existing.startTime), 'HH:mm')}</strong> às{' '}
-                  <strong>{format(new Date(conflict.existing.endTime), 'HH:mm')}</strong> será{' '}
-                  <strong>cancelada</strong> e substituída pelo novo horário{' '}
+                  Sua consulta/pedido com <strong>Dr(a). {conflict.existing.dentistName}</strong> em{' '}
+                  <strong>{format(new Date(conflict.existing.startTime), "dd/MM 'às' HH:mm")}</strong>{' '}
+                  será <strong>cancelada</strong> e substituída pelo novo horário{' '}
                   {selection && (
                     <>
                       (<strong>{format(selection.startTime, 'HH:mm')}</strong>)
                     </>
                   )}
-                  . Deseja continuar?
+                  . Você perderá o horário anterior. Deseja continuar?
                 </>
               ) : null}
             </AlertDialogDescription>
