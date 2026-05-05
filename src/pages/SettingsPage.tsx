@@ -4,7 +4,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle } from 'lucide-react';
+import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Network } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
+import MyClinicsSection from '@/components/settings/MyClinicsSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
@@ -24,6 +25,7 @@ import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'specialty', label: 'Especialidade', icon: Stethoscope },
+  { id: 'my-clinics', label: 'Minhas Clínicas', icon: Network },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'team', label: 'Equipe', icon: Users },
   { id: 'rooms', label: 'Salas', icon: Armchair },
@@ -95,6 +97,7 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0 space-y-6">
           {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'specialty' && <SpecialtySection />}
+          {activeSection === 'my-clinics' && <MyClinicsSection />}
           {activeSection === 'clinic' && <ClinicSection />}
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'rooms' && <ClinicRoomsSection />}
