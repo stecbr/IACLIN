@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check } from 'lucide-react';
+import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check, Info, X } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import logoLight from '@/assets/logo-light.png';
 import {
@@ -84,6 +84,18 @@ export default function Auth() {
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
   const [cnpjFetched, setCnpjFetched] = useState(false);
   const [cnpjHint, setCnpjHint] = useState<string | null>(null);
+
+  // When a signup hits an already-registered email, show a persistent banner
+  // and route the user to the login form with the email pre-filled.
+  const [duplicateEmail, setDuplicateEmail] = useState<string | null>(null);
+  const goToLoginWithEmail = (existingEmail: string) => {
+    setDuplicateEmail(existingEmail);
+    setEmail(existingEmail);
+    setPassword('');
+    setIsLogin(true);
+    setUserType(null);
+    setProfSubType(null);
+  };
 
   // Load invite when token is in URL
   useEffect(() => {
@@ -313,6 +325,13 @@ export default function Auth() {
           },
         });
         if (error) throw error;
+        // Supabase pode não retornar erro quando o e-mail já existe (proteção anti-enumeração).
+        // Detectamos pelo array de identities vazio.
+        const identities = (signUpData?.user as any)?.identities;
+        if (Array.isArray(identities) && identities.length === 0) {
+          goToLoginWithEmail(email);
+          return;
+        }
         toast.success('Conta criada com sucesso. Redirecionando…');
 
         // After signup: if joining via invite, link the membership
@@ -336,13 +355,8 @@ export default function Auth() {
       }
     } catch (error: any) {
       const msg = String(error?.message ?? '');
-      if (/already registered|user already exists|already_exists/i.test(msg)) {
-        toast('Este e-mail já tem cadastro. Tente fazer login.', {
-          action: {
-            label: 'Ir para o login',
-            onClick: () => { setIsLogin(true); setUserType(null); setProfSubType(null); },
-          },
-        });
+      if (/already registered|user already exists|already_exists|already.+registered|duplicate key|users_email_key/i.test(msg)) {
+        goToLoginWithEmail(email);
       } else if (/invalid login credentials/i.test(msg)) {
         toast('E-mail ou senha incorretos.');
       } else {
@@ -421,6 +435,30 @@ export default function Auth() {
                   Acesse sua conta
                 </motion.p>
               </div>
+
+              {duplicateEmail && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3 text-left"
+                >
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">Este e-mail já tem conta</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Detectamos que <span className="font-medium text-foreground">{duplicateEmail}</span> já está cadastrado. Faça login para continuar ou use "Esqueci minha senha".
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDuplicateEmail(null)}
+                    className="p-0.5 text-muted-foreground hover:text-foreground rounded"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </motion.div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
