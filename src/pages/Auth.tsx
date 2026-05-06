@@ -903,6 +903,12 @@ export default function Auth() {
           )}
         </AnimatePresence>
       </motion.div>
+      <ClinicChoiceDialog
+        open={clinicChoiceOpen}
+        onOpenChange={setClinicChoiceOpen}
+        submitting={submitting}
+        onConfirm={(code) => finalizeProfessionalSignup(code)}
+      />
     </div>
   );
 }
