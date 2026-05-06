@@ -1,32 +1,52 @@
-# Adicionar entrada via código de clínica nas Configurações
+# Diagrama atualizado do fluxo da plataforma (Mermaid)
 
-## Problema
-A médica Irani criou conta como profissional (gerou consultório próprio), mas em `/settings` não encontrou onde inserir o código de uma clínica para também trabalhar nela. Hoje esse fluxo só existe na tela `WaitingClinic`, que só aparece para quem ainda não tem nenhum vínculo.
+## Objetivo
+Entregar um diagrama Mermaid renderizável que reflete o estado **real** do código (Auth.tsx, AuthContext, WaitingClinic, edge functions de invite/join), corrigindo os pontos onde o draw.io divergia da implementação.
 
-## Solução
-Adicionar uma nova seção em **Configurações → aba do profissional** chamada **"Clínicas em que atendo"** que permite:
+## Onde será adicionado
+- **Novo arquivo**: `docs/fluxo-plataforma.md` (documentação interna, não afeta build).
+- Conterá o diagrama em bloco ```mermaid``` + legenda curta explicando cada nó.
+- Opcional (se você quiser visualizar dentro do app): adicionar rota `/docs/fluxo` renderizando via `mermaid` npm package. **Fora do escopo deste plano** — só crio o markdown.
 
-1. Listar todas as clínicas em que o usuário é membro (com badge "Minha clínica" para a que ele é owner).
-2. Inserir um **código de convite** (`CLIN-XXXXXXXX`) para entrar em uma clínica adicional.
-3. Sair de uma clínica (exceto da própria).
+## Conteúdo do diagrama (resumo dos nós)
 
-## Onde
+**Entrada**
+- `/auth` → 2 abas: Login | Cadastro
+- Login: Email+senha **ou** Google OAuth
+- Cadastro: Email+senha **ou** Google OAuth, com seleção de tipo (Profissional / Clínica / Paciente — Operadora travada)
 
-- **Novo componente**: `src/components/settings/MyClinicsSection.tsx`
-- **Render**: dentro de `src/pages/SettingsPage.tsx`, visível para usuários com `clinicRole === 'dentist'` ou `'admin'` (qualquer profissional logado). Posicionar antes de `TeamSection`.
+**Pós-cadastro (Profissional)**
+- Detecta `?invite=TOKEN` na URL → chama `accept-clinic-invite` → vai para `/` na clínica vinculada
+- Sem token → vai para `/waiting-clinic` com 2 caminhos:
+  - **Criar consultório próprio** → `create-own-clinic` (vira admin/owner)
+  - **Inserir código `CLIN-XXXXXXXX`** → `join-clinic-by-code` (regex `/^CLIN-[A-Z2-9]{8}$/`)
 
-## Comportamento
+**Pós-cadastro (Clínica)**
+- `create-own-clinic` com `category` → admin/owner → `/onboarding` (3 passos) → `/` → Welcome Tour
 
-- **Listagem**: usa `clinics` do `AuthContext` (já carrega todas as memberships). Mostra nome, papel (Admin/Dentista) e badge "Proprietário" quando `is_owner`.
-- **Trocar clínica ativa**: botão "Acessar" em cada card → `switchClinic(id)`.
-- **Entrar via código**: campo input + botão "Entrar". Reaproveita a edge function existente `join-clinic-by-code` (mesmo fluxo do `WaitingClinic.tsx`). Após sucesso: refetch das memberships (invalidar query / recarregar via `window.location.reload()` simples ou expor refetch no AuthContext — usar reload por simplicidade no MVP).
-- **Sair da clínica**: botão discreto com confirm, deleta `clinic_members` onde `user_id = auth.uid()` e `clinic_id = X`. Bloqueado quando `is_owner = true` (com tooltip "Você é o proprietário").
-- **Feedback**: toasts neutros (cinza) para erros não-bloqueantes, verdes para sucesso. Sem cores destrutivas para "código inválido".
+**Pós-cadastro (Paciente)**
+- Vai direto para área `/patient/*`
 
-## Visual
-Seguir padrão Apple/iOS minimalista do projeto: Card com header `CardTitle` + `CardDescription`, lista de clínicas em linhas com avatar circular da inicial, input + botão à direita estilo `ClinicInviteCodeCard`.
+**Conflito de e-mail já cadastrado**
+- Banner neutro no signup → auto-redirect para aba Login com email pré-preenchido
+
+**Roteamento por papel (após login com sessão ativa)**
+- `admin`/`owner` → Dashboard clínica completo
+- `dentist` → `DentistHome` (KPIs pessoais, sem Financeiro/Secretária IA)
+- `secretary` → sem Odontograma
+- `patient` → `/patient/home`
+
+**Configurações (novo)**
+- Aba profissional → seção "Clínicas em que atendo" → permite entrar em clínica adicional via código (mesma edge function `join-clinic-by-code`)
+
+## Detalhes técnicos
+- Sintaxe: Mermaid `flowchart TD` com subgraphs por fase (Auth, Onboarding, Roteamento).
+- Cores via `classDef` para destacar: edge functions (azul), decisões (amarelo), telas (cinza), estados travados/MVP-out (riscado).
+- Legenda em tabela markdown abaixo do diagrama mapeando cada edge function ao arquivo em `supabase/functions/`.
 
 ## Fora do escopo
-- Não alterar `WaitingClinic.tsx` (continua funcionando para quem ainda não tem clínica).
-- Não criar nova edge function — reutilizar `join-clinic-by-code`.
-- Não tocar no schema do banco.
+- Não altero código de auth, onboarding ou edge functions.
+- Não crio rota nova nem instalo `mermaid` no app.
+- Apenas o arquivo `.md` de documentação.
+
+Se quiser que eu também renderize o Mermaid dentro do app numa rota `/docs/fluxo`, me avise depois da aprovação.
