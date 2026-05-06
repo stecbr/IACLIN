@@ -313,6 +313,7 @@ function AppearanceSection() {
   const { theme, setTheme, resolved } = useTheme();
 
   return (
+    <div className="space-y-6">
     <Card className="shadow-card border-border/50">
       <CardHeader>
         <CardTitle className="text-base">Aparência</CardTitle>
@@ -349,6 +350,8 @@ function AppearanceSection() {
         </div>
       </CardContent>
     </Card>
+    <ThemeCustomizer />
+    </div>
   );
 }
 
