@@ -17,6 +17,7 @@ import {
   registrationPlaceholderForSpecialty,
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
+import { ClinicChoiceDialog } from '@/components/auth/ClinicChoiceDialog';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
@@ -88,6 +89,7 @@ export default function Auth() {
   // When a signup hits an already-registered email, show a persistent banner
   // and route the user to the login form with the email pre-filled.
   const [duplicateEmail, setDuplicateEmail] = useState<string | null>(null);
+  const [clinicChoiceOpen, setClinicChoiceOpen] = useState(false);
   const goToLoginWithEmail = (existingEmail: string) => {
     setDuplicateEmail(existingEmail);
     setEmail(existingEmail);
@@ -95,6 +97,83 @@ export default function Auth() {
     setIsLogin(true);
     setUserType(null);
     setProfSubType(null);
+  };
+
+  // Performs the actual signup for a professional that has answered the
+  // "Você faz parte de alguma clínica?" modal. If joinCode is provided, links
+  // the new user to that clinic via the invite code; otherwise creates their
+  // own clinic so they get full access immediately.
+  const finalizeProfessionalSignup = async (joinCode?: string) => {
+    setSubmitting(true);
+    try {
+      const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
+      const isJoiningExistingClinic = !!joinCode;
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: fullName,
+            user_type: isJoiningExistingClinic ? 'profissional_member' : 'profissional',
+            professional_subtype: profSubType,
+            clinic_category: clinicCategory,
+            specialty: specialty.trim() || null,
+            registration_number: registrationNumber.trim() || null,
+          },
+        },
+      });
+      if (error) throw error;
+      const identities = (signUpData?.user as any)?.identities;
+      if (Array.isArray(identities) && identities.length === 0) {
+        setClinicChoiceOpen(false);
+        goToLoginWithEmail(email);
+        return;
+      }
+      toast.success('Conta criada com sucesso. Redirecionando…');
+
+      if (signUpData.session) {
+        if (joinCode) {
+          const { data: joinData, error: joinErr } = await supabase.functions.invoke('join-clinic-by-code', {
+            body: { code: joinCode },
+          });
+          if (joinErr || (joinData && joinData.error)) {
+            const msg = (joinData && joinData.error) || joinErr?.message || 'Falha ao vincular à clínica.';
+            toast.error('Conta criada, mas ' + msg);
+            setClinicChoiceOpen(false);
+            setTimeout(() => window.location.replace('/aguardando-clinica'), 600);
+            return;
+          }
+          toast.success('Você foi vinculado à clínica!');
+        } else {
+          const { data: ownData, error: ownErr } = await supabase.functions.invoke('create-own-clinic', { body: {} });
+          if (ownErr || (ownData && ownData.error)) {
+            const msg = (ownData && ownData.error) || ownErr?.message || 'Falha ao criar consultório.';
+            toast.error('Conta criada, mas ' + msg);
+            setClinicChoiceOpen(false);
+            setTimeout(() => window.location.replace('/aguardando-clinica'), 600);
+            return;
+          }
+          toast.success('Consultório criado!');
+        }
+        setClinicChoiceOpen(false);
+        setTimeout(() => window.location.replace('/'), 500);
+      } else {
+        // E-mail confirmation flow: user will land on /aguardando-clinica after login.
+        setClinicChoiceOpen(false);
+        toast('Confirme seu e-mail para finalizar o cadastro.');
+      }
+    } catch (err: any) {
+      const msg = String(err?.message ?? '');
+      if (/already registered|user already exists|already_exists|already.+registered|duplicate key|users_email_key/i.test(msg)) {
+        setClinicChoiceOpen(false);
+        goToLoginWithEmail(email);
+      } else {
+        toast(msg || 'Algo deu errado. Tente novamente.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Load invite when token is in URL
@@ -266,6 +345,13 @@ export default function Auth() {
           if (regError) {
             toast.error(regError);
             setSubmitting(false);
+            return;
+          }
+          // Without an invite token in the URL, ask the user about clinic
+          // membership via the modal before actually creating the account.
+          if (!inviteToken) {
+            setSubmitting(false);
+            setClinicChoiceOpen(true);
             return;
           }
         }
@@ -817,6 +903,12 @@ export default function Auth() {
           )}
         </AnimatePresence>
       </motion.div>
+      <ClinicChoiceDialog
+        open={clinicChoiceOpen}
+        onOpenChange={setClinicChoiceOpen}
+        submitting={submitting}
+        onConfirm={(code) => finalizeProfessionalSignup(code)}
+      />
     </div>
   );
 }
