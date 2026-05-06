@@ -27,6 +27,7 @@ export default function PatientDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const { currentClinicId } = useAuth();
+  const { profile } = useSpecialtyProfile();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -156,27 +157,25 @@ export default function PatientDetail() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="info" className="space-y-4">
+      <Tabs defaultValue={profile.patientTabs[0] ?? 'info'} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="info">Informações</TabsTrigger>
-          <TabsTrigger value="anamnese" className="gap-1.5">
-            <Heart className="h-3.5 w-3.5" />
-            Anamnese
-          </TabsTrigger>
-          <TabsTrigger value="appointments">Consultas</TabsTrigger>
-          <TabsTrigger value="budgets" className="gap-1.5">
-            <ClipboardList className="h-3.5 w-3.5" />
-            Orçamentos
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="gap-1.5">
-            <Image className="h-3.5 w-3.5" />
-            Imagens
-          </TabsTrigger>
-          <TabsTrigger value="financial">Financeiro</TabsTrigger>
-          <TabsTrigger value="timeline" className="gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Timeline
-          </TabsTrigger>
+          {profile.patientTabs.map((tab) => {
+            const icon: Partial<Record<PatientTabKey, JSX.Element>> = {
+              anamnese: <Heart className="h-3.5 w-3.5" />,
+              budgets: <ClipboardList className="h-3.5 w-3.5" />,
+              documents: <Image className="h-3.5 w-3.5" />,
+              timeline: <Clock className="h-3.5 w-3.5" />,
+              sessions: <Brain className="h-3.5 w-3.5" />,
+              evolution: <Activity className="h-3.5 w-3.5" />,
+              mealplans: <Utensils className="h-3.5 w-3.5" />,
+            };
+            return (
+              <TabsTrigger key={tab} value={tab} className="gap-1.5">
+                {icon[tab]}
+                {PATIENT_TAB_LABELS[tab]}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         <TabsContent value="info">
@@ -347,6 +346,15 @@ export default function PatientDetail() {
         </TabsContent>
         <TabsContent value="timeline">
           <PatientTimeline patientId={id!} />
+        </TabsContent>
+        <TabsContent value="sessions">
+          <PatientSpecialtyList patientId={id!} filterKey="soap" emptyLabel="Nenhuma sessão registrada" />
+        </TabsContent>
+        <TabsContent value="evolution">
+          <PatientSpecialtyList patientId={id!} emptyLabel="Sem registros de evolução" />
+        </TabsContent>
+        <TabsContent value="mealplans">
+          <PatientSpecialtyList patientId={id!} filterKey="mealplan" emptyLabel="Nenhum plano alimentar registrado" />
         </TabsContent>
       </Tabs>
 
