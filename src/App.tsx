@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { CustomThemeProvider } from "@/components/CustomThemeProvider";
 import { AppLayout } from "@/components/AppLayout";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import Auth from "./pages/Auth";
@@ -190,7 +191,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <AppRoutes />
+            <CustomThemeProvider>
+              <AppRoutes />
+            </CustomThemeProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
