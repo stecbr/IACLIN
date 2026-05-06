@@ -132,15 +132,15 @@ export default function Attendance() {
       setClinicalRecordId(existingRecord.id);
       // Parse specialty-specific JSON header from notes if present
       const rawNotes: string = existingRecord.notes ?? '';
-      const m = rawNotes.match(/^<!--SPECIALTY_DATA:(.*?)-->\n?/s);
-      if (m) {
+      const specMatch = rawNotes.match(/^<!--SPECIALTY_DATA:(.*?)-->\n?/s);
+      if (specMatch) {
         try {
-          const parsed = JSON.parse(m[1]);
+          const parsed = JSON.parse(specMatch[1]);
           if (parsed.anthropometry) setAnthropometry(parsed.anthropometry);
           if (parsed.meal_plan) setMealPlan(parsed.meal_plan);
           if (parsed.soap) setSoap(parsed.soap);
         } catch { /* ignore */ }
-        setClinicalNotes(rawNotes.slice(m[0].length));
+        setClinicalNotes(rawNotes.slice(specMatch[0].length));
       } else {
         setClinicalNotes(rawNotes);
       }
