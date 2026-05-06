@@ -15,11 +15,34 @@ import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { MiniSparkline } from '@/components/dashboard/MiniSparkline';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import DentistHome from '@/pages/dentist/DentistHome';
+import MedicalHome from '@/pages/medical/MedicalHome';
+import NutritionHome from '@/pages/nutrition/NutritionHome';
+import PsiHome from '@/pages/psi/PsiHome';
+import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 
 export default function IndexRouter() {
   const { effectiveRole } = useRoleAccess();
-  if (effectiveRole === 'dentist') return <DentistHome />;
+  if (effectiveRole === 'dentist') return <DentistRouter />;
   return <AdminHome />;
+}
+
+function DentistRouter() {
+  const { profile } = useSpecialtyProfile();
+  switch (profile.family) {
+    case 'medical':
+    case 'aesthetic':
+      return <MedicalHome />;
+    case 'nutrition':
+      return <NutritionHome />;
+    case 'psi':
+      return <PsiHome />;
+    case 'odonto':
+    case 'physio':
+    case 'podology':
+    case 'generic':
+    default:
+      return <DentistHome />;
+  }
 }
 
 function getGreeting() {

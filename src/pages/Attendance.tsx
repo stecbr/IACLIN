@@ -21,6 +21,11 @@ import { HypothesesEditor, type Hypothesis } from '@/components/attendance/Hypot
 import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
 import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
+import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
+import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
+import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
+import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
+import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
 interface ProcedureRow {
   tempId: string;
@@ -58,6 +63,14 @@ export default function Attendance() {
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpReason, setFollowUpReason] = useState('');
   const [requests, setRequests] = useState<RequestItem[]>([]);
+
+  // Specialty-specific structured data (saved as JSON inside clinical_records.notes)
+  const [anthropometry, setAnthropometry] = useState<Anthropometry>({});
+  const [mealPlan, setMealPlan] = useState<MealPlan>({});
+  const [soap, setSoap] = useState<SoapSession>({});
+
+  const { profile: specialtyProfile } = useSpecialtyProfile();
+  const tabKeys = specialtyProfile.attendanceTabs;
 
   // Load appointment
   const { data: appointment, isLoading: loadingApt } = useQuery({
@@ -110,13 +123,27 @@ export default function Attendance() {
     enabled: !!currentClinicId,
   });
   const showOdontogram = clinicCategory === 'odonto';
+  const showOdontogramTab = showOdontogram && tabKeys.includes('odontogram');
 
   // Populate form with existing record
   useEffect(() => {
     if (existingRecord) {
       const r = existingRecord as any;
       setClinicalRecordId(existingRecord.id);
-      setClinicalNotes(existingRecord.notes ?? '');
+      // Parse specialty-specific JSON header from notes if present
+      const rawNotes: string = existingRecord.notes ?? '';
+      const specMatch = rawNotes.match(/^<!--SPECIALTY_DATA:(.*?)-->\n?/s);
+      if (specMatch) {
+        try {
+          const parsed = JSON.parse(specMatch[1]);
+          if (parsed.anthropometry) setAnthropometry(parsed.anthropometry);
+          if (parsed.meal_plan) setMealPlan(parsed.meal_plan);
+          if (parsed.soap) setSoap(parsed.soap);
+        } catch { /* ignore */ }
+        setClinicalNotes(rawNotes.slice(specMatch[0].length));
+      } else {
+        setClinicalNotes(rawNotes);
+      }
       setDiagnosis(existingRecord.diagnosis ?? '');
       setChiefComplaint(r.chief_complaint ?? '');
       setHpi(r.history_present_illness ?? '');
@@ -197,8 +224,18 @@ export default function Attendance() {
       const cleanHypotheses = hypotheses.filter((h) => h.text.trim());
       const hypothesesToSave = cleanHypotheses.length > 0 ? cleanHypotheses : null;
 
+      // Pack specialty-specific structured data as a hidden JSON header inside notes.
+      const specialtyPayload: Record<string, unknown> = {};
+      if (Object.values(anthropometry).some((v) => v && String(v).trim())) specialtyPayload.anthropometry = anthropometry;
+      if (Object.values(mealPlan).some((v) => v && String(v).trim())) specialtyPayload.meal_plan = mealPlan;
+      if (Object.values(soap).some((v) => v && String(v).trim() && v !== 'none')) specialtyPayload.soap = soap;
+      const notesHeader = Object.keys(specialtyPayload).length > 0
+        ? `<!--SPECIALTY_DATA:${JSON.stringify(specialtyPayload)}-->\n`
+        : '';
+      const finalNotes = (notesHeader + (clinicalNotes ?? '')).trim() || null;
+
       const recordPayload: any = {
-        notes: clinicalNotes || null,
+        notes: finalNotes,
         diagnosis: diagnosis || null,
         chief_complaint: chiefComplaint || null,
         history_present_illness: hpi || null,
@@ -392,17 +429,33 @@ export default function Attendance() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="assessment" className="space-y-4">
+      <Tabs defaultValue={tabKeys[0] ?? 'assessment'} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="assessment">1. Avaliação</TabsTrigger>
-          <TabsTrigger value="vitals">2. Sinais Vitais</TabsTrigger>
-          <TabsTrigger value="diagnosis">3. Diagnóstico</TabsTrigger>
-          <TabsTrigger value="conduct">4. Conduta</TabsTrigger>
-          <TabsTrigger value="requests">5. Solicitações ({requests.length})</TabsTrigger>
-          <TabsTrigger value="procedures">6. Procedimentos ({procedures.length})</TabsTrigger>
-          <TabsTrigger value="notes">Evolução</TabsTrigger>
-          {showOdontogram && <TabsTrigger value="odontogram">Odontograma</TabsTrigger>}
+          {tabKeys.map((key) => {
+            if (key === 'odontogram' && !showOdontogramTab) return null;
+            const label = ATTENDANCE_TAB_LABELS[key];
+            const suffix =
+              key === 'requests' ? ` (${requests.length})` :
+              key === 'procedures' ? ` (${procedures.length})` : '';
+            return <TabsTrigger key={key} value={key}>{label}{suffix}</TabsTrigger>;
+          })}
         </TabsList>
+
+        {tabKeys.includes('soap') && (
+          <TabsContent value="soap"><SoapSessionForm value={soap} onChange={setSoap} /></TabsContent>
+        )}
+        {tabKeys.includes('anthropometry') && (
+          <TabsContent value="anthropometry"><AnthropometryForm value={anthropometry} onChange={setAnthropometry} /></TabsContent>
+        )}
+        {tabKeys.includes('mealplan') && (
+          <TabsContent value="mealplan"><MealPlanForm value={mealPlan} onChange={setMealPlan} /></TabsContent>
+        )}
+        {tabKeys.includes('scales') && (
+          <TabsContent value="scales"><Card className="border-border/50"><CardContent className="p-6 text-center text-sm text-muted-foreground">Aplique escalas (PHQ-9, GAD-7, etc.) na ferramenta dedicada. <Link to="/psi/ferramentas" className="text-primary hover:underline">Abrir ferramentas</Link></CardContent></Card></TabsContent>
+        )}
+        {tabKeys.includes('mood') && (
+          <TabsContent value="mood"><Card className="border-border/50"><CardContent className="p-6 text-center text-sm text-muted-foreground">Diário de humor disponível em ferramentas do psicólogo. <Link to="/psi/ferramentas" className="text-primary hover:underline">Abrir</Link></CardContent></Card></TabsContent>
+        )}
 
         <TabsContent value="assessment">
           <AssessmentForm
