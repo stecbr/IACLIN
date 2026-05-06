@@ -21,6 +21,11 @@ import { HypothesesEditor, type Hypothesis } from '@/components/attendance/Hypot
 import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
 import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
+import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
+import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
+import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
+import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
+import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
 interface ProcedureRow {
   tempId: string;
@@ -58,6 +63,14 @@ export default function Attendance() {
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpReason, setFollowUpReason] = useState('');
   const [requests, setRequests] = useState<RequestItem[]>([]);
+
+  // Specialty-specific structured data (saved as JSON inside clinical_records.notes)
+  const [anthropometry, setAnthropometry] = useState<Anthropometry>({});
+  const [mealPlan, setMealPlan] = useState<MealPlan>({});
+  const [soap, setSoap] = useState<SoapSession>({});
+
+  const { profile: specialtyProfile } = useSpecialtyProfile();
+  const tabKeys = specialtyProfile.attendanceTabs;
 
   // Load appointment
   const { data: appointment, isLoading: loadingApt } = useQuery({
@@ -110,13 +123,27 @@ export default function Attendance() {
     enabled: !!currentClinicId,
   });
   const showOdontogram = clinicCategory === 'odonto';
+  const showOdontogramTab = showOdontogram && tabKeys.includes('odontogram');
 
   // Populate form with existing record
   useEffect(() => {
     if (existingRecord) {
       const r = existingRecord as any;
       setClinicalRecordId(existingRecord.id);
-      setClinicalNotes(existingRecord.notes ?? '');
+      // Parse specialty-specific JSON header from notes if present
+      const rawNotes: string = existingRecord.notes ?? '';
+      const m = rawNotes.match(/^<!--SPECIALTY_DATA:(.*?)-->\n?/s);
+      if (m) {
+        try {
+          const parsed = JSON.parse(m[1]);
+          if (parsed.anthropometry) setAnthropometry(parsed.anthropometry);
+          if (parsed.meal_plan) setMealPlan(parsed.meal_plan);
+          if (parsed.soap) setSoap(parsed.soap);
+        } catch { /* ignore */ }
+        setClinicalNotes(rawNotes.slice(m[0].length));
+      } else {
+        setClinicalNotes(rawNotes);
+      }
       setDiagnosis(existingRecord.diagnosis ?? '');
       setChiefComplaint(r.chief_complaint ?? '');
       setHpi(r.history_present_illness ?? '');
@@ -197,8 +224,18 @@ export default function Attendance() {
       const cleanHypotheses = hypotheses.filter((h) => h.text.trim());
       const hypothesesToSave = cleanHypotheses.length > 0 ? cleanHypotheses : null;
 
+      // Pack specialty-specific structured data as a hidden JSON header inside notes.
+      const specialtyPayload: Record<string, unknown> = {};
+      if (Object.values(anthropometry).some((v) => v && String(v).trim())) specialtyPayload.anthropometry = anthropometry;
+      if (Object.values(mealPlan).some((v) => v && String(v).trim())) specialtyPayload.meal_plan = mealPlan;
+      if (Object.values(soap).some((v) => v && String(v).trim() && v !== 'none')) specialtyPayload.soap = soap;
+      const notesHeader = Object.keys(specialtyPayload).length > 0
+        ? `<!--SPECIALTY_DATA:${JSON.stringify(specialtyPayload)}-->\n`
+        : '';
+      const finalNotes = (notesHeader + (clinicalNotes ?? '')).trim() || null;
+
       const recordPayload: any = {
-        notes: clinicalNotes || null,
+        notes: finalNotes,
         diagnosis: diagnosis || null,
         chief_complaint: chiefComplaint || null,
         history_present_illness: hpi || null,
