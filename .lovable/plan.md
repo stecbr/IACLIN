@@ -1,52 +1,47 @@
-# Diagrama atualizado do fluxo da plataforma (Mermaid)
+## Personalização avançada de Aparência (Médico/Clínica)
 
-## Objetivo
-Entregar um diagrama Mermaid renderizável que reflete o estado **real** do código (Auth.tsx, AuthContext, WaitingClinic, edge functions de invite/join), corrigindo os pontos onde o draw.io divergia da implementação.
+Adicionar, dentro de **Configurações → Aparência** (e replicar para a área do dentista em `PatientSettings`-like, mas focando no `SettingsPage` da clínica e numa nova seção em `DentistHome`/perfil do médico), um painel de **Tema personalizado** onde o usuário escolhe livremente cores de fundo, primária (botões), cartões e intensidade de sombras — preservando os modos Claro / Escuro / Sistema como "presets" para voltar ao padrão.
 
-## Onde será adicionado
-- **Novo arquivo**: `docs/fluxo-plataforma.md` (documentação interna, não afeta build).
-- Conterá o diagrama em bloco ```mermaid``` + legenda curta explicando cada nó.
-- Opcional (se você quiser visualizar dentro do app): adicionar rota `/docs/fluxo` renderizando via `mermaid` npm package. **Fora do escopo deste plano** — só crio o markdown.
+### O que será entregue
 
-## Conteúdo do diagrama (resumo dos nós)
+1. **Novo contexto `CustomThemeProvider`** (`src/components/CustomThemeProvider.tsx`)
+   - Aplica overrides de CSS variables (`--background`, `--foreground`, `--primary`, `--primary-foreground`, `--card`, `--accent`, `--border`, `--ring`, `--shadow-card`, `--shadow-card-hover`, `--radius`) no `document.documentElement` via `style.setProperty`.
+   - Persiste em `localStorage` por usuário (`iaclin-custom-theme:{userId}`) — não vai ao banco no MVP (zero migration).
+   - Expõe `customTheme`, `setColor(key, hex)`, `setShadowIntensity(n)`, `setRadius(n)`, `resetCustom()`.
+   - Quando o usuário clica em "Voltar ao padrão" ou troca para Claro/Escuro/Sistema, limpa os overrides e o `ThemeProvider` existente assume.
+   - Conversão hex → HSL (string `H S% L%`) para compatibilidade com as variáveis do `index.css`.
 
-**Entrada**
-- `/auth` → 2 abas: Login | Cadastro
-- Login: Email+senha **ou** Google OAuth
-- Cadastro: Email+senha **ou** Google OAuth, com seleção de tipo (Profissional / Clínica / Paciente — Operadora travada)
+2. **Componente `ThemeCustomizer`** (`src/components/settings/ThemeCustomizer.tsx`)
+   - Color pickers (input nativo `type="color"` + hex manual) para:
+     - Fundo da página
+     - Cor primária / botões
+     - Cor de cartões
+     - Cor de destaque (accent)
+     - Cor de borda
+   - Slider de **Intensidade de sombra** (0–100%).
+   - Slider de **Arredondamento** (0–24px) para `--radius`.
+   - **Presets rápidos**: "Oceano", "Floresta", "Pôr-do-sol", "Minimalista" (4 chips de paleta).
+   - Pré-visualização ao vivo (card de exemplo com botão, badge e texto).
+   - Botões: **Aplicar**, **Restaurar padrão**.
 
-**Pós-cadastro (Profissional)**
-- Detecta `?invite=TOKEN` na URL → chama `accept-clinic-invite` → vai para `/` na clínica vinculada
-- Sem token → vai para `/waiting-clinic` com 2 caminhos:
-  - **Criar consultório próprio** → `create-own-clinic` (vira admin/owner)
-  - **Inserir código `CLIN-XXXXXXXX`** → `join-clinic-by-code` (regex `/^CLIN-[A-Z2-9]{8}$/`)
+3. **Integração**
+   - `SettingsPage.tsx` → expandir `AppearanceSection` mantendo o seletor Claro/Escuro/Sistema atual e adicionando abaixo o `ThemeCustomizer`.
+   - Para a área do médico: adicionar uma página/aba "Aparência" acessível a partir do `DentistHome` (ou via `Profile.tsx`), reutilizando o mesmo `ThemeCustomizer`. Verificarei `Profile.tsx` para encaixar lá se já existir uma seção de preferências; caso contrário, criar `src/pages/dentist/DentistAppearance.tsx` com rota `/dentist/appearance` e link no menu do dentista.
+   - `App.tsx` → envolver com `<CustomThemeProvider>` logo dentro do `<ThemeProvider>` existente.
 
-**Pós-cadastro (Clínica)**
-- `create-own-clinic` com `category` → admin/owner → `/onboarding` (3 passos) → `/` → Welcome Tour
+4. **Comportamento "voltar ao padrão"**
+   - Ao escolher um dos 3 modos (Claro/Escuro/Sistema) o customizer mostra aviso "Tema personalizado desativado" e remove overrides.
+   - Botão explícito **"Restaurar padrão"** sempre visível.
 
-**Pós-cadastro (Paciente)**
-- Vai direto para área `/patient/*`
+### Observações técnicas
 
-**Conflito de e-mail já cadastrado**
-- Banner neutro no signup → auto-redirect para aba Login com email pré-preenchido
+- Sem migração de DB, sem Edge Function — tudo client-side e por usuário.
+- Cores armazenadas em hex no `localStorage`; convertidas para HSL ao aplicar para casar com o sistema de tokens existente (`hsl(var(--primary))`).
+- Não altera o `ThemeProvider` atual; apenas sobrepõe variáveis quando o usuário define algo custom.
+- Acessibilidade: validar contraste mínimo (aviso visual quando primária × foreground ficar ilegível, sem bloquear).
 
-**Roteamento por papel (após login com sessão ativa)**
-- `admin`/`owner` → Dashboard clínica completo
-- `dentist` → `DentistHome` (KPIs pessoais, sem Financeiro/Secretária IA)
-- `secretary` → sem Odontograma
-- `patient` → `/patient/home`
+### Fora de escopo
 
-**Configurações (novo)**
-- Aba profissional → seção "Clínicas em que atendo" → permite entrar em clínica adicional via código (mesma edge function `join-clinic-by-code`)
-
-## Detalhes técnicos
-- Sintaxe: Mermaid `flowchart TD` com subgraphs por fase (Auth, Onboarding, Roteamento).
-- Cores via `classDef` para destacar: edge functions (azul), decisões (amarelo), telas (cinza), estados travados/MVP-out (riscado).
-- Legenda em tabela markdown abaixo do diagrama mapeando cada edge function ao arquivo em `supabase/functions/`.
-
-## Fora do escopo
-- Não altero código de auth, onboarding ou edge functions.
-- Não crio rota nova nem instalo `mermaid` no app.
-- Apenas o arquivo `.md` de documentação.
-
-Se quiser que eu também renderize o Mermaid dentro do app numa rota `/docs/fluxo`, me avise depois da aprovação.
+- Sincronização entre dispositivos (sem persistir no Supabase agora).
+- Personalização específica por clínica para todos os membros (cada usuário define a sua).
+- Edição de tipografia.

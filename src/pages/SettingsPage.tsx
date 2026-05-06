@@ -20,6 +20,7 @@ import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/compone
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
+import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 
 const sections = [
@@ -313,6 +314,7 @@ function AppearanceSection() {
   const { theme, setTheme, resolved } = useTheme();
 
   return (
+    <div className="space-y-6">
     <Card className="shadow-card border-border/50">
       <CardHeader>
         <CardTitle className="text-base">Aparência</CardTitle>
@@ -349,6 +351,8 @@ function AppearanceSection() {
         </div>
       </CardContent>
     </Card>
+    <ThemeCustomizer />
+    </div>
   );
 }
 
