@@ -20,6 +20,7 @@ import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/compone
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
+import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 
 const sections = [
