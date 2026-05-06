@@ -429,17 +429,33 @@ export default function Attendance() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="assessment" className="space-y-4">
+      <Tabs defaultValue={tabKeys[0] ?? 'assessment'} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="assessment">1. Avaliação</TabsTrigger>
-          <TabsTrigger value="vitals">2. Sinais Vitais</TabsTrigger>
-          <TabsTrigger value="diagnosis">3. Diagnóstico</TabsTrigger>
-          <TabsTrigger value="conduct">4. Conduta</TabsTrigger>
-          <TabsTrigger value="requests">5. Solicitações ({requests.length})</TabsTrigger>
-          <TabsTrigger value="procedures">6. Procedimentos ({procedures.length})</TabsTrigger>
-          <TabsTrigger value="notes">Evolução</TabsTrigger>
-          {showOdontogram && <TabsTrigger value="odontogram">Odontograma</TabsTrigger>}
+          {tabKeys.map((key) => {
+            if (key === 'odontogram' && !showOdontogramTab) return null;
+            const label = ATTENDANCE_TAB_LABELS[key];
+            const suffix =
+              key === 'requests' ? ` (${requests.length})` :
+              key === 'procedures' ? ` (${procedures.length})` : '';
+            return <TabsTrigger key={key} value={key}>{label}{suffix}</TabsTrigger>;
+          })}
         </TabsList>
+
+        {tabKeys.includes('soap') && (
+          <TabsContent value="soap"><SoapSessionForm value={soap} onChange={setSoap} /></TabsContent>
+        )}
+        {tabKeys.includes('anthropometry') && (
+          <TabsContent value="anthropometry"><AnthropometryForm value={anthropometry} onChange={setAnthropometry} /></TabsContent>
+        )}
+        {tabKeys.includes('mealplan') && (
+          <TabsContent value="mealplan"><MealPlanForm value={mealPlan} onChange={setMealPlan} /></TabsContent>
+        )}
+        {tabKeys.includes('scales') && (
+          <TabsContent value="scales"><Card className="border-border/50"><CardContent className="p-6 text-center text-sm text-muted-foreground">Aplique escalas (PHQ-9, GAD-7, etc.) na ferramenta dedicada. <Link to="/psi/ferramentas" className="text-primary hover:underline">Abrir ferramentas</Link></CardContent></Card></TabsContent>
+        )}
+        {tabKeys.includes('mood') && (
+          <TabsContent value="mood"><Card className="border-border/50"><CardContent className="p-6 text-center text-sm text-muted-foreground">Diário de humor disponível em ferramentas do psicólogo. <Link to="/psi/ferramentas" className="text-primary hover:underline">Abrir</Link></CardContent></Card></TabsContent>
+        )}
 
         <TabsContent value="assessment">
           <AssessmentForm
