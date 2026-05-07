@@ -52,6 +52,7 @@ export default function Attendance() {
   const [finishing, setFinishing] = useState(false);
   const [clinicalRecordId, setClinicalRecordId] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -375,6 +376,7 @@ export default function Attendance() {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
       setShowSummary(true);
+      setFinishedNavigatePending(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -674,7 +676,10 @@ export default function Attendance() {
         open={showSummary}
         onOpenChange={(o) => {
           setShowSummary(o);
-          if (!o && appointment?.status === 'completed') navigate('/agenda');
+          if (!o && finishedNavigatePending) {
+            setFinishedNavigatePending(false);
+            navigate('/agenda');
+          }
         }}
       />
     </div>
