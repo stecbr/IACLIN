@@ -7,10 +7,14 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { SpecialtyHomeShell, getGreeting } from '@/components/dashboard/SpecialtyHomeShell';
+import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
+import { specialtyLabel } from '@/components/SpecialtySelect';
 
 export default function PsiHome() {
   const { user, profile, currentClinicId } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
+  const { specialty } = useSpecialtyProfile();
+  const specialtyName = specialtyLabel(specialty);
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
@@ -71,8 +75,8 @@ export default function PsiHome() {
 
   return (
     <SpecialtyHomeShell
-      title={`${getGreeting()}, ${firstName} 🧠`}
-      description="Acompanhamento das suas sessões e evolução terapêutica."
+      title={`${getGreeting()}, Dr(a). ${firstName} 🧠`}
+      description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Acompanhamento das suas sessões e evolução terapêutica.`}
       kpis={[
         { title: 'Sessões Hoje', value: todaySessions.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
         { title: 'Sessões na Semana', value: weekCount, desc: 'agendadas + realizadas', icon: Brain, color: 'text-success', bg: 'bg-success/10' },
