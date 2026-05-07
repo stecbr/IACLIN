@@ -18,6 +18,7 @@ import MyClinicsSection from '@/components/settings/MyClinicsSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
+import { useSoloMode } from '@/hooks/useSoloMode';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
