@@ -198,9 +198,11 @@ function ClinicSection() {
       const { error: uploadErr } = await supabase.storage.from('clinic-assets').upload(path, file, { upsert: true });
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from('clinic-assets').getPublicUrl(path);
-      const { error } = await supabase.from('clinics').update({ logo_url: publicUrl }).eq('id', clinic.id);
+      const versionedUrl = `${publicUrl}?v=${Date.now()}`;
+      const { error } = await supabase.from('clinics').update({ logo_url: versionedUrl }).eq('id', clinic.id);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['clinic-branding'] });
       toast.success('Logo atualizada!');
     } catch (err: any) {
       toast.error(err.message);

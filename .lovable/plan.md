@@ -1,31 +1,25 @@
-# Logo personalizada da clínica/médico no topo
+## Problema
 
-Hoje a logo IACLIN aparece no header e no sidebar para todos os usuários. Vamos permitir que cada clínica (incluindo a "clínica pessoal" do médico solo) personalize com a própria logo, e opcionalmente esconda a logo IACLIN.
+A logo está sendo enviada corretamente para o storage, mas a imagem **não atualiza visualmente** mesmo após várias trocas. Causa: o caminho do arquivo é sempre `{clinic.id}/logo.{ext}` (com `upsert: true`), então a URL pública retornada é **idêntica** entre uploads. Como o navegador cacheia a imagem por essa URL, ele continua exibindo a versão antiga.
 
-## Comportamento
+## Solução
 
-- Em **Configurações → Dados da Clínica**: o upload de logo já existe. Vamos adicionar logo abaixo um checkbox **"Ocultar logo IACLIN"**.
-- No **header (mobile)** e no **sidebar (desktop)**, ao carregar, busca a clínica atual:
-  - Se `hide_iaclin_logo = true` e `logo_url` definida → mostra **somente** a logo da clínica no lugar da IACLIN.
-  - Se `hide_iaclin_logo = false` e `logo_url` definida → mostra **IACLIN + logo da clínica** lado a lado (com um separador `·`).
-  - Se não houver `logo_url` → mostra apenas IACLIN (comportamento atual).
-- Médico vinculado a uma clínica: vê a logo da clínica vinculada (já que `currentClinicId` = clínica do dono).
-- Médico solo: tem a própria clinic record (criada no onboarding), então mesma tela de Configurações funciona.
+Forçar invalidação de cache adicionando um parâmetro de versão (`?v=timestamp`) à URL salva no banco a cada upload, e garantindo refresh em todos os locais que consomem a logo.
 
-## Mudanças técnicas
+## Mudanças
 
-1. **Migration**: adicionar coluna `hide_iaclin_logo BOOLEAN NOT NULL DEFAULT false` em `public.clinics`.
-2. **`src/pages/SettingsPage.tsx`**: 
-   - Adicionar checkbox "Ocultar logo IACLIN" próximo ao upload de logo.
-   - Salvar via `supabase.from('clinics').update({ hide_iaclin_logo })`.
-3. **Novo hook `src/hooks/useClinicBranding.ts`**: lê `currentClinicId` e retorna `{ logoUrl, hideIaclinLogo }` com cache simples.
-4. **`src/components/AppSidebar.tsx`** e **`src/components/AppLayout.tsx`**: usar o hook para renderizar:
-   - `hideIaclinLogo && logoUrl` → `<img src={logoUrl} />`
-   - `logoUrl` → `<img IACLIN /> <span>·</span> <img src={logoUrl} />`
-   - default → IACLIN só.
-5. **`src/lib/clinicalDocsHelpers.ts`** já busca `logo_url`; sem mudança.
+**`src/pages/SettingsPage.tsx` — `handleLogoUpload`**
+- Após `getPublicUrl`, anexar `?v=${Date.now()}` na URL antes de salvar em `clinics.logo_url`.
+- Após o update, invalidar também `['clinic-branding']` (hoje só invalida `['clinic-settings']`), para que sidebar/header atualizem na hora.
 
-## Fora de escopo
+**`src/components/AppSidebar.tsx` e `src/components/AppLayout.tsx`**
+- Sem mudanças de lógica; já leem de `useClinicBranding`. Vão receber a nova URL via invalidação acima.
 
-- Não muda PDFs/laudos (continuam usando logo da clínica como hoje).
-- Não muda páginas públicas (marketplace).
+**Opcional (robustez)**
+- Em `useClinicBranding`, adicionar `key={logoUrl}` no consumo do `<img>` se houver problema de re-render — mas com a URL versionada isso não deve ser necessário.
+
+## Resultado
+
+Cada upload de logo gera uma URL única (mesmo arquivo físico, query string nova), o navegador busca a imagem nova, e sidebar/header mobile/configurações refletem a alteração imediatamente — sem precisar recarregar a página nem limpar cache.
+
+Fora do escopo: PDFs, página pública e marketplace (lerão a URL versionada naturalmente na próxima query).
