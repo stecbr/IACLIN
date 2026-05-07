@@ -1,65 +1,95 @@
-## Objetivo
+# Prontuário Inteligente — Atendimento do Dentista
 
-Permitir que um médico/dentista **sem vínculo com clínica** atenda sozinho — tratando-o como uma "clínica de uma pessoa só" (consultório próprio), onde ele é proprietário e atende pacientes da mesma forma que uma clínica completa.
+Evolução da tela `/attendance/:appointmentId` para um fluxo focado em odontologia, sem quebrar as outras especialidades.
 
-## Estado atual
+## 1. Cabeçalho do paciente com alertas críticos
 
-- `/aguardando-clinica` (`WaitingClinic.tsx`) já oferece o botão **"Criar meu consultório agora"**, que chama a edge function `create-own-clinic`.
-- A edge function já cria a `clinic`, vincula o usuário como `owner` + `admin` em `clinic_members`, e seta `category` baseada no metadata do cadastro.
-- O `ProtectedRoute` só envia para `/aguardando-clinica` quem **não tem `admin`** entre as roles globais.
+Em `src/pages/Attendance.tsx` (Patient Header) adicionar uma faixa de **Anamnese Rápida** que carrega `patient_anamnese` (allergies, medical_conditions, medications) e mostra:
 
-**Problemas observados:**
-1. Profissional cadastrado pelo fluxo `profissional_member` (convite) tem role `dentist`, não `admin`. Se o convite não for aceito, ele cai em `/aguardando-clinica` mas não há reforço visual de que "criar consultório próprio" é a rota recomendada — fica como **botão primário desbalanceado** com a opção de código.
-2. Após criar consultório, o usuário continua tendo apenas role `dentist` se foi cadastrado como member; a edge `create-own-clinic` adiciona `admin`, mas o front não reflete isso até reload (já existe `window.location.assign('/')` — ok).
-3. O dashboard dele (`DentistRouter` / `DentistHome`) é apropriado, mas algumas KPIs/atalhos assumem secretária/financeiro centralizado. Para solo, faz sentido mostrar uma faixa "Modo consultório individual" e habilitar todos os módulos (Financeiro, Agenda, Pacientes, Prontuário) já que ele é o admin da própria clínica.
-4. Não há indicação visual nem onboarding pós-criação que comunique "você está atendendo no seu próprio consultório".
+- Badge vermelho pulsante quando há alergias → "⚠ Alergias: Penicilina, Látex"
+- Badge âmbar quando há condições crônicas → "Hipertensão, Diabetes"
+- Badge cinza com medicações em uso
 
-## Mudanças propostas
+Componente novo: `src/components/attendance/PatientAlertsBar.tsx` (reaproveita a query já existente em `AssessmentForm.tsx`). Ficará logo abaixo do nome do paciente, sempre visível.
 
-### 1. `WaitingClinic.tsx` — repriorizar e clarificar
-- Reordenar UI: a opção **"Começar a atender no meu próprio consultório"** vira o caminho principal (card destacado com ícone, descrição "Você é seu próprio admin — agenda, prontuário e financeiro liberados").
-- "Tenho um código de clínica" vira opção secundária (link/collapse).
-- Texto explicativo: "Você pode atender sozinho agora e depois convidar uma secretária ou se vincular a uma clínica."
+## 2. Linha do Tempo lateral (histórico progressivo)
 
-### 2. `create-own-clinic` (edge) — pequeno ajuste
-- Garantir que o nome da clínica use a especialidade quando disponível (ex.: "Consultório Dr. João — Cardiologia") em vez de só o nome.
-- Sem mudança de schema.
+Novo componente `src/components/attendance/HistoryDrawer.tsx`:
 
-### 3. `Onboarding.tsx` — já existe; verificar que pula passos não aplicáveis
-- Para solo (1 profissional, sem secretária), mostrar passo único de "Configurar horários de atendimento" e seguir.
-- Reaproveita componente atual; só ajustar copy quando `clinics.length === 1 && isClinicOwner && team count === 1`.
+- Botão flutuante "Histórico" no canto direito do `Attendance.tsx` (ícone `History`).
+- Abre um `Sheet` lateral (`shadcn/ui sheet`) com tabs: **Consultas anteriores**, **Prescrições**, **Procedimentos**, **Odontograma**.
+- Reutiliza queries de `clinical_records`, `clinical_record_procedures`, `clinical_record_requests` (já filtradas por `patient_id`), ordenadas desc, agrupadas por data.
+- Cada item é colapsável: mostra diagnóstico + procedimentos + dentes envolvidos.
+- O drawer NÃO desmonta o formulário — o dentista consulta sem perder edição.
 
-### 4. `Index.tsx` (Dashboard) — banner solo
-- Quando `isClinicOwner && clinics.length === 1 && team size (clinic_members) === 1`, exibir banner discreto: "Modo consultório individual — você atende e gerencia tudo. [Convidar secretária]".
-- Link "Convidar secretária" abre o convite existente em `Settings → Equipe`.
+## 3. Aba "Exame Odontológico" estruturada
 
-### 5. `useRoleAccess` — confirmar acesso total
-- Verificar que owner solo (role `admin` + `dentist`) tem acesso a Financeiro, Agenda, Pacientes, Atendimento, Configurações. Já deve estar ok pelo `admin`. Sem mudança esperada.
+Hoje a aba `odontogram` só mostra um link. Vamos inline-ar um exame rápido para dentistas:
 
-### 6. Settings → Clinic info
-- Renomear o cabeçalho da seção quando solo: "Meu consultório" em vez de "Minha clínica" (cosmético, condicional).
+Novo componente `src/components/attendance/DentalExamForm.tsx`:
 
-## Detalhes técnicos
+- Mini odontograma interativo (reusa `ToothMap` de `src/components/clinical-map/ToothMap.tsx`) com seleção múltipla.
+- Para cada dente clicado, abre popover com:
+  - Select de condição (Cárie, Restauração, Ausente, Trinca, Sensibilidade)
+  - Select de face (M, D, V, L, O)
+  - Campo livre de observação
+- Bloco separado de **Avaliação Periodontal**: Select estado da gengiva (Saudável / Gengivite leve / Moderada / Severa), Input numérico **Índice de Placa (%)**, Input **Sangramento à Sondagem (%)**.
+- Os dados ficam em `dental_exam` dentro do `SPECIALTY_DATA` do `notes` (mesmo padrão usado para anthropometry/soap), evitando migração.
 
-- Detecção de "modo solo" no front:
-  ```ts
-  const isSolo = isClinicOwner
-    && clinics.length === 1
-    && teamCount === 1; // já queryable em SettingsPage
-  ```
-  Reaproveitar com um hook `useSoloMode()` em `src/hooks/useSoloMode.ts` que faz `count` em `clinic_members` para o `currentClinicId`.
+Estado adicional em `Attendance.tsx`: `const [dentalExam, setDentalExam] = useState<DentalExam>({ teeth: [], gingiva: '', plaqueIndex: '', bleedingIndex: '' })`. Persistência idêntica ao `anthropometry`.
 
-- Fluxo do dentist cadastrado via `profissional` (próprio dono): `handle_new_user` já cria a clínica. Ele nunca passa por `WaitingClinic`. **Esse caminho já funciona.**
-- Fluxo do `profissional_member` que não acaba sendo convidado: passa por `WaitingClinic` → "criar próprio consultório" → vira admin solo. **Esse é o foco do ajuste.**
+A aba só aparece quando `clinicCategory === 'odonto'`. Substitui o conteúdo atual de "Odontograma" (mantendo botão "Abrir odontograma completo" como link secundário).
+
+## 4. Templates por subespecialidade
+
+Atualizar a aba **Procedimentos** para mostrar chips de subespecialidade no topo (Ortodontia, Endodontia, Periodontia, Implantodontia, Prótese, Estomatologia, Limpeza, Cirurgia) — clicar filtra `proceduresCatalog` pelos procedimentos cuja `category` corresponda. Implementação: adicionar `categoryFilter` state, filtrar o `Select` de procedimento.
+
+Ícones via `lucide-react` (ex.: `Smile`, `Scissors`, `Sparkles`, `Wrench`, `Activity`, `Microscope`).
+
+## 5. Regra de negócio: bloqueio de finalização
+
+Em `handleFinish`, validar antes de salvar:
+
+```
+const errors: string[] = [];
+if (!diagnosis.trim() && hypotheses.filter(h => h.text.trim()).length === 0) {
+  errors.push('Informe diagnóstico ou hipótese diagnóstica');
+}
+if (procedures.filter(p => p.procedure_id).length === 0 && !clinicalNotes.trim()) {
+  errors.push('Registre ao menos um procedimento ou anotação de evolução');
+}
+if (errors.length) { toast.error(errors.join(' • ')); return; }
+```
+
+Visualmente, marcar as abas com pendência usando um ponto vermelho ao lado do label (computed do estado).
+
+## 6. Resumo automático imprimível
+
+Já existe `AttendanceSummaryModal`. Vamos:
+
+- Disparar o modal **automaticamente** após `handleFinish` bem-sucedido (em vez do toast com action), antes de navegar para `/agenda`.
+- Adicionar botão **Imprimir** dentro do modal (`window.print()` em uma `div` com classe `print:visible`) e botão **Salvar PDF** usando o helper `generatePrescriptionPdf.ts` como referência (criar `generateAttendanceSummaryPdf.ts` em `src/lib/`).
+- Incluir no resumo: paciente, data, alertas de anamnese, diagnóstico/hipóteses, procedimentos com dentes/faces, prescrições, próximos retornos.
+
+## 7. Carregamento automático de dados persistentes
+
+Hoje o `useEffect` carrega só o registro do agendamento atual. Adicionar nova query `last-clinical-record` que busca o **último** `clinical_record` do paciente (qualquer agendamento) e, quando o registro atual está vazio, pré-preenche somente campos persistentes seguros: histórico do odontograma e medicações em uso (não copia diagnóstico nem queixa). Mostra um aviso sutil "Carregado do último atendimento — revise antes de salvar."
 
 ## Arquivos
 
-- **Edit**: `src/pages/WaitingClinic.tsx` — UI repriorizada
-- **Edit**: `supabase/functions/create-own-clinic/index.ts` — nome com especialidade
-- **Create**: `src/hooks/useSoloMode.ts` — detector de modo solo
-- **Edit**: `src/pages/Index.tsx` (`AdminHome` + `DentistRouter`) — banner solo
-- **Edit**: `src/pages/dentist/DentistHome.tsx` — banner solo
-- **Edit**: `src/pages/SettingsPage.tsx` — copy condicional "Meu consultório"
+**Novos**
+- `src/components/attendance/PatientAlertsBar.tsx`
+- `src/components/attendance/HistoryDrawer.tsx`
+- `src/components/attendance/DentalExamForm.tsx`
+- `src/lib/generateAttendanceSummaryPdf.ts`
 
-## Sem mudanças de schema
-Nenhuma migration necessária. Tudo já está suportado pela estrutura `clinics` + `clinic_members` + `user_roles`.
+**Editados**
+- `src/pages/Attendance.tsx` — alerts bar, drawer, dental exam state, validação, auto summary.
+- `src/components/attendance/AttendanceSummaryModal.tsx` — botões imprimir/PDF + seção dental exam.
+- `src/lib/specialtyProfile.ts` — renomear tab `odontogram` para incluir o novo form (sem quebrar outras famílias).
+
+## Observações técnicas
+
+- Sem migrações: tudo cabe em `clinical_records.notes` via `<!--SPECIALTY_DATA:...-->` (padrão já usado por `anthropometry` / `soap`).
+- Sem novas dependências.
+- Mantém compatibilidade com Médico, Psi, Nutri, Estética — features novas só aparecem quando `clinicCategory === 'odonto'` ou família `odonto`.

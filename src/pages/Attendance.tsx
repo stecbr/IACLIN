@@ -24,6 +24,9 @@ import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummar
 import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
 import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
 import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
+import { PatientAlertsBar } from '@/components/attendance/PatientAlertsBar';
+import { HistoryDrawer } from '@/components/attendance/HistoryDrawer';
+import { DentalExamForm, type DentalExam } from '@/components/attendance/DentalExamForm';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
@@ -49,6 +52,7 @@ export default function Attendance() {
   const [finishing, setFinishing] = useState(false);
   const [clinicalRecordId, setClinicalRecordId] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -68,6 +72,7 @@ export default function Attendance() {
   const [anthropometry, setAnthropometry] = useState<Anthropometry>({});
   const [mealPlan, setMealPlan] = useState<MealPlan>({});
   const [soap, setSoap] = useState<SoapSession>({});
+  const [dentalExam, setDentalExam] = useState<DentalExam>({ teeth: [] });
 
   const { profile: specialtyProfile } = useSpecialtyProfile();
   const tabKeys = specialtyProfile.attendanceTabs;
@@ -139,6 +144,7 @@ export default function Attendance() {
           if (parsed.anthropometry) setAnthropometry(parsed.anthropometry);
           if (parsed.meal_plan) setMealPlan(parsed.meal_plan);
           if (parsed.soap) setSoap(parsed.soap);
+          if (parsed.dental_exam) setDentalExam(parsed.dental_exam);
         } catch { /* ignore */ }
         setClinicalNotes(rawNotes.slice(specMatch[0].length));
       } else {
@@ -229,6 +235,9 @@ export default function Attendance() {
       if (Object.values(anthropometry).some((v) => v && String(v).trim())) specialtyPayload.anthropometry = anthropometry;
       if (Object.values(mealPlan).some((v) => v && String(v).trim())) specialtyPayload.meal_plan = mealPlan;
       if (Object.values(soap).some((v) => v && String(v).trim() && v !== 'none')) specialtyPayload.soap = soap;
+      if ((dentalExam.teeth?.length ?? 0) > 0 || dentalExam.gingiva || dentalExam.plaqueIndex || dentalExam.bleedingIndex) {
+        specialtyPayload.dental_exam = dentalExam;
+      }
       const notesHeader = Object.keys(specialtyPayload).length > 0
         ? `<!--SPECIALTY_DATA:${JSON.stringify(specialtyPayload)}-->\n`
         : '';
@@ -321,6 +330,20 @@ export default function Attendance() {
 
   const handleFinish = async () => {
     if (!appointment || !user) return;
+    // Regra de negócio: bloquear finalização sem dados mínimos
+    const errors: string[] = [];
+    const validHypotheses = hypotheses.filter((h) => h.text.trim()).length;
+    if (!diagnosis.trim() && validHypotheses === 0) {
+      errors.push('Informe diagnóstico ou hipótese diagnóstica');
+    }
+    const validProcs = procedures.filter((p) => p.procedure_id).length;
+    if (validProcs === 0 && !clinicalNotes.trim() && !treatmentPlan.trim()) {
+      errors.push('Registre ao menos um procedimento, evolução ou plano de tratamento');
+    }
+    if (errors.length) {
+      toast.error(errors.join(' • '));
+      return;
+    }
     setFinishing(true);
     try {
       await handleSave();
@@ -351,13 +374,9 @@ export default function Attendance() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Atendimento finalizado!', {
-        action: {
-          label: 'Ver resumo',
-          onClick: () => setShowSummary(true),
-        },
-      });
-      navigate('/agenda');
+      toast.success('Atendimento finalizado!');
+      setShowSummary(true);
+      setFinishedNavigatePending(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -392,6 +411,7 @@ export default function Attendance() {
           Voltar à Agenda
         </Link>
         <div className="flex gap-2">
+          <HistoryDrawer patientId={appointment.patient_id} currentAppointmentId={appointment.id} />
           <Button variant="outline" onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
@@ -425,6 +445,9 @@ export default function Attendance() {
             <Link to={`/patients/${appointment.patient_id}`} className="text-xs text-primary hover:underline">
               Ver perfil
             </Link>
+          </div>
+          <div className="mt-3">
+            <PatientAlertsBar patientId={appointment.patient_id} />
           </div>
         </CardContent>
       </Card>
@@ -633,18 +656,17 @@ export default function Attendance() {
 
         {showOdontogram && (
           <TabsContent value="odontogram">
-            <Card className="border-border/50">
-              <CardContent className="p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Acesse o odontograma completo do paciente para registrar alterações dentárias.
-                </p>
-                <Link to={`/odontogram?patient=${appointment.patient_id}`}>
-                  <Button variant="outline" className="gap-2">
-                    Abrir Odontograma
-                  </Button>
+            <div className="space-y-3">
+              <DentalExamForm value={dentalExam} onChange={setDentalExam} />
+              <div className="text-center">
+                <Link
+                  to={`/odontogram?patient=${appointment.patient_id}`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Abrir odontograma completo do paciente →
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
         )}
       </Tabs>
@@ -652,7 +674,13 @@ export default function Attendance() {
       <AttendanceSummaryModal
         appointmentId={appointment.id}
         open={showSummary}
-        onOpenChange={setShowSummary}
+        onOpenChange={(o) => {
+          setShowSummary(o);
+          if (!o && finishedNavigatePending) {
+            setFinishedNavigatePending(false);
+            navigate('/agenda');
+          }
+        }}
       />
     </div>
   );
