@@ -672,7 +672,10 @@ export default function Attendance() {
       <AttendanceSummaryModal
         appointmentId={appointment.id}
         open={showSummary}
-        onOpenChange={setShowSummary}
+        onOpenChange={(o) => {
+          setShowSummary(o);
+          if (!o && appointment?.status === 'completed') navigate('/agenda');
+        }}
       />
     </div>
   );
