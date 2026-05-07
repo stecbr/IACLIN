@@ -372,6 +372,8 @@ export default function Attendance() {
 
       // Mark appointment as completed
       await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointment.id);
+      clearPause(appointment.id);
+      queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
 
       // Create financial transaction
       const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
