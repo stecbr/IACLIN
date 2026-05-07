@@ -268,6 +268,13 @@ export default function Attendance() {
         follow_up_reason: followUpReason || null,
       };
 
+      // Track elapsed consultation time
+      const startedAt = (appointment as any).service_started_at as string | undefined;
+      if (startedAt) {
+        const elapsed = computeElapsed(startedAt, readPause(appointment.id));
+        if (elapsed > 0) recordPayload.procedure_duration_seconds = elapsed;
+      }
+
       if (recordId) {
         // Update existing
         const { error } = await supabase
