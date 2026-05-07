@@ -89,7 +89,7 @@ const FAMILY_CONFIGS: Record<SpecialtyFamily, Omit<FamilyConfig, 'family'>> = {
   },
   aesthetic: {
     label: 'Estética / Cirurgia Plástica',
-    toolsRoute: '/estetica/ferramentas',
+    toolsRoute: '/ferramentas',
     patientNoun: 'paciente',
     patientNounPlural: 'pacientes',
     appointmentNoun: 'procedimento',
@@ -101,7 +101,7 @@ const FAMILY_CONFIGS: Record<SpecialtyFamily, Omit<FamilyConfig, 'family'>> = {
   },
   psi: {
     label: 'Psicologia / Saúde Mental',
-    toolsRoute: '/psi/ferramentas',
+    toolsRoute: '/ferramentas',
     patientNoun: 'paciente',
     patientNounPlural: 'pacientes',
     appointmentNoun: 'sessão',
@@ -113,7 +113,7 @@ const FAMILY_CONFIGS: Record<SpecialtyFamily, Omit<FamilyConfig, 'family'>> = {
   },
   medical: {
     label: 'Médico Clínico',
-    toolsRoute: '/medico/ferramentas',
+    toolsRoute: '/ferramentas',
     patientNoun: 'paciente',
     patientNounPlural: 'pacientes',
     appointmentNoun: 'consulta',
@@ -125,7 +125,7 @@ const FAMILY_CONFIGS: Record<SpecialtyFamily, Omit<FamilyConfig, 'family'>> = {
   },
   nutrition: {
     label: 'Nutrição',
-    toolsRoute: '/nutricao/ferramentas',
+    toolsRoute: '/ferramentas',
     patientNoun: 'paciente',
     patientNounPlural: 'pacientes',
     appointmentNoun: 'consulta',
@@ -137,7 +137,7 @@ const FAMILY_CONFIGS: Record<SpecialtyFamily, Omit<FamilyConfig, 'family'>> = {
   },
   physio: {
     label: 'Fisioterapia / Reabilitação',
-    toolsRoute: '/fisio/ferramentas',
+    toolsRoute: '/ferramentas',
     patientNoun: 'paciente',
     patientNounPlural: 'pacientes',
     appointmentNoun: 'sessão',
@@ -149,7 +149,7 @@ const FAMILY_CONFIGS: Record<SpecialtyFamily, Omit<FamilyConfig, 'family'>> = {
   },
   podology: {
     label: 'Podologia',
-    toolsRoute: '/podologia/ferramentas',
+    toolsRoute: '/ferramentas',
     patientNoun: 'paciente',
     patientNounPlural: 'pacientes',
     appointmentNoun: 'atendimento',
