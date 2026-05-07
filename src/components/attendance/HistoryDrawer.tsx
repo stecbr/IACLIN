@@ -36,7 +36,7 @@ export function HistoryDrawer({ patientId, currentAppointmentId }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from('clinical_records')
-        .select('id, appointment_id, created_at, status, diagnosis, chief_complaint, notes, treatment_plan, clinical_record_procedures(id, tooth_number, surface, notes, procedures(name)), clinical_record_requests(id, kind, payload)')
+        .select('id, appointment_id, created_at, status, diagnosis, chief_complaint, notes, treatment_plan, procedure_duration_seconds, clinical_record_procedures(id, tooth_number, surface, notes, procedures(name)), clinical_record_requests(id, kind, payload)')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -99,6 +99,7 @@ export function HistoryDrawer({ patientId, currentAppointmentId }: Props) {
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {format(parseISO(r.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              {r.procedure_duration_seconds ? ` · ⏱ ${Math.max(1, Math.floor(r.procedure_duration_seconds / 60))}min` : ''}
                             </p>
                           </div>
                           {(r.clinical_record_procedures?.length ?? 0) > 0 && (
