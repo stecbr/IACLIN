@@ -649,6 +649,7 @@ export type Database = {
           cnpj: string | null
           created_at: string
           email: string | null
+          hide_iaclin_logo: boolean
           id: string
           invite_code: string | null
           legal_name: string | null
@@ -669,6 +670,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           email?: string | null
+          hide_iaclin_logo?: boolean
           id?: string
           invite_code?: string | null
           legal_name?: string | null
@@ -689,6 +691,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           email?: string | null
+          hide_iaclin_logo?: boolean
           id?: string
           invite_code?: string | null
           legal_name?: string | null
