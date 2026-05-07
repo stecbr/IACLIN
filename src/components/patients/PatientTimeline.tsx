@@ -26,7 +26,7 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
         supabase.from('financial_transactions').select('id, due_date, description, category, amount, type, status').eq('patient_id', patientId).order('due_date', { ascending: false }).limit(50),
         supabase.from('documents').select('id, created_at, name, category').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(50),
         supabase.from('clinical_records')
-          .select('id, appointment_id, created_at, status, diagnosis, hypotheses, clinical_record_procedures(id), clinical_record_requests(id, kind)')
+          .select('id, appointment_id, created_at, status, diagnosis, hypotheses, procedure_duration_seconds, clinical_record_procedures(id), clinical_record_requests(id, kind)')
           .eq('patient_id', patientId)
           .order('created_at', { ascending: false })
           .limit(50),
@@ -84,11 +84,15 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
         if (presc) parts.push(`${presc} prescriç${presc > 1 ? 'ões' : 'ão'}`);
         if (exams) parts.push(`${exams} exame${exams > 1 ? 's' : ''}`);
         const desc = parts.length > 0 ? parts.join(' · ') : (r.diagnosis ?? `Status: ${r.status}`);
+        const durationLabel = r.procedure_duration_seconds && r.procedure_duration_seconds > 0
+          ? `⏱ ${Math.floor(r.procedure_duration_seconds / 60) > 0 ? Math.floor(r.procedure_duration_seconds / 60) + 'min' : r.procedure_duration_seconds + 's'}`
+          : '';
+        const fullDesc = durationLabel ? `${desc} · ${durationLabel}` : desc;
         timeline.push({
           id: `rec-${r.id}`,
           type: 'clinical',
           title: r.status === 'completed' ? 'Atendimento finalizado' : 'Atendimento em andamento',
-          description: desc,
+          description: fullDesc,
           date: r.created_at,
           icon: Stethoscope,
           color: 'text-primary bg-primary/10',

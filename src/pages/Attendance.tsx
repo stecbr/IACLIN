@@ -27,6 +27,8 @@ import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapS
 import { PatientAlertsBar } from '@/components/attendance/PatientAlertsBar';
 import { HistoryDrawer } from '@/components/attendance/HistoryDrawer';
 import { DentalExamForm, type DentalExam } from '@/components/attendance/DentalExamForm';
+import { ConsultationTimer } from '@/components/attendance/ConsultationTimer';
+import { computeElapsed, readPause, clearPause } from '@/hooks/useActiveConsultation';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
@@ -183,14 +185,22 @@ export default function Attendance() {
 
   // Mark appointment as in_progress on first load
   useEffect(() => {
-    if (appointment && ['scheduled', 'confirmed'].includes(appointment.status)) {
-      supabase
-        .from('appointments')
-        .update({ status: 'in_progress', presence_status: 'in_service' })
-        .eq('id', appointment.id)
-        .then();
+    if (!appointment) return;
+    const needsStart = ['scheduled', 'confirmed'].includes(appointment.status);
+    const needsServiceStart = !(appointment as any).service_started_at;
+    if (needsStart || needsServiceStart) {
+      const update: any = {};
+      if (needsStart) {
+        update.status = 'in_progress';
+        update.presence_status = 'in_service';
+      }
+      if (needsServiceStart) update.service_started_at = new Date().toISOString();
+      supabase.from('appointments').update(update).eq('id', appointment.id).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['appointment-detail', appointment.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
+      });
     }
-  }, [appointment]);
+  }, [appointment, queryClient]);
 
   const addProcedure = () => {
     setProcedures((prev) => [
@@ -257,6 +267,13 @@ export default function Attendance() {
         follow_up_date: followUpDate || null,
         follow_up_reason: followUpReason || null,
       };
+
+      // Track elapsed consultation time
+      const startedAt = (appointment as any).service_started_at as string | undefined;
+      if (startedAt) {
+        const elapsed = computeElapsed(startedAt, readPause(appointment.id));
+        if (elapsed > 0) recordPayload.procedure_duration_seconds = elapsed;
+      }
 
       if (recordId) {
         // Update existing
@@ -355,6 +372,8 @@ export default function Attendance() {
 
       // Mark appointment as completed
       await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointment.id);
+      clearPause(appointment.id);
+      queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
 
       // Create financial transaction
       const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
@@ -422,6 +441,11 @@ export default function Attendance() {
           </Button>
         </div>
       </div>
+
+      <ConsultationTimer
+        appointmentId={appointment.id}
+        serviceStartedAt={(appointment as any).service_started_at ?? null}
+      />
 
       {/* Patient Header */}
       <Card className="border-border/50">

@@ -1,60 +1,65 @@
-# Unificar Ferramentas Clínicas — Implementação
+## Timer de consulta + indicador "em consulta" global
 
-## Escopo aprovado
-- Página única `/ferramentas` com 4 seções: **Documentos**, **Cálculos**, **Produtividade**, **{Especialidade contextual}**, e **Odontologia** (só p/ família odonto).
-- Ferramentas universais novas no MVP: **Solicitação de Exames**, **Encaminhamento**, **CID-10 Buscável**, **IMC + Sinais Vitais Rápidos**.
-- Ferramentas exclusivas do dentista permanecem separadas dentro da mesma página (Anestésico, Atlas, Conversores Odonto).
-- Ficam para v2: TUSS, TCLE com assinatura, TFG, Macros, NEWS/qSOFA, Genograma.
+Hoje, ao abrir `/atendimento/:id`, marcamos `appointments.status = 'in_progress'` e `presence_status = 'in_service'`, mas não há cronômetro visível, nem registro do tempo total no histórico, nem indicador quando o médico sai da tela. Vamos resolver os três pontos.
 
-## Arquivos novos
+### O que muda para o usuário
 
-1. `src/pages/ToolsHomeUnified.tsx` — página única, agrupa por seção, detecta família via `useSpecialtyProfile`, abre cada ferramenta em modal (fade-in/out).
-2. `src/components/tools/ExamRequestPad.tsx` — formulário com modelos (hemograma, raio-X, ressonância, urina, etc.) → PDF + WhatsApp (reutiliza `clinicalDocsHelpers` e padrão do `PrescriptionPad`).
-3. `src/components/tools/ReferralLetterPad.tsx` — carta de encaminhamento entre especialidades, gera PDF.
-4. `src/components/tools/Cid10Search.tsx` — busca local com lista resumida de CIDs (top ~300), copia código+descrição.
-5. `src/components/tools/VitalSignsQuick.tsx` — IMC, PA, FC, FR, SpO₂, Temp; salva em `clinical_records.vital_signs` se houver atendimento ativo, senão só calcula.
-6. `src/lib/cid10Data.ts` — dataset estático com CIDs mais comuns.
-7. `src/lib/generateExamRequestPdf.ts` e `src/lib/generateReferralPdf.ts` — geração via jsPDF (mesmo padrão do prescription).
+1. **Cronômetro na tela de atendimento**: ao entrar em `/atendimento/:id`, um cronômetro grande (HH:MM:SS) começa a contar automaticamente, com botões Pausar/Retomar. Continua correndo mesmo se o médico recarregar a página (persistência via `service_started_at` que já existe no banco).
+2. **Barra global "Em consulta"**: enquanto houver um atendimento ativo, aparece uma barrinha discreta no topo do app (logo abaixo do header) em qualquer rota: "Em consulta com {Nome do paciente} · 00:12:34 · Voltar". Cor de destaque sutil (primary), animação fade.
+3. **Botão flutuante de retorno**: bolinha redonda flutuante (canto inferior-direito, acima do bottom nav mobile) com ícone de estetoscópio + tempo decorrido, que leva de volta para `/atendimento/:id`. Aparece em todas as rotas exceto na própria tela de atendimento.
+4. **Tempo salvo no histórico**: ao finalizar o atendimento (botão Salvar/Concluir já existente), o tempo total é gravado em `clinical_records.procedure_duration_seconds` (coluna já existe). Aparece formatado como "Duração: 42min" no Histórico do paciente (timeline) e nos cartões de prontuário.
 
-## Arquivos editados
+### Como funciona tecnicamente
 
-8. `src/App.tsx` — todas as rotas (`/ferramentas`, `/psi/ferramentas`, `/estetica/ferramentas`, `/medico/ferramentas`, `/nutricao/ferramentas`, `/fisio/ferramentas`, `/podologia/ferramentas`) apontam para `ToolsHomeUnified`.
-9. `src/lib/specialtyFamily.ts` — `toolsRoute` = `/ferramentas` em todas as famílias.
-10. `src/components/AppSidebar.tsx` — remover item "Ferramentas do Psicólogo" duplicado; manter só "Ferramentas Clínicas".
-11. `src/components/MobileBottomNav.tsx` — usar sempre `/ferramentas`.
+**Estado global do atendimento ativo** — novo hook `useActiveConsultation`:
+- Faz query nos `appointments` do user logado com `presence_status = 'in_service'` e `status = 'in_progress'`, ordenado pelo mais recente.
+- Retorna `{ appointment, patientName, startedAt, elapsedSeconds, isPaused }`.
+- Recalcula `elapsedSeconds` a cada segundo via `setInterval` enquanto não pausado.
+- Pausa armazenada em `localStorage` (chave `consultation-pause-{appointmentId}`) com `{ pausedAt, accumulatedPausedMs }` — não precisa migration.
 
-## Arquivos removidos
-- `src/pages/dentist/ToolsHome.tsx`
-- `src/pages/psi/PsiToolsHome.tsx`
-- `src/pages/aesthetic/AestheticToolsHome.tsx`
-- `src/pages/family/FamilyToolsHome.tsx`
+**Início do timer**: o `useEffect` em `Attendance.tsx` que já marca `in_service` passa a também gravar `service_started_at = now()` quando ainda for null. Já existe trigger `sync_appointment_presence_status` que faz isso, mas vamos garantir explicitamente para o caso de já estar `in_service`.
 
-## Layout da página
+**Componente `ConsultationTimer`** (novo, em `src/components/attendance/ConsultationTimer.tsx`):
+- Mostra HH:MM:SS grande, botões Pausar/Retomar.
+- Inserido no topo de `Attendance.tsx`, ao lado do título.
 
-```text
-Ferramentas Clínicas
-[chips: Todas · Documentos · Cálculos · Produtividade · Especialidade]
+**Componente `ActiveConsultationBar`** (novo, em `src/components/ActiveConsultationBar.tsx`):
+- Barra fina sticky no topo. Usa `useActiveConsultation` + `useLocation`.
+- Não renderiza se rota atual é `/atendimento/...` (já tem o timer principal).
+- Renderiza dentro de `AppLayout` logo após o `<header>`.
 
-📋 DOCUMENTOS
-  Receituário · Atestado · Solicitação de Exames · Encaminhamento
+**Componente `FloatingConsultationButton`** (novo, em `src/components/FloatingConsultationButton.tsx`):
+- Botão circular `fixed bottom-24 right-4 md:bottom-6`, z-50, gradient primary, com ícone Stethoscope e tempo abaixo em fonte mono pequena.
+- Pulso sutil (Framer Motion).
+- Some na rota `/atendimento/...`.
+- Adicionado em `AppLayout`.
 
-🧮 CÁLCULOS
-  IMC + Sinais Vitais · CID-10 Buscável
+**Persistência ao salvar** — em `Attendance.tsx`, `handleSave` (e no fluxo de "Concluir atendimento"):
+- Calcula `elapsed = (now - service_started_at) - pausedMs`.
+- Adiciona `procedure_duration_seconds: elapsed` ao `recordPayload` ao fazer upsert em `clinical_records`.
+- Limpa o `localStorage` da pausa ao concluir.
 
-🎙 PRODUTIVIDADE
-  Ditado por Voz · Timer · Próximo Retorno · Foto Clínica
+**Exibição no histórico**:
+- `src/components/patients/PatientTimeline.tsx` (e/ou `PatientTimelineMulti.tsx`): onde renderiza um item de prontuário, se `procedure_duration_seconds` existir, exibe "⏱ 42min" abaixo do título.
+- `HistoryDrawer.tsx` no atendimento: idem.
 
-⭐ {Família contextual}  (só aparece se aplicável)
-  Estética: Toxina · Áreas Faciais
-  Psi:      Escalas · Humor · SOAP · Timer Sessão · DSM-5
-  Nutrição: IMC + Antropometria
-  Médico:   IMC do paciente
+**Sem mudanças de banco**: todas as colunas necessárias já existem (`service_started_at`, `procedure_duration_seconds`, `presence_status`).
 
-🦷 ODONTOLOGIA  (só dentista)
-  Anestésico · Atlas de Dentes · Conversores Odonto
-```
+### Arquivos
 
-## Sem mudanças em
-- Banco de dados, RLS, Edge Functions.
-- Página de Atendimento (`/atendimento`) — continua separada como pediu.
-- Componentes individuais já existentes — reaproveitados sem alteração.
+Novos:
+- `src/hooks/useActiveConsultation.ts`
+- `src/components/attendance/ConsultationTimer.tsx`
+- `src/components/ActiveConsultationBar.tsx`
+- `src/components/FloatingConsultationButton.tsx`
+- `src/lib/formatDuration.ts` (helper segundos → "1h 23min" / "00:12:34")
+
+Editados:
+- `src/components/AppLayout.tsx` — monta `ActiveConsultationBar` + `FloatingConsultationButton`.
+- `src/pages/Attendance.tsx` — monta `ConsultationTimer`, garante `service_started_at`, salva `procedure_duration_seconds` no save.
+- `src/components/patients/PatientTimeline.tsx` e `PatientTimelineMulti.tsx` — exibe duração.
+- `src/components/attendance/HistoryDrawer.tsx` — exibe duração nos itens.
+
+### Fora de escopo
+- Não criamos página separada de relatório de tempo por médico (pode ser v2 — fácil agora que `procedure_duration_seconds` é populado consistentemente).
+- Não pausamos automaticamente quando o médico fecha a aba: o cronômetro derivado de `service_started_at` continua "rodando" no servidor; pausa é manual.
