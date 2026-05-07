@@ -186,20 +186,25 @@ export default function Attendance() {
   // Mark appointment as in_progress on first load
   useEffect(() => {
     if (!appointment) return;
-    const needsStart = ['scheduled', 'confirmed'].includes(appointment.status);
+    const needsStart = appointment.status !== 'in_progress' && appointment.status !== 'completed' && appointment.status !== 'cancelled';
     const needsServiceStart = !(appointment as any).service_started_at;
-    if (needsStart || needsServiceStart) {
-      const update: any = {};
-      if (needsStart) {
-        update.status = 'in_progress';
-        update.presence_status = 'in_service';
-      }
-      if (needsServiceStart) update.service_started_at = new Date().toISOString();
-      supabase.from('appointments').update(update).eq('id', appointment.id).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['appointment-detail', appointment.id] });
-        queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
-      });
+    if (!needsStart && !needsServiceStart) return;
+    const update: any = {};
+    if (needsStart) {
+      update.status = 'in_progress';
+      update.presence_status = 'in_service';
     }
+    if (needsServiceStart) update.service_started_at = new Date().toISOString();
+    (async () => {
+      const { error } = await supabase.from('appointments').update(update).eq('id', appointment.id);
+      if (error) {
+        console.error('[attendance] failed to start consultation', error);
+        toast.error('Não foi possível iniciar o cronômetro: ' + error.message);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['appointment-detail', appointment.id] });
+      queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
+    })();
   }, [appointment, queryClient]);
 
   const addProcedure = () => {
