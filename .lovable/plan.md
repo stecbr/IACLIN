@@ -1,95 +1,52 @@
-# Prontuário Inteligente — Atendimento do Dentista
+## Objetivo
 
-Evolução da tela `/attendance/:appointmentId` para um fluxo focado em odontologia, sem quebrar as outras especialidades.
+Personalizar o cabeçalho da Home de acordo com quem está logado:
 
-## 1. Cabeçalho do paciente com alertas críticos
+- **Médico / Dentista (e demais profissionais)**: `Olá, Dr(a). {Nome} 👋 — Seja bem-vindo(a) — {Especialidade}`
+- **Clínica (admin/dono)**: `Olá, {Nome da Clínica} 👋 — Seja bem-vindo(a)` com descrição contextual
+- **Paciente**: sem alteração
 
-Em `src/pages/Attendance.tsx` (Patient Header) adicionar uma faixa de **Anamnese Rápida** que carrega `patient_anamnese` (allergies, medical_conditions, medications) e mostra:
+## Onde alterar
 
-- Badge vermelho pulsante quando há alergias → "⚠ Alergias: Penicilina, Látex"
-- Badge âmbar quando há condições crônicas → "Hipertensão, Diabetes"
-- Badge cinza com medicações em uso
+Existem 5 telas Home que renderizam a saudação via `PageHeader`:
 
-Componente novo: `src/components/attendance/PatientAlertsBar.tsx` (reaproveita a query já existente em `AssessmentForm.tsx`). Ficará logo abaixo do nome do paciente, sempre visível.
+1. `src/pages/Index.tsx` → `AdminHome` (clínica/admin)
+2. `src/pages/dentist/DentistHome.tsx` (odonto / fisio / podo / genérico)
+3. `src/pages/medical/MedicalHome.tsx`
+4. `src/pages/nutrition/NutritionHome.tsx`
+5. `src/pages/psi/PsiHome.tsx`
 
-## 2. Linha do Tempo lateral (histórico progressivo)
+## Mudanças
 
-Novo componente `src/components/attendance/HistoryDrawer.tsx`:
+### 1. AdminHome (`src/pages/Index.tsx`)
 
-- Botão flutuante "Histórico" no canto direito do `Attendance.tsx` (ícone `History`).
-- Abre um `Sheet` lateral (`shadcn/ui sheet`) com tabs: **Consultas anteriores**, **Prescrições**, **Procedimentos**, **Odontograma**.
-- Reutiliza queries de `clinical_records`, `clinical_record_procedures`, `clinical_record_requests` (já filtradas por `patient_id`), ordenadas desc, agrupadas por data.
-- Cada item é colapsável: mostra diagnóstico + procedimentos + dentes envolvidos.
-- O drawer NÃO desmonta o formulário — o dentista consulta sem perder edição.
+- Em vez de usar `profile.full_name`, usar o **nome da clínica atual** vindo de `useAuth()` (`clinics.find(c => c.clinic_id === currentClinicId)?.clinic_name`).
+- Título: `${getGreeting()}, ${clinicName} 👋`
+- Descrição: `Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje.`
+- Fallback se não houver clínica: usar `firstName` como hoje.
 
-## 3. Aba "Exame Odontológico" estruturada
+### 2. Homes de profissional (Dentist/Medical/Nutrition/Psi)
 
-Hoje a aba `odontogram` só mostra um link. Vamos inline-ar um exame rápido para dentistas:
+- Resolver a especialidade do profissional logado a partir de `clinic_members.specialty` (via hook existente `useSpecialtyProfile` — já disponível) e converter para rótulo legível usando `specialtyLabel()` de `src/components/SpecialtySelect.tsx`.
+- Construir título no formato:
+  - `${getGreeting()}, Dr(a). ${firstName} 👋`
+- Descrição (substitui a atual):
+  - `Seja bem-vindo(a) · ${especialidadeLegível} — ${descrição original da tela}`
+  - Quando não houver especialidade cadastrada, ocultar o trecho da especialidade.
+- Padronizar o prefixo "Dr(a)." em todas as homes profissionais (hoje só `MedicalHome` usa). Para `PsiHome`/`NutritionHome` mantemos os emojis temáticos (🧠 / 🥗) ao final do título.
 
-Novo componente `src/components/attendance/DentalExamForm.tsx`:
+### 3. Paciente
 
-- Mini odontograma interativo (reusa `ToothMap` de `src/components/clinical-map/ToothMap.tsx`) com seleção múltipla.
-- Para cada dente clicado, abre popover com:
-  - Select de condição (Cárie, Restauração, Ausente, Trinca, Sensibilidade)
-  - Select de face (M, D, V, L, O)
-  - Campo livre de observação
-- Bloco separado de **Avaliação Periodontal**: Select estado da gengiva (Saudável / Gengivite leve / Moderada / Severa), Input numérico **Índice de Placa (%)**, Input **Sangramento à Sondagem (%)**.
-- Os dados ficam em `dental_exam` dentro do `SPECIALTY_DATA` do `notes` (mesmo padrão usado para anthropometry/soap), evitando migração.
+- Sem alteração (conforme pedido).
 
-Estado adicional em `Attendance.tsx`: `const [dentalExam, setDentalExam] = useState<DentalExam>({ teeth: [], gingiva: '', plaqueIndex: '', bleedingIndex: '' })`. Persistência idêntica ao `anthropometry`.
+## Detalhes técnicos
 
-A aba só aparece quando `clinicCategory === 'odonto'`. Substitui o conteúdo atual de "Odontograma" (mantendo botão "Abrir odontograma completo" como link secundário).
+- `useSpecialtyProfile()` já retorna `{ specialty }` (id armazenado em `clinic_members`). Importar `specialtyLabel` de `@/components/SpecialtySelect` para exibir o nome amigável (ex.: "Ortodontia", "Cardiologia").
+- Em `AdminHome`, usar `clinics` + `currentClinicId` do `useAuth()` (já consumido na página) — sem nova consulta ao backend.
+- Não há mudanças de schema, RLS ou rotas.
 
-## 4. Templates por subespecialidade
+## Resultado esperado
 
-Atualizar a aba **Procedimentos** para mostrar chips de subespecialidade no topo (Ortodontia, Endodontia, Periodontia, Implantodontia, Prótese, Estomatologia, Limpeza, Cirurgia) — clicar filtra `proceduresCatalog` pelos procedimentos cuja `category` corresponda. Implementação: adicionar `categoryFilter` state, filtrar o `Select` de procedimento.
-
-Ícones via `lucide-react` (ex.: `Smile`, `Scissors`, `Sparkles`, `Wrench`, `Activity`, `Microscope`).
-
-## 5. Regra de negócio: bloqueio de finalização
-
-Em `handleFinish`, validar antes de salvar:
-
-```
-const errors: string[] = [];
-if (!diagnosis.trim() && hypotheses.filter(h => h.text.trim()).length === 0) {
-  errors.push('Informe diagnóstico ou hipótese diagnóstica');
-}
-if (procedures.filter(p => p.procedure_id).length === 0 && !clinicalNotes.trim()) {
-  errors.push('Registre ao menos um procedimento ou anotação de evolução');
-}
-if (errors.length) { toast.error(errors.join(' • ')); return; }
-```
-
-Visualmente, marcar as abas com pendência usando um ponto vermelho ao lado do label (computed do estado).
-
-## 6. Resumo automático imprimível
-
-Já existe `AttendanceSummaryModal`. Vamos:
-
-- Disparar o modal **automaticamente** após `handleFinish` bem-sucedido (em vez do toast com action), antes de navegar para `/agenda`.
-- Adicionar botão **Imprimir** dentro do modal (`window.print()` em uma `div` com classe `print:visible`) e botão **Salvar PDF** usando o helper `generatePrescriptionPdf.ts` como referência (criar `generateAttendanceSummaryPdf.ts` em `src/lib/`).
-- Incluir no resumo: paciente, data, alertas de anamnese, diagnóstico/hipóteses, procedimentos com dentes/faces, prescrições, próximos retornos.
-
-## 7. Carregamento automático de dados persistentes
-
-Hoje o `useEffect` carrega só o registro do agendamento atual. Adicionar nova query `last-clinical-record` que busca o **último** `clinical_record` do paciente (qualquer agendamento) e, quando o registro atual está vazio, pré-preenche somente campos persistentes seguros: histórico do odontograma e medicações em uso (não copia diagnóstico nem queixa). Mostra um aviso sutil "Carregado do último atendimento — revise antes de salvar."
-
-## Arquivos
-
-**Novos**
-- `src/components/attendance/PatientAlertsBar.tsx`
-- `src/components/attendance/HistoryDrawer.tsx`
-- `src/components/attendance/DentalExamForm.tsx`
-- `src/lib/generateAttendanceSummaryPdf.ts`
-
-**Editados**
-- `src/pages/Attendance.tsx` — alerts bar, drawer, dental exam state, validação, auto summary.
-- `src/components/attendance/AttendanceSummaryModal.tsx` — botões imprimir/PDF + seção dental exam.
-- `src/lib/specialtyProfile.ts` — renomear tab `odontogram` para incluir o novo form (sem quebrar outras famílias).
-
-## Observações técnicas
-
-- Sem migrações: tudo cabe em `clinical_records.notes` via `<!--SPECIALTY_DATA:...-->` (padrão já usado por `anthropometry` / `soap`).
-- Sem novas dependências.
-- Mantém compatibilidade com Médico, Psi, Nutri, Estética — features novas só aparecem quando `clinicCategory === 'odonto'` ou família `odonto`.
+- Dentista logado vê: `Boa tarde, Dr(a). João 👋` com subtítulo `Seja bem-vindo(a) · Ortodontia — Aqui está o resumo do seu dia.`
+- Clínica/admin vê: `Boa tarde, Clínica Sorriso 👋` com subtítulo `Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje.`
+- Paciente: inalterado.
