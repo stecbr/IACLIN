@@ -329,6 +329,20 @@ export default function Attendance() {
 
   const handleFinish = async () => {
     if (!appointment || !user) return;
+    // Regra de negócio: bloquear finalização sem dados mínimos
+    const errors: string[] = [];
+    const validHypotheses = hypotheses.filter((h) => h.text.trim()).length;
+    if (!diagnosis.trim() && validHypotheses === 0) {
+      errors.push('Informe diagnóstico ou hipótese diagnóstica');
+    }
+    const validProcs = procedures.filter((p) => p.procedure_id).length;
+    if (validProcs === 0 && !clinicalNotes.trim() && !treatmentPlan.trim()) {
+      errors.push('Registre ao menos um procedimento, evolução ou plano de tratamento');
+    }
+    if (errors.length) {
+      toast.error(errors.join(' • '));
+      return;
+    }
     setFinishing(true);
     try {
       await handleSave();
@@ -359,13 +373,8 @@ export default function Attendance() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Atendimento finalizado!', {
-        action: {
-          label: 'Ver resumo',
-          onClick: () => setShowSummary(true),
-        },
-      });
-      navigate('/agenda');
+      toast.success('Atendimento finalizado!');
+      setShowSummary(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
