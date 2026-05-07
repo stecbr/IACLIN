@@ -46,18 +46,22 @@ export function useActiveConsultation() {
   const { data: appointment } = useQuery({
     queryKey: ['active-consultation', user?.id],
     enabled: !!user,
-    refetchInterval: 15000,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
-      const { data } = await supabase
+      // Anything still "in progress" for this professional counts as active.
+      const { data, error } = await supabase
         .from('appointments')
         .select('id, status, presence_status, service_started_at, start_time, patient_id, patients(full_name)')
         .eq('dentist_id', user!.id)
         .eq('status', 'in_progress')
-        .eq('presence_status', 'in_service')
-        .order('service_started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data ?? null;
+        .order('service_started_at', { ascending: false, nullsFirst: false })
+        .limit(1);
+      if (error) {
+        console.warn('[useActiveConsultation] query error', error);
+        return null;
+      }
+      return data?.[0] ?? null;
     },
   });
 
@@ -70,13 +74,14 @@ export function useActiveConsultation() {
   if (!appointment) return null;
 
   const pause = readPause(appointment.id);
-  const elapsed = computeElapsed(appointment.service_started_at, pause);
+  const startedAt = appointment.service_started_at ?? appointment.start_time;
+  const elapsed = computeElapsed(startedAt, pause);
 
   return {
     appointmentId: appointment.id as string,
     patientId: appointment.patient_id as string,
     patientName: (appointment as any).patients?.full_name as string | undefined,
-    startedAt: appointment.service_started_at as string | null,
+    startedAt,
     elapsedSeconds: elapsed,
     isPaused: !!pause.pausedAt,
     _tick: tick,
