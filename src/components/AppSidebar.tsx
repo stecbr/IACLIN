@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import logoLight from '@/assets/logo-light.png';
 import logoDark from '@/assets/logo-dark.png';
+import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
