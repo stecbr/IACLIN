@@ -161,6 +161,7 @@ function ClinicSection() {
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingHideFlag, setSavingHideFlag] = useState(false);
 
   const { data: clinic, isLoading } = useQuery({
     queryKey: ['clinic-settings'],
@@ -205,6 +206,25 @@ function ClinicSection() {
       toast.error(err.message);
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleToggleHideIaclin = async (checked: boolean) => {
+    if (!clinic) return;
+    setSavingHideFlag(true);
+    try {
+      const { error } = await supabase
+        .from('clinics')
+        .update({ hide_iaclin_logo: checked } as any)
+        .eq('id', clinic.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['clinic-branding'] });
+      toast.success(checked ? 'Logo IACLIN ocultada' : 'Logo IACLIN visível');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSavingHideFlag(false);
     }
   };
 
@@ -257,8 +277,32 @@ function ClinicSection() {
               <p className="text-sm font-medium">Logo da Clínica</p>
               <p className="text-xs text-muted-foreground">Clique na imagem para alterar</p>
               {uploadingLogo && <p className="text-xs text-primary mt-1">Enviando…</p>}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 gap-2"
+                onClick={() => logoRef.current?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Adicionar logo
+              </Button>
             </div>
             <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-border/50 px-4 py-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Ocultar logo IACLIN</Label>
+              <p className="text-xs text-muted-foreground">
+                Quando ativado, apenas a logo da sua clínica aparece no topo. Caso contrário, ambas aparecem lado a lado.
+              </p>
+            </div>
+            <Switch
+              checked={!!(clinic as any)?.hide_iaclin_logo}
+              disabled={savingHideFlag || !clinic}
+              onCheckedChange={handleToggleHideIaclin}
+            />
           </div>
 
           {/* Form fields */}
