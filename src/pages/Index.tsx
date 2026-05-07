@@ -19,6 +19,7 @@ import MedicalHome from '@/pages/medical/MedicalHome';
 import NutritionHome from '@/pages/nutrition/NutritionHome';
 import PsiHome from '@/pages/psi/PsiHome';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
+import { SoloModeBanner } from '@/components/dashboard/SoloModeBanner';
 
 export default function IndexRouter() {
   const { effectiveRole } = useRoleAccess();
@@ -265,6 +266,7 @@ function AdminHome() {
   return (
     <div className="space-y-8">
       <PageHeader title={`${getGreeting()}, ${firstName} 👋`} description="Aqui está o resumo da sua clínica hoje." />
+      <SoloModeBanner />
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

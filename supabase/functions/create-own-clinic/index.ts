@@ -75,9 +75,11 @@ Deno.serve(async (req) => {
     const category = validCategories.includes(requestedCategory) ? requestedCategory : "outro";
 
     const baseName = (body.name ?? fullName ?? user.email ?? "Meu consultório").trim();
-    const clinicName = baseName.toLowerCase().startsWith("dr")
+    const specialtyForName = body.specialty ?? metaSpecialty;
+    const root = baseName.toLowerCase().startsWith("dr")
       ? `Consultório ${baseName}`
       : `Consultório de ${baseName}`;
+    const clinicName = specialtyForName ? `${root} — ${specialtyForName}` : root;
 
     const { data: created, error: createErr } = await admin
       .from("clinics")

@@ -18,6 +18,7 @@ import MyClinicsSection from '@/components/settings/MyClinicsSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
+import { useSoloMode } from '@/hooks/useSoloMode';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
@@ -158,6 +159,7 @@ function ProfileSection() {
 
 function ClinicSection() {
   const { user } = useAuth();
+  const { isSolo } = useSoloMode();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -256,8 +258,8 @@ function ClinicSection() {
     <div className="space-y-6">
       <Card className="shadow-card border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Clínica</CardTitle>
-          <CardDescription>Dados da clínica.</CardDescription>
+          <CardTitle className="text-base">{isSolo ? 'Meu consultório' : 'Clínica'}</CardTitle>
+          <CardDescription>{isSolo ? 'Dados do seu consultório.' : 'Dados da clínica.'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Logo Upload */}
