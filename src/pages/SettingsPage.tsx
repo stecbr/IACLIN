@@ -159,6 +159,7 @@ function ProfileSection() {
 
 function ClinicSection() {
   const { user } = useAuth();
+  const { isSolo } = useSoloMode();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
