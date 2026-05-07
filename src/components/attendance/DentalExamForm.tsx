@@ -24,13 +24,13 @@ export interface DentalExam {
 }
 
 const CONDITIONS = [
-  { value: 'caries', label: 'Cárie' },
+  { value: 'cavity', label: 'Cárie' },
   { value: 'restoration', label: 'Restauração' },
   { value: 'missing', label: 'Ausente' },
-  { value: 'fracture', label: 'Trinca / Fratura' },
-  { value: 'sensitivity', label: 'Sensibilidade' },
-  { value: 'mobility', label: 'Mobilidade' },
   { value: 'crown', label: 'Coroa / Prótese' },
+  { value: 'root_canal', label: 'Canal' },
+  { value: 'extraction', label: 'Extração' },
+  { value: 'implant', label: 'Implante' },
 ];
 
 const SURFACES = ['M', 'D', 'V', 'L', 'O', 'I'];
@@ -57,7 +57,7 @@ export function DentalExamForm({ value, onChange }: Props) {
     if (existing) {
       next = teeth.map((t) => (t.tooth === tooth ? { ...t, ...patch } : t));
     } else {
-      next = [...teeth, { tooth, condition: patch.condition ?? 'caries', ...patch }];
+      next = [...teeth, { tooth, condition: patch.condition ?? 'cavity', ...patch }];
     }
     onChange({ ...value, teeth: next });
   };
