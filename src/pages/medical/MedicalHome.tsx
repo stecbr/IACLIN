@@ -91,7 +91,7 @@ export default function MedicalHome() {
   return (
     <SpecialtyHomeShell
       title={`${getGreeting()}, Dr(a). ${firstName} 🩺`}
-      description="Resumo das suas consultas, exames e prescrições."
+      description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Resumo das suas consultas, exames e prescrições.`}
       kpis={[
         { title: 'Consultas Hoje', value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
         { title: 'Atendimentos no Mês', value: monthCount, desc: 'concluídos', icon: Stethoscope, color: 'text-success', bg: 'bg-success/10' },

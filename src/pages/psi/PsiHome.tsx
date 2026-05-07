@@ -71,8 +71,8 @@ export default function PsiHome() {
 
   return (
     <SpecialtyHomeShell
-      title={`${getGreeting()}, ${firstName} 🧠`}
-      description="Acompanhamento das suas sessões e evolução terapêutica."
+      title={`${getGreeting()}, Dr(a). ${firstName} 🧠`}
+      description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Acompanhamento das suas sessões e evolução terapêutica.`}
       kpis={[
         { title: 'Sessões Hoje', value: todaySessions.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
         { title: 'Sessões na Semana', value: weekCount, desc: 'agendadas + realizadas', icon: Brain, color: 'text-success', bg: 'bg-success/10' },

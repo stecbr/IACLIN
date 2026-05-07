@@ -69,8 +69,8 @@ export default function NutritionHome() {
 
   return (
     <SpecialtyHomeShell
-      title={`${getGreeting()}, ${firstName} 🥗`}
-      description="Acompanhe consultas, planos alimentares e evolução dos pacientes."
+      title={`${getGreeting()}, Dr(a). ${firstName} 🥗`}
+      description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Acompanhe consultas, planos alimentares e evolução dos pacientes.`}
       kpis={[
         { title: 'Consultas Hoje', value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
         { title: 'Pacientes Ativos', value: activePatients, desc: 'em acompanhamento', icon: Users, color: 'text-success', bg: 'bg-success/10' },
