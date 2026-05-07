@@ -1,52 +1,60 @@
-## Objetivo
+# Unificar Ferramentas Clínicas — Implementação
 
-Personalizar o cabeçalho da Home de acordo com quem está logado:
+## Escopo aprovado
+- Página única `/ferramentas` com 4 seções: **Documentos**, **Cálculos**, **Produtividade**, **{Especialidade contextual}**, e **Odontologia** (só p/ família odonto).
+- Ferramentas universais novas no MVP: **Solicitação de Exames**, **Encaminhamento**, **CID-10 Buscável**, **IMC + Sinais Vitais Rápidos**.
+- Ferramentas exclusivas do dentista permanecem separadas dentro da mesma página (Anestésico, Atlas, Conversores Odonto).
+- Ficam para v2: TUSS, TCLE com assinatura, TFG, Macros, NEWS/qSOFA, Genograma.
 
-- **Médico / Dentista (e demais profissionais)**: `Olá, Dr(a). {Nome} 👋 — Seja bem-vindo(a) — {Especialidade}`
-- **Clínica (admin/dono)**: `Olá, {Nome da Clínica} 👋 — Seja bem-vindo(a)` com descrição contextual
-- **Paciente**: sem alteração
+## Arquivos novos
 
-## Onde alterar
+1. `src/pages/ToolsHomeUnified.tsx` — página única, agrupa por seção, detecta família via `useSpecialtyProfile`, abre cada ferramenta em modal (fade-in/out).
+2. `src/components/tools/ExamRequestPad.tsx` — formulário com modelos (hemograma, raio-X, ressonância, urina, etc.) → PDF + WhatsApp (reutiliza `clinicalDocsHelpers` e padrão do `PrescriptionPad`).
+3. `src/components/tools/ReferralLetterPad.tsx` — carta de encaminhamento entre especialidades, gera PDF.
+4. `src/components/tools/Cid10Search.tsx` — busca local com lista resumida de CIDs (top ~300), copia código+descrição.
+5. `src/components/tools/VitalSignsQuick.tsx` — IMC, PA, FC, FR, SpO₂, Temp; salva em `clinical_records.vital_signs` se houver atendimento ativo, senão só calcula.
+6. `src/lib/cid10Data.ts` — dataset estático com CIDs mais comuns.
+7. `src/lib/generateExamRequestPdf.ts` e `src/lib/generateReferralPdf.ts` — geração via jsPDF (mesmo padrão do prescription).
 
-Existem 5 telas Home que renderizam a saudação via `PageHeader`:
+## Arquivos editados
 
-1. `src/pages/Index.tsx` → `AdminHome` (clínica/admin)
-2. `src/pages/dentist/DentistHome.tsx` (odonto / fisio / podo / genérico)
-3. `src/pages/medical/MedicalHome.tsx`
-4. `src/pages/nutrition/NutritionHome.tsx`
-5. `src/pages/psi/PsiHome.tsx`
+8. `src/App.tsx` — todas as rotas (`/ferramentas`, `/psi/ferramentas`, `/estetica/ferramentas`, `/medico/ferramentas`, `/nutricao/ferramentas`, `/fisio/ferramentas`, `/podologia/ferramentas`) apontam para `ToolsHomeUnified`.
+9. `src/lib/specialtyFamily.ts` — `toolsRoute` = `/ferramentas` em todas as famílias.
+10. `src/components/AppSidebar.tsx` — remover item "Ferramentas do Psicólogo" duplicado; manter só "Ferramentas Clínicas".
+11. `src/components/MobileBottomNav.tsx` — usar sempre `/ferramentas`.
 
-## Mudanças
+## Arquivos removidos
+- `src/pages/dentist/ToolsHome.tsx`
+- `src/pages/psi/PsiToolsHome.tsx`
+- `src/pages/aesthetic/AestheticToolsHome.tsx`
+- `src/pages/family/FamilyToolsHome.tsx`
 
-### 1. AdminHome (`src/pages/Index.tsx`)
+## Layout da página
 
-- Em vez de usar `profile.full_name`, usar o **nome da clínica atual** vindo de `useAuth()` (`clinics.find(c => c.clinic_id === currentClinicId)?.clinic_name`).
-- Título: `${getGreeting()}, ${clinicName} 👋`
-- Descrição: `Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje.`
-- Fallback se não houver clínica: usar `firstName` como hoje.
+```text
+Ferramentas Clínicas
+[chips: Todas · Documentos · Cálculos · Produtividade · Especialidade]
 
-### 2. Homes de profissional (Dentist/Medical/Nutrition/Psi)
+📋 DOCUMENTOS
+  Receituário · Atestado · Solicitação de Exames · Encaminhamento
 
-- Resolver a especialidade do profissional logado a partir de `clinic_members.specialty` (via hook existente `useSpecialtyProfile` — já disponível) e converter para rótulo legível usando `specialtyLabel()` de `src/components/SpecialtySelect.tsx`.
-- Construir título no formato:
-  - `${getGreeting()}, Dr(a). ${firstName} 👋`
-- Descrição (substitui a atual):
-  - `Seja bem-vindo(a) · ${especialidadeLegível} — ${descrição original da tela}`
-  - Quando não houver especialidade cadastrada, ocultar o trecho da especialidade.
-- Padronizar o prefixo "Dr(a)." em todas as homes profissionais (hoje só `MedicalHome` usa). Para `PsiHome`/`NutritionHome` mantemos os emojis temáticos (🧠 / 🥗) ao final do título.
+🧮 CÁLCULOS
+  IMC + Sinais Vitais · CID-10 Buscável
 
-### 3. Paciente
+🎙 PRODUTIVIDADE
+  Ditado por Voz · Timer · Próximo Retorno · Foto Clínica
 
-- Sem alteração (conforme pedido).
+⭐ {Família contextual}  (só aparece se aplicável)
+  Estética: Toxina · Áreas Faciais
+  Psi:      Escalas · Humor · SOAP · Timer Sessão · DSM-5
+  Nutrição: IMC + Antropometria
+  Médico:   IMC do paciente
 
-## Detalhes técnicos
+🦷 ODONTOLOGIA  (só dentista)
+  Anestésico · Atlas de Dentes · Conversores Odonto
+```
 
-- `useSpecialtyProfile()` já retorna `{ specialty }` (id armazenado em `clinic_members`). Importar `specialtyLabel` de `@/components/SpecialtySelect` para exibir o nome amigável (ex.: "Ortodontia", "Cardiologia").
-- Em `AdminHome`, usar `clinics` + `currentClinicId` do `useAuth()` (já consumido na página) — sem nova consulta ao backend.
-- Não há mudanças de schema, RLS ou rotas.
-
-## Resultado esperado
-
-- Dentista logado vê: `Boa tarde, Dr(a). João 👋` com subtítulo `Seja bem-vindo(a) · Ortodontia — Aqui está o resumo do seu dia.`
-- Clínica/admin vê: `Boa tarde, Clínica Sorriso 👋` com subtítulo `Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje.`
-- Paciente: inalterado.
+## Sem mudanças em
+- Banco de dados, RLS, Edge Functions.
+- Página de Atendimento (`/atendimento`) — continua separada como pediu.
+- Componentes individuais já existentes — reaproveitados sem alteração.
