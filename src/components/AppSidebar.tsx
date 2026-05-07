@@ -16,7 +16,6 @@ import {
   ClipboardCheck,
   DoorOpen,
   Briefcase,
-  Brain,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -139,13 +138,7 @@ export function AppSidebar() {
       ]
     : filteredClinicNav;
 
-  // Inject Psi toolbox for psychologists
-  if (isPsi) {
-    finalClinicNav = [
-      ...finalClinicNav,
-      { title: 'Ferramentas do Psicólogo', url: '/psi/ferramentas', icon: Brain, categories: ALL_CATEGORIES, allowedRoles: ['dentist'] as Role[] },
-    ];
-  }
+  // (Tools are now unified at /ferramentas — no extra entry needed for psi)
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({
