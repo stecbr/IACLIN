@@ -654,18 +654,17 @@ export default function Attendance() {
 
         {showOdontogram && (
           <TabsContent value="odontogram">
-            <Card className="border-border/50">
-              <CardContent className="p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Acesse o odontograma completo do paciente para registrar alterações dentárias.
-                </p>
-                <Link to={`/odontogram?patient=${appointment.patient_id}`}>
-                  <Button variant="outline" className="gap-2">
-                    Abrir Odontograma
-                  </Button>
+            <div className="space-y-3">
+              <DentalExamForm value={dentalExam} onChange={setDentalExam} />
+              <div className="text-center">
+                <Link
+                  to={`/odontogram?patient=${appointment.patient_id}`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Abrir odontograma completo do paciente →
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
         )}
       </Tabs>
