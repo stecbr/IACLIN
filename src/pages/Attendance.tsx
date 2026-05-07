@@ -442,6 +442,11 @@ export default function Attendance() {
         </div>
       </div>
 
+      <ConsultationTimer
+        appointmentId={appointment.id}
+        serviceStartedAt={(appointment as any).service_started_at ?? null}
+      />
+
       {/* Patient Header */}
       <Card className="border-border/50">
         <CardContent className="p-4">
