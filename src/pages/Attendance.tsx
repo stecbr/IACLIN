@@ -409,6 +409,7 @@ export default function Attendance() {
           Voltar à Agenda
         </Link>
         <div className="flex gap-2">
+          <HistoryDrawer patientId={appointment.patient_id} currentAppointmentId={appointment.id} />
           <Button variant="outline" onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
@@ -442,6 +443,9 @@ export default function Attendance() {
             <Link to={`/patients/${appointment.patient_id}`} className="text-xs text-primary hover:underline">
               Ver perfil
             </Link>
+          </div>
+          <div className="mt-3">
+            <PatientAlertsBar patientId={appointment.patient_id} />
           </div>
         </CardContent>
       </Card>
