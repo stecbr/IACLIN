@@ -15,6 +15,7 @@ import logoDark from '@/assets/logo-dark.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiSync } from '@/hooks/useAiSync';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useClinicBranding } from '@/hooks/useClinicBranding';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -31,6 +32,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { resolved, setTheme } = useTheme();
   const { currentClinicId } = useAuth();
   const { effectiveRole } = useRoleAccess();
+  const { logoUrl, hideIaclinLogo } = useClinicBranding();
   // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget).
   // Só roda para admin (dono/secretária da clínica). Médicos não disparam o sync,
   // pois não precisam abrir snapshot completo nem polling externo.
@@ -57,8 +59,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
               {/* Mobile logo */}
-              <div className="flex md:hidden items-center">
-                <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-7 object-contain" />
+              <div className="flex md:hidden items-center gap-2">
+                {!(hideIaclinLogo && logoUrl) && (
+                  <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-7 object-contain" />
+                )}
+                {logoUrl && !(hideIaclinLogo) && <span className="text-muted-foreground/40 text-sm">·</span>}
+                {logoUrl && <img src={logoUrl} alt="Logo da clínica" className="h-7 object-contain" />}
               </div>
               <div className="hidden sm:flex items-center gap-1.5 text-sm">
                 {crumbs.map((crumb, i) => (

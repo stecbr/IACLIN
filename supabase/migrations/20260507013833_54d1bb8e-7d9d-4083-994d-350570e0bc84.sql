@@ -1,0 +1,1 @@
+ALTER TABLE public.clinics ADD COLUMN IF NOT EXISTS hide_iaclin_logo BOOLEAN NOT NULL DEFAULT false;

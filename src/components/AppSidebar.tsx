@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import logoLight from '@/assets/logo-light.png';
 import logoDark from '@/assets/logo-dark.png';
+import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,6 +77,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { resolved } = useTheme();
+  const { logoUrl, hideIaclinLogo } = useClinicBranding();
   const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const { simulatedRole, currentClinicId } = useAuth();
@@ -234,11 +236,21 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-          {collapsed ? (
-            <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-8 w-8 object-contain flex-shrink-0" />
-          ) : (
-            <img src={resolved === 'dark' ? logoDark : logoLight} alt="IACLIN" className="h-8 object-contain" />
-          )}
+          {(() => {
+            const iaclinSrc = resolved === 'dark' ? logoDark : logoLight;
+            const showIaclin = !(hideIaclinLogo && logoUrl);
+            const showClinic = !!logoUrl;
+            const sizeClass = collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain';
+            return (
+              <div className="flex items-center gap-2">
+                {showIaclin && <img src={iaclinSrc} alt="IACLIN" className={sizeClass} />}
+                {showIaclin && showClinic && !collapsed && (
+                  <span className="text-muted-foreground/40 text-sm">·</span>
+                )}
+                {showClinic && <img src={logoUrl!} alt="Logo da clínica" className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'} />}
+              </div>
+            );
+          })()}
           </div>
           <ClinicSwitcher />
         </div>
