@@ -32,10 +32,7 @@ import WaitingRoom from "./pages/WaitingRoom";
 import ClinicaHome from "./pages/clinica/ClinicaHome";
 import ClinicaMedicos from "./pages/clinica/ClinicaMedicos";
 import ClinicaAprovacoes from "./pages/clinica/ClinicaAprovacoes";
-import ToolsHome from "./pages/dentist/ToolsHome";
-import PsiToolsHome from "./pages/psi/PsiToolsHome";
-import AestheticToolsHome from "./pages/aesthetic/AestheticToolsHome";
-import FamilyToolsHome from "./pages/family/FamilyToolsHome";
+import ToolsHomeUnified from "./pages/ToolsHomeUnified";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
@@ -165,13 +162,13 @@ const AppRoutes = () => (
     <Route path="/clinica/aprovacoes" element={<ProtectedRoute><ClinicaAprovacoes /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/mapa-clinico" element={<ProtectedRoute><ClinicalMapPage /></ProtectedRoute>} />
-    <Route path="/ferramentas" element={<ProtectedRoute><ToolsHome /></ProtectedRoute>} />
-    <Route path="/psi/ferramentas" element={<ProtectedRoute><PsiToolsHome /></ProtectedRoute>} />
-    <Route path="/estetica/ferramentas" element={<ProtectedRoute><AestheticToolsHome /></ProtectedRoute>} />
-    <Route path="/medico/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
-    <Route path="/nutricao/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
-    <Route path="/fisio/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
-    <Route path="/podologia/ferramentas" element={<ProtectedRoute><FamilyToolsHome /></ProtectedRoute>} />
+    <Route path="/ferramentas" element={<ProtectedRoute><ToolsHomeUnified /></ProtectedRoute>} />
+    <Route path="/psi/ferramentas" element={<Navigate to="/ferramentas" replace />} />
+    <Route path="/estetica/ferramentas" element={<Navigate to="/ferramentas" replace />} />
+    <Route path="/medico/ferramentas" element={<Navigate to="/ferramentas" replace />} />
+    <Route path="/nutricao/ferramentas" element={<Navigate to="/ferramentas" replace />} />
+    <Route path="/fisio/ferramentas" element={<Navigate to="/ferramentas" replace />} />
+    <Route path="/podologia/ferramentas" element={<Navigate to="/ferramentas" replace />} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
