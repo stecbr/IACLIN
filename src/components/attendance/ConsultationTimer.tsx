@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pause, Play, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { computeElapsed, readPause, writePause } from '@/hooks/useActiveConsultation';
 import { formatHMS } from '@/lib/formatDuration';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -17,9 +18,18 @@ export function ConsultationTimer({ appointmentId, serviceStartedAt, onStarted }
   const [startedAt, setStartedAt] = useState<string | null>(serviceStartedAt);
   const [, force] = useState(0);
   const [isPaused, setIsPaused] = useState<boolean>(() => !!readPause(appointmentId).pausedAt);
+  const initRef = useRef(false);
+  const queryClient = useQueryClient();
 
-  // Ensure service_started_at is set
+  // Pull in server value when it eventually arrives, without overriding a locally-set timestamp.
   useEffect(() => {
+    if (serviceStartedAt && !startedAt) setStartedAt(serviceStartedAt);
+  }, [serviceStartedAt, startedAt]);
+
+  // Ensure service_started_at exists on the server (runs once).
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
     if (startedAt) return;
     const iso = new Date().toISOString();
     setStartedAt(iso);
@@ -28,12 +38,11 @@ export function ConsultationTimer({ appointmentId, serviceStartedAt, onStarted }
       .from('appointments')
       .update({ service_started_at: iso, presence_status: 'in_service', status: 'in_progress' })
       .eq('id', appointmentId)
-      .then();
-  }, [appointmentId, startedAt, onStarted]);
-
-  useEffect(() => {
-    setStartedAt(serviceStartedAt);
-  }, [serviceStartedAt]);
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ['appointment-detail', appointmentId] });
+        queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
+      });
+  }, [appointmentId, startedAt, onStarted, queryClient]);
 
   useEffect(() => {
     const id = setInterval(() => force((n) => n + 1), 1000);
