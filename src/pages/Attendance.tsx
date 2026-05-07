@@ -24,6 +24,9 @@ import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummar
 import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
 import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
 import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
+import { PatientAlertsBar } from '@/components/attendance/PatientAlertsBar';
+import { HistoryDrawer } from '@/components/attendance/HistoryDrawer';
+import { DentalExamForm, type DentalExam } from '@/components/attendance/DentalExamForm';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
@@ -68,6 +71,7 @@ export default function Attendance() {
   const [anthropometry, setAnthropometry] = useState<Anthropometry>({});
   const [mealPlan, setMealPlan] = useState<MealPlan>({});
   const [soap, setSoap] = useState<SoapSession>({});
+  const [dentalExam, setDentalExam] = useState<DentalExam>({ teeth: [] });
 
   const { profile: specialtyProfile } = useSpecialtyProfile();
   const tabKeys = specialtyProfile.attendanceTabs;
@@ -139,6 +143,7 @@ export default function Attendance() {
           if (parsed.anthropometry) setAnthropometry(parsed.anthropometry);
           if (parsed.meal_plan) setMealPlan(parsed.meal_plan);
           if (parsed.soap) setSoap(parsed.soap);
+          if (parsed.dental_exam) setDentalExam(parsed.dental_exam);
         } catch { /* ignore */ }
         setClinicalNotes(rawNotes.slice(specMatch[0].length));
       } else {
@@ -229,6 +234,9 @@ export default function Attendance() {
       if (Object.values(anthropometry).some((v) => v && String(v).trim())) specialtyPayload.anthropometry = anthropometry;
       if (Object.values(mealPlan).some((v) => v && String(v).trim())) specialtyPayload.meal_plan = mealPlan;
       if (Object.values(soap).some((v) => v && String(v).trim() && v !== 'none')) specialtyPayload.soap = soap;
+      if ((dentalExam.teeth?.length ?? 0) > 0 || dentalExam.gingiva || dentalExam.plaqueIndex || dentalExam.bleedingIndex) {
+        specialtyPayload.dental_exam = dentalExam;
+      }
       const notesHeader = Object.keys(specialtyPayload).length > 0
         ? `<!--SPECIALTY_DATA:${JSON.stringify(specialtyPayload)}-->\n`
         : '';
