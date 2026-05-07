@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { SpecialtyHomeShell, getGreeting } from '@/components/dashboard/SpecialtyHomeShell';
+import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
+import { specialtyLabel } from '@/components/SpecialtySelect';
 
 /**
  * Home for the "medical" family (Clínico geral, Cardio, Derma, etc.).
@@ -17,6 +19,8 @@ import { SpecialtyHomeShell, getGreeting } from '@/components/dashboard/Specialt
 export default function MedicalHome() {
   const { user, profile, currentClinicId } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
+  const { specialty } = useSpecialtyProfile();
+  const specialtyName = specialtyLabel(specialty);
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
