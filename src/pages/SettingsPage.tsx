@@ -256,8 +256,8 @@ function ClinicSection() {
     <div className="space-y-6">
       <Card className="shadow-card border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Clínica</CardTitle>
-          <CardDescription>Dados da clínica.</CardDescription>
+          <CardTitle className="text-base">{isSolo ? 'Meu consultório' : 'Clínica'}</CardTitle>
+          <CardDescription>{isSolo ? 'Dados do seu consultório.' : 'Dados da clínica.'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Logo Upload */}
