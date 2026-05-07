@@ -185,14 +185,22 @@ export default function Attendance() {
 
   // Mark appointment as in_progress on first load
   useEffect(() => {
-    if (appointment && ['scheduled', 'confirmed'].includes(appointment.status)) {
-      supabase
-        .from('appointments')
-        .update({ status: 'in_progress', presence_status: 'in_service' })
-        .eq('id', appointment.id)
-        .then();
+    if (!appointment) return;
+    const needsStart = ['scheduled', 'confirmed'].includes(appointment.status);
+    const needsServiceStart = !(appointment as any).service_started_at;
+    if (needsStart || needsServiceStart) {
+      const update: any = {};
+      if (needsStart) {
+        update.status = 'in_progress';
+        update.presence_status = 'in_service';
+      }
+      if (needsServiceStart) update.service_started_at = new Date().toISOString();
+      supabase.from('appointments').update(update).eq('id', appointment.id).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['appointment-detail', appointment.id] });
+        queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
+      });
     }
-  }, [appointment]);
+  }, [appointment, queryClient]);
 
   const addProcedure = () => {
     setProcedures((prev) => [
