@@ -27,6 +27,8 @@ import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapS
 import { PatientAlertsBar } from '@/components/attendance/PatientAlertsBar';
 import { HistoryDrawer } from '@/components/attendance/HistoryDrawer';
 import { DentalExamForm, type DentalExam } from '@/components/attendance/DentalExamForm';
+import { ConsultationTimer } from '@/components/attendance/ConsultationTimer';
+import { computeElapsed, readPause, clearPause } from '@/hooks/useActiveConsultation';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
