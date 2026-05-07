@@ -59,14 +59,14 @@ const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard;
   { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen, allowedRoles: ['admin', 'secretary'] },
-  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['dentist'] },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin', 'dentist'] },
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
   { title: 'Pacientes', url: '/patients', icon: Users, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Aprovações', url: '/clinica/aprovacoes', icon: ClipboardCheck, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'], allowedRoles: ['admin', 'dentist'] },
-  { title: 'Ferramentas Clínicas', url: '/ferramentas', icon: Briefcase, categories: ALL_CATEGORIES, allowedRoles: ['dentist'] },
+  { title: 'Ferramentas Clínicas', url: '/ferramentas', icon: Briefcase, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
