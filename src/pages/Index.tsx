@@ -54,8 +54,9 @@ function getGreeting() {
 }
 
 function AdminHome() {
-  const { profile, currentClinicId } = useAuth();
+  const { profile, currentClinicId, clinics } = useAuth();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
+  const clinicName = clinics.find((c) => c.clinic_id === currentClinicId)?.clinic_name ?? firstName;
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
@@ -265,7 +266,7 @@ function AdminHome() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title={`${getGreeting()}, ${firstName} 👋`} description="Aqui está o resumo da sua clínica hoje." />
+      <PageHeader title={`${getGreeting()}, ${clinicName} 👋`} description="Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje." />
       <SoloModeBanner />
 
       {/* KPIs */}

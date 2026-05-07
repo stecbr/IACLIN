@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { SoloModeBanner } from '@/components/dashboard/SoloModeBanner';
+import { specialtyLabel } from '@/components/SpecialtySelect';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -38,6 +39,7 @@ export default function DentistHome() {
     },
   });
   const family = getFamilyConfig(memberSpecialty);
+  const specialtyName = specialtyLabel(memberSpecialty);
   const apptCap = family.appointmentNoun.charAt(0).toUpperCase() + family.appointmentNoun.slice(1);
   const apptCapPlural = family.appointmentNounPlural.charAt(0).toUpperCase() + family.appointmentNounPlural.slice(1);
 
@@ -171,7 +173,10 @@ export default function DentistHome() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title={`${getGreeting()}, ${firstName} 👋`} description="Aqui está o resumo do seu dia." />
+      <PageHeader
+        title={`${getGreeting()}, Dr(a). ${firstName} 👋`}
+        description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Aqui está o resumo do seu dia.`}
+      />
       <SoloModeBanner />
 
       {/* KPIs */}
