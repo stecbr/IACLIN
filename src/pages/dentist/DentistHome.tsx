@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
+import { SoloModeBanner } from '@/components/dashboard/SoloModeBanner';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -171,6 +172,7 @@ export default function DentistHome() {
   return (
     <div className="space-y-8">
       <PageHeader title={`${getGreeting()}, ${firstName} 👋`} description="Aqui está o resumo do seu dia." />
+      <SoloModeBanner />
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
