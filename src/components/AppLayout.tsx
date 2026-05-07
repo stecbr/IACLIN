@@ -8,6 +8,8 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { DevRoleSwitcher } from '@/components/DevRoleSwitcher';
+import { ActiveConsultationBar } from '@/components/ActiveConsultationBar';
+import { FloatingConsultationButton } from '@/components/FloatingConsultationButton';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
@@ -90,6 +92,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <NotificationBell />
             </div>
           </header>
+          <ActiveConsultationBar />
           <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">
             <AnimatePresence mode="wait">
               <motion.div
@@ -106,6 +109,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <MobileBottomNav />
+      <FloatingConsultationButton />
       <WelcomeTour />
     </SidebarProvider>
   );
