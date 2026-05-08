@@ -1,37 +1,79 @@
 ## Objetivo
 
-Permitir que o médico/dentista alterne facilmente entre **Pacientes da Clínica** (cada clínica onde ele é membro) e **Meus Pacientes** (clínica própria, criada no cadastro como owner), com **separação visual clara** e **isolamento total de dados** entre escopos.
+Permitir que o médico/dentista atenda **com ou sem vínculo a uma clínica**, marcando cada paciente/agendamento individualmente como "vinculado à clínica X" ou "atendimento pessoal (não vinculado)". Tudo aparece numa lista única com **badge visual** indicando a origem, sem vazar dados entre médicos.
 
 ## Conceito
 
-- "Meus Pacientes" = pacientes da clínica onde o médico é `owner` (criada no signup como `profissional`).
-- "Pacientes da Clínica X" = pacientes das demais clínicas onde ele é membro (não-owner).
-- Como já existe `currentClinicId` no `AuthContext` e isolamento por `clinic_id` em todas as queries (RLS já garante), basta tratar a clínica própria como um item especial visualmente diferenciado no `ClinicSwitcher`.
+- Hoje toda linha (`patients`, `appointments`, `budgets`, `clinical_records`, `financial_transactions`) tem `clinic_id` opcional. Quando `clinic_id IS NULL`, a RLS atual deixa qualquer autenticado ver — isso é inseguro e vai mudar.
+- Nova regra: **`clinic_id IS NULL` = atendimento pessoal do médico**, dono = `dentist_id`. Só esse médico (e quem ele autorizar futuramente) enxerga.
+- Médico vê numa lista unificada: pacientes/agendas das clínicas onde é membro **+** seus pessoais. Cada item ganha um badge: nome da clínica (azul/cinza) ou "Pessoal" (âmbar).
+- Para admin/secretária de clínica: continua vendo só o que tem `clinic_id` da clínica ativa (sem mudança).
 
 ## Mudanças
 
-### 1. `src/components/ClinicSwitcher.tsx`
-- Reordenar lista: clínica própria (`is_owner = true` E o usuário tem role `dentist`) aparece no topo, separada por `DropdownMenuSeparator`, com label **"Modo Pessoal"** e ícone diferente (ex: `User` em âmbar) em vez de `Building2`.
-- Demais clínicas listadas abaixo sob label **"Clínicas vinculadas"**.
-- Quando a clínica ativa for a "pessoal", o trigger usa cor de destaque âmbar (`bg-amber-500/10`, ícone `User`, label "Meus Pacientes" no lugar do nome da clínica).
-- Mostrar o switcher mesmo se houver apenas 1 membership, desde que o médico tenha clínica própria + ao menos 1 vínculo (caso atual exige `> 1`, manter).
+### 1. Banco (migração)
 
-### 2. Indicador global de "Modo Pessoal"
-- Novo componente `PersonalModeBadge` no header (`AppLayout`): badge âmbar fixo "Modo Pessoal" quando a clínica ativa é a própria do médico. Discreto, ao lado do `SidebarTrigger`.
-- Aplicado apenas para `effectiveRole === 'dentist'`.
+Reforçar RLS para que `clinic_id IS NULL` seja restrito ao próprio dentista. Tabelas afetadas: `patients`, `appointments`, `clinical_records`, `clinical_map_entries`, `treatment_plans`, `treatment_plan_items`, `financial_transactions`, `anamneses`, `documents`.
 
-### 3. Páginas afetadas (apenas visual — lógica já filtra por `currentClinicId`)
-- `Patients.tsx`, `PatientsOfDay.tsx`, `Agenda.tsx`, `Budgets.tsx`: adicionar uma faixa fina/badge no `PageHeader` mostrando o escopo atual ("Modo Pessoal" em âmbar / nome da clínica em padrão).
-- Sem alteração nas queries — o `currentClinicId` já isola os dados via RLS.
+Padrão das policies SELECT/INSERT/UPDATE:
+```sql
+-- Substitui: (clinic_id IS NULL) OR user_belongs_to_clinic(auth.uid(), clinic_id)
+-- Por:
+(clinic_id IS NOT NULL AND user_belongs_to_clinic(auth.uid(), clinic_id))
+OR
+(clinic_id IS NULL AND dentist_id = auth.uid())
+```
 
-### 4. Helper no `AuthContext`
-- Expor flag derivada `isPersonalMode = currentMembership?.is_owner && roles.includes('dentist')`.
-- Usado pelo badge e pelo switcher para destacar.
+Para tabelas-filhas sem `dentist_id` direto (`treatment_plan_items`, `clinical_record_procedures`, `clinical_record_requests`, `documents`, `anamneses`): herdar via JOIN no pai (`treatment_plans.dentist_id`, `clinical_records.dentist_id`, `patients.dentist_id` se aplicável).
+
+`patients` ganha coluna `dentist_id uuid` (nullable; preenchida quando é paciente pessoal). Trigger/check: se `clinic_id IS NULL` então `dentist_id IS NOT NULL`.
+
+Backfill: linhas existentes com `clinic_id IS NULL` recebem o `dentist_id` do primeiro `appointment` ou são associadas ao owner da única clínica do usuário.
+
+### 2. AuthContext
+
+- Adicionar flag derivada `currentScope: { type: 'clinic' | 'personal', clinicId: string | null }`.
+- Novo método `setScope('clinic' | 'personal')` que persiste em `localStorage`.
+- Para dentistas, o `ClinicSwitcher` agora lista:
+  - "Atendimentos Pessoais" (sempre disponível para quem tem role `dentist`)
+  - Cada clínica vinculada
+- Quando `scope = personal`, queries usam `clinic_id IS NULL AND dentist_id = user.id`.
+- Quando `scope = clinic`, queries usam `clinic_id = currentClinicId` (comportamento atual).
+
+### 3. ClinicSwitcher
+
+Reescrever para mostrar:
+- Item topo (âmbar, ícone `User`): **"Atendimentos Pessoais"** — disponível para qualquer usuário com role `dentist`, mesmo sem clínica própria.
+- Separador.
+- Lista de clínicas vinculadas (ícone `Building2`).
+- Trigger reflete escopo ativo (âmbar quando pessoal, padrão quando clínica).
+
+### 4. Listagens unificadas (visão "tudo junto")
+
+Adicionar um modo "Ver tudo" no escopo do dentista:
+- Em `Patients.tsx`, `PatientsOfDay.tsx`, `Agenda.tsx`, `Budgets.tsx`: toggle no header "Apenas escopo atual / Ver tudo (clínicas + pessoal)".
+- Quando "Ver tudo" ativo, query traz: `clinic_id IN (minhas clínicas) OR (clinic_id IS NULL AND dentist_id = me)`.
+- Cada linha/card recebe badge:
+  - Pessoal → badge âmbar `User` "Pessoal"
+  - Clínica → badge cinza `Building2` com nome curto da clínica
+- Cores via tokens semânticos (não hardcoded).
+
+### 5. Criação/edição
+
+- `PatientFormDialog`, `AppointmentFormDialog`, `BudgetFormDialog`: novo seletor "Vincular a:" com opções "Pessoal (sem clínica)" + cada clínica do médico. Default = escopo atual do switcher.
+- Ao salvar com "Pessoal": `clinic_id = null`, `dentist_id = auth.uid()`.
+
+### 6. Header global
+
+Substituir o badge atual `isPersonalMode` (que dependia de `is_owner`) por um badge baseado no novo `currentScope.type === 'personal'`. Texto: "Modo Pessoal".
 
 ## Não inclui
-- Sem mudanças de schema (a clínica pessoal já existe via fluxo `profissional` em `handle_new_user`).
-- Sem mudanças nas RLS — isolamento já é por `clinic_id`.
-- Sem botão extra fora do `ClinicSwitcher` (a alternância vive lá, conforme escolhido).
+
+- Não cria nova tabela paralela — reusa as existentes com `clinic_id NULL`.
+- Não muda fluxo de admin/secretária.
+- Sem compartilhamento de pacientes pessoais entre médicos (futuro).
+- Sem mudança no marketplace público.
 
 ## Resultado
-Médico clica no switcher da sidebar → escolhe "Meus Pacientes" (destacado em âmbar) ou uma das clínicas vinculadas. Toda a UI (Pacientes, Agenda, Pacientes do Dia, Orçamentos) recarrega filtrada para aquele escopo, com badge âmbar visível indicando "Modo Pessoal" para evitar confusão. Nenhum dado vaza entre escopos pois a RLS já filtra por `clinic_id`.
+
+Dr. Joel abre o switcher → escolhe "Atendimentos Pessoais" (atende particulares) ou uma das clínicas vinculadas. Pode também ativar "Ver tudo" e ver pacientes/agenda/orçamentos de todos os escopos numa lista única, com badge âmbar "Pessoal" ou cinza "Clínica X" em cada item. Ao criar paciente/consulta, escolhe explicitamente onde vincular. RLS garante que pacientes pessoais de um médico nunca aparecem para outro médico nem para clínicas onde ele só é vinculado.
