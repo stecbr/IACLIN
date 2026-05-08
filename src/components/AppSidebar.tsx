@@ -168,7 +168,8 @@ export function AppSidebar() {
 
   // Today's appointment count for badge
   const { data: todayCount = 0 } = useQuery({
-    queryKey: ['today-apt-count'],
+    queryKey: ['today-apt-count', currentClinicId],
+    enabled: !!currentClinicId,
     queryFn: async () => {
       const today = new Date();
       const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
@@ -176,8 +177,10 @@ export function AppSidebar() {
       const { count } = await supabase
         .from('appointments')
         .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', currentClinicId!)
         .gte('start_time', start)
-        .lt('start_time', end);
+        .lt('start_time', end)
+        .not('status', 'in', '(cancelled)');
       return count ?? 0;
     },
     refetchInterval: 60000,
@@ -186,11 +189,13 @@ export function AppSidebar() {
 
   // Pending appointment requests count for badge
   const { data: pendingCount = 0 } = useQuery({
-    queryKey: ['pending-requests-count'],
+    queryKey: ['pending-requests-count', currentClinicId],
+    enabled: !!currentClinicId,
     queryFn: async () => {
       const { count } = await supabase
         .from('appointment_requests')
         .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', currentClinicId!)
         .eq('status', 'pending');
       return count ?? 0;
     },
