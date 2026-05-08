@@ -11,16 +11,15 @@ import {
 import { useSidebar } from '@/components/ui/sidebar';
 
 export function ClinicSwitcher() {
-  const { clinics, currentClinicId, switchClinic, isPersonalMode, roles } = useAuth();
+  const { clinics, currentClinicId, switchClinic, switchToPersonal, isPersonalMode, roles } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const isDentist = roles.includes('dentist');
 
-  if (clinics.length <= 1) return null;
+  // Show switcher if dentist (always — personal scope available) OR has multiple clinics
+  if (!isDentist && clinics.length <= 1) return null;
 
   const current = clinics.find((c) => c.clinic_id === currentClinicId);
-  const isDentist = roles.includes('dentist');
-  const personalClinic = isDentist ? clinics.find((c) => c.is_owner) : undefined;
-  const otherClinics = clinics.filter((c) => c.clinic_id !== personalClinic?.clinic_id);
   const triggerIsPersonal = isPersonalMode;
 
   return (
@@ -54,11 +53,11 @@ export function ClinicSwitcher() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-60">
-        {personalClinic && (
+        {isDentist && (
           <>
-            <DropdownMenuLabel className="text-xs text-amber-600 dark:text-amber-400">Modo pessoal</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-amber-600 dark:text-amber-400">Atendimentos pessoais</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => switchClinic(personalClinic.clinic_id)}
+              onClick={() => switchToPersonal()}
               className="gap-2"
             >
               <div className="h-7 w-7 rounded-md bg-amber-500/15 flex items-center justify-center flex-shrink-0">
@@ -66,17 +65,17 @@ export function ClinicSwitcher() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">Meus Pacientes</p>
-                <p className="text-[10px] text-muted-foreground">Pacientes pessoais do médico</p>
+                <p className="text-[10px] text-muted-foreground">Sem vínculo com clínica</p>
               </div>
-              {personalClinic.clinic_id === currentClinicId && <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+              {isPersonalMode && <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
         )}
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          {personalClinic ? 'Clínicas vinculadas' : 'Trocar clínica'}
+          {isDentist ? 'Clínicas vinculadas' : 'Trocar clínica'}
         </DropdownMenuLabel>
-        {otherClinics.map((c) => (
+        {clinics.map((c) => (
           <DropdownMenuItem
             key={c.clinic_id}
             onClick={() => switchClinic(c.clinic_id)}
@@ -89,7 +88,7 @@ export function ClinicSwitcher() {
               <p className="text-sm font-medium truncate">{c.clinic_name}</p>
               <p className="text-[10px] text-muted-foreground capitalize">{c.role} {c.is_owner && '· dono'}</p>
             </div>
-            {c.clinic_id === currentClinicId && <Check className="h-4 w-4 text-primary" />}
+            {!isPersonalMode && c.clinic_id === currentClinicId && <Check className="h-4 w-4 text-primary" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

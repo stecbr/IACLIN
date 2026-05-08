@@ -28,6 +28,7 @@ interface AuthContextType {
   isPersonalMode: boolean;
   clinics: ClinicMembership[];
   switchClinic: (clinicId: string) => void;
+  switchToPersonal: () => void;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isDevUser: boolean;
@@ -38,6 +39,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const CLINIC_STORAGE_KEY = 'iaclin.currentClinicId';
+const SCOPE_STORAGE_KEY = 'iaclin.scope'; // 'personal' or absent
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -47,6 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [clinics, setClinics] = useState<ClinicMembership[]>([]);
   const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
+  const [personalScope, setPersonalScope] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(SCOPE_STORAGE_KEY) === 'personal';
+  });
   const [simulatedRole, setSimulatedRoleState] = useState<SimulatedRole | null>(() => {
     if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem(SIMULATED_ROLE_STORAGE_KEY);
@@ -136,10 +142,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchClinic = (clinicId: string) => {
     if (!clinics.some((c) => c.clinic_id === clinicId)) return;
     setCurrentClinicId(clinicId);
+    setPersonalScope(false);
     if (typeof window !== 'undefined') localStorage.setItem(CLINIC_STORAGE_KEY, clinicId);
+    if (typeof window !== 'undefined') localStorage.removeItem(SCOPE_STORAGE_KEY);
+  };
+  const switchToPersonal = () => {
+    setPersonalScope(true);
+    if (typeof window !== 'undefined') localStorage.setItem(SCOPE_STORAGE_KEY, 'personal');
   };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
-  const isPersonalMode = !!(currentMembership?.is_owner && roles.includes('dentist'));
+  const isPersonalMode = personalScope && roles.includes('dentist');
 
   const isDevUser = isDevEmail(user?.email);
   const setSimulatedRole = (role: SimulatedRole | null) => {
@@ -159,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       roles,
       profile,
-      currentClinicId,
+      currentClinicId: isPersonalMode ? null : currentClinicId,
       clinicRole: currentMembership?.role ?? null,
       isClinicOwner: currentMembership?.is_owner ?? false,
       clinicCategory: currentMembership?.category ?? 'odonto',
@@ -167,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPersonalMode,
       clinics,
       switchClinic,
+      switchToPersonal,
       signOut,
       hasRole,
       isDevUser,

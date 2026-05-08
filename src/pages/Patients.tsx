@@ -54,12 +54,23 @@ export default function Patients() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
   const navigate = useNavigate();
-  const { currentClinicId, user } = useAuth();
+  const { currentClinicId, user, isPersonalMode } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
   const { data: patients = [], isLoading, refetch } = useQuery({
-    queryKey: ['patients', currentClinicId, isDentist ? user?.id : 'all'],
+    queryKey: ['patients', currentClinicId, isPersonalMode ? 'personal' : 'clinic', isDentist ? user?.id : 'all'],
     queryFn: async () => {
+      // Personal scope: fetch patients with no clinic owned by this dentist
+      if (isPersonalMode && user) {
+        const { data, error } = await supabase
+          .from('patients')
+          .select('*')
+          .is('clinic_id', null)
+          .eq('dentist_id', user.id)
+          .order('full_name');
+        if (error) throw error;
+        return data;
+      }
       let allowedIds: string[] | null = null;
       if (isDentist && user) {
         const [aptRes, recRes] = await Promise.all([
