@@ -1,62 +1,39 @@
-## Pacientes do Dia
+## Problema
 
-Nova aba focada no profissional (médico/dentista) que mostra todos os pacientes agendados para o dia, com possibilidade de iniciar o atendimento direto dali. Aparece acima de "Pacientes" no menu lateral.
+Quando um pedido é aprovado em **Aprovações**, o agendamento é criado mas **não aparece imediatamente** em "Pacientes do Dia" (admin/clínica). A página depende apenas do realtime do Supabase para atualizar, e a aprovação não invalida o cache da nova aba.
 
-### Onde
+Confirmado nos logs:
+- A aprovação cria o registro em `appointments` corretamente (`clinic_id` certo, `status='scheduled'`).
+- A consulta de `patients-of-day` rodou **antes** da aprovação retornando os dados antigos e nunca foi disparada novamente após o INSERT.
+- O fluxo de `ClinicaAprovacoes.tsx` só invalida `['appointment-requests']`.
 
-- Rota: `/pacientes-do-dia`
-- Menu lateral (`AppSidebar.tsx`): novo item logo acima de "Pacientes" no grupo Clínica
-- Ícone: `CalendarDays` (lucide)
-- Visível para roles: `admin`, `dentist` (secretary continua tendo a Sala de Espera)
+## Correções
 
-### Comportamento da página
+### 1. `src/pages/clinica/ClinicaAprovacoes.tsx`
+Após `approve` (e também em `reject`/cancelamento), invalidar as queries que alimentam a nova aba e o badge:
+- `['patients-of-day']` (qualquer clinic_id / filtro)
+- `['today-apt-count']`
+- `['pending-requests-count']`
 
-Lista vertical estilo timeline dos agendamentos do dia, ordenada por horário, mostrando para cada consulta:
+Usar `qc.invalidateQueries({ queryKey: ['patients-of-day'] })` (prefix match).
 
-- Horário (start_time → end_time) com destaque para "agora", "próximo" e "atrasado"
-- Avatar + nome do paciente
-- Procedimento (nome + cor) e sala (se houver)
-- Status visual de presença: Aguardado / Na recepção / Em atendimento / Finalizado / Falta
-- Para dentistas: filtra automaticamente pelas consultas do próprio profissional. Para admin: filtro opcional por profissional (mesmo padrão de `WaitingRoom.tsx`).
+### 2. `src/pages/PatientsOfDay.tsx`
+Tornar a query mais resiliente quando o usuário volta para a aba:
+- `refetchOnWindowFocus: true`
+- `refetchOnMount: 'always'`
+- `staleTime: 0`
+- `refetchInterval: 30_000` como fallback caso o realtime não dispare.
 
-Ações por card:
-- **Iniciar atendimento** — só habilitado quando paciente está `arrived` ou `not_arrived`. Atualiza `presence_status='in_service'`, `status='in_progress'`, dispara `startSession()` do `consultationSession.ts` e navega para `/atendimento/:appointmentId`.
-- **Voltar ao atendimento** — quando já existe sessão ativa local para aquele appointment (FAB lógica), navega de volta.
-- **Marcar presença** — atalho rápido (`arrived`) para casos sem secretária.
-- **Ver paciente** — link para `/patients/:id`.
+Manter o canal realtime atual (`pod-${clinic_id}`) — apenas reforçar com polling/foco.
 
-KPIs no topo (mesmo estilo dos tiles em `WaitingRoom.tsx`): Total do dia / Aguardando / Em atendimento / Finalizados.
+### 3. `src/components/AppSidebar.tsx`
+Aplicar o mesmo `refetchOnWindowFocus: true` na query `today-apt-count` para o badge ficar consistente com a página.
 
-Estado vazio quando não houver agendamentos no dia.
+## Resultado esperado
 
-Realtime via Supabase channel em `appointments` filtrando `clinic_id` (mesma abordagem da Sala de Espera) para refletir mudanças sem refresh manual.
+Ao aprovar um pedido na tela de Aprovações:
+1. O cache de "Pacientes do Dia" é invalidado imediatamente (sem depender de realtime).
+2. O usuário ao entrar na aba sempre vê dados atualizados (mount + foco + polling).
+3. Badge da sidebar fica em sincronia.
 
-### Diferença vs. Sala de Espera
-
-- Sala de Espera é operacional (secretaria) e organizada em colunas Kanban por presença.
-- Pacientes do Dia é centrada no profissional, formato linha do tempo, foco em iniciar/retomar consulta. Reaproveita a sessão local existente (`consultationSession.ts`, `useActiveConsultation`) para integrar com timer flutuante já implementado.
-
-### Arquivos
-
-**Novos**
-- `src/pages/PatientsOfDay.tsx` — página com query, KPIs, lista, realtime e ações.
-- `src/components/patients-of-day/DayAppointmentRow.tsx` — card/linha de cada consulta.
-
-**Editados**
-- `src/App.tsx` — registrar rota `/pacientes-do-dia` dentro de `ProtectedRoute`.
-- `src/hooks/useRoleAccess.ts` — adicionar `{ path: '/pacientes-do-dia', allowedRoles: ['admin', 'dentist'] }`.
-- `src/components/AppSidebar.tsx` — inserir item "Pacientes do Dia" no `clinicNav` posicionado imediatamente antes de "Pacientes" (categorias = todas, roles = admin+dentist), com badge de contagem do dia (reutilizando query existente `today-apt-count`).
-
-### Detalhes técnicos
-
-- Query: `appointments` do dia (`gte/lte` em `start_time`) com joins em `patients(full_name, photo_url)` e `procedures(name, color)`, filtrando `clinic_id` e excluindo `cancelled`. Para dentista: também `eq('dentist_id', user.id)`.
-- Iniciar atendimento: update `{ presence_status: 'in_service', status: 'in_progress', service_started_at: now() }`, depois `startSession({ appointmentId, patientId, patientName, startedAt })`, depois `navigate('/atendimento/:id')`.
-- Detectar sessão ativa: `useActiveConsultation()` para mostrar botão "Voltar ao atendimento" no card correspondente.
-- Realtime: canal `patients-of-day-${clinic_id}` com `postgres_changes` em `appointments`.
-- Mobile: lista colapsa em cards verticais; KPIs grid 2x2.
-
-### Fora do escopo
-
-- Não altera Sala de Espera nem fluxo do `Attendance.tsx`.
-- Não muda schema de banco.
-- Não introduz novas permissões além das já existentes.
+Nenhuma mudança de schema, RLS ou edge function.
