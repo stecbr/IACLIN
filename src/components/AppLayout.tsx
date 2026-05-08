@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, User } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -32,7 +32,7 @@ const breadcrumbMap: Record<string, string> = {
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, isPersonalMode } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const { logoUrl, hideIaclinLogo } = useClinicBranding();
   // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget).
@@ -78,6 +78,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </span>
                 ))}
               </div>
+              {isPersonalMode && (
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2 py-0.5 text-[11px] font-medium ring-1 ring-amber-500/30">
+                  <User className="h-3 w-3" />
+                  Modo Pessoal
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <DevRoleSwitcher />

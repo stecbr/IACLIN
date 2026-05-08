@@ -1,39 +1,37 @@
-## Problema
+## Objetivo
 
-Quando um pedido é aprovado em **Aprovações**, o agendamento é criado mas **não aparece imediatamente** em "Pacientes do Dia" (admin/clínica). A página depende apenas do realtime do Supabase para atualizar, e a aprovação não invalida o cache da nova aba.
+Permitir que o médico/dentista alterne facilmente entre **Pacientes da Clínica** (cada clínica onde ele é membro) e **Meus Pacientes** (clínica própria, criada no cadastro como owner), com **separação visual clara** e **isolamento total de dados** entre escopos.
 
-Confirmado nos logs:
-- A aprovação cria o registro em `appointments` corretamente (`clinic_id` certo, `status='scheduled'`).
-- A consulta de `patients-of-day` rodou **antes** da aprovação retornando os dados antigos e nunca foi disparada novamente após o INSERT.
-- O fluxo de `ClinicaAprovacoes.tsx` só invalida `['appointment-requests']`.
+## Conceito
 
-## Correções
+- "Meus Pacientes" = pacientes da clínica onde o médico é `owner` (criada no signup como `profissional`).
+- "Pacientes da Clínica X" = pacientes das demais clínicas onde ele é membro (não-owner).
+- Como já existe `currentClinicId` no `AuthContext` e isolamento por `clinic_id` em todas as queries (RLS já garante), basta tratar a clínica própria como um item especial visualmente diferenciado no `ClinicSwitcher`.
 
-### 1. `src/pages/clinica/ClinicaAprovacoes.tsx`
-Após `approve` (e também em `reject`/cancelamento), invalidar as queries que alimentam a nova aba e o badge:
-- `['patients-of-day']` (qualquer clinic_id / filtro)
-- `['today-apt-count']`
-- `['pending-requests-count']`
+## Mudanças
 
-Usar `qc.invalidateQueries({ queryKey: ['patients-of-day'] })` (prefix match).
+### 1. `src/components/ClinicSwitcher.tsx`
+- Reordenar lista: clínica própria (`is_owner = true` E o usuário tem role `dentist`) aparece no topo, separada por `DropdownMenuSeparator`, com label **"Modo Pessoal"** e ícone diferente (ex: `User` em âmbar) em vez de `Building2`.
+- Demais clínicas listadas abaixo sob label **"Clínicas vinculadas"**.
+- Quando a clínica ativa for a "pessoal", o trigger usa cor de destaque âmbar (`bg-amber-500/10`, ícone `User`, label "Meus Pacientes" no lugar do nome da clínica).
+- Mostrar o switcher mesmo se houver apenas 1 membership, desde que o médico tenha clínica própria + ao menos 1 vínculo (caso atual exige `> 1`, manter).
 
-### 2. `src/pages/PatientsOfDay.tsx`
-Tornar a query mais resiliente quando o usuário volta para a aba:
-- `refetchOnWindowFocus: true`
-- `refetchOnMount: 'always'`
-- `staleTime: 0`
-- `refetchInterval: 30_000` como fallback caso o realtime não dispare.
+### 2. Indicador global de "Modo Pessoal"
+- Novo componente `PersonalModeBadge` no header (`AppLayout`): badge âmbar fixo "Modo Pessoal" quando a clínica ativa é a própria do médico. Discreto, ao lado do `SidebarTrigger`.
+- Aplicado apenas para `effectiveRole === 'dentist'`.
 
-Manter o canal realtime atual (`pod-${clinic_id}`) — apenas reforçar com polling/foco.
+### 3. Páginas afetadas (apenas visual — lógica já filtra por `currentClinicId`)
+- `Patients.tsx`, `PatientsOfDay.tsx`, `Agenda.tsx`, `Budgets.tsx`: adicionar uma faixa fina/badge no `PageHeader` mostrando o escopo atual ("Modo Pessoal" em âmbar / nome da clínica em padrão).
+- Sem alteração nas queries — o `currentClinicId` já isola os dados via RLS.
 
-### 3. `src/components/AppSidebar.tsx`
-Aplicar o mesmo `refetchOnWindowFocus: true` na query `today-apt-count` para o badge ficar consistente com a página.
+### 4. Helper no `AuthContext`
+- Expor flag derivada `isPersonalMode = currentMembership?.is_owner && roles.includes('dentist')`.
+- Usado pelo badge e pelo switcher para destacar.
 
-## Resultado esperado
+## Não inclui
+- Sem mudanças de schema (a clínica pessoal já existe via fluxo `profissional` em `handle_new_user`).
+- Sem mudanças nas RLS — isolamento já é por `clinic_id`.
+- Sem botão extra fora do `ClinicSwitcher` (a alternância vive lá, conforme escolhido).
 
-Ao aprovar um pedido na tela de Aprovações:
-1. O cache de "Pacientes do Dia" é invalidado imediatamente (sem depender de realtime).
-2. O usuário ao entrar na aba sempre vê dados atualizados (mount + foco + polling).
-3. Badge da sidebar fica em sincronia.
-
-Nenhuma mudança de schema, RLS ou edge function.
+## Resultado
+Médico clica no switcher da sidebar → escolhe "Meus Pacientes" (destacado em âmbar) ou uma das clínicas vinculadas. Toda a UI (Pacientes, Agenda, Pacientes do Dia, Orçamentos) recarrega filtrada para aquele escopo, com badge âmbar visível indicando "Modo Pessoal" para evitar confusão. Nenhum dado vaza entre escopos pois a RLS já filtra por `clinic_id`.

@@ -25,6 +25,7 @@ interface AuthContextType {
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
   isPatient: boolean;
+  isPersonalMode: boolean;
   clinics: ClinicMembership[];
   switchClinic: (clinicId: string) => void;
   signOut: () => Promise<void>;
@@ -138,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.setItem(CLINIC_STORAGE_KEY, clinicId);
   };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
+  const isPersonalMode = !!(currentMembership?.is_owner && roles.includes('dentist'));
 
   const isDevUser = isDevEmail(user?.email);
   const setSimulatedRole = (role: SimulatedRole | null) => {
@@ -162,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isClinicOwner: currentMembership?.is_owner ?? false,
       clinicCategory: currentMembership?.category ?? 'odonto',
       isPatient,
+      isPersonalMode,
       clinics,
       switchClinic,
       signOut,
