@@ -28,7 +28,7 @@ import { PatientAlertsBar } from '@/components/attendance/PatientAlertsBar';
 import { HistoryDrawer } from '@/components/attendance/HistoryDrawer';
 import { DentalExamForm, type DentalExam } from '@/components/attendance/DentalExamForm';
 import { ConsultationTimer } from '@/components/attendance/ConsultationTimer';
-import { computeElapsed, readPause, clearPause } from '@/hooks/useActiveConsultation';
+import { computeElapsedSeconds, endSession, getSession, startSession } from '@/lib/consultationSession';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 
@@ -183,9 +183,17 @@ export default function Attendance() {
     }
   }, [existingRecord]);
 
-  // Mark appointment as in_progress on first load
+  // Start local consultation session immediately (instant FAB everywhere).
   useEffect(() => {
     if (!appointment) return;
+    const startedAtIso = (appointment as any).service_started_at ?? new Date().toISOString();
+    startSession({
+      appointmentId: appointment.id,
+      patientId: appointment.patient_id,
+      patientName: (appointment as any).patients?.full_name,
+      startedAt: startedAtIso,
+    });
+    // Server sync (best-effort).
     const needsStart = appointment.status !== 'in_progress' && appointment.status !== 'completed' && appointment.status !== 'cancelled';
     const needsServiceStart = !(appointment as any).service_started_at;
     if (!needsStart && !needsServiceStart) return;
@@ -194,16 +202,14 @@ export default function Attendance() {
       update.status = 'in_progress';
       update.presence_status = 'in_service';
     }
-    if (needsServiceStart) update.service_started_at = new Date().toISOString();
+    if (needsServiceStart) update.service_started_at = startedAtIso;
     (async () => {
       const { error } = await supabase.from('appointments').update(update).eq('id', appointment.id);
       if (error) {
         console.error('[attendance] failed to start consultation', error);
-        toast.error('Não foi possível iniciar o cronômetro: ' + error.message);
         return;
       }
       queryClient.invalidateQueries({ queryKey: ['appointment-detail', appointment.id] });
-      queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
     })();
   }, [appointment, queryClient]);
 
@@ -273,12 +279,9 @@ export default function Attendance() {
         follow_up_reason: followUpReason || null,
       };
 
-      // Track elapsed consultation time
-      const startedAt = (appointment as any).service_started_at as string | undefined;
-      if (startedAt) {
-        const elapsed = computeElapsed(startedAt, readPause(appointment.id));
-        if (elapsed > 0) recordPayload.procedure_duration_seconds = elapsed;
-      }
+      // Track elapsed consultation time from local session.
+      const elapsed = computeElapsedSeconds(getSession());
+      if (elapsed > 0) recordPayload.procedure_duration_seconds = elapsed;
 
       if (recordId) {
         // Update existing
@@ -377,8 +380,7 @@ export default function Attendance() {
 
       // Mark appointment as completed
       await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointment.id);
-      clearPause(appointment.id);
-      queryClient.invalidateQueries({ queryKey: ['active-consultation'] });
+      endSession(appointment.id);
 
       // Create financial transaction
       const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
@@ -449,6 +451,8 @@ export default function Attendance() {
 
       <ConsultationTimer
         appointmentId={appointment.id}
+        patientId={appointment.patient_id}
+        patientName={(appointment as any).patients?.full_name}
         serviceStartedAt={(appointment as any).service_started_at ?? null}
       />
 
