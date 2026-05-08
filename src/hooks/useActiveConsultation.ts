@@ -2,88 +2,78 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  computeElapsedSeconds,
+  getSession,
+  startSession,
+  subscribeSession,
+  type ConsultationSession,
+} from '@/lib/consultationSession';
 
-interface PauseState {
-  pausedAt: number | null;
-  accumulatedPausedMs: number;
-}
-
-function pauseKey(id: string) {
-  return `consultation-pause-${id}`;
-}
-
-export function readPause(appointmentId: string): PauseState {
-  try {
-    const raw = localStorage.getItem(pauseKey(appointmentId));
-    if (!raw) return { pausedAt: null, accumulatedPausedMs: 0 };
-    return JSON.parse(raw);
-  } catch {
-    return { pausedAt: null, accumulatedPausedMs: 0 };
-  }
-}
-
-export function writePause(appointmentId: string, state: PauseState) {
-  localStorage.setItem(pauseKey(appointmentId), JSON.stringify(state));
-}
-
-export function clearPause(appointmentId: string) {
-  localStorage.removeItem(pauseKey(appointmentId));
-}
-
-export function computeElapsed(startedAtIso: string | null | undefined, pause: PauseState): number {
+// Back-compat helpers kept for other callers.
+export function computeElapsed(startedAtIso: string | null | undefined): number {
   if (!startedAtIso) return 0;
-  const started = new Date(startedAtIso).getTime();
-  const now = Date.now();
-  let pausedMs = pause.accumulatedPausedMs;
-  if (pause.pausedAt) pausedMs += now - pause.pausedAt;
-  return Math.max(0, Math.floor((now - started - pausedMs) / 1000));
+  return Math.max(0, Math.floor((Date.now() - new Date(startedAtIso).getTime()) / 1000));
 }
+export function readPause() {
+  return { pausedAt: null, accumulatedPausedMs: 0 };
+}
+export function writePause() {}
+export function clearPause() {}
 
 export function useActiveConsultation() {
   const { user } = useAuth();
-  const [tick, setTick] = useState(0);
+  const [session, setSessionState] = useState<ConsultationSession | null>(() => getSession());
+  const [, force] = useState(0);
 
-  const { data: appointment } = useQuery({
-    queryKey: ['active-consultation', user?.id],
-    enabled: !!user,
-    refetchInterval: 5000,
-    refetchOnWindowFocus: true,
+  // Subscribe to local session changes (instant updates).
+  useEffect(() => {
+    const unsub = subscribeSession(() => setSessionState(getSession()));
+    return unsub;
+  }, []);
+
+  // Tick every second to refresh elapsed.
+  useEffect(() => {
+    if (!session) return;
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [session]);
+
+  // Server hydration: if no local session, look for any in_progress appt for this user.
+  useQuery({
+    queryKey: ['active-consultation-hydrate', user?.id],
+    enabled: !!user && !session,
+    refetchInterval: 10000,
     queryFn: async () => {
-      // Anything still "in progress" for this professional counts as active.
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('appointments')
-        .select('id, status, presence_status, service_started_at, start_time, patient_id, patients(full_name)')
+        .select('id, service_started_at, start_time, patient_id, patients(full_name)')
         .eq('dentist_id', user!.id)
         .eq('status', 'in_progress')
         .order('service_started_at', { ascending: false, nullsFirst: false })
         .limit(1);
-      if (error) {
-        console.warn('[useActiveConsultation] query error', error);
-        return null;
+      const apt = data?.[0];
+      if (apt) {
+        startSession({
+          appointmentId: apt.id,
+          patientId: apt.patient_id,
+          patientName: (apt as any).patients?.full_name,
+          startedAt: apt.service_started_at ?? apt.start_time,
+        });
+        setSessionState(getSession());
       }
-      return data?.[0] ?? null;
+      return apt ?? null;
     },
   });
 
-  useEffect(() => {
-    if (!appointment) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [appointment]);
-
-  if (!appointment) return null;
-
-  const pause = readPause(appointment.id);
-  const startedAt = appointment.service_started_at ?? appointment.start_time;
-  const elapsed = computeElapsed(startedAt, pause);
+  if (!session) return null;
 
   return {
-    appointmentId: appointment.id as string,
-    patientId: appointment.patient_id as string,
-    patientName: (appointment as any).patients?.full_name as string | undefined,
-    startedAt,
-    elapsedSeconds: elapsed,
-    isPaused: !!pause.pausedAt,
-    _tick: tick,
+    appointmentId: session.appointmentId,
+    patientId: session.patientId,
+    patientName: session.patientName,
+    startedAt: session.startedAt,
+    elapsedSeconds: computeElapsedSeconds(session),
+    isPaused: !!session.pausedAt,
   };
 }
