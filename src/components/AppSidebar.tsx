@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   DoorOpen,
   Briefcase,
+  CalendarDays,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -62,6 +63,7 @@ const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard;
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
+  { title: 'Pacientes do Dia', url: '/pacientes-do-dia', icon: CalendarDays, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Pacientes', url: '/patients', icon: Users, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Aprovações', url: '/clinica/aprovacoes', icon: ClipboardCheck, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'], allowedRoles: ['admin', 'dentist'] },
@@ -278,7 +280,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {finalClinicNav.map((item) =>
-                renderNavItem(item, item.url === '/clinica/aprovacoes' ? pendingCount : undefined)
+                renderNavItem(
+                  item,
+                  item.url === '/clinica/aprovacoes'
+                    ? pendingCount
+                    : item.url === '/pacientes-do-dia'
+                    ? todayCount
+                    : undefined,
+                )
               )}
             </SidebarMenu>
           </SidebarGroupContent>
