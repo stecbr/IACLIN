@@ -13,6 +13,7 @@ const routePermissions: RouteAccess[] = [
   { path: '/agenda', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/disponibilidade', allowedRoles: ['admin', 'dentist'] },
   { path: '/sala-de-espera', allowedRoles: ['admin', 'secretary'] },
+  { path: '/pacientes-do-dia', allowedRoles: ['admin', 'dentist'] },
   { path: '/patients', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/clinica', allowedRoles: ['admin'] },
   { path: '/clinica/medicos', allowedRoles: ['admin'] },
