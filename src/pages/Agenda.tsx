@@ -63,7 +63,7 @@ export default function Agenda() {
   }, [currentDate, view]);
 
   const days = useMemo(() => eachDayOfInterval(range), [range]);
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, isPersonalMode } = useAuth();
 
   const { data: appointments = [], refetch } = useQuery({
     queryKey: [
@@ -81,6 +81,7 @@ export default function Agenda() {
         .lte('start_time', addDays(range.end, 1).toISOString())
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      else if (isPersonalMode && user) query = query.is('clinic_id', null).eq('dentist_id', user.id);
       if (isDentist && user) query = query.eq('dentist_id', user.id);
       else if (doctorFilter.kind === 'one') query = query.eq('dentist_id', doctorFilter.doctorId);
       const { data, error } = await query;
