@@ -77,6 +77,10 @@ export default function PatientsOfDay() {
   const { data: appointments = [], refetch, isLoading } = useQuery({
     queryKey: ['patients-of-day', currentClinicId, todayStart, dentistIdFilter],
     enabled: !!currentClinicId,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 0,
+    refetchInterval: 30000,
     queryFn: async () => {
       let q = supabase
         .from('appointments')

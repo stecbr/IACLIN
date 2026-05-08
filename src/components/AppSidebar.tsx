@@ -181,6 +181,7 @@ export function AppSidebar() {
       return count ?? 0;
     },
     refetchInterval: 60000,
+    refetchOnWindowFocus: true,
   });
 
   // Pending appointment requests count for badge

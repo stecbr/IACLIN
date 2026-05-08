@@ -82,6 +82,9 @@ export default function ClinicaAprovacoes() {
       toast.success('Consulta aprovada e agendada.');
       setRescheduleReq(null);
       qc.invalidateQueries({ queryKey: ['appointment-requests', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['patients-of-day'] });
+      qc.invalidateQueries({ queryKey: ['today-apt-count'] });
+      qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
     } catch (err: any) {
       toast.error('Falha ao aprovar', { description: err?.message });
     } finally {
@@ -102,6 +105,7 @@ export default function ClinicaAprovacoes() {
       setRejectReq(null);
       setRejectReason('');
       qc.invalidateQueries({ queryKey: ['appointment-requests', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
     } catch (err: any) {
       toast.error('Falha ao recusar', { description: err?.message });
     } finally {
