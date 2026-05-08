@@ -280,7 +280,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {finalClinicNav.map((item) =>
-                renderNavItem(item, item.url === '/clinica/aprovacoes' ? pendingCount : undefined)
+                renderNavItem(
+                  item,
+                  item.url === '/clinica/aprovacoes'
+                    ? pendingCount
+                    : item.url === '/pacientes-do-dia'
+                    ? todayCount
+                    : undefined,
+                )
               )}
             </SidebarMenu>
           </SidebarGroupContent>
