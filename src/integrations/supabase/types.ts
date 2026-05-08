@@ -1066,6 +1066,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           date_of_birth: string | null
+          dentist_id: string | null
           email: string | null
           full_name: string
           gender: string | null
@@ -1088,6 +1089,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           date_of_birth?: string | null
+          dentist_id?: string | null
           email?: string | null
           full_name: string
           gender?: string | null
@@ -1110,6 +1112,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           date_of_birth?: string | null
+          dentist_id?: string | null
           email?: string | null
           full_name?: string
           gender?: string | null
