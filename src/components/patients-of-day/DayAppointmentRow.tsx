@@ -33,6 +33,7 @@ interface Props {
   isActiveSession: boolean;
   busy: boolean;
   showDentist?: boolean;
+  canMarkArrived?: boolean;
   onStart: () => void;
   onResume: () => void;
   onMarkArrived: () => void;
@@ -44,6 +45,7 @@ export function DayAppointmentRow({
   isActiveSession,
   busy,
   showDentist,
+  canMarkArrived = true,
   onStart,
   onResume,
   onMarkArrived,
@@ -126,7 +128,7 @@ export function DayAppointmentRow({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        {a.presence_status === 'not_arrived' && (
+        {a.presence_status === 'not_arrived' && canMarkArrived && (
           <Button size="sm" variant="outline" onClick={onMarkArrived} disabled={busy}>
             <UserCheck className="h-4 w-4 mr-1" /> Chegou
           </Button>
