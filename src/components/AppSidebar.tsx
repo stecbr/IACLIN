@@ -30,6 +30,19 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
+import { useState } from 'react';
+import { useActiveConsultation } from '@/hooks/useActiveConsultation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useNavigate } from 'react-router-dom';
 import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 import {
@@ -83,6 +96,17 @@ export function AppSidebar() {
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const { simulatedRole, currentClinicId } = useAuth();
   const isDentist = effectiveRole === 'dentist';
+  const activeConsultation = useActiveConsultation();
+  const navigate = useNavigate();
+  const [logoutBlocked, setLogoutBlocked] = useState(false);
+
+  const handleSignOut = () => {
+    if (activeConsultation) {
+      setLogoutBlocked(true);
+      return;
+    }
+    signOut();
+  };
 
   // Doctor's specialty for dynamic clinical map item
   const { data: memberSpecialty } = useQuery({
@@ -369,7 +393,7 @@ export function AppSidebar() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={signOut}
+                    onClick={handleSignOut}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   >
                     <LogOut className="h-4 w-4" />
@@ -382,7 +406,7 @@ export function AppSidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={signOut}
+                  onClick={handleSignOut}
                   className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors mx-auto"
                 >
                   <LogOut className="h-4 w-4" />
@@ -393,6 +417,27 @@ export function AppSidebar() {
           )}
         </TooltipProvider>
       </SidebarFooter>
+      <AlertDialog open={logoutBlocked} onOpenChange={setLogoutBlocked}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você está em atendimento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Conclua a consulta atual antes de sair do sistema. Você pode voltar para o atendimento e finalizá-lo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setLogoutBlocked(false);
+                if (activeConsultation) navigate(`/atendimento/${activeConsultation.appointmentId}`);
+              }}
+            >
+              Voltar ao atendimento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }
