@@ -38,6 +38,21 @@ export default function PatientsOfDay() {
   const todayEnd = endOfDay(new Date()).toISOString();
 
   // Doctors list for admin filter
+  // Whether clinic has a secretary/admin OTHER than the current user.
+  // If yes and current user is dentist, they cannot mark arrival.
+  const { data: hasReceptionStaff = false } = useQuery({
+    queryKey: ['pod-has-reception', currentClinicId, user?.id],
+    enabled: !!currentClinicId && !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clinic_members')
+        .select('user_id, role')
+        .eq('clinic_id', currentClinicId!)
+        .in('role', ['admin', 'secretary']);
+      return (data ?? []).some((m) => m.user_id !== user!.id);
+    },
+  });
+
   const { data: doctors = [] } = useQuery({
     queryKey: ['pod-doctors', currentClinicId],
     enabled: !!currentClinicId && !isDentist,
@@ -218,6 +233,7 @@ export default function PatientsOfDay() {
               isActiveSession={active?.appointmentId === a.id}
               onStart={() => handleStart(a)}
               onResume={() => navigate(`/atendimento/${a.id}`)}
+              canMarkArrived={!isDentist || !hasReceptionStaff}
               onMarkArrived={() => handleArrived(a.id)}
               onOpenPatient={() => navigate(`/patients/${a.patient_id}`)}
             />
