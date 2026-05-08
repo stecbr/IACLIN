@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 import { syncOnePatient } from '@/hooks/useAiSync';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -24,6 +25,7 @@ interface PatientFormDialogProps {
 
 export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clinicId }: PatientFormDialogProps) {
   const isEdit = !!patient;
+  const { user, isPersonalMode } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     full_name: patient?.full_name ?? '',
@@ -89,13 +91,16 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
         toast.success('Paciente atualizado!');
         if (clinicId) syncOnePatient(patient.id, clinicId);
       } else {
+        const insertPayload: any = { ...payload, clinic_id: clinicId ?? null };
+        // Personal patient: stamp dentist_id so RLS allows access
+        if (!clinicId && user?.id) insertPayload.dentist_id = user.id;
         const { data: inserted, error } = await supabase
           .from('patients')
-          .insert({ ...payload, clinic_id: clinicId ?? null })
+          .insert(insertPayload)
           .select('id')
           .single();
         if (error) throw error;
-        toast.success('Paciente cadastrado!');
+        toast.success(isPersonalMode ? 'Paciente pessoal cadastrado!' : 'Paciente cadastrado!');
         if (clinicId && inserted?.id) syncOnePatient(inserted.id, clinicId);
       }
 
