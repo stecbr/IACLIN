@@ -1,79 +1,44 @@
 ## Objetivo
 
-Permitir que o médico/dentista atenda **com ou sem vínculo a uma clínica**, marcando cada paciente/agendamento individualmente como "vinculado à clínica X" ou "atendimento pessoal (não vinculado)". Tudo aparece numa lista única com **badge visual** indicando a origem, sem vazar dados entre médicos.
+Na área do paciente (`/paciente/agendar`), simplificar a etapa "O que você procura?" e permitir filtrar por **cidade** (geolocalização manual) e por **convênio/plano**, para que o paciente encontre profissionais que aceitam seu plano e estão na cidade escolhida — útil quando o paciente é de Fortaleza mas está em Manaus, por exemplo.
 
-## Conceito
+## Mudanças (apenas frontend)
 
-- Hoje toda linha (`patients`, `appointments`, `budgets`, `clinical_records`, `financial_transactions`) tem `clinic_id` opcional. Quando `clinic_id IS NULL`, a RLS atual deixa qualquer autenticado ver — isso é inseguro e vai mudar.
-- Nova regra: **`clinic_id IS NULL` = atendimento pessoal do médico**, dono = `dentist_id`. Só esse médico (e quem ele autorizar futuramente) enxerga.
-- Médico vê numa lista unificada: pacientes/agendas das clínicas onde é membro **+** seus pessoais. Cada item ganha um badge: nome da clínica (azul/cinza) ou "Pessoal" (âmbar).
-- Para admin/secretária de clínica: continua vendo só o que tem `clinic_id` da clínica ativa (sem mudança).
+### 1. `SpecialtyStep.tsx` — esconder lista alfabética A–U
+- Manter: campo de busca + bloco "Mais procurados" + botão "Não encontrei a especialidade desejada".
+- **Remover/ocultar** o bloco com seções por letra (A, C, D, E, … U).
+- Quando o usuário digitar na busca, continuar mostrando os "Resultados" normalmente.
+- A constante `SPECIALTIES` permanece intacta (continua alimentando busca e steps seguintes).
 
-## Mudanças
+### 2. Novos filtros globais de busca — cidade + convênio
+Adicionar uma barra de filtros visível no topo da página `PatientBooking.tsx`, acima do `BookingProgress`, sempre disponível:
 
-### 1. Banco (migração)
-
-Reforçar RLS para que `clinic_id IS NULL` seja restrito ao próprio dentista. Tabelas afetadas: `patients`, `appointments`, `clinical_records`, `clinical_map_entries`, `treatment_plans`, `treatment_plan_items`, `financial_transactions`, `anamneses`, `documents`.
-
-Padrão das policies SELECT/INSERT/UPDATE:
-```sql
--- Substitui: (clinic_id IS NULL) OR user_belongs_to_clinic(auth.uid(), clinic_id)
--- Por:
-(clinic_id IS NOT NULL AND user_belongs_to_clinic(auth.uid(), clinic_id))
-OR
-(clinic_id IS NULL AND dentist_id = auth.uid())
+```text
+[ 📍 Cidade: Manaus ▾ ]   [ 🛡️ Convênio: Unimed — Plano X ▾ ]   [ Limpar ]
 ```
 
-Para tabelas-filhas sem `dentist_id` direto (`treatment_plan_items`, `clinical_record_procedures`, `clinical_record_requests`, `documents`, `anamneses`): herdar via JOIN no pai (`treatment_plans.dentist_id`, `clinical_records.dentist_id`, `patients.dentist_id` se aplicável).
+- **Cidade**: combobox com autocomplete alimentado por `clinics.city` (distinct, ordenado). Default = cidade do `patient_account` se houver, senão vazio (= todas).
+- **Convênio**: select com `insurance_plans` (operadora + nome do plano). Default = convênio salvo no `patient_account.insurance_provider`/`insurance_number` (match best-effort), senão "Particular / Todos".
+- Estado guardado em `localStorage` (`patient_booking_filters`) para persistir entre visitas.
+- Botão **Limpar** zera ambos.
 
-`patients` ganha coluna `dentist_id uuid` (nullable; preenchida quando é paciente pessoal). Trigger/check: se `clinic_id IS NULL` então `dentist_id IS NOT NULL`.
+### 3. `ClinicDoctorStep.tsx` — aplicar filtros
+- Receber `cityFilter` e `insurancePlanId` via props.
+- Após o fetch atual, filtrar:
+  - **Cidade**: manter apenas clínicas onde `clinics.city` (case-insensitive, normalizado sem acentos) bate com o filtro.
+  - **Convênio**: cruzar com `insurance_plans` da clínica (`clinic_id` + `is_active`); manter apenas clínicas que oferecem aquele plano. "Particular / Todos" não filtra.
+- Empty state melhorado: "Nenhum profissional desta especialidade aceita {Convênio} em {Cidade} neste dia. Tente alterar a cidade, o convênio ou a data."
 
-Backfill: linhas existentes com `clinic_id IS NULL` recebem o `dentist_id` do primeiro `appointment` ou são associadas ao owner da única clínica do usuário.
+### 4. Nada de mudanças em backend / RLS / migrations
+Tudo é apresentação e consulta de leitura. Nenhuma tabela nova, nenhuma policy nova.
 
-### 2. AuthContext
+## Arquivos a tocar
+- `src/components/patient/booking/SpecialtyStep.tsx` — remover seção `grouped.map` (lista A–U).
+- `src/pages/patient/PatientBooking.tsx` — barra de filtros + estado + persistência + passar props.
+- `src/components/patient/booking/ClinicDoctorStep.tsx` — aceitar props `cityFilter`, `insurancePlanId`, aplicar filtros e ajustar empty state.
+- (novo) `src/components/patient/booking/BookingFilters.tsx` — componente isolado com os dois selects.
 
-- Adicionar flag derivada `currentScope: { type: 'clinic' | 'personal', clinicId: string | null }`.
-- Novo método `setScope('clinic' | 'personal')` que persiste em `localStorage`.
-- Para dentistas, o `ClinicSwitcher` agora lista:
-  - "Atendimentos Pessoais" (sempre disponível para quem tem role `dentist`)
-  - Cada clínica vinculada
-- Quando `scope = personal`, queries usam `clinic_id IS NULL AND dentist_id = user.id`.
-- Quando `scope = clinic`, queries usam `clinic_id = currentClinicId` (comportamento atual).
-
-### 3. ClinicSwitcher
-
-Reescrever para mostrar:
-- Item topo (âmbar, ícone `User`): **"Atendimentos Pessoais"** — disponível para qualquer usuário com role `dentist`, mesmo sem clínica própria.
-- Separador.
-- Lista de clínicas vinculadas (ícone `Building2`).
-- Trigger reflete escopo ativo (âmbar quando pessoal, padrão quando clínica).
-
-### 4. Listagens unificadas (visão "tudo junto")
-
-Adicionar um modo "Ver tudo" no escopo do dentista:
-- Em `Patients.tsx`, `PatientsOfDay.tsx`, `Agenda.tsx`, `Budgets.tsx`: toggle no header "Apenas escopo atual / Ver tudo (clínicas + pessoal)".
-- Quando "Ver tudo" ativo, query traz: `clinic_id IN (minhas clínicas) OR (clinic_id IS NULL AND dentist_id = me)`.
-- Cada linha/card recebe badge:
-  - Pessoal → badge âmbar `User` "Pessoal"
-  - Clínica → badge cinza `Building2` com nome curto da clínica
-- Cores via tokens semânticos (não hardcoded).
-
-### 5. Criação/edição
-
-- `PatientFormDialog`, `AppointmentFormDialog`, `BudgetFormDialog`: novo seletor "Vincular a:" com opções "Pessoal (sem clínica)" + cada clínica do médico. Default = escopo atual do switcher.
-- Ao salvar com "Pessoal": `clinic_id = null`, `dentist_id = auth.uid()`.
-
-### 6. Header global
-
-Substituir o badge atual `isPersonalMode` (que dependia de `is_owner`) por um badge baseado no novo `currentScope.type === 'personal'`. Texto: "Modo Pessoal".
-
-## Não inclui
-
-- Não cria nova tabela paralela — reusa as existentes com `clinic_id NULL`.
-- Não muda fluxo de admin/secretária.
-- Sem compartilhamento de pacientes pessoais entre médicos (futuro).
-- Sem mudança no marketplace público.
-
-## Resultado
-
-Dr. Joel abre o switcher → escolhe "Atendimentos Pessoais" (atende particulares) ou uma das clínicas vinculadas. Pode também ativar "Ver tudo" e ver pacientes/agenda/orçamentos de todos os escopos numa lista única, com badge âmbar "Pessoal" ou cinza "Clínica X" em cada item. Ao criar paciente/consulta, escolhe explicitamente onde vincular. RLS garante que pacientes pessoais de um médico nunca aparecem para outro médico nem para clínicas onde ele só é vinculado.
+## Não incluído (fora do escopo desta task)
+- Geolocalização automática via GPS do navegador.
+- Filtro por bairro / raio em km.
+- Edição do convênio do paciente nesta tela (continua em "Configurações").

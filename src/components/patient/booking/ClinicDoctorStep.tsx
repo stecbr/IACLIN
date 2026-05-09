@@ -26,6 +26,8 @@ interface ClinicDoctorStepProps {
   specialty: Specialty;
   date: Date;
   selected: BookingSelection | null;
+  cityFilter?: string | null;
+  insurancePlanId?: string | null;
   onSelect: (s: BookingSelection) => void;
   onBack: () => void;
 }
@@ -71,7 +73,11 @@ function generateSlots(shifts: { start: string; end: string }[], date: Date): Da
   return slots;
 }
 
-export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }: ClinicDoctorStepProps) {
+function normalize(s: string | null | undefined): string {
+  return (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+
+export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insurancePlanId, onSelect, onBack }: ClinicDoctorStepProps) {
   const [loading, setLoading] = useState(true);
   const [clinics, setClinics] = useState<ClinicWithDoctors[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -127,7 +133,7 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
       const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
 
-      const [{ data: profs }, { data: clinicsData }, { data: appts }, { data: reqs }] = await Promise.all([
+      const [{ data: profs }, { data: clinicsData }, { data: appts }, { data: reqs }, { data: insPlans }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, avatar_url').in('id', activeUserIds),
         supabase.from('clinics').select('id, name, address, city').in('id', activeClinicIds),
         supabase
@@ -144,16 +150,51 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
           .gte('start_time', dayStart.toISOString())
           .lte('start_time', dayEnd.toISOString())
           .in('status', ['pending', 'approved']),
+        insurancePlanId
+          ? supabase
+              .from('insurance_plans')
+              .select('id, name, ans_code, clinic_id')
+              .in('clinic_id', activeClinicIds)
+              .eq('is_active', true)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
       const clinicMap = new Map((clinicsData ?? []).map((c: any) => [c.id, c]));
+
+      // Build set of clinic_ids that accept the selected insurance plan (matched by name+ans_code).
+      let acceptingClinicIds: Set<string> | null = null;
+      if (insurancePlanId) {
+        // Need ref plan name/ans_code; fetch separately if not in current list.
+        const refPlan = (insPlans ?? []).find((p: any) => p.id === insurancePlanId);
+        let key: string | null = refPlan ? `${normalize(refPlan.name)}|${refPlan.ans_code ?? ''}` : null;
+        if (!key) {
+          const { data: r } = await supabase
+            .from('insurance_plans')
+            .select('name, ans_code')
+            .eq('id', insurancePlanId)
+            .maybeSingle();
+          if (r) key = `${normalize((r as any).name)}|${(r as any).ans_code ?? ''}`;
+        }
+        acceptingClinicIds = new Set<string>();
+        if (key) {
+          for (const p of (insPlans ?? []) as any[]) {
+            if (`${normalize(p.name)}|${p.ans_code ?? ''}` === key) {
+              acceptingClinicIds.add(p.clinic_id);
+            }
+          }
+        }
+      }
 
       // Group by clinic
       const byClinic = new Map<string, ClinicWithDoctors>();
       for (const m of membersWithShifts as any[]) {
         const c = clinicMap.get(m.clinic_id);
         if (!c) continue;
+        // City filter
+        if (cityFilter && normalize((c as any).city) !== normalize(cityFilter)) continue;
+        // Insurance filter
+        if (acceptingClinicIds && !acceptingClinicIds.has(m.clinic_id)) continue;
         const p = profMap.get(m.user_id);
         if (!p) continue;
         const shifts = shiftsByUserClinic.get(`${m.user_id}|${m.clinic_id}`) ?? [];
@@ -196,7 +237,7 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
     })();
 
     return () => { cancelled = true; };
-  }, [specialty, date]);
+  }, [specialty, date, cityFilter, insurancePlanId]);
 
   const isSlotBooked = (clinic: ClinicWithDoctors, doctorId: string, slot: Date) => {
     for (const key of clinic.bookedSlots) {
@@ -234,9 +275,13 @@ export function ClinicDoctorStep({ specialty, date, selected, onSelect, onBack }
       {clinics.length === 0 ? (
         <Card className="p-10 text-center border-dashed">
           <Building2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="font-medium">Nenhum profissional desta especialidade tem horário disponível neste dia</p>
+          <p className="font-medium">
+            Nenhum profissional disponível com os filtros atuais
+          </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Tente outra data ou outra especialidade.
+            {cityFilter || insurancePlanId
+              ? 'Tente alterar a cidade, o convênio ou a data.'
+              : 'Tente outra data ou outra especialidade.'}
           </p>
         </Card>
       ) : (
