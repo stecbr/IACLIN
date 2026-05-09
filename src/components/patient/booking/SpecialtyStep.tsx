@@ -164,21 +164,6 @@ export function SpecialtyStep({ onSelect }: SpecialtyStepProps) {
     return SPECIALTIES.filter((s) => s.name.toLowerCase().includes(q));
   }, [query]);
 
-  const grouped = useMemo(() => {
-    const groups = new Map<string, Specialty[]>();
-    for (const s of SPECIALTIES) {
-      const letter = s.name.charAt(0).toUpperCase();
-      if (!groups.has(letter)) groups.set(letter, []);
-      groups.get(letter)!.push(s);
-    }
-    // sort each group alphabetically by name
-    for (const arr of groups.values()) {
-      arr.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-    }
-    // return entries sorted by letter
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
-  }, []);
-
   return (
     <div className="space-y-6">
       <div>
@@ -223,7 +208,7 @@ export function SpecialtyStep({ onSelect }: SpecialtyStepProps) {
         </div>
       )}
 
-      {query ? (
+      {query && (
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Resultados ({filtered.length})
@@ -239,27 +224,6 @@ export function SpecialtyStep({ onSelect }: SpecialtyStepProps) {
               ))}
             </div>
           )}
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {grouped.map(([letter, items]) => (
-            <section key={letter} className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
-                  {letter}
-                </div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Letra {letter}
-                </p>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {items.map((s, i) => (
-                  <SpecialtyCard key={s.id} s={s} i={i} onSelect={onSelect} />
-                ))}
-              </div>
-            </section>
-          ))}
         </div>
       )}
 
