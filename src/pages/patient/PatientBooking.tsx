@@ -22,6 +22,7 @@ import { SpecialtyStep, type Specialty } from '@/components/patient/booking/Spec
 import { DateStep } from '@/components/patient/booking/DateStep';
 import { ClinicDoctorStep, type BookingSelection } from '@/components/patient/booking/ClinicDoctorStep';
 import { SummaryStep } from '@/components/patient/booking/SummaryStep';
+import { BookingFilters, type BookingFiltersValue } from '@/components/patient/booking/BookingFilters';
 import { format } from 'date-fns';
 
 type Step = 1 | 2 | 3 | 4;
@@ -49,6 +50,18 @@ export default function PatientBooking() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
+  const [filters, setFilters] = useState<BookingFiltersValue>(() => {
+    try {
+      const raw = localStorage.getItem('patient_booking_filters');
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return { city: null, insurancePlanId: null };
+  });
+
+  const updateFilters = (next: BookingFiltersValue) => {
+    setFilters(next);
+    try { localStorage.setItem('patient_booking_filters', JSON.stringify(next)); } catch { /* ignore */ }
+  };
 
   const submitBooking = async (replace?: { id: string; kind: 'appointment' | 'request' }) => {
     if (!selection || !specialty || !user) return;
@@ -147,6 +160,8 @@ export default function PatientBooking() {
 
       <BookingProgress step={step} />
 
+      <BookingFilters value={filters} onChange={updateFilters} />
+
       <AnimatePresence mode="wait">
         <motion.div
           key={step}
@@ -179,6 +194,8 @@ export default function PatientBooking() {
               specialty={specialty}
               date={date}
               selected={selection}
+              cityFilter={filters.city}
+              insurancePlanId={filters.insurancePlanId}
               onSelect={(sel) => {
                 setSelection(sel);
                 // Move to step 4 once we have a slot
