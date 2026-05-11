@@ -1218,37 +1218,115 @@ export type Database = {
       }
       professional_availability: {
         Row: {
+          breaks: Json
           clinic_id: string
           created_at: string
           end_time: string
           id: string
           is_holiday_override: boolean
+          mode: string
           start_time: string
           updated_at: string
           user_id: string
           work_date: string
         }
         Insert: {
+          breaks?: Json
           clinic_id: string
           created_at?: string
           end_time: string
           id?: string
           is_holiday_override?: boolean
+          mode?: string
           start_time: string
           updated_at?: string
           user_id: string
           work_date: string
         }
         Update: {
+          breaks?: Json
           clinic_id?: string
           created_at?: string
           end_time?: string
           id?: string
           is_holiday_override?: boolean
+          mode?: string
           start_time?: string
           updated_at?: string
           user_id?: string
           work_date?: string
+        }
+        Relationships: []
+      }
+      professional_schedule_template: {
+        Row: {
+          accepted_plan_ids: string[]
+          breaks: Json
+          clinic_id: string | null
+          created_at: string
+          end_time: string
+          id: string
+          is_active: boolean
+          mode: string
+          start_time: string
+          updated_at: string
+          user_id: string
+          weekday: number
+        }
+        Insert: {
+          accepted_plan_ids?: string[]
+          breaks?: Json
+          clinic_id?: string | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          mode?: string
+          start_time?: string
+          updated_at?: string
+          user_id: string
+          weekday: number
+        }
+        Update: {
+          accepted_plan_ids?: string[]
+          breaks?: Json
+          clinic_id?: string | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          mode?: string
+          start_time?: string
+          updated_at?: string
+          user_id?: string
+          weekday?: number
+        }
+        Relationships: []
+      }
+      professional_settings: {
+        Row: {
+          buffer_minutes: number
+          created_at: string
+          default_slot_duration: number
+          min_lead_hours: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buffer_minutes?: number
+          created_at?: string
+          default_slot_duration?: number
+          min_lead_hours?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buffer_minutes?: number
+          created_at?: string
+          default_slot_duration?: number
+          min_lead_hours?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
