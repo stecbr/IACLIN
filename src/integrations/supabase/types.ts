@@ -1258,6 +1258,33 @@ export type Database = {
         }
         Relationships: []
       }
+      professional_blocked_dates: {
+        Row: {
+          blocked_date: string
+          clinic_id: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          blocked_date: string
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          blocked_date?: string
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       professional_schedule_template: {
         Row: {
           accepted_plan_ids: string[]
