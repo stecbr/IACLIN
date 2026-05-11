@@ -153,25 +153,17 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
         </div>
       </div>
 
-      <div className="rounded-lg border bg-background/50">
-        <div className="hidden md:grid grid-cols-[110px_auto_1fr_auto] gap-3 px-3 py-2 border-b text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-          <span>Dia</span>
-          <span>Horário</span>
-          <span>Intervalos</span>
-          <span>{scopeIsPersonal ? '' : 'Modo'}</span>
-        </div>
-        <div className="px-3">
-          {[1, 2, 3, 4, 5, 6, 0].map((dayIdx) => (
-            <WeekdayRow
-              key={dayIdx}
-              label={WEEKDAY_LABELS[dayIdx]}
-              value={template[dayIdx]}
-              onChange={(v) => updateRow(dayIdx, v)}
-              availablePlans={plans}
-              scopeIsPersonal={scopeIsPersonal}
-            />
-          ))}
-        </div>
+      <div className="space-y-2.5">
+        {[1, 2, 3, 4, 5, 6, 0].map((dayIdx) => (
+          <WeekdayRow
+            key={dayIdx}
+            label={WEEKDAY_LABELS[dayIdx]}
+            value={template[dayIdx]}
+            onChange={(v) => updateRow(dayIdx, v)}
+            availablePlans={plans}
+            scopeIsPersonal={scopeIsPersonal}
+          />
+        ))}
       </div>
 
       {!scopeIsPersonal && (
