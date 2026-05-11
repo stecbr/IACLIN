@@ -20,7 +20,7 @@ function defaultRow(weekday: number): WeekdayTemplate {
     start_time: '08:00',
     end_time: '18:00',
     breaks: weekend ? [] : [{ start: '12:00', end: '13:00', label: 'Almoço' }],
-    mode: 'ambos',
+    mode: 'particular',
     accepted_plan_ids: [],
   };
 }
@@ -191,7 +191,7 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
 
       {!scopeIsPersonal && (
         <p className="text-[11px] text-muted-foreground">
-          <strong>Particular</strong>: apenas atendimentos privados. <strong>Plano</strong>: apenas convênios selecionados. <strong>Ambos</strong>: aceita os dois.
+          <strong>Particular</strong>: apenas atendimentos privados. <strong>Plano</strong>: apenas convênios selecionados.
         </p>
       )}
     </Card>
