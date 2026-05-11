@@ -20,7 +20,7 @@ function defaultRow(weekday: number): WeekdayTemplate {
     start_time: '08:00',
     end_time: '18:00',
     breaks: weekend ? [] : [{ start: '12:00', end: '13:00', label: 'Almoço' }],
-    mode: 'ambos',
+    mode: 'particular',
     accepted_plan_ids: [],
   };
 }
