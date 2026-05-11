@@ -191,7 +191,7 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
 
       {!scopeIsPersonal && (
         <p className="text-[11px] text-muted-foreground">
-          <strong>Particular</strong>: apenas atendimentos privados. <strong>Plano</strong>: apenas convênios selecionados. <strong>Ambos</strong>: aceita os dois.
+          <strong>Particular</strong>: apenas atendimentos privados. <strong>Plano</strong>: apenas convênios selecionados.
         </p>
       )}
     </Card>
