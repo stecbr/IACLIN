@@ -10,6 +10,7 @@ import { WeekdayRow, type WeekdayTemplate } from './WeekdayRow';
 import type { BreakItem } from './BreaksEditor';
 import type { AvailabilityMode } from './ModeSelector';
 import { BlockedDatesDialog } from './BlockedDatesDialog';
+import { FixedPatternCard, type FixedPattern } from './FixedPatternCard';
 
 const WEEKDAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -95,6 +96,24 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
     setDirty(true);
   };
 
+  const applyFixedPattern = (p: FixedPattern) => {
+    setTemplate((prev) =>
+      prev.map((r) => {
+        if (!p.weekdays.includes(r.weekday)) {
+          return { ...r, is_active: false };
+        }
+        return {
+          ...r,
+          is_active: true,
+          start_time: p.start_time,
+          end_time: p.end_time,
+          breaks: p.breaks.map((b) => ({ ...b })),
+        };
+      }),
+    );
+    setDirty(true);
+  };
+
   const save = useMutation({
     mutationFn: async () => {
       // delete existing for this scope and reinsert
@@ -152,6 +171,8 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
           </Button>
         </div>
       </div>
+
+      <FixedPatternCard onApply={applyFixedPattern} />
 
       <div className="space-y-2.5">
         {[1, 2, 3, 4, 5, 6, 0].map((dayIdx) => (
