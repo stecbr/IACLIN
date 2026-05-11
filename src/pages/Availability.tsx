@@ -147,6 +147,15 @@ export default function Availability() {
         </TabsContent>
 
         <TabsContent value="exceptions" className="space-y-6">
+          {isPersonalMode ? (
+            <Card className="p-10 text-center border-dashed">
+              <CalendarOff className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">
+                Exceções por data estão disponíveis apenas quando vinculado a uma clínica. Use o padrão semanal para configurar seu atendimento pessoal.
+              </p>
+            </Card>
+          ) : (
+          <>
           <MonthlyDeadlineBanner hasNextMonthAvailability={hasNextMonthAvailability} />
           <div className="grid gap-6 md:grid-cols-[auto_1fr] items-start">
             <Card className="p-2 w-fit mx-auto md:mx-0">
@@ -163,16 +172,18 @@ export default function Availability() {
               )}
             </Card>
 
-            {selectedDate && (
+            {selectedDate && currentClinicId && (
               <DayShiftsPanel
                 date={selectedDate}
                 shifts={selectedShifts}
-                clinicId={currentClinicId ?? ''}
+                clinicId={currentClinicId}
                 userId={user.id}
                 holiday={selectedHoliday}
               />
             )}
           </div>
+          </>
+          )}
         </TabsContent>
       </Tabs>
 
