@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X, Coffee } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 export interface BreakItem {
   start: string; // HH:MM
@@ -30,7 +30,6 @@ export function BreaksEditor({ value, onChange, disabled }: Props) {
       ) : (
         value.map((b, i) => (
           <div key={i} className="flex items-center gap-1.5">
-            <Coffee className="h-3 w-3 text-muted-foreground shrink-0" />
             <Input
               type="time"
               value={b.start}
