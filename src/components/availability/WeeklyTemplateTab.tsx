@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Copy, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { WeekdayRow, type WeekdayTemplate } from './WeekdayRow';
 import type { BreakItem } from './BreaksEditor';
 import type { AvailabilityMode } from './ModeSelector';
+import { BlockedDatesDialog } from './BlockedDatesDialog';
 
 const WEEKDAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -94,20 +95,6 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
     setDirty(true);
   };
 
-  const replicateMonday = () => {
-    const monday = template[1];
-    if (!monday.is_active) {
-      toast.error('Ative segunda-feira primeiro');
-      return;
-    }
-    setTemplate((prev) =>
-      prev.map((r, i) =>
-        i >= 1 && i <= 5 ? { ...monday, weekday: i } : r,
-      ),
-    );
-    setDirty(true);
-  };
-
   const save = useMutation({
     mutationFn: async () => {
       // delete existing for this scope and reinsert
@@ -159,9 +146,7 @@ export function WeeklyTemplateTab({ userId, clinicId, scopeIsPersonal }: Props) 
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={replicateMonday} className="gap-1.5">
-            <Copy className="h-3.5 w-3.5" /> Replicar Segunda em dias úteis
-          </Button>
+          <BlockedDatesDialog userId={userId} clinicId={clinicId} />
           <Button size="sm" onClick={() => save.mutate()} disabled={!dirty || save.isPending} className="gap-1.5">
             <Save className="h-3.5 w-3.5" /> Salvar
           </Button>
