@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Check, ChevronDown } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
-export type AvailabilityMode = 'particular' | 'plano' | 'ambos';
+export type AvailabilityMode = 'particular' | 'plano';
 
 interface Plan {
   id: string;
@@ -24,11 +24,10 @@ interface Props {
 const OPTIONS: { value: AvailabilityMode; label: string; tone: string }[] = [
   { value: 'particular', label: 'Particular', tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
   { value: 'plano', label: 'Plano', tone: 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400' },
-  { value: 'ambos', label: 'Ambos', tone: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-400' },
 ];
 
 export function ModeSelector({ mode, onModeChange, acceptedPlanIds, onAcceptedPlansChange, availablePlans, disabled }: Props) {
-  const showPlans = mode === 'plano' || mode === 'ambos';
+  const showPlans = mode === 'plano';
   const toggle = (id: string) => {
     onAcceptedPlansChange(
       acceptedPlanIds.includes(id) ? acceptedPlanIds.filter((x) => x !== id) : [...acceptedPlanIds, id],
