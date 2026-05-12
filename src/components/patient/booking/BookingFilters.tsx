@@ -56,7 +56,8 @@ function normalizeState(raw: string | null | undefined): string | null {
 interface CityEntry { name: string; state: string | null }
 
 export function BookingFilters({ value, onChange }: BookingFiltersProps) {
-  const [cityEntries, setCityEntries] = useState<CityEntry[]>([]);
+  const [allCities, setAllCities] = useState<string[]>([]);
+  const [stateCities, setStateCities] = useState<Record<string, string[]>>({});
   const [plans, setPlans] = useState<InsuranceOption[]>([]);
   const [stateOpen, setStateOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
@@ -64,21 +65,10 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
 
   useEffect(() => {
     (async () => {
-      const [{ data: clinics }, { data: ins }] = await Promise.all([
-        supabase.from('clinics').select('city, state').not('city', 'is', null),
-        supabase.from('insurance_plans').select('id, name, ans_code, clinic_id, is_active').eq('is_active', true),
-      ]);
-      const map = new Map<string, CityEntry>();
-      for (const c of clinics ?? []) {
-        const rawCity = (c as any).city;
-        if (!rawCity) continue;
-        const name = normalizeCity(rawCity);
-        if (!name) continue;
-        const state = normalizeState((c as any).state);
-        const key = `${name}|${state ?? ''}`;
-        if (!map.has(key)) map.set(key, { name, state });
-      }
-      setCityEntries(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+      const { data: ins } = await supabase
+        .from('insurance_plans')
+        .select('id, name, ans_code, clinic_id, is_active')
+        .eq('is_active', true);
       const seen = new Map<string, InsuranceOption>();
       for (const p of (ins ?? []) as any[]) {
         const k = `${(p.name || '').toLowerCase()}|${p.ans_code || ''}`;
@@ -88,19 +78,42 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
     })();
   }, []);
 
+  // Load cities for the selected state (or all states) from IBGE on demand
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (value.state) {
+        if (stateCities[value.state]) return;
+        try {
+          const res = await fetch(
+            `https://servicos.ibge.gov.br/api/v1/localidades/estados/${value.state}/municipios`,
+          );
+          const data = await res.json();
+          const names = (data ?? [])
+            .map((m: any) => normalizeCity(m.nome))
+            .sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
+          if (!cancelled) setStateCities((prev) => ({ ...prev, [value.state!]: names }));
+        } catch { /* ignore */ }
+      } else if (allCities.length === 0) {
+        try {
+          const res = await fetch(
+            'https://servicos.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome',
+          );
+          const data = await res.json();
+          const names = Array.from(
+            new Set((data ?? []).map((m: any) => normalizeCity(m.nome))),
+          ).sort((a, b) => (a as string).localeCompare(b as string, 'pt-BR')) as string[];
+          if (!cancelled) setAllCities(names);
+        } catch { /* ignore */ }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [value.state]);
+
   const filteredCities = useMemo(() => {
-    const uf = value.state ? value.state.toUpperCase() : null;
-    const list = uf
-      ? cityEntries.filter((c) => (c.state ?? '').toUpperCase() === uf)
-      : cityEntries;
-    const seen = new Set<string>();
-    return list.filter((c) => {
-      const k = c.name.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-  }, [cityEntries, value.state]);
+    if (value.state) return stateCities[value.state] ?? [];
+    return allCities;
+  }, [allCities, stateCities, value.state]);
 
   const stateLabel = useMemo(() => {
     if (!value.state) return 'Todos os estados';
@@ -147,15 +160,7 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
                     key={s.uf}
                     value={`${s.name} ${s.uf}`}
                     onSelect={() => {
-                      // when state changes, clear city if it doesn't belong to that state
-                      const cityStillValid = value.city
-                        ? cityEntries.some((c) => c.name === value.city && c.state === s.uf)
-                        : true;
-                      onChange({
-                        ...value,
-                        state: s.uf,
-                        city: cityStillValid ? value.city : null,
-                      });
+                      onChange({ ...value, state: s.uf, city: null });
                       setStateOpen(false);
                     }}
                   >
@@ -200,20 +205,17 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
                   <Check className={cn('mr-2 h-4 w-4', !value.city ? 'opacity-100' : 'opacity-0')} />
                   Todas as cidades
                 </CommandItem>
-                {filteredCities.map((c) => (
+                {filteredCities.map((name) => (
                   <CommandItem
-                    key={`${c.name}-${c.state ?? ''}`}
-                    value={c.name}
+                    key={name}
+                    value={name}
                     onSelect={() => {
-                      onChange({ ...value, city: c.name });
+                      onChange({ ...value, city: name });
                       setCityOpen(false);
                     }}
                   >
-                    <Check className={cn('mr-2 h-4 w-4', value.city === c.name ? 'opacity-100' : 'opacity-0')} />
-                    <span className="flex-1">{c.name}</span>
-                    {c.state && !value.state && (
-                      <span className="text-[10px] text-muted-foreground">{c.state}</span>
-                    )}
+                    <Check className={cn('mr-2 h-4 w-4', value.city === name ? 'opacity-100' : 'opacity-0')} />
+                    <span className="flex-1">{name}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
