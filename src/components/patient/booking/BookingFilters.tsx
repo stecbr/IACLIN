@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapPin, Map, Shield, X, Check, ChevronsUpDown } from 'lucide-react';
+import { MapPin, Map as MapIcon, Shield, X, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -117,7 +117,7 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
       <Popover open={stateOpen} onOpenChange={setStateOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-9 gap-2">
-            <Map className="h-3.5 w-3.5 text-primary" />
+            <MapIcon className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium">{stateLabel}</span>
             <ChevronsUpDown className="h-3 w-3 text-muted-foreground" />
           </Button>
