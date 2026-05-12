@@ -79,6 +79,11 @@ export function ClinicSwitcher() {
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           {isDentist ? 'Clínicas vinculadas' : 'Trocar clínica'}
         </DropdownMenuLabel>
+        {clinics.length === 0 && (
+          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+            Nenhuma clínica vinculada.
+          </div>
+        )}
         {clinics.map((c) => (
           <DropdownMenuItem
             key={c.clinic_id}
@@ -95,7 +100,19 @@ export function ClinicSwitcher() {
             {!isPersonalMode && c.clinic_id === currentClinicId && <Check className="h-4 w-4 text-primary" />}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setJoinOpen(true)} className="gap-2">
+          <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Plus className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">Vincular nova clínica</p>
+            <p className="text-[10px] text-muted-foreground">Use um código de convite</p>
+          </div>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <JoinClinicDialog open={joinOpen} onOpenChange={setJoinOpen} />
+    </>
   );
 }
