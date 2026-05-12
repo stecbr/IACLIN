@@ -53,9 +53,12 @@ export default function PatientBooking() {
   const [filters, setFilters] = useState<BookingFiltersValue>(() => {
     try {
       const raw = localStorage.getItem('patient_booking_filters');
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { state: null, city: null, insurancePlanId: null, ...parsed };
+      }
     } catch { /* ignore */ }
-    return { city: null, insurancePlanId: null };
+    return { state: null, city: null, insurancePlanId: null };
   });
 
   const updateFilters = (next: BookingFiltersValue) => {
