@@ -294,7 +294,7 @@ export function AppSidebar() {
             <SidebarGroup>
               {!collapsed && (
                 <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-                  {isDentist ? 'Pessoal' : 'Principal'}
+                  Pessoal
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
@@ -302,7 +302,7 @@ export function AppSidebar() {
                   {filteredPersonalNav.map((item) =>
                     renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
                   )}
-                  {isDentist && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
+                  {effectiveRole !== 'patient' && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
