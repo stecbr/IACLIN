@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Building2, Check, ChevronsUpDown, Plus, User, BadgePlus } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Plus, BadgePlus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,7 @@ import { JoinClinicDialog } from '@/components/JoinClinicDialog';
 import { RegisterClinicDialog } from '@/components/RegisterClinicDialog';
 
 export function ClinicSwitcher() {
-  const { clinics, currentClinicId, switchClinic, switchToPersonal, isPersonalMode, roles } = useAuth();
+  const { clinics, currentClinicId, switchClinic, isPersonalMode, roles } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const isDentist = roles.includes('dentist');
@@ -39,7 +39,7 @@ export function ClinicSwitcher() {
         >
           <div className={`h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0 ${triggerIsPersonal ? 'bg-amber-500/15' : 'bg-primary/10'}`}>
             {triggerIsPersonal ? (
-              <User className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              <BadgePlus className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
             ) : (
               <Building2 className="h-3.5 w-3.5 text-primary" />
             )}
@@ -48,10 +48,10 @@ export function ClinicSwitcher() {
             <>
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-xs font-medium text-foreground truncate">
-                  {triggerIsPersonal ? 'Meus Pacientes' : current?.clinic_name ?? 'Clínica'}
+                  {triggerIsPersonal ? 'Cadastrar minha clínica' : current?.clinic_name ?? 'Clínica'}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate capitalize">
-                  {triggerIsPersonal ? 'Modo pessoal' : current?.role}
+                  {triggerIsPersonal ? 'Necessário para atender' : current?.role}
                 </p>
               </div>
               <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -60,21 +60,17 @@ export function ClinicSwitcher() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-60">
-        {isDentist && (
+        {isDentist && !ownsClinic && (
           <>
-            <DropdownMenuLabel className="text-xs text-amber-600 dark:text-amber-400">Atendimentos pessoais</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => switchToPersonal()}
-              className="gap-2"
-            >
+            <DropdownMenuLabel className="text-xs text-amber-600 dark:text-amber-400">Comece por aqui</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setRegisterOpen(true)} className="gap-2">
               <div className="h-7 w-7 rounded-md bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-                <User className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <BadgePlus className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Meus Pacientes</p>
-                <p className="text-[10px] text-muted-foreground">Sem vínculo com clínica</p>
+                <p className="text-sm font-medium truncate">Cadastrar minha clínica</p>
+                <p className="text-[10px] text-muted-foreground">Necessária para atender pacientes</p>
               </div>
-              {isPersonalMode && <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
@@ -113,17 +109,6 @@ export function ClinicSwitcher() {
             <p className="text-[10px] text-muted-foreground">Use um código de convite</p>
           </div>
         </DropdownMenuItem>
-        {!ownsClinic && (
-          <DropdownMenuItem onClick={() => setRegisterOpen(true)} className="gap-2">
-            <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <BadgePlus className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">Cadastrar minha clínica</p>
-              <p className="text-[10px] text-muted-foreground">Você fica como dono</p>
-            </div>
-          </DropdownMenuItem>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
     <JoinClinicDialog open={joinOpen} onOpenChange={setJoinOpen} />
