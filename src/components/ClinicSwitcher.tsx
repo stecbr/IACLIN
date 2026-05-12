@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Building2, Check, ChevronsUpDown, User } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Plus, User } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,20 +10,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
+import { JoinClinicDialog } from '@/components/JoinClinicDialog';
 
 export function ClinicSwitcher() {
   const { clinics, currentClinicId, switchClinic, switchToPersonal, isPersonalMode, roles } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const isDentist = roles.includes('dentist');
+  const [joinOpen, setJoinOpen] = useState(false);
 
-  // Show switcher if dentist (always — personal scope available) OR has multiple clinics
-  if (!isDentist && clinics.length <= 1) return null;
+  // Always show for dentists (personal scope + link option). Hide entirely for patients.
+  if (roles.includes('patient') && !isDentist) return null;
 
   const current = clinics.find((c) => c.clinic_id === currentClinicId);
   const triggerIsPersonal = isPersonalMode;
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
