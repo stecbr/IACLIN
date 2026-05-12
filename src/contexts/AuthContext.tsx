@@ -151,7 +151,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.setItem(SCOPE_STORAGE_KEY, 'personal');
   };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
-  const isPersonalMode = personalScope && roles.includes('dentist');
+  // Dentists with no clinics fall back to personal mode automatically so
+  // they can use the app while choosing whether to register a clinic or
+  // join an existing one via invite code from the sidebar.
+  const isPersonalMode =
+    roles.includes('dentist') && (personalScope || clinics.length === 0);
 
   const isDevUser = isDevEmail(user?.email);
   const setSimulatedRole = (role: SimulatedRole | null) => {

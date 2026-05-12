@@ -32,7 +32,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    let body: { name?: string; category?: string; specialty?: string; registration_number?: string } = {};
+    let body: {
+      name?: string;
+      category?: string;
+      specialty?: string;
+      registration_number?: string;
+      legal_name?: string;
+      trade_name?: string;
+      cnpj?: string;
+      phone?: string;
+      responsible_name?: string;
+    } = {};
     try {
       body = await req.json();
     } catch (_) {
@@ -74,17 +84,27 @@ Deno.serve(async (req) => {
     const requestedCategory = body.category ?? metaCategory ?? "outro";
     const category = validCategories.includes(requestedCategory) ? requestedCategory : "outro";
 
-    const baseName = (body.name ?? fullName ?? user.email ?? "Meu consultório").trim();
+    const baseName = (body.trade_name ?? body.name ?? fullName ?? user.email ?? "Meu consultório").trim();
     const specialtyForName = body.specialty ?? metaSpecialty;
-    const root = baseName.toLowerCase().startsWith("dr")
-      ? `Consultório ${baseName}`
-      : `Consultório de ${baseName}`;
-    const clinicName = specialtyForName ? `${root} — ${specialtyForName}` : root;
+    let clinicName: string;
+    if (body.trade_name) {
+      // explicit clinic registration: use the trade name as-is
+      clinicName = baseName;
+    } else {
+      const root = baseName.toLowerCase().startsWith("dr")
+        ? `Consultório ${baseName}`
+        : `Consultório de ${baseName}`;
+      clinicName = specialtyForName ? `${root} — ${specialtyForName}` : root;
+    }
 
     const { data: created, error: createErr } = await admin
       .from("clinics")
       .insert({
         name: clinicName,
+        legal_name: body.legal_name ?? null,
+        responsible_name: body.responsible_name ?? null,
+        cnpj: body.cnpj ?? null,
+        phone: body.phone ?? null,
         owner_id: user.id,
         category,
         email: user.email,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Building2, Check, ChevronsUpDown, Plus, User } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Plus, User, BadgePlus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
 import { JoinClinicDialog } from '@/components/JoinClinicDialog';
+import { RegisterClinicDialog } from '@/components/RegisterClinicDialog';
 
 export function ClinicSwitcher() {
   const { clinics, currentClinicId, switchClinic, switchToPersonal, isPersonalMode, roles } = useAuth();
@@ -18,12 +19,14 @@ export function ClinicSwitcher() {
   const collapsed = state === 'collapsed';
   const isDentist = roles.includes('dentist');
   const [joinOpen, setJoinOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   // Always show for dentists (personal scope + link option). Hide entirely for patients.
   if (roles.includes('patient') && !isDentist) return null;
 
   const current = clinics.find((c) => c.clinic_id === currentClinicId);
   const triggerIsPersonal = isPersonalMode;
+  const ownsClinic = clinics.some((c) => c.is_owner);
 
   return (
     <>
@@ -110,9 +113,21 @@ export function ClinicSwitcher() {
             <p className="text-[10px] text-muted-foreground">Use um código de convite</p>
           </div>
         </DropdownMenuItem>
+        {!ownsClinic && (
+          <DropdownMenuItem onClick={() => setRegisterOpen(true)} className="gap-2">
+            <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <BadgePlus className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">Cadastrar minha clínica</p>
+              <p className="text-[10px] text-muted-foreground">Você fica como dono</p>
+            </div>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
     <JoinClinicDialog open={joinOpen} onOpenChange={setJoinOpen} />
+    <RegisterClinicDialog open={registerOpen} onOpenChange={setRegisterOpen} />
     </>
   );
 }

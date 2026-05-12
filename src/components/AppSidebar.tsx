@@ -269,8 +269,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {(() => {
             const iaclinSrc = resolved === 'dark' ? logoDark : logoLight;
             const showIaclin = !(hideIaclinLogo && logoUrl);
@@ -286,8 +285,6 @@ export function AppSidebar() {
               </div>
             );
           })()}
-          </div>
-          <ClinicSwitcher />
         </div>
       </SidebarHeader>
 
@@ -315,6 +312,11 @@ export function AppSidebar() {
           </>
         )}
 
+        {/* Workspace switcher: separates personal data from clinic data */}
+        <div className="px-2 pb-2">
+          <ClinicSwitcher />
+        </div>
+
         {filteredOperationNav.length > 0 && (
           <SidebarGroup>
             {!collapsed && (
@@ -332,15 +334,16 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-              {currentClinicId ? 'Clínica' : 'Clínica (selecione)'}
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {finalClinicNav.map((item) =>
+        {currentClinicId && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Clínica
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {finalClinicNav.map((item) =>
                 renderNavItem(
                   item,
                   item.url === '/clinica/aprovacoes'
@@ -349,10 +352,11 @@ export function AppSidebar() {
                     ? todayCount
                     : undefined,
                 )
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {!isDentist && effectiveRole !== 'patient' && (
           <>
