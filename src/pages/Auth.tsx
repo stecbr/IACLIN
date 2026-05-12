@@ -17,7 +17,6 @@ import {
   registrationPlaceholderForSpecialty,
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
-import { ClinicChoiceDialog } from '@/components/auth/ClinicChoiceDialog';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
