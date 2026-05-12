@@ -68,11 +68,18 @@ import {
 type Role = 'admin' | 'dentist' | 'secretary' | 'patient';
 const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'outro'];
 
-const mainNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
+// "Pessoal" — items vinculados ao profissional (não dependem de clínica ativa)
+const personalNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { title: 'Minha Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['dentist'] },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['dentist'] },
+];
+
+// "Operação" — itens da clínica ativa (agenda compartilhada, sala de espera, etc.)
+const operationNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
+  { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'secretary'] },
   { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen, allowedRoles: ['admin', 'secretary'] },
-  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin', 'dentist'] },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin'] },
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
@@ -131,8 +138,11 @@ export function AppSidebar() {
   const toolsUrl = familyConfig?.toolsRoute ?? '/ferramentas';
 
   // Defense in depth: gate by allowedRoles AND by route permission
-  const filteredMainNav = filterNavItems(
-    mainNav.filter((item) => item.allowedRoles.includes(effectiveRole))
+  const filteredPersonalNav = filterNavItems(
+    personalNav.filter((item) => item.allowedRoles.includes(effectiveRole))
+  );
+  const filteredOperationNav = filterNavItems(
+    operationNav.filter((item) => item.allowedRoles.includes(effectiveRole))
   );
   const filteredClinicNav = filterNavItems(
     clinicNav
@@ -282,29 +292,50 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-              Principal
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredMainNav.map((item) =>
-                renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
+        {filteredPersonalNav.length > 0 && (
+          <>
+            <SidebarGroup>
+              {!collapsed && (
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                  {isDentist ? 'Pessoal' : 'Principal'}
+                </SidebarGroupLabel>
               )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {filteredPersonalNav.map((item) =>
+                    renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
+                  )}
+                  {isDentist && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <div className="mx-3 my-2">
+              <div className="h-px bg-sidebar-border/60" />
+            </div>
+          </>
+        )}
 
-        <div className="mx-3 my-2">
-          <div className="h-px bg-sidebar-border/60" />
-        </div>
+        {filteredOperationNav.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Operação
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredOperationNav.map((item) =>
+                  renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-              Clínica
+              {currentClinicId ? 'Clínica' : 'Clínica (selecione)'}
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -364,9 +395,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {isDentist
-                ? renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })
-                : renderNavItem({ title: 'Configurações', url: '/settings', icon: Settings })}
+              {!isDentist && renderNavItem({ title: 'Configurações', url: '/settings', icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

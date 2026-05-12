@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Building2, Check, ChevronsUpDown, User } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Plus, User } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,20 +10,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
+import { JoinClinicDialog } from '@/components/JoinClinicDialog';
 
 export function ClinicSwitcher() {
   const { clinics, currentClinicId, switchClinic, switchToPersonal, isPersonalMode, roles } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const isDentist = roles.includes('dentist');
+  const [joinOpen, setJoinOpen] = useState(false);
 
-  // Show switcher if dentist (always — personal scope available) OR has multiple clinics
-  if (!isDentist && clinics.length <= 1) return null;
+  // Always show for dentists (personal scope + link option). Hide entirely for patients.
+  if (roles.includes('patient') && !isDentist) return null;
 
   const current = clinics.find((c) => c.clinic_id === currentClinicId);
   const triggerIsPersonal = isPersonalMode;
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
@@ -75,6 +79,11 @@ export function ClinicSwitcher() {
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           {isDentist ? 'Clínicas vinculadas' : 'Trocar clínica'}
         </DropdownMenuLabel>
+        {clinics.length === 0 && (
+          <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+            Nenhuma clínica vinculada.
+          </div>
+        )}
         {clinics.map((c) => (
           <DropdownMenuItem
             key={c.clinic_id}
@@ -91,7 +100,19 @@ export function ClinicSwitcher() {
             {!isPersonalMode && c.clinic_id === currentClinicId && <Check className="h-4 w-4 text-primary" />}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setJoinOpen(true)} className="gap-2">
+          <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Plus className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">Vincular nova clínica</p>
+            <p className="text-[10px] text-muted-foreground">Use um código de convite</p>
+          </div>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <JoinClinicDialog open={joinOpen} onOpenChange={setJoinOpen} />
+    </>
   );
 }
