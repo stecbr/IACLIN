@@ -84,7 +84,7 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
         if (stateCities[value.state]) return;
         try {
           const res = await fetch(
-            `https://servicos.ibge.gov.br/api/v1/localidades/estados/${value.state}/municipios`,
+            `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${value.state}/municipios`,
           );
           const data = await res.json();
           const names = (data ?? [])
@@ -95,7 +95,7 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
       } else if (allCities.length === 0) {
         try {
           const res = await fetch(
-            'https://servicos.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome',
+            'https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome',
           );
           const data = await res.json();
           const names = Array.from(
