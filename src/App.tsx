@@ -55,7 +55,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, isPatient, roles, simulatedRole } = useAuth();
+  const { user, loading, currentClinicId, isPatient, roles, simulatedRole, isPersonalMode } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -72,8 +72,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (simulatedRole === 'patient') return <Navigate to="/paciente" replace />;
   // Patient users go to their own area
   if (isPatient) return <Navigate to="/paciente" replace />;
-  // No clinic linked: admins go to onboarding (can create one), others (dentists) wait for code
-  if (!currentClinicId) {
+  // No clinic linked: dentists in personal mode get full app access; admins go to
+  // onboarding (can create one); others (e.g. secretary) wait for an invite code.
+  if (!currentClinicId && !isPersonalMode) {
     const isAdmin = roles.includes('admin');
     return <Navigate to={isAdmin ? '/onboarding' : '/aguardando-clinica'} replace />;
   }
