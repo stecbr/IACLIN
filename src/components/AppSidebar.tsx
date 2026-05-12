@@ -269,8 +269,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {(() => {
             const iaclinSrc = resolved === 'dark' ? logoDark : logoLight;
             const showIaclin = !(hideIaclinLogo && logoUrl);
@@ -286,8 +285,6 @@ export function AppSidebar() {
               </div>
             );
           })()}
-          </div>
-          <ClinicSwitcher />
         </div>
       </SidebarHeader>
 
@@ -314,6 +311,11 @@ export function AppSidebar() {
             </div>
           </>
         )}
+
+        {/* Workspace switcher: separates personal data from clinic data */}
+        <div className="px-2 pb-2">
+          <ClinicSwitcher />
+        </div>
 
         {filteredOperationNav.length > 0 && (
           <SidebarGroup>
