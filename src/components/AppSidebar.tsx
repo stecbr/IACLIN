@@ -334,15 +334,16 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-              {currentClinicId ? 'Clínica' : 'Clínica (selecione)'}
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {finalClinicNav.map((item) =>
+        {currentClinicId && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Clínica
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {finalClinicNav.map((item) =>
                 renderNavItem(
                   item,
                   item.url === '/clinica/aprovacoes'
@@ -351,10 +352,11 @@ export function AppSidebar() {
                     ? todayCount
                     : undefined,
                 )
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {!isDentist && effectiveRole !== 'patient' && (
           <>
