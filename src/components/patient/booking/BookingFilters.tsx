@@ -53,8 +53,6 @@ function normalizeState(raw: string | null | undefined): string | null {
   return found ? found.uf : t.toUpperCase();
 }
 
-interface CityEntry { name: string; state: string | null }
-
 export function BookingFilters({ value, onChange }: BookingFiltersProps) {
   const [allCities, setAllCities] = useState<string[]>([]);
   const [stateCities, setStateCities] = useState<Record<string, string[]>>({});
