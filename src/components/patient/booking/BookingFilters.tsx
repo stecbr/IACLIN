@@ -89,12 +89,17 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
   }, []);
 
   const filteredCities = useMemo(() => {
-    const list = value.state
-      ? cityEntries.filter((c) => c.state === value.state)
+    const uf = value.state ? value.state.toUpperCase() : null;
+    const list = uf
+      ? cityEntries.filter((c) => (c.state ?? '').toUpperCase() === uf)
       : cityEntries;
-    // dedup names
     const seen = new Set<string>();
-    return list.filter((c) => (seen.has(c.name) ? false : (seen.add(c.name), true)));
+    return list.filter((c) => {
+      const k = c.name.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   }, [cityEntries, value.state]);
 
   const stateLabel = useMemo(() => {
