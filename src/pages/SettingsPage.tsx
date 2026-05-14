@@ -303,6 +303,4 @@ function ClinicSection() {
   );
 }
 
-function AppearanceSection() {
 // Appearance moved to /perfil (personal settings)
-
