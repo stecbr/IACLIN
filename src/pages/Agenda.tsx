@@ -141,7 +141,7 @@ export default function Agenda() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
-        <PageHeader title="Agenda">
+        <PageHeader title={isMineOnly ? 'Minha Agenda' : 'Agenda'}>
           <Button onClick={() => { setSelectedSlot(null); setShowForm(true); }} className="gap-2">
             <Plus className="h-4 w-4" />
             Nova Consulta
@@ -161,7 +161,7 @@ export default function Agenda() {
             <span className="text-sm font-medium text-foreground ml-2 capitalize">{headerLabel}</span>
           </div>
           <div className="flex items-center gap-2">
-            {!isDentist && (
+            {!restrictToSelf && (
               <AgendaDoctorFilter
                 value={doctorFilter}
                 onChange={setDoctorFilter}
