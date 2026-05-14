@@ -1,43 +1,36 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/components/ThemeProvider';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { User, Building2, Palette, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Network } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
-import MyClinicsSection from '@/components/settings/MyClinicsSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
-import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 
 const sections = [
-  { id: 'profile', label: 'Perfil', icon: User },
-  { id: 'specialty', label: 'Especialidade', icon: Stethoscope },
-  { id: 'my-clinics', label: 'Minhas Clínicas', icon: Network },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
+  { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
   { id: 'team', label: 'Equipe', icon: Users },
   { id: 'rooms', label: 'Salas', icon: Armchair },
   { id: 'insurance', label: 'Convênios', icon: Shield },
-  { id: 'appearance', label: 'Aparência', icon: Palette },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
 ];
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState('profile');
+  const [activeSection, setActiveSection] = useState('clinic');
   const { user, currentClinicId, clinicRole } = useAuth();
   const [needsSpecialty, setNeedsSpecialty] = useState(false);
 
@@ -63,7 +56,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Configurações" description="Gerencie seu perfil, clínica e preferências." />
+      <PageHeader title="Configurações da Clínica" description="Dados, equipe e preferências desta clínica." />
       {needsSpecialty && activeSection !== 'specialty' && (
         <button
           type="button"
@@ -97,63 +90,15 @@ export default function SettingsPage() {
           ))}
         </nav>
         <div className="flex-1 min-w-0 space-y-6">
-          {activeSection === 'profile' && <ProfileSection />}
           {activeSection === 'specialty' && <SpecialtySection />}
-          {activeSection === 'my-clinics' && <MyClinicsSection />}
           {activeSection === 'clinic' && <ClinicSection />}
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
-          {activeSection === 'appearance' && <AppearanceSection />}
           {activeSection === 'procedures' && <ProceduresCrudSection />}
         </div>
       </div>
     </div>
-  );
-}
-
-function ProfileSection() {
-  const { user, profile } = useAuth();
-  const queryClient = useQueryClient();
-  const [fullName, setFullName] = useState(profile?.full_name ?? '');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('profiles').update({ full_name: fullName }).eq('id', user.id);
-      if (error) throw error;
-      toast.success('Perfil atualizado!');
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Card className="shadow-card border-border/50">
-      <CardHeader>
-        <CardTitle className="text-base">Perfil</CardTitle>
-        <CardDescription>Suas informações pessoais.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>E-mail</Label>
-          <Input value={user?.email ?? ''} disabled className="bg-muted" />
-        </div>
-        <div className="space-y-2">
-          <Label>Nome completo</Label>
-          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. João Silva" />
-        </div>
-        <Button onClick={handleSave} disabled={saving} className="gap-2">
-          <Save className="h-4 w-4" />
-          {saving ? 'Salvando...' : 'Salvar'}
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
 
