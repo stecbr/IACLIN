@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO } from 'date-fns';
@@ -34,9 +35,12 @@ export default function Agenda() {
   const { user } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
+  const location = useLocation();
+  const isMineOnly = location.pathname.startsWith('/minha-agenda');
+  const restrictToSelf = isDentist || isMineOnly;
   const gridRef = useRef<HTMLDivElement>(null);
   const [doctorFilter, setDoctorFilter] = useState<DoctorFilterValue>(() =>
-    isDentist ? { kind: 'all' } : loadStoredDoctorFilter()
+    restrictToSelf ? { kind: 'all' } : loadStoredDoctorFilter()
   );
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const doctorById = useMemo(() => {
@@ -51,7 +55,7 @@ export default function Agenda() {
   }, [doctorFilter, doctors]);
   const compareOverflow = doctorFilter.kind === 'compare' && doctors.length > 4;
   const useCompareView =
-    !isDentist &&
+    !restrictToSelf &&
     doctorFilter.kind === 'compare' &&
     view !== 'month' &&
     compareDoctors.length > 1;
@@ -71,7 +75,7 @@ export default function Agenda() {
       range.start.toISOString(),
       range.end.toISOString(),
       currentClinicId,
-      isDentist ? user?.id : doctorFilter.kind === 'one' ? doctorFilter.doctorId : 'all',
+      restrictToSelf ? user?.id : doctorFilter.kind === 'one' ? doctorFilter.doctorId : 'all',
     ],
     queryFn: async () => {
       let query = supabase
@@ -82,7 +86,7 @@ export default function Agenda() {
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       else if (isPersonalMode && user) query = query.is('clinic_id', null).eq('dentist_id', user.id);
-      if (isDentist && user) query = query.eq('dentist_id', user.id);
+      if (restrictToSelf && user) query = query.eq('dentist_id', user.id);
       else if (doctorFilter.kind === 'one') query = query.eq('dentist_id', doctorFilter.doctorId);
       const { data, error } = await query;
       if (error) throw error;
