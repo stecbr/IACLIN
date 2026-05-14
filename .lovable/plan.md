@@ -1,56 +1,46 @@
-# Separar Pessoal × Clínica para Admin profissional
+## Objetivo
 
-## Contexto
+A especialidade deixa de ser configuração da clínica e passa a ser **dado pessoal do médico** (múltiplas). A clínica passa a escolher, **por médico**, qual subconjunto dessas especialidades ele atende ali.
 
-Hoje `Pessoal` (Minha Agenda + Disponibilidade) só aparece para `dentist`. Um admin que também atende não tem essa separação. Conforme você confirmou:
+## Mudanças de modelo (banco)
 
-- Admin profissional **sempre** atende dentro da clínica em que é admin (não existe "agendamento solto sem clínica").
-- A **Disponibilidade pessoal** é fonte única — define os dias/horários liberados para todas as clínicas vinculadas.
-- Secretária não tem `Pessoal` (não atende).
+1. Nova tabela `professional_specialties` (especialidades pessoais do usuário, válidas em todas as clínicas):
+   - `user_id` (FK auth.users), `specialty` (text, id do catálogo), `is_primary` (bool), únique (`user_id`, `specialty`).
+   - RLS: o próprio usuário pode CRUD; admin/owner de uma clínica onde ele é membro pode ler.
+   - Migração de dados: cada `clinic_members.specialty` não nulo vira uma linha `professional_specialties` (marcada `is_primary` se for a primeira para o user).
 
-## Mudanças
+2. Nova tabela `clinic_member_specialties` (subset por clínica):
+   - `clinic_member_id` (FK clinic_members), `specialty` (text), unique (`clinic_member_id`, `specialty`).
+   - RLS: admin/owner da clínica e o próprio membro CRUD; leitura pelos membros da clínica.
+   - Migração: cada `clinic_members.specialty` vira uma linha aqui também.
 
-### 1. Sidebar (`src/components/AppSidebar.tsx`)
+3. `clinic_members.specialty` é mantido temporariamente (não removido) e passa a refletir a "especialidade primária na clínica" — derivada de `clinic_member_specialties`. Isto evita quebrar buscas/PDFs/marketplace que ainda lêem essa coluna nesta iteração. Um trigger mantém `clinic_members.specialty` = primeira de `clinic_member_specialties` (ou null).
 
-Bloco **Pessoal** passa a aparecer para `admin` e `dentist`:
+## Mudanças de UI
 
-- `Dashboard` — admin, dentist, secretary (igual hoje)
-- `Minha Agenda` → rota `/minha-agenda` — admin, dentist
-- `Disponibilidade` → `/disponibilidade` — admin, dentist
-- `Meu Perfil` → `/perfil` — igual hoje
+### Profile.tsx (Meu Perfil)
+- Substituir o `<Input>` por uma lista de `SpecialtySelect` com botão "+ Adicionar especialidade", marcação de "primária" (radio), e remoção por item.
+- Salva em `professional_specialties`.
+- Mantém o campo de registro (CRO/CRM) único — o label é definido pela especialidade primária.
 
-Bloco **Operação** (admin/secretary) continua apontando para `/agenda` (visão da clínica inteira). Removo o item duplicado "Disponibilidade" daí — passa a ser só pessoal (fonte única).
+### Configurações da clínica → Especialidade (`SpecialtySection.tsx`)
+- Renomear seção para **"Especialidades atendidas nesta clínica"**.
+- Mostra as especialidades pessoais do usuário (de `professional_specialties`) como checkboxes; marcadas = atendidas nesta clínica (gravadas em `clinic_member_specialties`).
+- Mensagem se o usuário ainda não tem nenhuma pessoal: link para "Meu Perfil".
 
-### 2. Nova rota `/minha-agenda`
+### Clínica → Médicos (`ClinicaMedicos.tsx`)
+- Para cada médico da clínica (apenas admin/owner), botão "Especialidades nesta clínica" abrindo um diálogo com checkboxes das especialidades pessoais daquele médico, gravando em `clinic_member_specialties`.
+- A lista exibida do médico passa a mostrar as especialidades atendidas na clínica (juntando `clinic_member_specialties` quando existir, com fallback em `clinic_members.specialty`).
 
-Reaproveita a página `Agenda.tsx` em modo "só meus atendimentos":
+### Sem mudança nesta iteração
+- `Marketplace.tsx`, PDFs (`generate*Pdf.ts`), `useSpecialtyProfile`, `MobileBottomNav`, `AppSidebar`, `BudgetFormDialog`, `ClinicalMapPage`, `useAiSync`, `WaitingRoom`, `Auth.tsx`, `AddMedicoDialog`: continuam lendo `clinic_members.specialty` (mantido pelo trigger).
 
-- Adiciono prop/flag `forceMineOnly` ao componente Agenda (ou leio `useLocation`/`useMatch`).
-- Quando ativo: força `query.eq('dentist_id', user.id)` e esconde o `AgendaDoctorFilter`.
-- Continua respeitando `currentClinicId` (mostra meus atendimentos na clínica ativa).
+## Arquivos a editar
+- nova migração SQL (tabelas, RLS, trigger, backfill)
+- `src/pages/Profile.tsx`
+- `src/components/settings/SpecialtySection.tsx`
+- `src/pages/clinica/ClinicaMedicos.tsx` (+ novo `EditDoctorSpecialtiesDialog.tsx`)
 
-Registro a rota em `App.tsx` reusando o mesmo componente.
-
-### 3. Permissões (`src/hooks/useRoleAccess.ts`)
-
-- Adiciono `/minha-agenda` com `['admin', 'dentist']`.
-- `/disponibilidade` já permite admin — ok.
-
-### 4. Disponibilidade pessoal como fonte única
-
-A página `/disponibilidade` (Availability.tsx) já grava em `professional_schedule_template` / `professional_availability` por `user_id`. Não muda comportamento — só reforço que o `clinic_id` aceito é `null` ou qualquer clínica vinculada (já permitido pelo schema atual). Os módulos de agendamento de outras clínicas e marketplace já consultam essa tabela por `user_id` global.
-
-Não há migração de banco necessária neste passo — o schema já suporta o modelo.
-
-## Arquivos editados
-
-- `src/components/AppSidebar.tsx` — mover/duplicar itens de personal, ajustar `allowedRoles`.
-- `src/hooks/useRoleAccess.ts` — adicionar `/minha-agenda`.
-- `src/pages/Agenda.tsx` — detectar rota `/minha-agenda` e forçar filtro próprio.
-- `src/App.tsx` — registrar rota `/minha-agenda`.
-
-## Fora de escopo
-
-- Não vou mexer em RLS nem criar tabelas.
-- Não toco no fluxo de `Operação` (Sala de Espera, Agenda compartilhada).
-- Cobrança/visão de outras clínicas vinculadas consumindo a disponibilidade é separada — já funciona via `professional_availability`.
+## Fora de escopo (próxima iteração, se você quiser)
+- Migrar `Marketplace`, PDFs e perfil de UX (`useSpecialtyProfile`) para usar arrays multi-especialidade.
+- Remover a coluna `clinic_members.specialty`.

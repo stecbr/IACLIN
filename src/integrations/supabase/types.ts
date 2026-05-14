@@ -339,6 +339,35 @@ export type Database = {
           },
         ]
       }
+      clinic_member_specialties: {
+        Row: {
+          clinic_member_id: string
+          created_at: string
+          id: string
+          specialty: string
+        }
+        Insert: {
+          clinic_member_id: string
+          created_at?: string
+          id?: string
+          specialty: string
+        }
+        Update: {
+          clinic_member_id?: string
+          created_at?: string
+          id?: string
+          specialty?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_member_specialties_clinic_member_id_fkey"
+            columns: ["clinic_member_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_members: {
         Row: {
           clinic_id: string
@@ -1353,6 +1382,30 @@ export type Database = {
           default_slot_duration?: number
           min_lead_hours?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      professional_specialties: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean
+          specialty: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          specialty: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          specialty?: string
           user_id?: string
         }
         Relationships: []

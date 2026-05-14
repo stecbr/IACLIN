@@ -8,9 +8,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, UserMinus } from 'lucide-react';
+import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, UserMinus, Settings2 } from 'lucide-react';
 import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
 import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
+import { EditDoctorSpecialtiesDialog } from '@/components/clinica/EditDoctorSpecialtiesDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
@@ -34,6 +35,7 @@ interface MemberRow {
   registration_number: string | null;
   is_owner: boolean;
   profile?: { full_name: string | null; avatar_url: string | null } | null;
+  clinic_specialties?: string[];
 }
 
 export default function ClinicaMedicos() {
@@ -42,6 +44,7 @@ export default function ClinicaMedicos() {
   const [addOpen, setAddOpen] = useState(false);
   const [unlinkTarget, setUnlinkTarget] = useState<MemberRow | null>(null);
   const [unlinking, setUnlinking] = useState(false);
+  const [editSpecsTarget, setEditSpecsTarget] = useState<MemberRow | null>(null);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['clinica-medicos', currentClinicId],
@@ -61,9 +64,25 @@ export default function ClinicaMedicos() {
         .select('id, full_name, avatar_url')
         .in('id', userIds);
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+      const memberIds = (rows ?? []).map((r) => r.id);
+      let specMap = new Map<string, string[]>();
+      if (memberIds.length > 0) {
+        const { data: specs } = await supabase
+          .from('clinic_member_specialties' as any)
+          .select('clinic_member_id, specialty')
+          .in('clinic_member_id', memberIds);
+        ((specs ?? []) as unknown as { clinic_member_id: string; specialty: string }[]).forEach((s) => {
+          const arr = specMap.get(s.clinic_member_id) ?? [];
+          arr.push(s.specialty);
+          specMap.set(s.clinic_member_id, arr);
+        });
+      }
+
       return (rows ?? []).map((r) => ({
         ...r,
         profile: profileMap.get(r.user_id) ?? null,
+        clinic_specialties: specMap.get(r.id) ?? [],
       })) as MemberRow[];
     },
   });
@@ -170,26 +189,16 @@ export default function ClinicaMedicos() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {m.specialty ? (
-                          <>
-                            <span className={isCatalogSpecialty(m.specialty) ? 'text-foreground' : 'text-muted-foreground'}>
-                              {specialtyLabel(m.specialty)}
-                            </span>
-                            {!isCatalogSpecialty(m.specialty) && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <AlertTriangle className="h-3.5 w-3.5 text-warning cursor-help" />
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs text-xs">
-                                    Especialidade fora do catálogo. Este profissional não aparece nas buscas dos pacientes.
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </>
+                        {m.clinic_specialties && m.clinic_specialties.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {m.clinic_specialties.map((s) => (
+                              <Badge key={s} variant="secondary" className="text-[10px]">
+                                {specialtyLabel(s)}
+                              </Badge>
+                            ))}
+                          </div>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground text-xs">Nenhuma definida</span>
                         )}
                       </div>
                     </TableCell>
@@ -201,27 +210,44 @@ export default function ClinicaMedicos() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {!m.is_owner && m.user_id !== user?.id ? (
+                      <div className="flex items-center justify-end gap-1">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setUnlinkTarget(m)}
+                                className="h-8 w-8"
+                                onClick={() => setEditSpecsTarget(m)}
                               >
-                                <UserMinus className="h-4 w-4" />
+                                <Settings2 className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="left" className="text-xs">
-                              Desvincular da clínica
+                              Especialidades nesta clínica
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                        {!m.is_owner && m.user_id !== user?.id && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setUnlinkTarget(m)}
+                                >
+                                  <UserMinus className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs">
+                                Desvincular da clínica
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -289,6 +315,15 @@ export default function ClinicaMedicos() {
       )}
 
       <AddMedicoDialog open={addOpen} onOpenChange={setAddOpen} />
+
+      <EditDoctorSpecialtiesDialog
+        open={!!editSpecsTarget}
+        onOpenChange={(o) => !o && setEditSpecsTarget(null)}
+        memberId={editSpecsTarget?.id ?? null}
+        userId={editSpecsTarget?.user_id ?? null}
+        doctorName={editSpecsTarget?.profile?.full_name}
+        onSaved={() => qc.invalidateQueries({ queryKey: ['clinica-medicos'] })}
+      />
 
       <AlertDialog open={!!unlinkTarget} onOpenChange={(o) => !o && setUnlinkTarget(null)}>
         <AlertDialogContent>
