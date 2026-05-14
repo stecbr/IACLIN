@@ -88,11 +88,12 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
 
     (async () => {
       const dateKey = toLocalDateStr(date);
+      const weekday = date.getDay();
 
       // 1. Fetch all members with this specialty
       const { data: members } = await supabase
         .from('clinic_members')
-        .select('clinic_id, user_id, role, specialty')
+        .select('id, clinic_id, user_id, role, specialty, is_owner')
         .filter('specialty', 'eq', specialty.id)
         .in('role', ['dentist', 'admin']);
 
@@ -104,20 +105,49 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
       const userIds = [...new Set(members.map((m: any) => m.user_id))];
       const clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
 
-      // 2. Fetch availability shifts for those users on the date
-      const { data: avails } = await supabase
-        .from('professional_availability')
-        .select('user_id, clinic_id, start_time, end_time, work_date')
-        .in('user_id', userIds)
-        .in('clinic_id', clinicIds)
-        .eq('work_date', dateKey);
+      // 2. Fetch weekly template shifts for those users on this weekday
+      const [{ data: tpls }, { data: blocks }] = await Promise.all([
+        supabase
+          .from('professional_schedule_template' as any)
+          .select('user_id, clinic_id, start_time, end_time, mode, accepted_plan_ids, is_active')
+          .in('user_id', userIds)
+          .in('clinic_id', clinicIds)
+          .eq('weekday', weekday)
+          .eq('is_active', true),
+        supabase
+          .from('professional_blocked_dates')
+          .select('user_id, clinic_id, blocked_date')
+          .in('user_id', userIds)
+          .eq('blocked_date', dateKey),
+      ]);
+
+      const blockedKeys = new Set<string>(
+        ((blocks ?? []) as any[]).map((b) => `${b.user_id}|${b.clinic_id ?? ''}`),
+      );
+
+      const memberByKey = new Map<string, any>(
+        (members as any[]).map((m) => [`${m.user_id}|${m.clinic_id}`, m]),
+      );
 
       const shiftsByUserClinic = new Map<string, { start: string; end: string }[]>();
-      for (const a of (avails ?? []) as any[]) {
-        const k = `${a.user_id}|${a.clinic_id}`;
+      const planAcceptByUserClinic = new Map<string, string[]>();
+      for (const t of (tpls ?? []) as any[]) {
+        const k = `${t.user_id}|${t.clinic_id}`;
+        const m = memberByKey.get(k);
+        if (!m) continue;
+        // Owner → only particular days; vinculado → only plano days
+        const expected = m.is_owner ? 'particular' : 'plano';
+        if (t.mode !== expected) continue;
+        if (
+          blockedKeys.has(`${t.user_id}|${t.clinic_id}`) ||
+          blockedKeys.has(`${t.user_id}|`)
+        ) continue;
         const arr = shiftsByUserClinic.get(k) ?? [];
-        arr.push({ start: (a.start_time as string).slice(0, 5), end: (a.end_time as string).slice(0, 5) });
+        arr.push({ start: String(t.start_time).slice(0, 5), end: String(t.end_time).slice(0, 5) });
         shiftsByUserClinic.set(k, arr);
+        if (Array.isArray(t.accepted_plan_ids)) {
+          planAcceptByUserClinic.set(k, t.accepted_plan_ids);
+        }
       }
 
       // Filter members down to those that actually have shifts on this date
@@ -195,6 +225,13 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
         if (cityFilter && normalize((c as any).city) !== normalize(cityFilter)) continue;
         // Insurance filter
         if (acceptingClinicIds && !acceptingClinicIds.has(m.clinic_id)) continue;
+        // If a specific insurance plan is selected and the doctor is not the
+        // clinic owner (so days are "plano"), require that the plan be in the
+        // accepted_plan_ids of that day's template row.
+        if (insurancePlanId && !m.is_owner) {
+          const accepted = planAcceptByUserClinic.get(`${m.user_id}|${m.clinic_id}`) ?? [];
+          if (accepted.length > 0 && !accepted.includes(insurancePlanId)) continue;
+        }
         const p = profMap.get(m.user_id);
         if (!p) continue;
         const shifts = shiftsByUserClinic.get(`${m.user_id}|${m.clinic_id}`) ?? [];

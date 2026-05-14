@@ -38,11 +38,13 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
     setLoadingPreview(true);
     (async () => {
       const dateKey = toLocalDateStr(date);
+      const weekday = date.getDay();
 
-      // Find members with this specialty
+      // Find members with this specialty (admins are typically clinic owners
+      // working solo — we include them so they can be booked at their own clinic).
       const { data: members } = await supabase
         .from('clinic_members')
-        .select('user_id, clinic_id')
+        .select('id, user_id, clinic_id, is_owner')
         .filter('specialty', 'eq', specialty.id)
         .in('role', ['dentist', 'admin']);
 
@@ -54,24 +56,43 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
       const userIds = [...new Set(members.map((m: any) => m.user_id))];
       const clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
 
-      const { data: avails } = await supabase
-        .from('professional_availability')
-        .select('user_id, clinic_id')
-        .in('user_id', userIds)
-        .in('clinic_id', clinicIds)
-        .eq('work_date', dateKey);
+      const [{ data: tpls }, { data: blocks }] = await Promise.all([
+        supabase
+          .from('professional_schedule_template' as any)
+          .select('user_id, clinic_id, mode, is_active')
+          .in('user_id', userIds)
+          .in('clinic_id', clinicIds)
+          .eq('weekday', weekday)
+          .eq('is_active', true),
+        supabase
+          .from('professional_blocked_dates')
+          .select('user_id, clinic_id, blocked_date')
+          .in('user_id', userIds)
+          .eq('blocked_date', dateKey),
+      ]);
+
+      const blockedKeys = new Set<string>(
+        ((blocks ?? []) as any[]).map((b) => `${b.user_id}|${b.clinic_id ?? ''}`),
+      );
 
       const activeUsers = new Set<string>();
       const activeClinics = new Set<string>();
-      for (const a of (avails ?? []) as any[]) {
-        // Only count combinations that match a member with this specialty
-        const matched = members.find(
-          (m: any) => m.user_id === a.user_id && m.clinic_id === a.clinic_id
+      for (const t of (tpls ?? []) as any[]) {
+        const matched = (members as any[]).find(
+          (m) => m.user_id === t.user_id && m.clinic_id === t.clinic_id,
         );
-        if (matched) {
-          activeUsers.add(a.user_id);
-          activeClinics.add(a.clinic_id);
-        }
+        if (!matched) continue;
+        // Owner of the clinic: only "particular" days are bookable by patients.
+        // Member (vinculado): only "plano" days.
+        const expected = matched.is_owner ? 'particular' : 'plano';
+        if (t.mode !== expected) continue;
+        // Skip if the user blocked this date (globally or for that clinic).
+        if (
+          blockedKeys.has(`${t.user_id}|${t.clinic_id}`) ||
+          blockedKeys.has(`${t.user_id}|`)
+        ) continue;
+        activeUsers.add(t.user_id);
+        activeClinics.add(t.clinic_id);
       }
 
       if (!cancelled) {
