@@ -65,7 +65,7 @@ export function ThemeCustomizer() {
           {hasCustom && <Badge variant="secondary" className="ml-2">Ativo</Badge>}
         </CardTitle>
         <CardDescription>
-          Crie seu próprio visual. Para voltar ao padrão, use Claro/Escuro/Sistema acima ou clique em Restaurar.
+          Camada visual aplicada somente no modo claro. O modo escuro continua usando o tema padrão — a lua no topo sempre alterna entre claro e escuro.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
