@@ -9,14 +9,14 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Save, KeyRound, AlertCircle } from 'lucide-react';
+import { Building2, Save, KeyRound, AlertCircle, Plus, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '@/components/ThemeProvider';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import { Switch } from '@/components/ui/switch';
 import {
-  registrationLabelForSpecialty,
-  registrationPlaceholderForSpecialty,
+  SpecialtySelect,
+  specialtyLabel,
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
@@ -27,11 +27,11 @@ export default function Profile() {
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [specialty, setSpecialty] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newSpecialty, setNewSpecialty] = useState('');
 
-  // Fetch clinic_member row for current clinic
+  // Fetch clinic_member row for current clinic (only for registration_number)
   const { data: member } = useQuery({
     queryKey: ['my-clinic-member', user?.id, currentClinicId],
     queryFn: async () => {
@@ -45,6 +45,25 @@ export default function Profile() {
     },
     enabled: !!user && !!currentClinicId,
   });
+
+  // Personal specialties (multi)
+  const { data: mySpecialties = [] } = useQuery({
+    queryKey: ['my-personal-specialties', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('professional_specialties' as any)
+        .select('id, specialty, is_primary')
+        .eq('user_id', user.id)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; specialty: string; is_primary: boolean }>;
+    },
+    enabled: !!user,
+  });
+
+  const primarySpecialty = mySpecialties.find((s) => s.is_primary)?.specialty ?? mySpecialties[0]?.specialty ?? null;
 
   const { data: profileFull } = useQuery({
     queryKey: ['my-profile-full', user?.id],
@@ -65,7 +84,6 @@ export default function Profile() {
 
   useEffect(() => {
     if (member) {
-      setSpecialty(member.specialty ?? '');
       setRegistrationNumber(member.registration_number ?? '');
     }
   }, [member]);
@@ -73,15 +91,15 @@ export default function Profile() {
   const saveProfile = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('no user');
-      const regError = validateRegistrationForSpecialty(registrationNumber, specialty);
+      const regError = validateRegistrationForSpecialty(registrationNumber, primarySpecialty);
       if (regError) throw new Error(regError);
       const { error: pErr } = await supabase.from('profiles')
         .update({ full_name: fullName, phone })
         .eq('id', user.id);
       if (pErr) throw pErr;
-      if (member && currentClinicId) {
+      if (member) {
         const { error: mErr } = await supabase.from('clinic_members')
-          .update({ specialty: specialty || null, registration_number: registrationNumber || null })
+          .update({ registration_number: registrationNumber || null })
           .eq('id', member.id);
         if (mErr) throw mErr;
       }
@@ -92,6 +110,49 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ['my-clinic-member'] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
+  });
+
+  const addSpecialty = useMutation({
+    mutationFn: async (s: string) => {
+      if (!user || !s) return;
+      const isFirst = mySpecialties.length === 0;
+      const { error } = await supabase
+        .from('professional_specialties' as any)
+        .insert({ user_id: user.id, specialty: s, is_primary: isFirst });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewSpecialty('');
+      queryClient.invalidateQueries({ queryKey: ['my-personal-specialties'] });
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao adicionar especialidade'),
+  });
+
+  const removeSpecialty = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('professional_specialties' as any).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-personal-specialties'] }),
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao remover'),
+  });
+
+  const setPrimary = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) return;
+      const { error: e1 } = await supabase
+        .from('professional_specialties' as any)
+        .update({ is_primary: false })
+        .eq('user_id', user.id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase
+        .from('professional_specialties' as any)
+        .update({ is_primary: true })
+        .eq('id', id);
+      if (e2) throw e2;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-personal-specialties'] }),
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao definir primária'),
   });
 
   const changePassword = useMutation({
@@ -110,7 +171,7 @@ export default function Profile() {
   const initials = (fullName || profile?.full_name || user?.email || 'U')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
-  const familyConfig = getFamilyConfig(specialty);
+  const familyConfig = getFamilyConfig(primarySpecialty);
   const regLabel = familyConfig.registrationLabel;
 
   return (
@@ -143,11 +204,53 @@ export default function Profile() {
             </div>
           </div>
           {member && (
-            <div className="grid sm:grid-cols-2 gap-4 pt-2 border-t border-border/40">
-              <div>
-                <Label htmlFor="specialty">Especialidade</Label>
-                <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Ex: Ortodontia" />
+            <div className="space-y-4 pt-2 border-t border-border/40">
+              <div className="space-y-2">
+                <Label>Minhas especialidades</Label>
+                <p className="text-xs text-muted-foreground">
+                  Adicione todas as suas especialidades. Cada clínica pode escolher quais você atende ali.
+                </p>
+                {mySpecialties.length > 0 && (
+                  <div className="space-y-1.5">
+                    {mySpecialties.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-2 rounded-md border border-border/40 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm truncate">{specialtyLabel(s.specialty)}</span>
+                          {s.is_primary && <Badge variant="secondary" className="text-[10px] gap-1"><Star className="h-3 w-3" /> Primária</Badge>}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {!s.is_primary && (
+                            <Button size="sm" variant="ghost" onClick={() => setPrimary.mutate(s.id)} className="h-7 px-2 text-xs gap-1">
+                              <Star className="h-3 w-3" /> Tornar primária
+                            </Button>
+                          )}
+                          <Button size="icon" variant="ghost" onClick={() => removeSpecialty.mutate(s.id)} className="h-7 w-7 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <SpecialtySelect
+                      value={newSpecialty}
+                      onChange={setNewSpecialty}
+                      placeholder="Selecione uma especialidade para adicionar"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => addSpecialty.mutate(newSpecialty)}
+                    disabled={!newSpecialty || addSpecialty.isPending || mySpecialties.some((s) => s.specialty === newSpecialty)}
+                    className="gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" /> Adicionar
+                  </Button>
+                </div>
               </div>
+
               <div>
                 <Label htmlFor="reg">{regLabel}</Label>
                 <Input
