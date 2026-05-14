@@ -58,7 +58,7 @@ export default function Profile() {
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; specialty: string; is_primary: boolean }>;
+      return (data ?? []) as unknown as Array<{ id: string; specialty: string; is_primary: boolean }>;
     },
     enabled: !!user,
   });
