@@ -155,6 +155,7 @@ const AppRoutes = () => (
     </Route>
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+    <Route path="/minha-agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/disponibilidade" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
     <Route path="/sala-de-espera" element={<ProtectedRoute><WaitingRoom /></ProtectedRoute>} />
     <Route path="/pacientes-do-dia" element={<ProtectedRoute><PatientsOfDay /></ProtectedRoute>} />

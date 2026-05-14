@@ -1,76 +1,56 @@
-## Reformulação da Disponibilidade
+# Separar Pessoal × Clínica para Admin profissional
 
-### 1. Modelo de dados (migration)
+## Contexto
 
-Nova tabela `professional_schedule_template` (padrão semanal por profissional + escopo):
+Hoje `Pessoal` (Minha Agenda + Disponibilidade) só aparece para `dentist`. Um admin que também atende não tem essa separação. Conforme você confirmou:
 
-```text
-professional_schedule_template
-- id, user_id, clinic_id (nullable = pessoal/particular)
-- weekday (0-6)
-- start_time, end_time              -- turno principal
-- breaks jsonb                      -- [{start:"12:00",end:"13:00",label:"Almoço"}, ...]
-- mode text                         -- 'particular' | 'plano' | 'ambos'
-- accepted_plan_ids uuid[]          -- opcional, vazio = todos
-- slot_duration_minutes int         -- duração da consulta
-- is_active bool
-```
+- Admin profissional **sempre** atende dentro da clínica em que é admin (não existe "agendamento solto sem clínica").
+- A **Disponibilidade pessoal** é fonte única — define os dias/horários liberados para todas as clínicas vinculadas.
+- Secretária não tem `Pessoal` (não atende).
 
-Manter `professional_availability` (exceções por data: feriados, dias extras, bloqueios).
-Adicionar coluna `mode` e `breaks jsonb` em `professional_availability` para overrides pontuais.
+## Mudanças
 
-Settings globais por profissional (em `clinic_members` ou nova `professional_settings`):
-- `default_slot_duration` (int, min) — única para o profissional.
+### 1. Sidebar (`src/components/AppSidebar.tsx`)
 
-### 2. Nova UI: `/disponibilidade` com 3 abas
+Bloco **Pessoal** passa a aparecer para `admin` e `dentist`:
 
-**Aba 1 — Padrão Semanal**
-- Tabela seg→dom. Para cada dia:
-  - Switch ativo/inativo
-  - Turno: HH:MM → HH:MM (pode adicionar 2º turno se quiser tarde)
-  - Intervalos: lista de `[início → fim, rótulo]` com botão "+ adicionar pausa"
-  - Modo: chips `Particular` / `Plano` / `Ambos`
-  - Se `Plano` ou `Ambos` + dentista vinculado a clínica: multi-select de clínicas/planos aceitos
-- Botão "Replicar segunda em todos os dias úteis"
+- `Dashboard` — admin, dentist, secretary (igual hoje)
+- `Minha Agenda` → rota `/minha-agenda` — admin, dentist
+- `Disponibilidade` → `/disponibilidade` — admin, dentist
+- `Meu Perfil` → `/perfil` — igual hoje
 
-**Aba 2 — Duração & Configurações**
-- Input: "Duração padrão da consulta" (15/20/30/45/60 min)
-- Buffer automático entre consultas (opcional, default 0)
-- Antecedência mínima de agendamento
+Bloco **Operação** (admin/secretary) continua apontando para `/agenda` (visão da clínica inteira). Removo o item duplicado "Disponibilidade" daí — passa a ser só pessoal (fonte única).
 
-**Aba 3 — Calendário & Exceções** (a atual reaproveitada)
-- Calendário mensal mostrando o padrão aplicado + exceções
-- Clicar num dia abre painel para sobrescrever (feriado, dia extra, bloqueio, modo diferente)
-- Badge no dia indicando: 🟢 Particular | 🔵 Plano | 🟣 Ambos
+### 2. Nova rota `/minha-agenda`
 
-### 3. Componentes novos
+Reaproveita a página `Agenda.tsx` em modo "só meus atendimentos":
 
-```text
-src/components/availability/
-  WeeklyTemplateTab.tsx        (novo)
-  WeekdayRow.tsx               (novo - linha de dia com turnos/pausas/modo)
-  BreaksEditor.tsx             (novo - intervalos múltiplos)
-  ModeSelector.tsx             (novo - Particular/Plano/Ambos + planos aceitos)
-  DurationSettingsTab.tsx      (novo)
-  ExceptionsTab.tsx            (refator do atual AvailabilityCalendar + DayShiftsPanel)
-```
+- Adiciono prop/flag `forceMineOnly` ao componente Agenda (ou leio `useLocation`/`useMatch`).
+- Quando ativo: força `query.eq('dentist_id', user.id)` e esconde o `AgendaDoctorFilter`.
+- Continua respeitando `currentClinicId` (mostra meus atendimentos na clínica ativa).
 
-### 4. Como o motor de agendamento usa
+Registro a rota em `App.tsx` reusando o mesmo componente.
 
-Geração de slots = `template_do_weekday` MENOS `breaks` MENOS `appointments` MENOS `bloqueios` MAIS `exceções extras`, partido em janelas de `slot_duration_minutes`.
+### 3. Permissões (`src/hooks/useRoleAccess.ts`)
 
-Filtro por modo:
-- Paciente "particular" → slots `particular` ou `ambos`
-- Paciente com plano X → slots `plano`/`ambos` cujo `accepted_plan_ids` inclua X (ou vazio)
+- Adiciono `/minha-agenda` com `['admin', 'dentist']`.
+- `/disponibilidade` já permite admin — ok.
 
-### 5. Escopo desta entrega
+### 4. Disponibilidade pessoal como fonte única
 
-- Migration: nova tabela + colunas + RLS (membro da clínica ou dono pessoal)
-- UI 3 abas funcionando (CRUD do template, duração, exceções)
-- Compatibilidade: agenda/booking continuam lendo `professional_availability` no curto prazo; geração de slots a partir do template fica como segundo passo (registro a ser pré-populado a partir do template via função SQL `generate_availability_from_template(month)`).
-- Não alteramos ainda os steps do paciente (`ClinicDoctorStep`/`DateStep`) — fica para iteração seguinte assim que o template estiver populado.
+A página `/disponibilidade` (Availability.tsx) já grava em `professional_schedule_template` / `professional_availability` por `user_id`. Não muda comportamento — só reforço que o `clinic_id` aceito é `null` ou qualquer clínica vinculada (já permitido pelo schema atual). Os módulos de agendamento de outras clínicas e marketplace já consultam essa tabela por `user_id` global.
 
-### 6. Fora de escopo (próxima iteração)
-- Reescrever o fluxo de booking para respeitar `mode` + planos
-- Comissionamento diferenciado particular vs plano
-- Cotas por turno
+Não há migração de banco necessária neste passo — o schema já suporta o modelo.
+
+## Arquivos editados
+
+- `src/components/AppSidebar.tsx` — mover/duplicar itens de personal, ajustar `allowedRoles`.
+- `src/hooks/useRoleAccess.ts` — adicionar `/minha-agenda`.
+- `src/pages/Agenda.tsx` — detectar rota `/minha-agenda` e forçar filtro próprio.
+- `src/App.tsx` — registrar rota `/minha-agenda`.
+
+## Fora de escopo
+
+- Não vou mexer em RLS nem criar tabelas.
+- Não toco no fluxo de `Operação` (Sala de Espera, Agenda compartilhada).
+- Cobrança/visão de outras clínicas vinculadas consumindo a disponibilidade é separada — já funciona via `professional_availability`.

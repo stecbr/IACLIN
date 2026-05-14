@@ -71,15 +71,14 @@ const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'outro'];
 // "Pessoal" — items vinculados ao profissional (não dependem de clínica ativa)
 const personalNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard, allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { title: 'Minha Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['dentist'] },
-  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['dentist'] },
+  { title: 'Minha Agenda', url: '/minha-agenda', icon: Calendar, allowedRoles: ['admin', 'dentist'] },
+  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin', 'dentist'] },
 ];
 
 // "Operação" — itens da clínica ativa (agenda compartilhada, sala de espera, etc.)
 const operationNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Agenda', url: '/agenda', icon: Calendar, allowedRoles: ['admin', 'secretary'] },
   { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen, allowedRoles: ['admin', 'secretary'] },
-  { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock, allowedRoles: ['admin'] },
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
@@ -300,7 +299,7 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {filteredPersonalNav.map((item) =>
-                    renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
+                    renderNavItem(item, (item.url === '/agenda' || item.url === '/minha-agenda') ? todayCount : undefined)
                   )}
                   {effectiveRole !== 'patient' && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
                 </SidebarMenu>
