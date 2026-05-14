@@ -143,6 +143,40 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Premium color picker — hue rainbow slider */
+  .hue-slider {
+    background: linear-gradient(to right,
+      #ff0000 0%, #ffff00 17%, #00ff00 33%,
+      #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
+  }
+  .hue-slider::-webkit-slider-thumb,
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 2px solid hsl(var(--border));
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .hue-slider::-webkit-slider-thumb:hover,
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  .hue-slider::-moz-range-thumb,
+  input[type="range"]::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 2px solid hsl(var(--border));
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
 }
 
 @layer base {
