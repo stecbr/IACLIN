@@ -46,7 +46,6 @@ const PRESETS: { name: string; theme: Partial<CustomTheme> }[] = [
     },
   },
   {
-  {
     name: 'Rosé Couture',
     theme: {
       colors: {
