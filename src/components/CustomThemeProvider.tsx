@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/components/ThemeProvider';
 
 export type CustomThemeKey =
   | 'background'
@@ -107,10 +108,12 @@ function storageKey(userId: string | null | undefined) {
 
 export function CustomThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { resolved } = useTheme();
   const [customTheme, setCustomTheme] = useState<CustomTheme>(DEFAULT_THEME);
   const [hasCustom, setHasCustom] = useState(false);
 
-  // Load on user change
+  // Load on user change (state only — actual application is handled by the
+  // effect below that also reacts to light/dark mode changes).
   useEffect(() => {
     const raw = localStorage.getItem(storageKey(user?.id));
     if (raw) {
@@ -118,19 +121,27 @@ export function CustomThemeProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(raw) as CustomTheme;
         setCustomTheme({ ...DEFAULT_THEME, ...parsed });
         setHasCustom(true);
-        applyTheme({ ...DEFAULT_THEME, ...parsed });
         return;
       } catch {}
     }
     setCustomTheme(DEFAULT_THEME);
     setHasCustom(false);
-    clearTheme();
   }, [user?.id]);
+
+  // Apply the custom palette only on light mode. Dark mode uses the default
+  // .dark CSS variables so the moon toggle is always functional, even after
+  // the user customizes colors.
+  useEffect(() => {
+    if (hasCustom && resolved === 'light') {
+      applyTheme(customTheme);
+    } else {
+      clearTheme();
+    }
+  }, [customTheme, hasCustom, resolved]);
 
   const persist = useCallback((theme: CustomTheme) => {
     localStorage.setItem(storageKey(user?.id), JSON.stringify(theme));
     setHasCustom(true);
-    applyTheme(theme);
   }, [user?.id]);
 
   const setColor = (key: CustomThemeKey, hex: string) => {
