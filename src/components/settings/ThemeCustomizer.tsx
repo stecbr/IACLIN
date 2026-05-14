@@ -46,10 +46,20 @@ const PRESETS: { name: string; theme: Partial<CustomTheme> }[] = [
     },
   },
   {
-    name: 'Noite Profunda',
+  {
+    name: 'Rosé Couture',
     theme: {
-      colors: { background: '#0b0f1a', primary: '#6366f1', card: '#121828', accent: '#1f2937', border: '#1f2937', foreground: '#e5e7eb', primaryForeground: '#ffffff' },
-      radius: 14, shadowIntensity: 30,
+      colors: {
+        background: '#fbf5f7',      // branco rosé translúcido
+        foreground: '#3a2530',      // texto bordô suave, alta legibilidade
+        primary: '#b97a8a',         // rosa queimado elegante
+        primaryForeground: '#ffffff',
+        card: '#ffffff',            // cards levemente flutuantes
+        accent: '#efe2ec',          // lavanda/lilás suave
+        border: '#ecd9e1',          // pétala discreta
+      },
+      radius: 18,
+      shadowIntensity: 14,
     },
   },
 ];
