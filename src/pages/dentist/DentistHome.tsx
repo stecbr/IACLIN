@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope, Eye } from 'lucide-react';
+import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope, Eye, FolderHeart } from 'lucide-react';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -233,6 +233,17 @@ export default function DentistHome() {
                     <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
                       {statusLabels[apt.status] ?? apt.status}
                     </Badge>
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="ghost"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1 text-muted-foreground hover:text-primary"
+                      title="Abrir prontuário"
+                    >
+                      <Link to={`/patients/${apt.patient_id}`}>
+                        <FolderHeart className="h-3 w-3" /> Prontuário
+                      </Link>
+                    </Button>
                     {apt.status === 'completed' ? (
                       <Button
                         size="sm"
