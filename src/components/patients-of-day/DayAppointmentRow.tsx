@@ -1,6 +1,6 @@
 import { format, isAfter, isBefore } from 'date-fns';
 import { motion } from 'framer-motion';
-import { Play, ArrowRight, UserCheck, ExternalLink } from 'lucide-react';
+import { Play, ArrowRight, UserCheck, ExternalLink, FolderHeart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -128,6 +128,9 @@ export function DayAppointmentRow({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <Button size="sm" variant="ghost" onClick={onOpenPatient} title="Abrir prontuário" className="text-muted-foreground hover:text-primary">
+          <FolderHeart className="h-4 w-4 mr-1" /> Prontuário
+        </Button>
         {a.presence_status === 'not_arrived' && canMarkArrived && (
           <Button size="sm" variant="outline" onClick={onMarkArrived} disabled={busy}>
             <UserCheck className="h-4 w-4 mr-1" /> Chegou
