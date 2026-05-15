@@ -31,6 +31,7 @@ import { ConsultationTimer } from '@/components/attendance/ConsultationTimer';
 import { computeElapsedSeconds, endSession, getSession, startSession } from '@/lib/consultationSession';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
+import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
 
 interface ProcedureRow {
   tempId: string;
@@ -438,6 +439,18 @@ export default function Attendance() {
         </Link>
         <div className="flex gap-2">
           <HistoryDrawer patientId={appointment.patient_id} currentAppointmentId={appointment.id} />
+          <RecordConsultationButton
+            appointmentId={appointment.id}
+            patientId={appointment.patient_id}
+            clinicalRecordId={clinicalRecordId}
+            clinicId={currentClinicId ?? null}
+            setters={{
+              setChiefComplaint, setHpi, setDurationValue, setDurationUnit,
+              setPhysicalExam, setHypotheses, setDiagnosis, setSeverity,
+              setTreatmentPlan, setFollowUpReason, setRequests, setSoap,
+              setClinicalNotes,
+            }}
+          />
           <Button variant="outline" onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
