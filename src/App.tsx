@@ -21,7 +21,6 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
-import WaitingClinic from "./pages/WaitingClinic";
 import Profile from "./pages/Profile";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
@@ -75,8 +74,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // No clinic linked: dentists in personal mode get full app access; admins go to
   // onboarding (can create one); others (e.g. secretary) wait for an invite code.
   if (!currentClinicId && !isPersonalMode) {
-    const isAdmin = roles.includes('admin');
-    return <Navigate to={isAdmin ? '/onboarding' : '/aguardando-clinica'} replace />;
+    return <Navigate to="/onboarding" replace />;
   }
   if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
 
@@ -119,29 +117,11 @@ function OnboardingRoute() {
   return <Onboarding />;
 }
 
-function WaitingClinicRoute() {
-  const { user, loading, currentClinicId, isPatient } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!user) return <Navigate to="/auth" replace />;
-  if (isPatient) return <Navigate to="/paciente" replace />;
-  if (currentClinicId) return <Navigate to="/" replace />;
-
-  return <WaitingClinic />;
-}
-
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<Auth />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
-    <Route path="/aguardando-clinica" element={<WaitingClinicRoute />} />
+    <Route path="/aguardando-clinica" element={<Navigate to="/onboarding" replace />} />
     <Route path="/marketplace" element={<Marketplace />} />
     <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
     <Route path="/paciente" element={<PatientProtectedRoute><PatientLayout /></PatientProtectedRoute>}>
