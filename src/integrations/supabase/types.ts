@@ -735,6 +735,101 @@ export type Database = {
         }
         Relationships: []
       }
+      consultation_recordings: {
+        Row: {
+          anamnesis: Json | null
+          appointment_id: string | null
+          audio_storage_path: string | null
+          clinic_id: string | null
+          clinical_record_id: string | null
+          consent_accepted_at: string | null
+          created_at: string
+          dentist_id: string
+          duration_seconds: number | null
+          error_message: string | null
+          hypotheses: Json | null
+          id: string
+          patient_id: string
+          soap: Json | null
+          status: string
+          structured: Json | null
+          summary: string | null
+          transcript: string | null
+          updated_at: string
+        }
+        Insert: {
+          anamnesis?: Json | null
+          appointment_id?: string | null
+          audio_storage_path?: string | null
+          clinic_id?: string | null
+          clinical_record_id?: string | null
+          consent_accepted_at?: string | null
+          created_at?: string
+          dentist_id: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          hypotheses?: Json | null
+          id?: string
+          patient_id: string
+          soap?: Json | null
+          status?: string
+          structured?: Json | null
+          summary?: string | null
+          transcript?: string | null
+          updated_at?: string
+        }
+        Update: {
+          anamnesis?: Json | null
+          appointment_id?: string | null
+          audio_storage_path?: string | null
+          clinic_id?: string | null
+          clinical_record_id?: string | null
+          consent_accepted_at?: string | null
+          created_at?: string
+          dentist_id?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          hypotheses?: Json | null
+          id?: string
+          patient_id?: string
+          soap?: Json | null
+          status?: string
+          structured?: Json | null
+          summary?: string | null
+          transcript?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_recordings_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_recordings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_recordings_clinical_record_id_fkey"
+            columns: ["clinical_record_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_recordings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           category: string | null
@@ -1531,6 +1626,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_consents: {
+        Row: {
+          accepted_at: string
+          consent_type: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          consent_type: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          consent_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
