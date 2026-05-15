@@ -14,9 +14,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ClinicHoursSection, type BusinessHours } from '@/components/settings/ClinicHoursSection';
+import { useAiContext } from '@/hooks/useAiContext';
 
 export default function SecretariaIAPainel() {
   const { currentClinicId } = useAuth();
+  const aiCtx = useAiContext();
+  const isProfessional = aiCtx.kind === 'professional';
+  const aiTenantId = aiCtx.aiTenantId;
   const queryClient = useQueryClient();
 
   // ---------- Business hours ----------
@@ -60,18 +64,16 @@ export default function SecretariaIAPainel() {
 
   // ---------- Handoff ----------
   const { data: handoff, isLoading: loadingHandoff } = useQuery({
-    queryKey: ['ai-handoff', currentClinicId],
+    queryKey: ['ai-handoff', aiCtx.kind, currentClinicId, aiTenantId],
     queryFn: async () => {
-      if (!currentClinicId) return null;
-      const { data, error } = await supabase
-        .from('ai_secretary_handoff')
-        .select('*')
-        .eq('clinic_id', currentClinicId)
-        .maybeSingle();
+      const q = supabase.from('ai_secretary_handoff').select('*');
+      const { data, error } = isProfessional
+        ? await q.eq('ai_tenant_id', aiTenantId!).maybeSingle()
+        : await q.eq('clinic_id', currentClinicId!).maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!currentClinicId,
+    enabled: aiCtx.ready && (isProfessional ? !!aiTenantId : !!currentClinicId),
   });
 
   const { data: members = [] } = useQuery({
@@ -119,16 +121,17 @@ export default function SecretariaIAPainel() {
   }, [handoff]);
 
   const saveHandoff = async () => {
-    if (!currentClinicId) return;
+    if (isProfessional ? !aiTenantId : !currentClinicId) return;
     setSavingHandoff(true);
-    const payload = {
-      clinic_id: currentClinicId,
+    const payload: any = {
       enabled: handoffForm.enabled,
       target_user_id: handoffForm.target_user_id || null,
       target_phone: handoffForm.target_phone || null,
       trigger_keywords: handoffForm.trigger_keywords || null,
       handoff_message: handoffForm.handoff_message || null,
     };
+    if (isProfessional) payload.ai_tenant_id = aiTenantId;
+    else payload.clinic_id = currentClinicId;
     const { error } = handoff?.id
       ? await supabase.from('ai_secretary_handoff').update(payload).eq('id', handoff.id)
       : await supabase.from('ai_secretary_handoff').insert(payload);
@@ -138,7 +141,7 @@ export default function SecretariaIAPainel() {
       return;
     }
     toast.success('Encaminhamento atualizado');
-    queryClient.invalidateQueries({ queryKey: ['ai-handoff', currentClinicId] });
+    queryClient.invalidateQueries({ queryKey: ['ai-handoff'] });
   };
 
   return (
