@@ -458,8 +458,10 @@ export default function SecretariaIA() {
   }, [isConnected, shouldAutoAdvanceToTraining, step]);
 
   const promptCompleted = (savedPrompt?.length ?? 0) > 20;
-  const canGoStep2 = isConnected;
-  const canGoStep3 = isConnected && promptCompleted;
+  // No modo profissional o backend de WhatsApp ainda não está disponível (Phase 1.0),
+  // mas permitimos navegar pelas etapas para configurar o prompt.
+  const canGoStep2 = isConnected || isProfessional;
+  const canGoStep3 = (isConnected && promptCompleted) || (isProfessional && promptCompleted);
 
   const STEPS: { id: Step; label: string; icon: React.ReactNode; enabled: boolean }[] = [
     { id: 1, label: 'Conexão', icon: <QrCode className="h-4 w-4" />, enabled: true },
@@ -526,6 +528,24 @@ export default function SecretariaIA() {
 
           <Card className="rounded-xl shadow-sm">
             <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+              {isProfessional ? (
+                <>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+                    <QrCode className="h-7 w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">Conexão WhatsApp — em breve</h3>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Sua Secretária IA pessoal já pode ser configurada. A conexão com o WhatsApp do
+                      profissional será liberada na próxima etapa.
+                    </p>
+                  </div>
+                  <Button size="lg" onClick={() => setStep(2)} className="gap-2">
+                    Configurar instruções <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+              <>
               <div
                 className={`flex h-14 w-14 items-center justify-center rounded-full ${
                   isConnected ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
@@ -611,6 +631,8 @@ export default function SecretariaIA() {
                   </Button>
                 )}
               </div>
+              </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -781,7 +803,15 @@ export default function SecretariaIA() {
               </Link>
             </Button>
           </div>
-          {currentClinicId && <LiveMessagesPanel clinicId={currentClinicId} />}
+          {currentClinicId && !isProfessional && <LiveMessagesPanel clinicId={currentClinicId} />}
+          {isProfessional && (
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                O painel ao vivo de mensagens será habilitado quando a conexão WhatsApp do
+                profissional estiver disponível.
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
