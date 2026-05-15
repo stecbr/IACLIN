@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Printer, X, FileText, Activity, Stethoscope, ClipboardList, Pill, FileSignature, AlertCircle, CalendarClock, User, Building2 } from 'lucide-react';
+import { Printer, X, FileText, Activity, Stethoscope, ClipboardList, Pill, FileSignature, AlertCircle, CalendarClock, User, Building2, FileDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { generateAttendancePdf, fetchClinicForAttendancePdf, fetchProfessionalForAttendancePdf } from '@/lib/generateAttendancePdf';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -132,6 +134,32 @@ export function AttendanceSummaryModal({ appointmentId, open, onOpenChange }: Pr
   const statusLabel = statusLabels[status] ?? status;
 
   const handlePrint = () => window.print();
+
+  const handleExportPdf = async () => {
+    if (!apt || !rec) return;
+    try {
+      const [clinic, professional] = await Promise.all([
+        fetchClinicForAttendancePdf(apt.clinic_id ?? null),
+        fetchProfessionalForAttendancePdf(apt.dentist_id, apt.clinic_id ?? null),
+      ]);
+      await generateAttendancePdf({
+        appointment: { start_time: apt.start_time, procedures: apt.procedures },
+        record: {
+          ...rec,
+          procedures: (rec.clinical_record_procedures ?? []).map((p: any) => ({
+            name: p.procedures?.name ?? 'Procedimento',
+            tooth: p.tooth_number, price: Number(p.price ?? 0), notes: p.notes,
+          })),
+          requests: (rec.clinical_record_requests ?? []).map((r: any) => ({ kind: r.kind, payload: r.payload ?? {} })),
+        },
+        patient: apt.patients,
+        professional,
+        clinic,
+      });
+    } catch (err) {
+      toast.error('Falha ao gerar PDF: ' + (err as Error).message);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -365,6 +393,9 @@ export function AttendanceSummaryModal({ appointmentId, open, onOpenChange }: Pr
         )}
 
         <DialogFooter className="px-6 py-4 border-t border-border bg-background print:hidden">
+          <Button variant="outline" size="sm" onClick={handleExportPdf} className="gap-2" disabled={!rec}>
+            <FileDown className="h-4 w-4" /> Exportar PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2" disabled={!rec}>
             <Printer className="h-4 w-4" /> Imprimir
           </Button>
