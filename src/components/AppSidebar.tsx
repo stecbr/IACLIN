@@ -17,6 +17,7 @@ import {
   DoorOpen,
   Briefcase,
   CalendarDays,
+  FolderHeart,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -32,6 +33,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { useState } from 'react';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
+import { PatientPickerDialog } from '@/components/patients/PatientPickerDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,6 +107,7 @@ export function AppSidebar() {
   const activeConsultation = useActiveConsultation();
   const navigate = useNavigate();
   const [logoutBlocked, setLogoutBlocked] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleSignOut = () => {
     if (activeConsultation) {
@@ -352,6 +355,18 @@ export function AppSidebar() {
                     : undefined,
                 )
                 )}
+                {(effectiveRole === 'admin' || effectiveRole === 'dentist' || effectiveRole === 'secretary') && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => setPickerOpen(true)}
+                      tooltip="Abrir prontuário"
+                      className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/60"
+                    >
+                      <FolderHeart className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -476,6 +491,7 @@ export function AppSidebar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PatientPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
     </Sidebar>
   );
 }

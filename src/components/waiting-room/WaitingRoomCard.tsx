@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope } from 'lucide-react';
+import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope, FolderHeart } from 'lucide-react';
 import { WaitingTimer } from './WaitingTimer';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { useNavigate } from 'react-router-dom';
@@ -134,6 +134,16 @@ export function WaitingRoomCard({
 
       {/* Action buttons (contextual) */}
       <div className="flex flex-wrap gap-2 pt-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1.5 h-9 text-muted-foreground hover:text-primary"
+          onClick={() => navigate(`/patients/${appointment.patient_id}`)}
+          title="Abrir prontuário"
+        >
+          <FolderHeart className="h-4 w-4" />
+          Prontuário
+        </Button>
         {presence === 'not_arrived' && (
           <>
             <Button

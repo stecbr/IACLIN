@@ -1,8 +1,8 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +24,10 @@ import { ptBR } from 'date-fns/locale';
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
 
   const { data: patient, isLoading, refetch } = useQuery({
@@ -141,6 +142,36 @@ export default function PatientDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="gap-2"
+            onClick={async () => {
+              // Procura um atendimento ativo (in_progress) ou agendado para hoje deste paciente do dentista atual
+              const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+              const todayEnd = new Date(todayStart); todayEnd.setDate(todayEnd.getDate() + 1);
+              let q = supabase
+                .from('appointments')
+                .select('id, status, start_time')
+                .eq('patient_id', id!)
+                .gte('start_time', todayStart.toISOString())
+                .lt('start_time', todayEnd.toISOString())
+                .in('status', ['scheduled', 'confirmed', 'in_progress'])
+                .order('start_time', { ascending: true })
+                .limit(1);
+              if (user) q = q.eq('dentist_id', user.id);
+              const { data } = await q;
+              const apt = (data ?? [])[0];
+              if (apt) {
+                navigate(`/atendimento/${apt.id}`);
+              } else {
+                toast.info('Nenhum agendamento de hoje encontrado. Abra a Agenda para criar um.');
+                navigate('/agenda');
+              }
+            }}
+          >
+            <Stethoscope className="h-4 w-4" />
+            Iniciar atendimento
+          </Button>
           {patient.phone && (
             <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50" asChild>
               <a href={`https://wa.me/55${patient.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">

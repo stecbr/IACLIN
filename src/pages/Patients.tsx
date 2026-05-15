@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, UserPlus, Phone, Mail, LayoutGrid, List } from 'lucide-react';
+import { Search, UserPlus, Phone, Mail, LayoutGrid, List, FolderHeart } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -198,6 +198,7 @@ export default function Patients() {
                 <TableHead className="font-semibold">E-mail</TableHead>
                 <TableHead className="font-semibold">Convênio</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
+                <TableHead className="font-semibold w-[60px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -235,6 +236,17 @@ export default function Patients() {
                         <span className={`h-1.5 w-1.5 rounded-full ${patient.is_active ? 'bg-success' : 'bg-muted-foreground'}`} />
                         {patient.is_active ? 'Ativo' : 'Inativo'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Abrir prontuário"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/patients/${patient.id}`); }}
+                      >
+                        <FolderHeart className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                 </TableRow>
               ))}

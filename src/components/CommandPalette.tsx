@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { LayoutDashboard, Calendar, Users, FileHeart, DollarSign, ClipboardList, Settings, Search } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, FileHeart, DollarSign, ClipboardList, Settings, Search, FolderHeart } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -77,10 +77,10 @@ export function CommandPalette() {
             ))}
           </CommandGroup>
           {patients.length > 0 && (
-            <CommandGroup heading="Pacientes">
+            <CommandGroup heading="Abrir prontuário">
               {patients.map((p) => (
                 <CommandItem key={p.id} onSelect={() => go(`/patients/${p.id}`)}>
-                  <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <FolderHeart className="mr-2 h-4 w-4 text-muted-foreground" />
                   {p.full_name}
                 </CommandItem>
               ))}
