@@ -49,10 +49,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel';
+import { useAiContext } from '@/hooks/useAiContext';
 
 interface AiConfigRow {
   id: string;
-  clinic_id: string;
+  clinic_id: string | null;
+  ai_tenant_id: string | null;
   custom_prompt: string;
   enabled: boolean;
 }
@@ -238,19 +240,22 @@ function buildPromptFromSections(sections: SectionsState): string {
 
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
+  const aiCtx = useAiContext();
+  const isProfessional = aiCtx.kind === 'professional';
+  const aiTenantId = aiCtx.aiTenantId;
   const qc = useQueryClient();
-  const backendConfigured = isAiBackendConfigured();
+  // Em Phase 1.0 o backend externo só suporta clínica.
+  const backendConfigured = isAiBackendConfigured() && aiCtx.backendSupported;
 
   // ---------- Configuração (Supabase) ----------
   const { data: config, isLoading: loadingConfig } = useQuery({
-    queryKey: ['ai-secretary-config', currentClinicId],
-    enabled: !!currentClinicId,
+    queryKey: ['ai-secretary-config', aiCtx.kind, currentClinicId, aiTenantId],
+    enabled: aiCtx.ready && (isProfessional ? !!aiTenantId : !!currentClinicId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ai_secretary_config' as any)
-        .select('*')
-        .eq('clinic_id', currentClinicId!)
-        .maybeSingle();
+      const q = supabase.from('ai_secretary_config' as any).select('*');
+      const { data, error } = isProfessional
+        ? await q.eq('ai_tenant_id', aiTenantId!).maybeSingle()
+        : await q.eq('clinic_id', currentClinicId!).maybeSingle();
       if (error) throw error;
       return (data as unknown as AiConfigRow) ?? null;
     },
@@ -295,27 +300,43 @@ export default function SecretariaIA() {
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
-      if (!currentClinicId) throw new Error('Clínica não selecionada');
-      const { error } = await supabase
-        .from('ai_secretary_config' as any)
-        .upsert(
-          {
-            clinic_id: currentClinicId,
-            custom_prompt: vars.custom_prompt,
-            enabled: vars.enabled,
-          },
-          { onConflict: 'clinic_id' }
-        );
-      if (error) throw error;
+      if (isProfessional) {
+        if (!aiTenantId) throw new Error('Tenant da IA não resolvido');
+        const { error } = await supabase
+          .from('ai_secretary_config' as any)
+          .upsert(
+            {
+              ai_tenant_id: aiTenantId,
+              custom_prompt: vars.custom_prompt,
+              enabled: vars.enabled,
+            },
+            { onConflict: 'ai_tenant_id' },
+          );
+        if (error) throw error;
+      } else {
+        if (!currentClinicId) throw new Error('Clínica não selecionada');
+        const { error } = await supabase
+          .from('ai_secretary_config' as any)
+          .upsert(
+            {
+              clinic_id: currentClinicId,
+              custom_prompt: vars.custom_prompt,
+              enabled: vars.enabled,
+            },
+            { onConflict: 'clinic_id' }
+          );
+        if (error) throw error;
+      }
     },
     onSuccess: (_data, vars) => {
       toast.success('Instruções salvas com sucesso');
       setSavedPrompt(vars.custom_prompt);
       setPrompt(vars.custom_prompt);
       setSavedSections(sections);
-      qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['ai-secretary-config'] });
       // Sincroniza com o backend externo da Secretária IA — fire-and-forget
-      if (currentClinicId && isAiBackendConfigured()) {
+      // Phase 1.0: só dispara para clínica (backend externo ainda não conhece tenants profissionais).
+      if (!isProfessional && currentClinicId && isAiBackendConfigured()) {
         console.log('[ai-sync] updateAiConfig vai disparar', { currentClinicId, isConfigured: isAiBackendConfigured(), custom_prompt: vars.custom_prompt?.slice(0, 50) });
         aiBackend
           .updateAiConfig(currentClinicId, {
@@ -437,8 +458,10 @@ export default function SecretariaIA() {
   }, [isConnected, shouldAutoAdvanceToTraining, step]);
 
   const promptCompleted = (savedPrompt?.length ?? 0) > 20;
-  const canGoStep2 = isConnected;
-  const canGoStep3 = isConnected && promptCompleted;
+  // No modo profissional o backend de WhatsApp ainda não está disponível (Phase 1.0),
+  // mas permitimos navegar pelas etapas para configurar o prompt.
+  const canGoStep2 = isConnected || isProfessional;
+  const canGoStep3 = (isConnected && promptCompleted) || (isProfessional && promptCompleted);
 
   const STEPS: { id: Step; label: string; icon: React.ReactNode; enabled: boolean }[] = [
     { id: 1, label: 'Conexão', icon: <QrCode className="h-4 w-4" />, enabled: true },
@@ -505,6 +528,24 @@ export default function SecretariaIA() {
 
           <Card className="rounded-xl shadow-sm">
             <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+              {isProfessional ? (
+                <>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+                    <QrCode className="h-7 w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">Conexão WhatsApp — em breve</h3>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Sua Secretária IA pessoal já pode ser configurada. A conexão com o WhatsApp do
+                      profissional será liberada na próxima etapa.
+                    </p>
+                  </div>
+                  <Button size="lg" onClick={() => setStep(2)} className="gap-2">
+                    Configurar instruções <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+              <>
               <div
                 className={`flex h-14 w-14 items-center justify-center rounded-full ${
                   isConnected ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
@@ -590,6 +631,8 @@ export default function SecretariaIA() {
                   </Button>
                 )}
               </div>
+              </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -760,7 +803,15 @@ export default function SecretariaIA() {
               </Link>
             </Button>
           </div>
-          {currentClinicId && <LiveMessagesPanel clinicId={currentClinicId} />}
+          {currentClinicId && !isProfessional && <LiveMessagesPanel clinicId={currentClinicId} />}
+          {isProfessional && (
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                O painel ao vivo de mensagens será habilitado quando a conexão WhatsApp do
+                profissional estiver disponível.
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
