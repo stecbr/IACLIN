@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let lastUserId: string | null = null;
 
     const fetchUserData = (userId: string) => {
       Promise.all([
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        lastUserId = session.user.id;
         fetchUserData(session.user.id);
       } else {
         setClinicsLoaded(true);
@@ -122,9 +124,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setClinicsLoaded(false);
-        fetchUserData(session.user.id);
+        // Only re-fetch user-scoped data when the user actually changes.
+        // Otherwise events like TOKEN_REFRESHED / INITIAL_SESSION cause a
+        // re-fetch loop that re-mounts the patient area every few seconds.
+        if (lastUserId !== session.user.id) {
+          lastUserId = session.user.id;
+          setClinicsLoaded(false);
+          fetchUserData(session.user.id);
+        }
       } else {
+        lastUserId = null;
         setRoles([]);
         setProfile(null);
         setClinics([]);
