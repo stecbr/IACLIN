@@ -7,7 +7,6 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { NotificationBell } from '@/components/NotificationBell';
 import { WelcomeTour } from '@/components/WelcomeTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
-import { DevRoleSwitcher } from '@/components/DevRoleSwitcher';
 import { ActiveConsultationBar } from '@/components/ActiveConsultationBar';
 import { FloatingConsultationButton } from '@/components/FloatingConsultationButton';
 import { useTheme } from '@/components/ThemeProvider';
@@ -86,7 +85,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
             </div>
             <div className="flex items-center gap-1">
-              <DevRoleSwitcher />
               <CommandPalette />
               <button
                 onClick={toggleTheme}
