@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye, UserCheck } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye, UserCheck, FolderHeart } from 'lucide-react';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
@@ -144,17 +144,17 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
                     onClick={handleOpenPatient}
                     className="group w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-primary/10 transition-colors text-left"
                   >
-                    <User className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <FolderHeart className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">
                         {appointment.patients?.full_name ?? 'Paciente'}
                       </p>
-                      <p className="text-xs text-muted-foreground">Ver ficha completa</p>
+                      <p className="text-xs text-muted-foreground">Abrir prontuário</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="top">Ver ficha completa do paciente</TooltipContent>
+                <TooltipContent side="top">Abrir prontuário do paciente</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
