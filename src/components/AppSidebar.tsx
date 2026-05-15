@@ -91,7 +91,7 @@ const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categor
   { title: 'Ferramentas Clínicas', url: '/ferramentas', icon: Briefcase, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
-  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
+  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
 ];
 
 export function AppSidebar() {
@@ -340,7 +340,7 @@ export function AppSidebar() {
           <SidebarGroup>
             {!collapsed && (
               <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-                Meu consultório
+                Clínica
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
