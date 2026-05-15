@@ -355,18 +355,25 @@ export function AppSidebar() {
                     : undefined,
                 )
                 )}
-                {(effectiveRole === 'admin' || effectiveRole === 'dentist' || effectiveRole === 'secretary') && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      onClick={() => setPickerOpen(true)}
-                      tooltip="Abrir prontuário"
-                      className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/60"
-                    >
-                      <FolderHeart className="h-4 w-4 flex-shrink-0" />
-                      {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {(effectiveRole === 'admin' || effectiveRole === 'dentist' || effectiveRole === 'secretary') && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => setPickerOpen(true)}
+                    tooltip="Abrir prontuário"
+                    className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/60"
+                  >
+                    <FolderHeart className="h-4 w-4 flex-shrink-0" />
+                    {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
