@@ -162,7 +162,8 @@ export default function SecretariaIAPainel() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Horário de atendimento */}
+        {/* Horário de atendimento — somente em modo clínica (Phase 1.0) */}
+        {!isProfessional && (
         <Card className="rounded-xl shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -189,6 +190,7 @@ export default function SecretariaIAPainel() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Encaminhamento humano */}
         <Card className="rounded-xl shadow-sm">
