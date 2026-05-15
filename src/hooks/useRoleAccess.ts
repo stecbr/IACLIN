@@ -30,7 +30,7 @@ const routePermissions: RouteAccess[] = [
   { path: '/atendimento', allowedRoles: ['admin', 'dentist'] },
   { path: '/budgets', allowedRoles: ['admin', 'dentist'] },
   { path: '/financial', allowedRoles: ['admin', 'secretary'] },
-  { path: '/secretaria-ia', allowedRoles: ['admin', 'dentist'] },
+  { path: '/secretaria-ia', allowedRoles: ['admin'] },
   { path: '/settings', allowedRoles: ['admin', 'secretary'] },
   { path: '/perfil', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/paciente', allowedRoles: ['patient'] },
