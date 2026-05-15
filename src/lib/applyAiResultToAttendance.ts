@@ -10,12 +10,12 @@ export interface AiAttendanceResult {
   symptom_duration_value?: string;
   symptom_duration_unit?: string;
   physical_exam?: string;
-  hypotheses?: Array<{ text: string; cid?: string | null }>;
+  hypotheses?: Array<{ text: string; cid10?: string | null }>;
   diagnosis?: string;
   severity?: string;
   treatment_plan?: string;
   follow_up_reason?: string;
-  requests?: Partial<Record<RequestKind, Record<string, unknown>>>;
+  requests?: Partial<Record<RequestKind, Record<string, string>>>;
   soap?: SoapSession;
   anamnesis?: Record<string, unknown>;
 }
@@ -54,7 +54,7 @@ export function applyAiResultToAttendance(result: AiAttendanceResult, setters: A
     setters.setHypotheses(
       result.hypotheses
         .filter((h) => nonEmpty(h?.text))
-        .map((h) => ({ id: crypto.randomUUID(), text: h.text, cid: h.cid ?? '' })),
+        .map((h) => ({ id: crypto.randomUUID(), text: h.text, cid10: h.cid10 ?? '' })),
     );
   }
   if (nonEmpty(result.diagnosis)) setters.setDiagnosis(result.diagnosis!);
@@ -69,7 +69,7 @@ export function applyAiResultToAttendance(result: AiAttendanceResult, setters: A
 
   if (result.requests) {
     const newReqs: RequestItem[] = [];
-    (Object.entries(result.requests) as Array<[RequestKind, Record<string, unknown>]>).forEach(([kind, payload]) => {
+    (Object.entries(result.requests) as Array<[RequestKind, Record<string, string>]>).forEach(([kind, payload]) => {
       if (payload && Object.values(payload).some((v) => nonEmpty(String(v ?? '')))) {
         newReqs.push({ id: crypto.randomUUID(), kind, payload });
       }
