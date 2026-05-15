@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Save, CheckCircle, Plus, Trash2, Stethoscope } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, Plus, Trash2, Stethoscope, FolderHeart, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -488,9 +488,17 @@ export default function Attendance() {
                 </div>
               </div>
             </div>
-            <Link to={`/patients/${appointment.patient_id}`} className="text-xs text-primary hover:underline">
-              Ver perfil
-            </Link>
+            <a
+              href={`/patients/${appointment.patient_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              title="Abre o prontuário completo em uma nova aba"
+            >
+              <FolderHeart className="h-3.5 w-3.5" />
+              Ver prontuário completo
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
           <div className="mt-3">
             <PatientAlertsBar patientId={appointment.patient_id} />
