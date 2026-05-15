@@ -49,10 +49,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel';
+import { useAiContext } from '@/hooks/useAiContext';
 
 interface AiConfigRow {
   id: string;
-  clinic_id: string;
+  clinic_id: string | null;
+  ai_tenant_id: string | null;
   custom_prompt: string;
   enabled: boolean;
 }
@@ -238,19 +240,22 @@ function buildPromptFromSections(sections: SectionsState): string {
 
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
+  const aiCtx = useAiContext();
+  const isProfessional = aiCtx.kind === 'professional';
+  const aiTenantId = aiCtx.aiTenantId;
   const qc = useQueryClient();
-  const backendConfigured = isAiBackendConfigured();
+  // Em Phase 1.0 o backend externo só suporta clínica.
+  const backendConfigured = isAiBackendConfigured() && aiCtx.backendSupported;
 
   // ---------- Configuração (Supabase) ----------
   const { data: config, isLoading: loadingConfig } = useQuery({
-    queryKey: ['ai-secretary-config', currentClinicId],
-    enabled: !!currentClinicId,
+    queryKey: ['ai-secretary-config', aiCtx.kind, currentClinicId, aiTenantId],
+    enabled: aiCtx.ready && (isProfessional ? !!aiTenantId : !!currentClinicId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ai_secretary_config' as any)
-        .select('*')
-        .eq('clinic_id', currentClinicId!)
-        .maybeSingle();
+      const q = supabase.from('ai_secretary_config' as any).select('*');
+      const { data, error } = isProfessional
+        ? await q.eq('ai_tenant_id', aiTenantId!).maybeSingle()
+        : await q.eq('clinic_id', currentClinicId!).maybeSingle();
       if (error) throw error;
       return (data as unknown as AiConfigRow) ?? null;
     },
@@ -295,27 +300,43 @@ export default function SecretariaIA() {
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
-      if (!currentClinicId) throw new Error('Clínica não selecionada');
-      const { error } = await supabase
-        .from('ai_secretary_config' as any)
-        .upsert(
-          {
-            clinic_id: currentClinicId,
-            custom_prompt: vars.custom_prompt,
-            enabled: vars.enabled,
-          },
-          { onConflict: 'clinic_id' }
-        );
-      if (error) throw error;
+      if (isProfessional) {
+        if (!aiTenantId) throw new Error('Tenant da IA não resolvido');
+        const { error } = await supabase
+          .from('ai_secretary_config' as any)
+          .upsert(
+            {
+              ai_tenant_id: aiTenantId,
+              custom_prompt: vars.custom_prompt,
+              enabled: vars.enabled,
+            },
+            { onConflict: 'ai_tenant_id' },
+          );
+        if (error) throw error;
+      } else {
+        if (!currentClinicId) throw new Error('Clínica não selecionada');
+        const { error } = await supabase
+          .from('ai_secretary_config' as any)
+          .upsert(
+            {
+              clinic_id: currentClinicId,
+              custom_prompt: vars.custom_prompt,
+              enabled: vars.enabled,
+            },
+            { onConflict: 'clinic_id' }
+          );
+        if (error) throw error;
+      }
     },
     onSuccess: (_data, vars) => {
       toast.success('Instruções salvas com sucesso');
       setSavedPrompt(vars.custom_prompt);
       setPrompt(vars.custom_prompt);
       setSavedSections(sections);
-      qc.invalidateQueries({ queryKey: ['ai-secretary-config', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['ai-secretary-config'] });
       // Sincroniza com o backend externo da Secretária IA — fire-and-forget
-      if (currentClinicId && isAiBackendConfigured()) {
+      // Phase 1.0: só dispara para clínica (backend externo ainda não conhece tenants profissionais).
+      if (!isProfessional && currentClinicId && isAiBackendConfigured()) {
         console.log('[ai-sync] updateAiConfig vai disparar', { currentClinicId, isConfigured: isAiBackendConfigured(), custom_prompt: vars.custom_prompt?.slice(0, 50) });
         aiBackend
           .updateAiConfig(currentClinicId, {
