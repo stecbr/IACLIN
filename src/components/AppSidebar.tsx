@@ -104,6 +104,7 @@ export function AppSidebar() {
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const { simulatedRole, currentClinicId, isPersonalMode } = useAuth();
   const isDentist = effectiveRole === 'dentist';
+  const isAdmin = effectiveRole === 'admin';
   const activeConsultation = useActiveConsultation();
   const navigate = useNavigate();
   const [logoutBlocked, setLogoutBlocked] = useState(false);
@@ -291,7 +292,29 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        {filteredPersonalNav.length > 0 && (
+        {/* Admin/Dono: "Gestão da Clínica" no topo */}
+        {isAdmin && currentClinicId && (
+          <>
+            <SidebarGroup>
+              {!collapsed && (
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                  Gestão da Clínica
+                </SidebarGroupLabel>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {renderNavItem({ title: 'Visão Geral', url: '/clinica', icon: Building2 })}
+                  {renderNavItem({ title: 'Equipe Médica', url: '/clinica/medicos', icon: Stethoscope })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <div className="mx-3 my-2">
+              <div className="h-px bg-sidebar-border/60" />
+            </div>
+          </>
+        )}
+
+        {filteredPersonalNav.length > 0 && !isAdmin && (
           <>
             <SidebarGroup>
               {!collapsed && (
@@ -319,6 +342,139 @@ export function AppSidebar() {
           <ClinicSwitcher />
         </div>
 
+        {isAdmin && currentClinicId ? (
+          (() => {
+            // Layout reorganizado para o dono da clínica
+            const byUrl = (url: string) => finalClinicNav.find((i) => i.url === url);
+            const attendanceExtra = [byUrl('/pacientes-do-dia'), byUrl('/clinica/aprovacoes')].filter(Boolean) as typeof finalClinicNav;
+            const attendance = [...filteredOperationNav, ...attendanceExtra];
+            const patientItems = [byUrl('/patients'), byUrl('/ferramentas'), byUrl('/odontogram')].filter(Boolean) as typeof finalClinicNav;
+            const financialItems = [byUrl('/financial'), byUrl('/budgets')].filter(Boolean) as typeof finalClinicNav;
+            const automationItems = [byUrl('/secretaria-ia')].filter(Boolean) as typeof finalClinicNav;
+
+            return (
+              <>
+                {attendance.length > 0 && (
+                  <SidebarGroup>
+                    {!collapsed && (
+                      <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                        Atendimento do Dia
+                      </SidebarGroupLabel>
+                    )}
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {attendance.map((item) =>
+                          renderNavItem(
+                            item,
+                            item.url === '/agenda' || item.url === '/pacientes-do-dia'
+                              ? todayCount
+                              : item.url === '/clinica/aprovacoes'
+                              ? pendingCount
+                              : undefined,
+                          ),
+                        )}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                )}
+
+                {patientItems.length > 0 && (
+                  <SidebarGroup>
+                    {!collapsed && (
+                      <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                        Pacientes & Clínico
+                      </SidebarGroupLabel>
+                    )}
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {patientItems.map((item) => renderNavItem(item))}
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            onClick={() => setPickerOpen(true)}
+                            tooltip="Abrir prontuário"
+                            className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/60"
+                          >
+                            <FolderHeart className="h-4 w-4 flex-shrink-0" />
+                            {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                )}
+
+                {financialItems.length > 0 && (
+                  <SidebarGroup>
+                    {!collapsed && (
+                      <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                        Financeiro
+                      </SidebarGroupLabel>
+                    )}
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {financialItems.map((item) => renderNavItem(item))}
+                        <SidebarMenuItem>
+                          <SidebarMenuButton disabled tooltip="Faturamento (em breve)">
+                            <div className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground/50 cursor-not-allowed w-full">
+                              <Wallet className="h-4 w-4 flex-shrink-0" />
+                              {!collapsed && (
+                                <>
+                                  <span className="flex-1">Faturamento</span>
+                                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
+                                    em breve
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                )}
+
+                {automationItems.length > 0 && (
+                  <SidebarGroup>
+                    {!collapsed && (
+                      <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                        Automação
+                      </SidebarGroupLabel>
+                    )}
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {automationItems.map((item) => renderNavItem(item))}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                )}
+
+                {filteredPersonalNav.length > 0 && (
+                  <>
+                    <div className="mx-3 my-2">
+                      <div className="h-px bg-sidebar-border/60" />
+                    </div>
+                    <SidebarGroup>
+                      {!collapsed && (
+                        <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                          Área Pessoal
+                        </SidebarGroupLabel>
+                      )}
+                      <SidebarGroupContent>
+                        <SidebarMenu>
+                          {filteredPersonalNav.map((item) =>
+                            renderNavItem(item, (item.url === '/agenda' || item.url === '/minha-agenda') ? todayCount : undefined),
+                          )}
+                          {renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </SidebarGroup>
+                  </>
+                )}
+              </>
+            );
+          })()
+        ) : (
+        <>
         {filteredOperationNav.length > 0 && (
           <SidebarGroup>
             {!collapsed && (
@@ -428,6 +584,8 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
           </>
+        )}
+        </>
         )}
 
         <div className="flex-1" />
