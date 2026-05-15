@@ -21,7 +21,6 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
-import WaitingClinic from "./pages/WaitingClinic";
 import Profile from "./pages/Profile";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
