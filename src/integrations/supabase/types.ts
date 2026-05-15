@@ -17,7 +17,7 @@ export type Database = {
       ai_secretary_config: {
         Row: {
           ai_tenant_id: string | null
-          clinic_id: string
+          clinic_id: string | null
           created_at: string
           custom_prompt: string | null
           enabled: boolean
@@ -26,7 +26,7 @@ export type Database = {
         }
         Insert: {
           ai_tenant_id?: string | null
-          clinic_id: string
+          clinic_id?: string | null
           created_at?: string
           custom_prompt?: string | null
           enabled?: boolean
@@ -35,7 +35,7 @@ export type Database = {
         }
         Update: {
           ai_tenant_id?: string | null
-          clinic_id?: string
+          clinic_id?: string | null
           created_at?: string
           custom_prompt?: string | null
           enabled?: boolean
@@ -47,7 +47,7 @@ export type Database = {
       ai_secretary_handoff: {
         Row: {
           ai_tenant_id: string | null
-          clinic_id: string
+          clinic_id: string | null
           created_at: string
           enabled: boolean
           handoff_message: string | null
@@ -59,7 +59,7 @@ export type Database = {
         }
         Insert: {
           ai_tenant_id?: string | null
-          clinic_id: string
+          clinic_id?: string | null
           created_at?: string
           enabled?: boolean
           handoff_message?: string | null
@@ -71,7 +71,7 @@ export type Database = {
         }
         Update: {
           ai_tenant_id?: string | null
-          clinic_id?: string
+          clinic_id?: string | null
           created_at?: string
           enabled?: boolean
           handoff_message?: string | null
