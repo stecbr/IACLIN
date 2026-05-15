@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       ai_secretary_config: {
         Row: {
+          ai_tenant_id: string | null
           clinic_id: string
           created_at: string
           custom_prompt: string | null
@@ -24,6 +25,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_tenant_id?: string | null
           clinic_id: string
           created_at?: string
           custom_prompt?: string | null
@@ -32,6 +34,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_tenant_id?: string | null
           clinic_id?: string
           created_at?: string
           custom_prompt?: string | null
@@ -43,6 +46,7 @@ export type Database = {
       }
       ai_secretary_handoff: {
         Row: {
+          ai_tenant_id: string | null
           clinic_id: string
           created_at: string
           enabled: boolean
@@ -54,6 +58,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_tenant_id?: string | null
           clinic_id: string
           created_at?: string
           enabled?: boolean
@@ -65,6 +70,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_tenant_id?: string | null
           clinic_id?: string
           created_at?: string
           enabled?: boolean
@@ -74,6 +80,39 @@ export type Database = {
           target_user_id?: string | null
           trigger_keywords?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_tenants: {
+        Row: {
+          branding: Json
+          clinic_id: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          owner_type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          branding?: Json
+          clinic_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          owner_type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          branding?: Json
+          clinic_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          owner_type?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1695,6 +1734,7 @@ export type Database = {
       }
       whatsapp_messages: {
         Row: {
+          ai_tenant_id: string | null
           clinic_id: string
           content: string
           created_at: string
@@ -1709,6 +1749,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          ai_tenant_id?: string | null
           clinic_id: string
           content: string
           created_at?: string
@@ -1723,6 +1764,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          ai_tenant_id?: string | null
           clinic_id?: string
           content?: string
           created_at?: string
@@ -1756,8 +1798,20 @@ export type Database = {
         Args: { _clinic_id: string; _user_id: string }
         Returns: boolean
       }
+      resolve_or_create_ai_tenant_for_clinic: {
+        Args: { _clinic_id: string }
+        Returns: string
+      }
+      resolve_or_create_ai_tenant_for_user: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       user_belongs_to_clinic: {
         Args: { _clinic_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_owns_ai_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
     }
