@@ -102,7 +102,7 @@ export function AppSidebar() {
   const { logoUrl, hideIaclinLogo } = useClinicBranding();
   const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
-  const { simulatedRole, currentClinicId } = useAuth();
+  const { simulatedRole, currentClinicId, isPersonalMode } = useAuth();
   const isDentist = effectiveRole === 'dentist';
   const activeConsultation = useActiveConsultation();
   const navigate = useNavigate();
@@ -331,6 +331,21 @@ export function AppSidebar() {
                 {filteredOperationNav.map((item) =>
                   renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
                 )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isPersonalMode && (effectiveRole === 'dentist' || effectiveRole === 'admin') && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Meu consultório
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderNavItem({ title: 'Secretária IA', url: '/secretaria-ia', icon: Bot })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
