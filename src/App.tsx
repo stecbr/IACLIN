@@ -54,11 +54,11 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, isPatient, roles, simulatedRole, isPersonalMode } = useAuth();
+  const { user, loading, currentClinicId, isPatient, roles, simulatedRole, isPersonalMode, clinicsLoaded } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || (user && !clinicsLoaded)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -100,9 +100,9 @@ function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function OnboardingRoute() {
-  const { user, loading, currentClinicId, isPatient } = useAuth();
+  const { user, loading, currentClinicId, isPatient, clinicsLoaded } = useAuth();
 
-  if (loading) {
+  if (loading || (user && !clinicsLoaded)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />

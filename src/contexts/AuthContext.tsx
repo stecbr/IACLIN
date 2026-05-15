@@ -27,6 +27,7 @@ interface AuthContextType {
   isPatient: boolean;
   isPersonalMode: boolean;
   clinics: ClinicMembership[];
+  clinicsLoaded: boolean;
   switchClinic: (clinicId: string) => void;
   switchToPersonal: () => void;
   signOut: () => Promise<void>;
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [clinics, setClinics] = useState<ClinicMembership[]>([]);
   const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
+  const [clinicsLoaded, setClinicsLoaded] = useState(false);
   const [personalScope, setPersonalScope] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(SCOPE_STORAGE_KEY) === 'personal';
@@ -76,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (memberRows.length === 0) {
           setClinics([]);
           setCurrentClinicId(null);
+          setClinicsLoaded(true);
           return;
         }
         const clinicIds = memberRows.map((m) => m.clinic_id);
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const stored = typeof window !== 'undefined' ? localStorage.getItem(CLINIC_STORAGE_KEY) : null;
         const validStored = stored && memberships.some((m) => m.clinic_id === stored) ? stored : null;
         setCurrentClinicId(validStored ?? memberships[0].clinic_id);
+        setClinicsLoaded(true);
       });
     };
 
@@ -107,6 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserData(session.user.id);
+      } else {
+        setClinicsLoaded(true);
       }
       setLoading(false);
     });
@@ -116,12 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        setClinicsLoaded(false);
         fetchUserData(session.user.id);
       } else {
         setRoles([]);
         setProfile(null);
         setClinics([]);
         setCurrentClinicId(null);
+        setClinicsLoaded(true);
       }
     });
 
@@ -182,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPatient,
       isPersonalMode,
       clinics,
+      clinicsLoaded,
       switchClinic,
       switchToPersonal,
       signOut,
