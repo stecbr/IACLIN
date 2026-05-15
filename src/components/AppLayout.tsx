@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sun, Moon, User, Building2, Crown, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, User } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -31,7 +31,7 @@ const breadcrumbMap: Record<string, string> = {
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinics, clinicRole, isClinicOwner } = useAuth();
+  const { currentClinicId, isPersonalMode } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const { logoUrl, hideIaclinLogo } = useClinicBranding();
   // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget).
@@ -48,14 +48,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const crumbs = getBreadcrumb();
   const toggleTheme = () => setTheme(resolved === 'dark' ? 'light' : 'dark');
-
-  const currentClinic = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
-  const roleLabel: Record<string, string> = {
-    admin: 'Admin',
-    dentist: 'Profissional',
-    secretary: 'Secretária',
-    patient: 'Paciente',
-  };
 
   return (
     <SidebarProvider>
@@ -90,31 +82,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <User className="h-3 w-3" />
                   Modo Pessoal
                 </span>
-              )}
-              {!isPersonalMode && currentClinic && (
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={currentClinic.clinic_id}
-                    initial={{ opacity: 0, y: -2 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 2 }}
-                    transition={{ duration: 0.18 }}
-                    className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-primary/8 text-foreground/90 pl-2 pr-2.5 py-0.5 text-[11px] font-medium ring-1 ring-primary/20 max-w-[280px]"
-                    title={currentClinic.clinic_name}
-                  >
-                    <Building2 className="h-3 w-3 text-primary flex-shrink-0" />
-                    <span className="truncate">{currentClinic.clinic_name}</span>
-                    <span className="mx-1 h-3 w-px bg-border/70" />
-                    {isClinicOwner ? (
-                      <Crown className="h-3 w-3 text-amber-500 flex-shrink-0" />
-                    ) : (
-                      <ShieldCheck className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <span className="text-muted-foreground capitalize">
-                      {clinicRole ? roleLabel[clinicRole] ?? clinicRole : ''}
-                    </span>
-                  </motion.div>
-                </AnimatePresence>
               )}
             </div>
             <div className="flex items-center gap-1">
