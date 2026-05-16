@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -354,7 +354,16 @@ export default function Financial() {
 
 // ---- New Transaction Dialog ----
 function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
-  const { user, currentClinicId } = useAuth();
+  const { user, currentClinicId, clinics } = useAuth();
+  const frozenClinicId = useRef<string | null>(null);
+  const [contextName, setContextName] = useState<string>('Pessoal');
+  useEffect(() => {
+    if (open) {
+      frozenClinicId.current = currentClinicId;
+      const c = clinics.find((x) => x.clinic_id === currentClinicId);
+      setContextName(currentClinicId ? (c?.clinic_name ?? 'Clínica') : 'Pessoal');
+    }
+  }, [open, currentClinicId, clinics]);
   const [form, setForm] = useState({
     type: 'income',
     category: 'consultation',
@@ -370,6 +379,11 @@ function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (frozenClinicId.current !== currentClinicId) {
+      toast.error('O contexto foi alterado. Reabra o formulário para continuar.');
+      onOpenChange(false);
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase.from('financial_transactions').insert({
@@ -382,7 +396,7 @@ function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean
         payment_method: form.payment_method || null,
         notes: form.notes || null,
         dentist_id: user.id,
-        clinic_id: currentClinicId ?? null,
+        clinic_id: frozenClinicId.current ?? null,
       });
       if (error) throw error;
       toast.success('Transação registrada!');
@@ -400,6 +414,9 @@ function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Nova Transação</DialogTitle></DialogHeader>
+        <div className="text-xs text-muted-foreground -mt-2 mb-1">
+          Será registrada em: <span className="font-medium text-foreground">{contextName}</span>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
