@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   DollarSign, TrendingUp, TrendingDown, Clock, Plus, Upload, Filter,
   CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, FileText, Sparkles,
+  Building2, User as UserIcon,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function Financial() {
-  const { user } = useAuth();
+  const { user, currentClinicId, isPersonalMode, clinics } = useAuth();
   const queryClient = useQueryClient();
   const [showNewTx, setShowNewTx] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -43,11 +44,18 @@ export default function Financial() {
   };
   const period = getPeriodRange();
 
-  // Transactions
-  const { currentClinicId } = useAuth();
+  // Context: clinic vs personal
+  const activeClinic = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
+  const contextLabel = currentClinicId
+    ? `Financeiro · ${activeClinic?.clinic_name ?? 'Clínica'}`
+    : 'Financeiro Pessoal';
+  const contextDescription = currentClinicId
+    ? 'Movimentações desta clínica.'
+    : 'Movimentações vinculadas apenas ao seu espaço pessoal.';
 
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ['financial-transactions', period.start.toISOString(), period.end.toISOString(), currentClinicId],
+    queryKey: ['financial-transactions', period.start.toISOString(), period.end.toISOString(), currentClinicId, user?.id, isPersonalMode],
+    enabled: !!user,
     queryFn: async () => {
       let query = supabase
         .from('financial_transactions')
@@ -55,7 +63,12 @@ export default function Financial() {
         .gte('due_date', format(period.start, 'yyyy-MM-dd'))
         .lte('due_date', format(period.end, 'yyyy-MM-dd'))
         .order('due_date', { ascending: false });
-      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
+      if (currentClinicId) {
+        query = query.eq('clinic_id', currentClinicId);
+      } else if (user) {
+        // Personal mode: isolate by dentist to avoid mixing other professionals' personal data
+        query = query.is('clinic_id', null).eq('dentist_id', user.id);
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -64,12 +77,14 @@ export default function Financial() {
 
   // Imported transactions (pending review)
   const { data: importedTxs = [] } = useQuery({
-    queryKey: ['imported-transactions'],
+    queryKey: ['imported-transactions', user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('imported_transactions')
         .select('*')
         .eq('status', 'pending')
+        .eq('user_id', user!.id)
         .order('transaction_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -113,7 +128,11 @@ export default function Financial() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Financeiro" description="Controle financeiro da clínica.">
+      <PageHeader title={contextLabel} description={contextDescription}>
+        <Badge variant="outline" className="gap-1.5 mr-1">
+          {currentClinicId ? <Building2 className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
+          {currentClinicId ? 'Clínica' : 'Pessoal'}
+        </Badge>
         <Button variant="outline" className="gap-2" onClick={() => setShowImport(true)}>
           <Sparkles className="h-4 w-4" />
           Importar Extrato (IA)
