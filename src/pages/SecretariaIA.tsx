@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import {
   Wifi,
   WifiOff,
-  RefreshCw,
   Save,
   QrCode,
   Loader2,
   AlertCircle,
   Check,
   CircleDot,
-  Sparkles,
   LayoutDashboard,
   ArrowRight,
   Activity,
