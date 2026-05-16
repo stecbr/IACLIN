@@ -8,7 +8,8 @@ import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ClipboardList, Plus, Building2, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -22,7 +23,7 @@ const COLUMNS = [
 
 export default function Budgets() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, currentClinicId, clinics } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -32,13 +33,24 @@ export default function Budgets() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
+  const activeClinic = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
+  const contextLabel = currentClinicId
+    ? `Orçamentos · ${activeClinic?.clinic_name ?? 'Clínica'}`
+    : 'Orçamentos Pessoais';
+
   const { data: plans = [], isLoading } = useQuery({
-    queryKey: ['treatment-plans-kanban', isDentist ? user?.id : 'all'],
+    queryKey: ['treatment-plans-kanban', currentClinicId, isDentist ? user?.id : 'all'],
+    enabled: !!user,
     queryFn: async () => {
       let query = supabase
         .from('treatment_plans')
-        .select('*, patients(full_name), treatment_plan_items(id)')
+        .select('*, patients!inner(full_name, clinic_id), treatment_plan_items(id)')
         .order('created_at', { ascending: false });
+      if (currentClinicId) {
+        query = query.eq('patients.clinic_id', currentClinicId);
+      } else if (user) {
+        query = query.is('patients.clinic_id', null).eq('dentist_id', user.id);
+      }
       if (isDentist && user) query = query.eq('dentist_id', user.id);
       const { data, error } = await query;
       if (error) throw error;
@@ -97,16 +109,22 @@ export default function Budgets() {
   const activePlan = activeId ? plans.find((p: any) => p.id === activeId) : null;
 
   const headerButton = (
-    <Button onClick={() => setFormOpen(true)} className="gap-2">
-      <Plus className="h-4 w-4" />
-      Novo Orçamento
-    </Button>
+    <>
+      <Badge variant="outline" className="gap-1.5 mr-1">
+        {currentClinicId ? <Building2 className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
+        {currentClinicId ? 'Clínica' : 'Pessoal'}
+      </Badge>
+      <Button onClick={() => setFormOpen(true)} className="gap-2">
+        <Plus className="h-4 w-4" />
+        Novo Orçamento
+      </Button>
+    </>
   );
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Orçamentos" description="Pipeline de orçamentos">
+        <PageHeader title={contextLabel} description="Pipeline de orçamentos">
           {headerButton}
         </PageHeader>
         <div className="flex items-center justify-center h-64">
@@ -120,7 +138,7 @@ export default function Budgets() {
   if (plans.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Orçamentos" description="Pipeline de orçamentos">
+        <PageHeader title={contextLabel} description="Pipeline de orçamentos">
           {headerButton}
         </PageHeader>
         <EmptyState
@@ -136,7 +154,7 @@ export default function Budgets() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Orçamentos" description={`${plans.length} orçamentos no pipeline`}>
+      <PageHeader title={contextLabel} description={`${plans.length} orçamentos no pipeline`}>
         {headerButton}
       </PageHeader>
 
