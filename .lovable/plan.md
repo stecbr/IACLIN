@@ -1,113 +1,87 @@
+## Diagnóstico
 
-# Plano de ajuste — Frontend da Secretária IA
+Os três blocos do pedido já existem no código:
 
-Objetivo: alinhar a tela da Secretária IA ao PRD e à última reunião, removendo duplicações com dados oficiais da clínica/profissional e separando claramente comportamento da IA × dados operacionais × automações.
+- **Financeiro** (`src/pages/Financial.tsx`): entradas/saídas, saldo, contas a pagar/receber, baixa manual, importação de extrato com IA, gráficos.
+- **Funil de orçamentos** (`src/pages/Budgets.tsx` + `BudgetCard`/`BudgetFormDialog`): Kanban drag-and-drop com 4 colunas (Pendente, Em Negociação, Aprovado, Perdido), persistência em `treatment_plans.status`.
+- **Persistência**: tabelas `financial_transactions`, `imported_transactions`, `treatment_plans` já existem com RLS por clínica/dentista.
 
----
+**O que falta / está errado:**
 
-## 1) Diagnóstico
-
-### ✅ O que está correto hoje
-- Stepper em 3 etapas (Conexão → Treinamento → Painel) com navegação livre.
-- `useAiContext` já distingue clínica × profissional vinculado e resolve `aiTenantId`.
-- Painel já consome dados oficiais para o Encaminhamento Humano (lista de membros da clínica via `clinic_members` + `profiles`).
-- Sync com backend externo já existe (`aiBackend.syncConfig`, `syncDoctors`, `syncPatients`, `syncAvailability`, `syncAppointments`) — ou seja, a infraestrutura para "fonte única de verdade" já está pronta no backend; o problema é só no frontend de treinamento.
-- Restrição da Secretária IA ao admin (dono) já aplicada via `useRoleAccess`.
-
-### 🔁 O que está duplicado / inconsistente
-- **Seção "HORÁRIOS DE ATENDIMENTO" dentro do prompt** (`PROMPT_SECTIONS` em `SecretariaIA.tsx`) — duplica `clinics.business_hours` e a disponibilidade dos profissionais. Hoje é texto livre que pode contradizer a agenda real.
-- **Seção "URGÊNCIAS"** dentro do prompt sobrepõe parcialmente o módulo de Encaminhamento Humano do `SecretariaIAPainel.tsx` (telefone alternativo + palavras-gatilho).
-- **Horário de atendimento no Painel** (`ClinicHoursSection` dentro de `SecretariaIAPainel`) é o mesmo dado editado em `SettingsPage` — manter dois pontos de edição vira fonte de divergência. Deve virar leitura + atalho para a configuração oficial.
-- **"Mensagem de transferência" do handoff** e **"Saudação" do prompt** vivem em telas separadas sem hierarquia clara.
-
-### ❌ O que falta (e está no PRD / reunião)
-- Lembretes automáticos (24h / 2h antes).
-- Mensagens fora do horário (resposta automática quando clínica fechada).
-- Confirmação / reagendamento / cancelamento via WhatsApp (fluxo, não só texto).
-- Pós-consulta + NPS.
-- Régua de retorno preventivo (ex.: "faz 6 meses…").
-- Aniversário do paciente.
-- Visualização de **convênios aceitos** (puxar de `insurance_plans`) como fonte de verdade para a IA.
-- Visualização de **profissionais vinculados + especialidades** que a IA usa.
-- Painel de **conversas em tempo real** já existe (`LiveMessagesPanel`) mas não há métricas (volume, taxa de resolução, tempo médio) — está marcado como "em breve".
-- Indicador claro de "o que a IA sabe automaticamente sobre sua clínica" (transparência da fonte de dados).
+1. **Isolamento pessoal × clínica quebrado no Financeiro.** A query principal filtra só por `currentClinicId`. Quando `currentClinicId` é `null` (modo pessoal), retorna **todas** as transações cujo `clinic_id IS NULL` — incluindo as de outros dentistas que dependem da RLS para filtrar. A RLS protege contra outros usuários, mas dentro do próprio histórico não há separação visual e o `NewTransactionDialog` grava com `clinic_id = currentClinicId ?? null` sem deixar claro em que "caixa" está caindo.
+2. **Header não indica contexto ativo.** Usuário não vê se está olhando "Financeiro da Clínica X" ou "Financeiro Pessoal".
+3. **Form de nova transação** permite gravar mesmo se o contexto mudou no meio do preenchimento — risco de transação cair na clínica errada.
+4. **Funil**: status PRD (3) × atual (4) — o usuário já confirmou que mantém 4 colunas. Nada a mudar aqui, apenas validar persistência.
+5. **RBAC**: memória do projeto diz `Dentist (no finance)`. Hoje a rota `/financial` parece acessível — verificar guarda.
 
 ---
 
-## 2) Reorganização proposta da tela
+## Plano de implementação
 
-Manter o stepper de onboarding (Conexão → Treinamento → Painel) **só para o primeiro uso**. Depois de conectado, a tela principal vira um **hub com abas**:
+### 1. Contexto explícito no Financeiro (`src/pages/Financial.tsx`)
 
-```text
-Secretária IA
-├── Visão geral        → status WhatsApp, métricas, últimas conversas
-├── Comportamento      → personalidade, saudação, objetivo, regras,
-│                        restrições, exemplos  (SEM horários/urgências)
-├── Conhecimento       → READ-ONLY com link "editar em Configurações":
-│                        • Horário de atendimento (clinics.business_hours)
-│                        • Profissionais vinculados + especialidades
-│                        • Convênios aceitos
-│                        • Procedimentos + duração
-│                        • Salas
-│                        • Disponibilidade oficial
-├── Automações         → lembretes 24h/2h, fora do horário, NPS pós-consulta,
-│                        retorno preventivo, aniversário
-├── Atendimento humano → handoff (telefone, atendente, palavras-gatilho,
-│                        mensagem de transferência)
-└── Conversas          → LiveMessagesPanel + histórico
-```
+- Ler `currentClinicId`, `isPersonalMode`, `clinics` do `useAuth`.
+- Adicionar subtítulo dinâmico no `PageHeader`:
+  - clínica → "Financeiro · <nome da clínica>"
+  - pessoal → "Financeiro Pessoal"
+- Adicionar `Badge` ao lado do título indicando o escopo, com ícone (Building/User).
+- Travar a query:
+  - clínica: `.eq('clinic_id', currentClinicId)`
+  - pessoal: `.is('clinic_id', null).eq('dentist_id', user.id)` ← corrige vazamento entre dentistas pessoais.
+- Mesma regra para `imported-transactions` (hoje sem filtro de contexto): adicionar `.eq('user_id', user.id)`. Já está coberto por RLS, mas garante consistência visual.
 
-Princípio: **Comportamento** = como a IA fala. **Conhecimento** = o que ela sabe (sempre vindo do sistema). **Automações** = quando ela age sozinha. **Handoff** = quando ela passa para humano.
+### 2. Guarda no formulário de nova transação
 
----
+- Capturar `currentClinicId` no momento do `open=true` e congelar em ref.
+- Mostrar dentro do dialog um aviso pequeno: "Esta transação será registrada em: **<contexto>**".
+- No `handleSubmit`, comparar contexto congelado com o atual; se mudou, abortar com toast pedindo para reabrir.
+- Garantir que `dentist_id` sempre seja `user.id` e `clinic_id` seja exatamente o contexto congelado.
 
-## 3) Ordem segura de implementação
+### 3. KPIs e gráfico por contexto
 
-### Fase A — Limpeza (sem risco, agora)
-1. Remover as seções `horarios` e `urgencias` de `PROMPT_SECTIONS` em `SecretariaIA.tsx`.
-2. Migrar prompts já salvos: na leitura, se vier `HORÁRIOS DE ATENDIMENTO:` ou `URGÊNCIAS:`, descartar silenciosamente (a fonte de verdade passa a ser o sistema).
-3. Em "Treinamento", adicionar um card read-only **"O que a IA já sabe sobre sua clínica"** listando: horários, nº de profissionais, nº de convênios, nº de procedimentos, com link "Editar em Configurações".
-4. No `SecretariaIAPainel.tsx`, trocar o editor `ClinicHoursSection` por leitura + botão "Editar horários" que leva para `/settings`.
+- Como a query já fica isolada, os KPIs (saldo, receitas, despesas, pendências) e o gráfico de 6 meses passam a refletir só o contexto ativo. Sem outras mudanças.
 
-### Fase B — Reorganização visual (agora, depois de A)
-5. Transformar o step 3 ("Painel") em **hub com abas** (Visão geral / Comportamento / Conhecimento / Automações / Handoff / Conversas) usando o `Tabs` já existente.
-6. Mover o conteúdo de Treinamento (step 2) para a aba **Comportamento** desse hub. O stepper passa a ser mostrado só enquanto WhatsApp não estiver conectado (onboarding); depois, fica oculto.
-7. Aba **Conhecimento**: ler de `clinics`, `clinic_members`+`profiles`, `insurance_plans`, `procedures`, `clinic_rooms`, `professional_availability` (apenas display).
+### 4. Troca de contexto no `ClinicSwitcher`
 
-### Fase C — Funcional (depois, em iterações)
-8. Aba **Automações**: novas tabelas/configs para lembretes, fora do horário, NPS, retorno, aniversário. Cada toggle salva em `ai_secretary_config` ou tabela nova `ai_secretary_automations`. Backend externo precisa expor endpoints — coordenar com o backend.
-9. Métricas reais na aba **Visão geral** (substituir placeholder "em breve").
-10. Sync automático ao salvar Comportamento: garantir que `syncConfig` rode (hoje só roda em modo clínica — ok).
+- Garantir que `queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })` e `['imported-transactions']` rodem ao trocar de clínica/modo pessoal. Hoje a `queryKey` já inclui `currentClinicId`, então o React Query refaz a fetch sozinho — apenas validar.
 
-### O que fica para depois (fora deste plano)
-- Campanhas em massa de WhatsApp/SMS (Módulo 1 do PRD, secundário).
-- Funil Kanban de orçamentos (módulo separado).
-- Integração com operadoras (Módulo 2, fora do escopo da Secretária IA).
+### 5. Funil de vendas
 
----
+- Manter 4 colunas como decidido.
+- Validar que `BudgetFormDialog` também respeita o contexto (já lê `currentClinicId` e filtra pacientes por clínica — OK).
+- Adicionar mesmo padrão de badge de contexto no header de `Budgets.tsx` ("Orçamentos · Clínica X" / "Orçamentos Pessoais").
+- Verificar query do Kanban: hoje filtra só por `dentist_id` no modo dentista; adicionar filtro por `clinic_id` quando em clínica para evitar misturar orçamentos pessoais e da clínica.
 
-## 4) Detalhes técnicos (referência)
+### 6. RBAC
 
-- **Arquivos afetados na Fase A+B**:
-  - `src/pages/SecretariaIA.tsx` — remover seções `horarios`/`urgencias`, ajustar `PROMPT_SECTIONS`, `EMPTY_SECTIONS`, `parsePromptToSections`, `buildPromptFromSections`. Adicionar card "O que a IA já sabe".
-  - `src/pages/SecretariaIAPainel.tsx` — converter para layout de abas; remover edição de `business_hours`.
-  - Possivelmente novo: `src/components/secretaria-ia/KnowledgeSourcePanel.tsx` para a aba Conhecimento.
-- **Sem migrations** nesta fase. Schema atual (`ai_secretary_config`, `ai_secretary_handoff`, `clinics.business_hours`, `clinic_members`, `insurance_plans`, `procedures`, `professional_availability`) já cobre tudo.
-- **Compatibilidade**: prompts antigos com blocos `HORÁRIOS:`/`URGÊNCIAS:` continuam sendo aceitos na leitura mas não reapresentados — ao salvar de novo, esses blocos somem. Sem perda de dado crítico porque a info real está no sistema.
-- **Não afetar paciente**: nada deste plano toca em `PatientLayout`, `PatientSidebar` ou rotas `/patient/*`.
+- Em `AppSidebar.tsx` / rotas, verificar que `/financial` esteja oculto/bloqueado para role `dentist` quando dentro de clínica (regra da memória). No modo pessoal, dentista vê o **próprio** financeiro pessoal (não conflita com a regra, que se refere ao financeiro da clínica).
+
+### 7. Testes manuais
+
+1. Logar como admin de clínica → header "Financeiro · <Clínica>", criar transação, conferir `clinic_id` na linha.
+2. Trocar para modo pessoal no `ClinicSwitcher` → lista esvazia e mostra só transações pessoais; criar uma e confirmar `clinic_id IS NULL` + `dentist_id = self`.
+3. Criar segundo profissional pessoal em outro browser → confirmar que não vê transações do primeiro.
+4. Abrir dialog em uma clínica, trocar de clínica antes de salvar → toast de erro, sem gravação.
+5. Kanban: arrastar entre as 4 colunas, recarregar, status persistido.
+6. Em conta `dentist` dentro da clínica → menu Financeiro oculto.
 
 ---
 
-## 5) Resumo executivo
+## Fora deste escopo (ficam para depois)
 
-| Item | Status proposto |
-|---|---|
-| Horários no prompt | ❌ remover (Fase A) |
-| Urgências no prompt | ❌ remover, migrar para Handoff (Fase A) |
-| Edição de business_hours no Painel IA | ❌ remover, virar atalho para Settings (Fase A) |
-| Aba "Conhecimento" read-only | ➕ adicionar (Fase B) |
-| Hub com abas pós-onboarding | ➕ reorganizar (Fase B) |
-| Automações (lembretes, NPS, retorno) | ⏳ Fase C |
-| Métricas reais | ⏳ Fase C |
+- Processamento de pagamentos (já decidido: Stripe só para assinaturas do SaaS, paciente fora).
+- Comissionamento de profissionais.
+- Conciliação bancária além da importação atual com IA.
+- Sub-views por dentista dentro do financeiro da clínica.
 
-Implementação recomendada agora: **apenas Fases A e B**, que são puramente frontend, sem migrations e sem mudar contrato com o backend externo.
+---
+
+## Arquivos a alterar
+
+- `src/pages/Financial.tsx` (queries + header + dialog guard)
+- `src/pages/Budgets.tsx` (header de contexto + filtro de clinic_id)
+- (verificação) `src/components/AppSidebar.tsx` para RBAC `dentist` na clínica
+
+## Sem mexer
+
+- Migrations, RLS, edge functions, schema do banco, fluxo de atendimento, importação de extrato.
