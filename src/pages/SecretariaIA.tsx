@@ -645,6 +645,10 @@ export default function SecretariaIA() {
             </div>
           </div>
 
+          {currentClinicId && !isProfessional && (
+            <KnowledgeSourcePanel clinicId={currentClinicId} />
+          )}
+
           <Card className="rounded-xl shadow-sm">
           <CardHeader>
             <div className="flex items-start justify-between gap-3 flex-wrap">
