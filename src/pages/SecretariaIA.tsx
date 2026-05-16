@@ -457,11 +457,10 @@ export default function SecretariaIA() {
     }
   }, [isConnected, shouldAutoAdvanceToTraining, step]);
 
-  const promptCompleted = (savedPrompt?.length ?? 0) > 20;
-  // No modo profissional o backend de WhatsApp ainda não está disponível (Phase 1.0),
-  // mas permitimos navegar pelas etapas para configurar o prompt.
-  const canGoStep2 = isConnected || isProfessional;
-  const canGoStep3 = (isConnected && promptCompleted) || (isProfessional && promptCompleted);
+  // Liberado: o usuário pode navegar livremente entre as etapas
+  // mesmo sem ter escaneado o QR Code do WhatsApp ainda.
+  const canGoStep2 = true;
+  const canGoStep3 = true;
 
   const STEPS: { id: Step; label: string; icon: React.ReactNode; enabled: boolean }[] = [
     { id: 1, label: 'Conexão', icon: <QrCode className="h-4 w-4" />, enabled: true },
