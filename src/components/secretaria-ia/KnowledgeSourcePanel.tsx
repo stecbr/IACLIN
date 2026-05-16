@@ -28,18 +28,16 @@ export function KnowledgeSourcePanel({ clinicId }: Props) {
   const { data, isLoading } = useQuery({
     queryKey: ['ai-knowledge-source', clinicId],
     queryFn: async () => {
-      const [clinic, members, plans, procs, rooms] = await Promise.all([
+      const [clinic, members, plans, rooms] = await Promise.all([
         supabase.from('clinics').select('business_hours').eq('id', clinicId).maybeSingle(),
         supabase.from('clinic_members').select('user_id, role').eq('clinic_id', clinicId),
         supabase.from('insurance_plans').select('id, name').eq('clinic_id', clinicId),
-        supabase.from('procedures').select('id, name').eq('clinic_id', clinicId),
         supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId),
       ]);
       return {
         hours: (clinic.data?.business_hours ?? null) as unknown as BusinessHours | null,
         members: members.data ?? [],
         plans: plans.data ?? [],
-        procedures: procs.data ?? [],
         rooms: rooms.data ?? [],
       };
     },
@@ -61,7 +59,6 @@ export function KnowledgeSourcePanel({ clinicId }: Props) {
             <Row icon={<Clock className="h-4 w-4" />} label="Horário de atendimento" value={summarizeHours(data?.hours ?? null)} />
             <Row icon={<Users className="h-4 w-4" />} label="Profissionais vinculados" value={`${data?.members.length ?? 0}`} />
             <Row icon={<ShieldCheck className="h-4 w-4" />} label="Convênios aceitos" value={`${data?.plans.length ?? 0}`} />
-            <Row icon={<Stethoscope className="h-4 w-4" />} label="Procedimentos cadastrados" value={`${data?.procedures.length ?? 0}`} />
             <Row icon={<DoorOpen className="h-4 w-4" />} label="Salas / consultórios" value={`${data?.rooms.length ?? 0}`} />
           </div>
         )}
