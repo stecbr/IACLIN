@@ -50,6 +50,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel';
 import { useAiContext } from '@/hooks/useAiContext';
+import { KnowledgeSourcePanel } from '@/components/secretaria-ia/KnowledgeSourcePanel';
 
 interface AiConfigRow {
   id: string;
@@ -94,9 +95,7 @@ type PromptSectionKey =
   | 'objetivo'
   | 'regras'
   | 'restricoes'
-  | 'exemplos'
-  | 'horarios'
-  | 'urgencias';
+  | 'exemplos';
 
 const PROMPT_SECTIONS: {
   key: PromptSectionKey;
@@ -151,23 +150,6 @@ const PROMPT_SECTIONS: {
       'Paciente: Vocês atendem convênio X?\nResposta: Sim! Atendemos o convênio X. Posso já verificar um horário para você?',
     rows: 4,
   },
-  {
-    key: 'horarios',
-    label: 'Horários',
-    heading: 'HORÁRIOS DE ATENDIMENTO',
-    description: 'Quando a clínica está aberta.',
-    placeholder: '- Segunda a Sexta: 08h às 18h\n- Sábado: 08h às 12h',
-    rows: 3,
-  },
-  {
-    key: 'urgencias',
-    label: 'Urgências',
-    heading: 'URGÊNCIAS',
-    description: 'Como a IA deve agir em casos urgentes.',
-    placeholder:
-      'Ex: Encaminhar para o telefone (11) 99999-0000 ou orientar a procurar pronto-atendimento mais próximo.',
-    rows: 3,
-  },
 ];
 
 type SectionsState = Record<PromptSectionKey, string>;
@@ -178,8 +160,6 @@ const EMPTY_SECTIONS: SectionsState = {
   regras: '',
   restricoes: '',
   exemplos: '',
-  horarios: '',
-  urgencias: '',
 };
 
 // Reconstrói o objeto de seções a partir de um prompt salvo. Usa os
@@ -195,8 +175,6 @@ function parsePromptToSections(raw: string): SectionsState {
     regras: 'REGRAS',
     restricoes: 'RESTRIÇÕES',
     exemplos: 'EXEMPLOS DE RESPOSTA',
-    horarios: 'HORÁRIOS DE ATENDIMENTO',
-    urgencias: 'URGÊNCIAS',
   };
 
   const headings = Object.entries(headingByKey) as [PromptSectionKey, string][];
