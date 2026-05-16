@@ -169,6 +169,13 @@ function parsePromptToSections(raw: string): SectionsState {
   const result: SectionsState = { ...EMPTY_SECTIONS };
   if (!raw || !raw.trim()) return result;
 
+  // Migração: remove blocos legados (HORÁRIOS / URGÊNCIAS) que agora
+  // vêm direto do sistema. Tudo até a próxima seção conhecida ou fim do texto.
+  raw = raw.replace(
+    /(HORÁRIOS DE ATENDIMENTO|URGÊNCIAS):[\s\S]*?(?=\n(?:SAUDAÇÃO|OBJETIVO|REGRAS|RESTRIÇÕES|EXEMPLOS DE RESPOSTA):|$)/g,
+    '',
+  );
+
   const headingByKey: Record<PromptSectionKey, string> = {
     saudacao: 'SAUDAÇÃO',
     objetivo: 'OBJETIVO',
