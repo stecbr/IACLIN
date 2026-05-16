@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Activity, Clock, UserCog, Save, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Activity, Clock, UserCog, Save, MessageSquare, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ClinicHoursSection, type BusinessHours } from '@/components/settings/ClinicHoursSection';
+import type { BusinessHours } from '@/components/settings/ClinicHoursSection';
 import { useAiContext } from '@/hooks/useAiContext';
 
 export default function SecretariaIAPainel() {
@@ -40,27 +40,17 @@ export default function SecretariaIAPainel() {
   });
 
   const [hours, setHours] = useState<BusinessHours | null>(null);
-  const [savingHours, setSavingHours] = useState(false);
 
   useEffect(() => {
     if (clinic?.business_hours) setHours(clinic.business_hours as unknown as BusinessHours);
   }, [clinic]);
 
-  const saveHours = async () => {
-    if (!currentClinicId || !hours) return;
-    setSavingHours(true);
-    const { error } = await supabase
-      .from('clinics')
-      .update({ business_hours: hours as any })
-      .eq('id', currentClinicId);
-    setSavingHours(false);
-    if (error) {
-      toast.error('Erro ao salvar horários');
-      return;
-    }
-    toast.success('Horários atualizados');
-    queryClient.invalidateQueries({ queryKey: ['clinic-hours', currentClinicId] });
+  const DAY_LABELS_SHORT: Record<keyof BusinessHours, string> = {
+    mon: 'Seg', tue: 'Ter', wed: 'Qua', thu: 'Qui', fri: 'Sex', sat: 'Sáb', sun: 'Dom',
   };
+  const openDays = hours
+    ? (Object.keys(DAY_LABELS_SHORT) as (keyof BusinessHours)[]).filter((d) => hours[d]?.enabled)
+    : [];
 
   // ---------- Handoff ----------
   const { data: handoff, isLoading: loadingHandoff } = useQuery({
@@ -171,7 +161,7 @@ export default function SecretariaIAPainel() {
               <CardTitle className="text-base">Horário de atendimento</CardTitle>
             </div>
             <CardDescription>
-              A IA responderá considerando estes horários. Fora do expediente, ela informa o paciente.
+              A IA usa o horário oficial da clínica como fonte de verdade. Edite em Configurações.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -179,11 +169,33 @@ export default function SecretariaIAPainel() {
               <Skeleton className="h-64 w-full" />
             ) : (
               <>
-                <ClinicHoursSection value={hours} onChange={setHours} />
+                {hours ? (
+                  <ul className="divide-y rounded-lg border bg-muted/30 text-sm">
+                    {(Object.keys(DAY_LABELS_SHORT) as (keyof BusinessHours)[]).map((d) => (
+                      <li key={d} className="flex items-center justify-between px-3 py-2">
+                        <span className="font-medium">{DAY_LABELS_SHORT[d]}</span>
+                        <span className="text-muted-foreground">
+                          {hours[d]?.enabled
+                            ? `${hours[d].open} – ${hours[d].close}`
+                            : 'Fechado'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum horário configurado.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {openDays.length} {openDays.length === 1 ? 'dia aberto' : 'dias abertos'} por semana.
+                </p>
                 <div className="flex justify-end">
-                  <Button onClick={saveHours} disabled={savingHours} size="sm" className="gap-2">
-                    <Save className="h-4 w-4" />
-                    {savingHours ? 'Salvando...' : 'Salvar horários'}
+                  <Button asChild size="sm" variant="outline" className="gap-2">
+                    <Link to="/settings">
+                      <ExternalLink className="h-4 w-4" />
+                      Editar em Configurações
+                    </Link>
                   </Button>
                 </div>
               </>
