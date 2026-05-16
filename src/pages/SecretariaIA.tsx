@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import {
   Wifi,
   WifiOff,
-  RefreshCw,
   Save,
   QrCode,
   Loader2,
   AlertCircle,
   Check,
   CircleDot,
-  Sparkles,
   LayoutDashboard,
   ArrowRight,
+  Activity,
+  BookOpen,
+  Bot,
+  MessageSquare,
+  UserCog,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,6 +54,8 @@ import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel';
 import { useAiContext } from '@/hooks/useAiContext';
 import { KnowledgeSourcePanel } from '@/components/secretaria-ia/KnowledgeSourcePanel';
+import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
   id: string;
@@ -431,7 +436,7 @@ export default function SecretariaIA() {
   const isConnected = !!statusQuery.data?.connected;
 
   // ---------- Stepper ----------
-  type Step = 1 | 2 | 3;
+  type Step = 1 | 2;
   const [step, setStep] = useState<Step>(1);
 
   // Avança automaticamente quando WhatsApp conectar
@@ -445,13 +450,14 @@ export default function SecretariaIA() {
   // Liberado: o usuário pode navegar livremente entre as etapas
   // mesmo sem ter escaneado o QR Code do WhatsApp ainda.
   const canGoStep2 = true;
-  const canGoStep3 = true;
 
   const STEPS: { id: Step; label: string; icon: React.ReactNode; enabled: boolean }[] = [
     { id: 1, label: 'Conexão', icon: <QrCode className="h-4 w-4" />, enabled: true },
-    { id: 2, label: 'Treinamento', icon: <Sparkles className="h-4 w-4" />, enabled: canGoStep2 },
-    { id: 3, label: 'Painel', icon: <LayoutDashboard className="h-4 w-4" />, enabled: canGoStep3 },
+    { id: 2, label: 'Painel', icon: <LayoutDashboard className="h-4 w-4" />, enabled: canGoStep2 },
   ];
+
+  // Aba ativa do hub (step 2). Mantida fora do unmount para não perder edição.
+  const [activeTab, setActiveTab] = useState<string>('visao');
 
   return (
     <div className="space-y-8">
@@ -622,14 +628,14 @@ export default function SecretariaIA() {
         </div>
       )}
 
-      {/* ETAPA 2 — Treinamento */}
+      {/* ETAPA 2 — Painel (hub) */}
       {step === 2 && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="space-y-1.5">
-              <h1 className="text-2xl font-semibold tracking-tight">Treinamento da IA</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Painel da Secretária IA</h1>
               <p className="text-sm text-muted-foreground">
-                Defina como a Secretária IA deve se comportar nas conversas.
+                Configure o comportamento, veja o que a IA já sabe e acompanhe as conversas.
               </p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
@@ -645,11 +651,83 @@ export default function SecretariaIA() {
             </div>
           </div>
 
-          {currentClinicId && !isProfessional && (
-            <KnowledgeSourcePanel clinicId={currentClinicId} />
-          )}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/40 p-1">
+              <TabsTrigger value="visao" className="gap-1.5">
+                <Activity className="h-3.5 w-3.5" /> Visão geral
+              </TabsTrigger>
+              <TabsTrigger value="comportamento" className="gap-1.5">
+                <Bot className="h-3.5 w-3.5" /> Comportamento
+              </TabsTrigger>
+              <TabsTrigger value="conhecimento" className="gap-1.5">
+                <BookOpen className="h-3.5 w-3.5" /> Conhecimento
+              </TabsTrigger>
+              <TabsTrigger value="automacoes" disabled className="gap-1.5">
+                <Zap className="h-3.5 w-3.5" /> Automações
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">em breve</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="handoff" className="gap-1.5">
+                <UserCog className="h-3.5 w-3.5" /> Atendimento humano
+              </TabsTrigger>
+              <TabsTrigger value="conversas" className="gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" /> Conversas
+              </TabsTrigger>
+            </TabsList>
 
-          <Card className="rounded-xl shadow-sm">
+            {/* Visão geral */}
+            <TabsContent value="visao" className="space-y-4">
+              <Card className="rounded-xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Status do WhatsApp</CardTitle>
+                  <CardDescription>
+                    Conexão da instância usada pela Secretária IA.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {isProfessional ? (
+                    <p className="text-sm text-muted-foreground">
+                      Conexão WhatsApp do profissional será liberada em breve.
+                    </p>
+                  ) : !backendConfigured ? (
+                    <p className="text-sm text-muted-foreground">Backend não configurado.</p>
+                  ) : isConnected ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
+                        <Check className="h-3 w-3" /> Conectado
+                      </Badge>
+                      {statusQuery.data?.instance_name && (
+                        <span className="text-xs text-muted-foreground">
+                          Instância: {statusQuery.data.instance_name}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="gap-1 text-muted-foreground">
+                        <WifiOff className="h-3 w-3" /> Desconectado
+                      </Badge>
+                      <Button size="sm" variant="outline" onClick={() => setStep(1)}>
+                        Conectar agora
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Métricas</CardTitle>
+                  <CardDescription>Em breve: conversas, taxa de resolução e tempo médio de resposta.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <MessageSquare className="h-3.5 w-3.5" /> Indicadores serão exibidos aqui.
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Comportamento */}
+            <TabsContent value="comportamento" className="space-y-4">
+              <Card className="rounded-xl shadow-sm">
           <CardHeader>
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
@@ -755,51 +833,56 @@ export default function SecretariaIA() {
                       )}
                       Salvar
                     </Button>
-                    <Button
-                      onClick={() => {
-                        if (isDirty) saveConfig.mutate({ custom_prompt: builtPrompt, enabled });
-                        setStep(3);
-                      }}
-                      disabled={!canGoStep3 && !isDirty}
-                      className="gap-2"
-                    >
-                      Próximo: painel <ArrowRight className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               </div>
             )}
           </CardContent>
-        </Card>
-        </div>
-      )}
+              </Card>
+            </TabsContent>
 
-      {/* ETAPA 3 — Painel ao vivo */}
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="space-y-1.5">
-              <h1 className="text-2xl font-semibold tracking-tight">Painel da IA</h1>
-              <p className="text-sm text-muted-foreground">
-                Acompanhe em tempo real as mensagens recebidas no WhatsApp da clínica.
-              </p>
-            </div>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/secretaria-ia/painel">
-                <LayoutDashboard className="h-4 w-4" />
-                Configurações avançadas
-              </Link>
-            </Button>
-          </div>
-          {currentClinicId && !isProfessional && <LiveMessagesPanel clinicId={currentClinicId} />}
-          {isProfessional && (
-            <Card className="rounded-xl shadow-sm">
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                O painel ao vivo de mensagens será habilitado quando a conexão WhatsApp do
-                profissional estiver disponível.
-              </CardContent>
-            </Card>
-          )}
+            {/* Conhecimento */}
+            <TabsContent value="conhecimento" className="space-y-4">
+              {currentClinicId && !isProfessional ? (
+                <KnowledgeSourcePanel clinicId={currentClinicId} />
+              ) : (
+                <Card className="rounded-xl shadow-sm">
+                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                    Disponível apenas no contexto de clínica.
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Automações (em breve) */}
+            <TabsContent value="automacoes" className="space-y-4">
+              <Card className="rounded-xl shadow-sm">
+                <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                  Em breve: lembretes 24h/2h, mensagens fora do horário, NPS pós-consulta,
+                  retorno preventivo e aniversário.
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Atendimento humano */}
+            <TabsContent value="handoff" className="space-y-4">
+              <HandoffPanel />
+            </TabsContent>
+
+            {/* Conversas */}
+            <TabsContent value="conversas" className="space-y-4">
+              {currentClinicId && !isProfessional ? (
+                <LiveMessagesPanel clinicId={currentClinicId} />
+              ) : (
+                <Card className="rounded-xl shadow-sm">
+                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                    O painel ao vivo de mensagens será habilitado quando a conexão WhatsApp do
+                    profissional estiver disponível.
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       )}
 
