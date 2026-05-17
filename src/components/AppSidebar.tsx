@@ -91,7 +91,7 @@ const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categor
   { title: 'Ferramentas Clínicas', url: '/ferramentas', icon: Briefcase, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
-  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
+  { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
 ];
 
 export function AppSidebar() {
@@ -102,9 +102,9 @@ export function AppSidebar() {
   const { logoUrl, hideIaclinLogo } = useClinicBranding();
   const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
-  const { simulatedRole, currentClinicId, isPersonalMode } = useAuth();
+  const { simulatedRole, currentClinicId, isPersonalMode, isClinicOwner } = useAuth();
   const isDentist = effectiveRole === 'dentist';
-  const isAdmin = effectiveRole === 'admin';
+  const isAdmin = effectiveRole === 'admin' || isClinicOwner;
   const activeConsultation = useActiveConsultation();
   const navigate = useNavigate();
   const [logoutBlocked, setLogoutBlocked] = useState(false);
