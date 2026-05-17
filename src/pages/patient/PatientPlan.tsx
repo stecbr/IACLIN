@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePatientData } from '@/hooks/usePatientData';
+import { getInsuranceBrand } from '@/lib/insuranceBrand';
 
 const RELATIONSHIPS = ['Filho', 'Filha', 'Esposa', 'Marido', 'Pai', 'Mãe', 'Irmão', 'Irmã', 'Outro'];
 
@@ -157,7 +158,7 @@ export default function PatientPlan() {
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <Card className="overflow-hidden">
-          <div className="h-3 bg-gradient-to-r from-primary via-primary/70 to-primary/40" />
+          <div className={`h-4 bg-gradient-to-r ${getInsuranceBrand(account?.insurance_provider).gradient}`} />
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
@@ -237,7 +238,7 @@ export default function PatientPlan() {
                   transition={{ duration: 0.2 }}
                 >
                   <Card className="overflow-hidden">
-                    <div className="h-2 bg-gradient-to-r from-primary/80 via-primary/50 to-primary/20" />
+                    <div className={`h-3 bg-gradient-to-r ${getInsuranceBrand(d.insurance_provider).gradient}`} />
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
