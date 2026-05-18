@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePatientData } from '@/hooks/usePatientData';
 import { getInsuranceBrand } from '@/lib/insuranceBrand';
+import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
 
 const RELATIONSHIPS = ['Filho', 'Filha', 'Esposa', 'Marido', 'Pai', 'Mãe', 'Irmão', 'Irmã', 'Outro'];
 
@@ -291,10 +292,9 @@ export default function PatientPlan() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Convênio</Label>
-              <Input
+              <InsuranceOperatorSelect
                 value={editProvider}
-                onChange={(e) => setEditProvider(e.target.value)}
-                placeholder="Ex: Amil, Unimed..."
+                onChange={setEditProvider}
               />
             </div>
             <div className="space-y-2">
@@ -340,10 +340,9 @@ export default function PatientPlan() {
             </div>
             <div className="space-y-2">
               <Label>Convênio</Label>
-              <Input
+              <InsuranceOperatorSelect
                 value={depForm.insurance_provider}
-                onChange={(e) => setDepForm((s) => ({ ...s, insurance_provider: e.target.value }))}
-                placeholder="Ex: Amil, Unimed..."
+                onChange={(v) => setDepForm((s) => ({ ...s, insurance_provider: v }))}
               />
             </div>
             <div className="space-y-2">
