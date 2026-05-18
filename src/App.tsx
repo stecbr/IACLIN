@@ -41,6 +41,12 @@ import PatientBooking from "./pages/patient/PatientBooking";
 import PatientHistory from "./pages/patient/PatientHistory";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientSettings from "./pages/patient/PatientSettings";
+import { OperatorLayout } from "./components/operadora/OperatorLayout";
+import OperatorDashboard from "./pages/operadora/OperatorDashboard";
+import OperatorNetwork from "./pages/operadora/OperatorNetwork";
+import OperatorRequests from "./pages/operadora/OperatorRequests";
+import OperatorAgenda from "./pages/operadora/OperatorAgenda";
+import OperatorSettings from "./pages/operadora/OperatorSettings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,7 +60,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, isPatient, roles, simulatedRole, isPersonalMode, clinicsLoaded } = useAuth();
+  const { user, loading, currentClinicId, isPatient, isOperator, simulatedRole, isPersonalMode, clinicsLoaded } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -69,6 +75,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!user) return <Navigate to="/auth" replace />;
   // Dev simulation: simulating patient → send to patient area
   if (simulatedRole === 'patient') return <Navigate to="/paciente" replace />;
+  // Operator users go to their own workspace
+  if (isOperator) return <Navigate to="/operadora" replace />;
   // Patient users go to their own area
   if (isPatient) return <Navigate to="/paciente" replace />;
   // No clinic linked: dentists in personal mode get full app access; admins go to
@@ -79,6 +87,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
 
   return <AppLayout>{children}</AppLayout>;
+}
+
+function OperatorProtectedRoute({ children }: { children?: React.ReactNode }) {
+  const { user, loading, isOperator } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/auth" replace />;
+  if (!isOperator) return <Navigate to="/" replace />;
+  return <OperatorLayout>{children}</OperatorLayout>;
 }
 
 function PatientProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -132,6 +154,13 @@ const AppRoutes = () => (
       <Route path="historico" element={<PatientHistory />} />
       <Route path="exames" element={<PatientExams />} />
       <Route path="configuracoes" element={<PatientSettings />} />
+    </Route>
+    <Route path="/operadora" element={<OperatorProtectedRoute />}>
+      <Route index element={<OperatorDashboard />} />
+      <Route path="rede" element={<OperatorNetwork />} />
+      <Route path="pedidos" element={<OperatorRequests />} />
+      <Route path="agenda" element={<OperatorAgenda />} />
+      <Route path="configuracoes" element={<OperatorSettings />} />
     </Route>
     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
