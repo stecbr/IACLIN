@@ -2054,6 +2054,10 @@ export type Database = {
         Returns: boolean
       }
       is_operator_member: { Args: { _user_id: string }; Returns: string[] }
+      is_operator_owner: {
+        Args: { _operator_id: string; _user_id: string }
+        Returns: boolean
+      }
       resolve_or_create_ai_tenant_for_clinic: {
         Args: { _clinic_id: string }
         Returns: string
