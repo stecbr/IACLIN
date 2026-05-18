@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 
-type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient';
+type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 
 interface RouteAccess {
   path: string;

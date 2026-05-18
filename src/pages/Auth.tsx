@@ -322,6 +322,15 @@ export default function Auth() {
                 phone: phone.trim(),
                 responsible_name: responsibleName.trim(),
               }),
+              ...(userType === 'operadora' && {
+                trade_name: fullName.trim() || 'Operadora',
+                legal_name: legalName.trim() || fullName.trim(),
+                cnpj: cnpj.replace(/\D/g, ''),
+                ans_code: registrationNumber.trim() || null,
+                operator_type: 'ambos',
+                phone: phone.trim(),
+                responsible_name: responsibleName.trim() || fullName.trim(),
+              }),
             },
           },
         });
@@ -387,7 +396,7 @@ export default function Auth() {
   const typeCards = [
     { key: 'profissional' as const, icon: Stethoscope, label: 'Profissional de Saúde', desc: 'Médico, Dentista ou outro', locked: false },
     { key: 'clinica' as const, icon: Building2, label: 'Sou uma Clínica', desc: 'Cadastre sua clínica e equipe', locked: false },
-    { key: 'operadora' as const, icon: Briefcase, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: true },
+    { key: 'operadora' as const, icon: Briefcase, label: 'Operadora', desc: 'Operadora de saúde ou convênio', locked: false },
     { key: 'cliente' as const, icon: UserCheck, label: 'Paciente', desc: 'Buscar profissionais e agendar', locked: false },
   ];
 

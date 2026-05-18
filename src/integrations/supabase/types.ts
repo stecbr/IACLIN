@@ -378,6 +378,45 @@ export type Database = {
           },
         ]
       }
+      clinic_member_insurance_plans: {
+        Row: {
+          clinic_member_id: string
+          created_at: string
+          id: string
+          insurance_plan_id: string
+          operator_id: string | null
+        }
+        Insert: {
+          clinic_member_id: string
+          created_at?: string
+          id?: string
+          insurance_plan_id: string
+          operator_id?: string | null
+        }
+        Update: {
+          clinic_member_id?: string
+          created_at?: string
+          id?: string
+          insurance_plan_id?: string
+          operator_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_member_insurance_plans_insurance_plan_id_fkey"
+            columns: ["insurance_plan_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_member_insurance_plans_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_member_specialties: {
         Row: {
           clinic_member_id: string
@@ -1031,6 +1070,63 @@ export type Database = {
         }
         Relationships: []
       }
+      insurance_operators: {
+        Row: {
+          ans_code: string | null
+          brand_color: string | null
+          cnpj: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          legal_name: string | null
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          responsible_name: string | null
+          slug: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          ans_code?: string | null
+          brand_color?: string | null
+          cnpj?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legal_name?: string | null
+          logo_url?: string | null
+          name: string
+          owner_id?: string | null
+          responsible_name?: string | null
+          slug?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          ans_code?: string | null
+          brand_color?: string | null
+          cnpj?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legal_name?: string | null
+          logo_url?: string | null
+          name?: string
+          owner_id?: string | null
+          responsible_name?: string | null
+          slug?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       insurance_plans: {
         Row: {
           ans_code: string | null
@@ -1042,6 +1138,7 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          operator_id: string | null
           type: string
           updated_at: string
         }
@@ -1055,6 +1152,7 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          operator_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -1068,6 +1166,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          operator_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -1077,6 +1176,13 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_plans_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
             referencedColumns: ["id"]
           },
         ]
@@ -1178,6 +1284,100 @@ export type Database = {
             columns: ["procedure_id"]
             isOneToOne: false
             referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_credentialings: {
+        Row: {
+          clinic_id: string
+          clinic_member_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          notes: string | null
+          operator_id: string
+          professional_user_id: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          clinic_member_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          notes?: string | null
+          operator_id: string
+          professional_user_id: string
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          clinic_member_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          professional_user_id?: string
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_credentialings_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_members: {
+        Row: {
+          created_at: string
+          id: string
+          is_owner: boolean
+          operator_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_owner?: boolean
+          operator_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_owner?: boolean
+          operator_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_members_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
             referencedColumns: ["id"]
           },
         ]
@@ -1432,6 +1632,7 @@ export type Database = {
           id: string
           is_holiday_override: boolean
           mode: string
+          operator_id: string | null
           start_time: string
           updated_at: string
           user_id: string
@@ -1445,6 +1646,7 @@ export type Database = {
           id?: string
           is_holiday_override?: boolean
           mode?: string
+          operator_id?: string | null
           start_time: string
           updated_at?: string
           user_id: string
@@ -1458,12 +1660,21 @@ export type Database = {
           id?: string
           is_holiday_override?: boolean
           mode?: string
+          operator_id?: string | null
           start_time?: string
           updated_at?: string
           user_id?: string
           work_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "professional_availability_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       professional_blocked_dates: {
         Row: {
@@ -1842,6 +2053,7 @@ export type Database = {
         Args: { _clinic_id: string; _user_id: string }
         Returns: boolean
       }
+      is_operator_member: { Args: { _user_id: string }; Returns: string[] }
       resolve_or_create_ai_tenant_for_clinic: {
         Args: { _clinic_id: string }
         Returns: string
@@ -1854,13 +2066,17 @@ export type Database = {
         Args: { _clinic_id: string; _user_id: string }
         Returns: boolean
       }
+      user_belongs_to_operator: {
+        Args: { _operator_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_owns_ai_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "dentist" | "secretary" | "patient"
+      app_role: "admin" | "dentist" | "secretary" | "patient" | "operator"
       clinic_category:
         | "odonto"
         | "medico"
@@ -1994,7 +2210,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "dentist", "secretary", "patient"],
+      app_role: ["admin", "dentist", "secretary", "patient", "operator"],
       clinic_category: ["odonto", "medico", "estetica", "veterinario", "outro"],
     },
   },
