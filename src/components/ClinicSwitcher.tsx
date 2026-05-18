@@ -35,7 +35,7 @@ export function ClinicSwitcher() {
         <button
           className={`w-full flex items-center gap-2 rounded-lg p-2 hover:bg-sidebar-accent/60 transition-colors ${
             collapsed ? 'justify-center' : ''
-          } ${triggerIsPersonal ? 'ring-1 ring-amber-500/40 bg-amber-500/5' : ''}`}
+          } ${triggerIsPersonal ? 'ring-1 ring-amber-500/40 bg-amber-500/5' : 'bg-sidebar-accent/40 border border-sidebar-border/60'}`}
         >
           <div className={`h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0 ${triggerIsPersonal ? 'bg-amber-500/15' : 'bg-primary/10'}`}>
             {triggerIsPersonal ? (
