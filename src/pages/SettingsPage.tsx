@@ -19,7 +19,7 @@ import { useSoloMode } from '@/hooks/useSoloMode';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
-import { syncClinicConfig } from '@/hooks/useAiSync';
+import { aiBackend } from '@/lib/aiBackend';
 
 const sections = [
   { id: 'clinic', label: 'Clínica', icon: Building2 },
@@ -186,9 +186,51 @@ function ClinicSection() {
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload).eq('id', clinic.id);
         if (error) throw error;
-        // Atualiza imediatamente o backend da Secretária IA com o novo horário
-        // (fire-and-forget — não bloqueia o save em caso de falha).
-        syncClinicConfig(clinic.id);
+        // Atualiza imediatamente o backend da Secretária IA com o novo horário.
+        try {
+          const [procRes, plansRes, roomsRes, membersRes] = await Promise.all([
+            supabase.from('procedures').select('id, name, default_duration, category').eq('is_active', true),
+            supabase.from('insurance_plans').select('id, name, ans_code').eq('clinic_id', clinic.id).eq('is_active', true),
+            supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinic.id).eq('is_active', true),
+            supabase.from('clinic_members').select('user_id, role, specialty').eq('clinic_id', clinic.id),
+          ]);
+          const memberRows = (membersRes.data ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
+          const userIds = memberRows.map((m) => m.user_id);
+          const profilesRes = userIds.length
+            ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
+            : { data: [] as Array<{ id: string; full_name: string | null }> };
+          const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name]));
+          const procedures = (procRes.data ?? []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            duration_min: p.default_duration ?? 30,
+            category: p.category,
+          }));
+          const insurance_plans = (plansRes.data ?? []).map((ip) => ({
+            id: ip.id,
+            name: ip.name,
+            code: ip.ans_code ?? null,
+          }));
+          const rooms = (roomsRes.data ?? []).map((r) => ({ id: r.id, name: r.name }));
+          const doctors = memberRows.map((m) => ({
+            user_id: m.user_id,
+            full_name: profileMap.get(m.user_id) ?? '—',
+            role: m.role,
+            specialty: m.specialty,
+            active: true,
+          }));
+          await aiBackend.syncConfig({
+            clinic_id: clinic.id,
+            business_hours: businessHours as unknown as Record<string, unknown>,
+            procedures,
+            insurance_plans,
+            rooms,
+            doctors,
+          });
+        } catch (syncErr) {
+          // Não bloqueia o save em caso de falha do backend da IA.
+          if (import.meta.env.DEV) console.warn('[ai-sync] syncConfig falhou:', syncErr);
+        }
       } else {
         const { error } = await supabase.from('clinics').insert({ ...payload, owner_id: user.id });
         if (error) throw error;
