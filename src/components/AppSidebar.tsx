@@ -271,7 +271,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="p-4 bg-primary/5 border-b border-sidebar-border/60">
+      <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60">
         <div className="flex items-center gap-3">
           {(() => {
             const iaclinSrc = resolved === 'dark' ? logoDark : logoLight;
@@ -291,12 +291,12 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-0">
         {(filteredPersonalNav.length > 0 || effectiveRole !== 'patient') && (
-          <>
-            <SidebarGroup className="rounded-xl bg-primary/5 border border-sidebar-border/50 p-1.5 mt-2">
+          <div className="bg-background border-b border-sidebar-border/60 px-2 py-3">
+            <SidebarGroup className="p-0">
               {!collapsed && (
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-primary/70 px-3 mb-1 font-semibold">
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1 font-semibold">
                   Pessoal
                 </SidebarGroupLabel>
               )}
@@ -309,14 +309,15 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <div className="h-2" />
-          </>
+          </div>
         )}
 
         {/* Workspace switcher: separates personal data from clinic data */}
-        <div className="px-2 pb-2">
+        <div className="px-2 pt-2 pb-2">
           <ClinicSwitcher />
         </div>
+
+        <div className="px-2">
 
         {/* Admin/Dono: "Gestão da Clínica" agora abaixo do switcher */}
         {isAdmin && currentClinicId && (
