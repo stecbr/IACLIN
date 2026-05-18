@@ -1,0 +1,2 @@
+ALTER TABLE public.financial_transactions DROP CONSTRAINT financial_transactions_type_check;
+ALTER TABLE public.financial_transactions ADD CONSTRAINT financial_transactions_type_check CHECK (type IN ('income', 'expense'));
