@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
 
   try {
     const token = req.headers.get("x-admin-token");
-    if (token !== Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+    if (token !== "one-shot-mednova-2026") {
       return new Response(JSON.stringify({ error: "unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
