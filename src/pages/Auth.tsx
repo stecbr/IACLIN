@@ -322,6 +322,15 @@ export default function Auth() {
                 phone: phone.trim(),
                 responsible_name: responsibleName.trim(),
               }),
+              ...(userType === 'operadora' && {
+                trade_name: fullName.trim() || 'Operadora',
+                legal_name: legalName.trim() || fullName.trim(),
+                cnpj: cnpj.replace(/\D/g, ''),
+                ans_code: registrationNumber.trim() || null,
+                operator_type: 'ambos',
+                phone: phone.trim(),
+                responsible_name: responsibleName.trim() || fullName.trim(),
+              }),
             },
           },
         });
