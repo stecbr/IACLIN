@@ -298,6 +298,16 @@ export async function syncClinicAvailability(clinicId: string) {
   }
 }
 
+export async function syncClinicConfig(clinicId: string) {
+  if (!isAiBackendConfigured()) return;
+  try {
+    const config = await buildConfigSnapshot(clinicId);
+    await silent(aiBackend.syncConfig(config));
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[ai-sync] syncClinicConfig:', err);
+  }
+}
+
 // ============================================================
 // useAiSync — dispara o snapshot inicial e o polling de IA-pending
 // ============================================================
