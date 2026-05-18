@@ -292,29 +292,8 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        {/* Admin/Dono: "Gestão da Clínica" no topo */}
-        {isAdmin && currentClinicId && (
-          <>
-            <SidebarGroup>
-              {!collapsed && (
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-                  Gestão da Clínica
-                </SidebarGroupLabel>
-              )}
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {renderNavItem({ title: 'Visão Geral', url: '/clinica', icon: Building2 })}
-                  {renderNavItem({ title: 'Equipe Médica', url: '/clinica/medicos', icon: Stethoscope })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            <div className="mx-3 my-2">
-              <div className="h-px bg-sidebar-border/60" />
-            </div>
-          </>
-        )}
-
-        {filteredPersonalNav.length > 0 && !isAdmin && (
+        {/* Área pessoal do profissional sempre no topo */}
+        {(filteredPersonalNav.length > 0 || effectiveRole !== 'patient') && (
           <>
             <SidebarGroup>
               {!collapsed && (
@@ -341,6 +320,23 @@ export function AppSidebar() {
         <div className="px-2 pb-2">
           <ClinicSwitcher />
         </div>
+
+        {/* Admin/Dono: "Gestão da Clínica" agora abaixo do switcher */}
+        {isAdmin && currentClinicId && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Gestão da Clínica
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderNavItem({ title: 'Visão Geral', url: '/clinica', icon: Building2 })}
+                {renderNavItem({ title: 'Equipe Médica', url: '/clinica/medicos', icon: Stethoscope })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {isAdmin && currentClinicId ? (
           (() => {
