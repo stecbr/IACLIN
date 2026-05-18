@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check, Info, X } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
+import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
 import logoLight from '@/assets/logo-light.png';
 import {
   SpecialtySelect,
@@ -762,9 +763,11 @@ export default function Auth() {
                   <>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="insurance-provider" className="text-xs text-muted-foreground">Convênio (opcional)</Label>
-                      <Input
-                        id="insurance-provider" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
-                        placeholder="Ex: Amil, Unimed..." className="h-10"
+                      <InsuranceOperatorSelect
+                        id="insurance-provider"
+                        value={insuranceProvider}
+                        onChange={setInsuranceProvider}
+                        className="h-10"
                       />
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.24 }}>

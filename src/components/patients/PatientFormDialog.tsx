@@ -170,18 +170,31 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
             </div>
             <div className="space-y-2">
               <Label>Convênio</Label>
-              {insurancePlans.length > 0 ? (
-                <Select value={form.insurance_provider} onValueChange={(v) => update('insurance_provider', v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Nenhum (Particular)</SelectItem>
-                    {insurancePlans.map((p) => (
-                      <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={form.insurance_provider} onChange={(e) => update('insurance_provider', e.target.value)} placeholder="Ex: Amil, Unimed..." />
+              <Select
+                value={form.insurance_provider ? form.insurance_provider : '__none__'}
+                onValueChange={(v) => update('insurance_provider', v === '__none__' ? '' : v)}
+                disabled={!clinicId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={clinicId ? 'Selecione o convênio' : 'Particular'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhum (Particular)</SelectItem>
+                  {insurancePlans.map((p) => (
+                    <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                  ))}
+                  {form.insurance_provider &&
+                    !insurancePlans.some((p) => p.name === form.insurance_provider) && (
+                      <SelectItem value={form.insurance_provider}>
+                        {form.insurance_provider} (atual)
+                      </SelectItem>
+                    )}
+                </SelectContent>
+              </Select>
+              {clinicId && insurancePlans.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum convênio cadastrado. Adicione em Configurações → Convênios.
+                </p>
               )}
             </div>
             <div className="space-y-2">
