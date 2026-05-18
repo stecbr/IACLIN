@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, BadgeCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
 import InsurancePlansSection from '@/components/settings/InsurancePlansSection';
+import MyCredentialingSection from '@/components/settings/MyCredentialingSection';
 import { ClinicHoursSection, type BusinessHours, DEFAULT_HOURS } from '@/components/settings/ClinicHoursSection';
 import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import { useSoloMode } from '@/hooks/useSoloMode';
@@ -26,6 +27,7 @@ const sections = [
   { id: 'team', label: 'Equipe', icon: Users },
   { id: 'rooms', label: 'Salas', icon: Armchair },
   { id: 'insurance', label: 'Convênios', icon: Shield },
+  { id: 'credentialing', label: 'Credenciamentos', icon: BadgeCheck },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
 ];
 
@@ -95,6 +97,7 @@ export default function SettingsPage() {
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
+          {activeSection === 'credentialing' && <MyCredentialingSection />}
           {activeSection === 'procedures' && <ProceduresCrudSection />}
         </div>
       </div>
