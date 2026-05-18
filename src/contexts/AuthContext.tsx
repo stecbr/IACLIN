@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { isDevEmail, SimulatedRole, SIMULATED_ROLE_STORAGE_KEY } from '@/lib/devAccess';
 
-type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient';
+type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
 
 interface ClinicMembership {
@@ -25,6 +25,8 @@ interface AuthContextType {
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
   isPatient: boolean;
+  isOperator: boolean;
+  operatorId: string | null;
   isPersonalMode: boolean;
   clinics: ClinicMembership[];
   clinicsLoaded: boolean;
@@ -51,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [clinics, setClinics] = useState<ClinicMembership[]>([]);
   const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
   const [clinicsLoaded, setClinicsLoaded] = useState(false);
+  const [operatorId, setOperatorId] = useState<string | null>(null);
   const [personalScope, setPersonalScope] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(SCOPE_STORAGE_KEY) === 'personal';
@@ -73,10 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
         supabase.from('clinic_members').select('clinic_id, role, is_owner').eq('user_id', userId),
-      ]).then(async ([{ data: rolesData }, { data: profileData }, { data: memberData }]) => {
+        supabase.from('operator_members').select('operator_id').eq('user_id', userId).maybeSingle(),
+      ]).then(async ([{ data: rolesData }, { data: profileData }, { data: memberData }, { data: operatorMember }]) => {
         if (!mounted) return;
         setRoles((rolesData ?? []).map(r => r.role as AppRole));
         setProfile(profileData);
+        setOperatorId((operatorMember as any)?.operator_id ?? null);
         const memberRows = (memberData ?? []) as Array<{ clinic_id: string; role: string; is_owner: boolean }>;
         if (memberRows.length === 0) {
           setClinics([]);
@@ -158,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isPatient = roles.includes('patient');
+  const isOperator = roles.includes('operator');
   const switchClinic = (clinicId: string) => {
     if (!clinics.some((c) => c.clinic_id === clinicId)) return;
     setCurrentClinicId(clinicId);
@@ -196,6 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isClinicOwner: currentMembership?.is_owner ?? false,
       clinicCategory: currentMembership?.category ?? 'odonto',
       isPatient,
+      isOperator,
+      operatorId,
       isPersonalMode,
       clinics,
       clinicsLoaded,
