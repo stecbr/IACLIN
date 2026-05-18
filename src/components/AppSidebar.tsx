@@ -271,7 +271,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 bg-primary/5 border-b border-sidebar-border/60">
         <div className="flex items-center gap-3">
           {(() => {
             const iaclinSrc = resolved === 'dark' ? logoDark : logoLight;
@@ -292,12 +292,11 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        {/* Área pessoal do profissional sempre no topo */}
         {(filteredPersonalNav.length > 0 || effectiveRole !== 'patient') && (
           <>
-            <SidebarGroup>
+            <SidebarGroup className="rounded-xl bg-primary/5 border border-sidebar-border/50 p-1.5 mt-2">
               {!collapsed && (
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-primary/70 px-3 mb-1 font-semibold">
                   Pessoal
                 </SidebarGroupLabel>
               )}
@@ -310,9 +309,7 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <div className="mx-3 my-2">
-              <div className="h-px bg-sidebar-border/60" />
-            </div>
+            <div className="h-2" />
           </>
         )}
 
