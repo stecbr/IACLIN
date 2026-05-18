@@ -444,28 +444,6 @@ export function AppSidebar() {
                   </SidebarGroup>
                 )}
 
-                {filteredPersonalNav.length > 0 && (
-                  <>
-                    <div className="mx-3 my-2">
-                      <div className="h-px bg-sidebar-border/60" />
-                    </div>
-                    <SidebarGroup>
-                      {!collapsed && (
-                        <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
-                          Área Pessoal
-                        </SidebarGroupLabel>
-                      )}
-                      <SidebarGroupContent>
-                        <SidebarMenu>
-                          {filteredPersonalNav.map((item) =>
-                            renderNavItem(item, (item.url === '/agenda' || item.url === '/minha-agenda') ? todayCount : undefined),
-                          )}
-                          {renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
-                        </SidebarMenu>
-                      </SidebarGroupContent>
-                    </SidebarGroup>
-                  </>
-                )}
               </>
             );
           })()
