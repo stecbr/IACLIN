@@ -19,6 +19,7 @@ import { useSoloMode } from '@/hooks/useSoloMode';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
+import { syncClinicConfig } from '@/hooks/useAiSync';
 
 const sections = [
   { id: 'clinic', label: 'Clínica', icon: Building2 },
@@ -185,6 +186,9 @@ function ClinicSection() {
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload).eq('id', clinic.id);
         if (error) throw error;
+        // Atualiza imediatamente o backend da Secretária IA com o novo horário
+        // (fire-and-forget — não bloqueia o save em caso de falha).
+        syncClinicConfig(clinic.id);
       } else {
         const { error } = await supabase.from('clinics').insert({ ...payload, owner_id: user.id });
         if (error) throw error;
