@@ -67,7 +67,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-type Role = 'admin' | 'dentist' | 'secretary' | 'patient';
+type Role = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'outro'];
 
 // "Pessoal" — items vinculados ao profissional (não dependem de clínica ativa)
