@@ -291,9 +291,9 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-0">
+      <SidebarContent className="px-2">
         {(filteredPersonalNav.length > 0 || effectiveRole !== 'patient') && (
-          <div className="bg-background border-b border-sidebar-border/60 px-2 py-3 -mx-0">
+          <div className="bg-background border-b border-sidebar-border/60 px-2 py-3 -mx-2">
             <SidebarGroup className="p-0">
               {!collapsed && (
                 <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1 font-semibold">
@@ -312,10 +312,9 @@ export function AppSidebar() {
           </div>
         )}
 
-        <div className="px-2">
-          <div className="pt-2 pb-2">
-            <ClinicSwitcher />
-          </div>
+        <div className="pt-2 pb-2">
+          <ClinicSwitcher />
+        </div>
 
         {/* Admin/Dono: "Gestão da Clínica" agora abaixo do switcher */}
         {isAdmin && currentClinicId && (
