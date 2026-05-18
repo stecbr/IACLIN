@@ -45,7 +45,7 @@ export default function OperatorRequests() {
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
 
   const load = async () => {
-    if (!operatorId) return;
+    if (!operatorId) { setReqs([]); setLoading(false); return; }
     setLoading(true);
     const { data } = await supabase
       .from('operator_credentialings')
