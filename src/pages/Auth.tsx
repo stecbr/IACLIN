@@ -762,9 +762,11 @@ export default function Auth() {
                   <>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.22 }}>
                       <Label htmlFor="insurance-provider" className="text-xs text-muted-foreground">Convênio (opcional)</Label>
-                      <Input
-                        id="insurance-provider" value={insuranceProvider} onChange={(e) => setInsuranceProvider(e.target.value)}
-                        placeholder="Ex: Amil, Unimed..." className="h-10"
+                      <InsuranceOperatorSelect
+                        id="insurance-provider"
+                        value={insuranceProvider}
+                        onChange={setInsuranceProvider}
+                        className="h-10"
                       />
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.24 }}>
