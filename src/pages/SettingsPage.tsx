@@ -180,6 +180,20 @@ function ClinicSection() {
 
   const handleSave = async () => {
     if (!user) return;
+    // Valida horários: close deve ser > open. "00:00" como fechamento é um erro comum
+    // (campo vazio interpretado como meia-noite) que deixa o dia sempre fechado.
+    const DAY_LABELS_PT: Record<string, string> = {
+      mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta',
+      fri: 'Sexta', sat: 'Sábado', sun: 'Domingo',
+    };
+    for (const [day, h] of Object.entries(businessHours as any)) {
+      const dh = h as { open: string; close: string; enabled: boolean };
+      if (!dh?.enabled) continue;
+      if (!dh.open || !dh.close || dh.close <= dh.open) {
+        toast.error(`${DAY_LABELS_PT[day] ?? day}: horário de fechamento deve ser maior que o de abertura (recebido ${dh.open || '—'} → ${dh.close || '—'}).`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload = { ...form, business_hours: businessHours as any };
