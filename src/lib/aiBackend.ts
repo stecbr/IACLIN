@@ -286,4 +286,78 @@ export const aiBackend = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
+
+  // ============================================================
+  // Automações de mensagem (lembretes, NPS, retorno, etc.)
+  // ============================================================
+  listAutomations: (clinicId: string) =>
+    request<{ ok?: boolean; data: AiAutomation[] } | AiAutomation[]>(
+      `/api/clinics/${clinicId}/automations`,
+    ),
+
+  createAutomation: (clinicId: string, payload: AiAutomationInput) =>
+    request<{ ok?: boolean; data?: AiAutomation } | AiAutomation>(
+      `/api/clinics/${clinicId}/automations`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
+
+  updateAutomation: (
+    clinicId: string,
+    automationId: string,
+    payload: Partial<AiAutomationInput> & { enabled?: boolean },
+  ) =>
+    request<{ ok?: boolean; data?: AiAutomation } | AiAutomation>(
+      `/api/clinics/${clinicId}/automations/${automationId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      },
+    ),
+
+  deleteAutomation: (clinicId: string, automationId: string) =>
+    request<{ ok: boolean }>(`/api/clinics/${clinicId}/automations/${automationId}`, {
+      method: 'DELETE',
+    }),
+
+  // ============================================================
+  // Conversas — assumir manualmente (handoff humano)
+  // ============================================================
+  takeoverConversation: (clinicId: string, conversationId: string) =>
+    request<{ ok: boolean }>(
+      `/api/clinics/${clinicId}/conversations/${conversationId}/takeover`,
+      { method: 'POST' },
+    ),
 };
+
+// ============================================================
+// Tipos de automação
+// ============================================================
+export type AiAutomationType =
+  | 'reminder'
+  | 'return'
+  | 'confirmation'
+  | 'reschedule'
+  | 'handoff';
+
+export interface AiAutomation {
+  id: string;
+  clinic_id?: string;
+  name: string;
+  type: AiAutomationType;
+  enabled: boolean;
+  trigger: string;
+  template: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AiAutomationInput {
+  name: string;
+  type: AiAutomationType;
+  enabled: boolean;
+  trigger: string;
+  template: string;
+}
