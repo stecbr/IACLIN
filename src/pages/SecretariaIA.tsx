@@ -895,19 +895,32 @@ export default function SecretariaIA() {
               Acompanhe as conversas da Secretária IA no WhatsApp e assuma manualmente quando precisar.
             </p>
           </div>
-          {currentClinicId ? (
+          {!currentClinicId ? (
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Selecione uma clínica para ver as conversas.
+              </CardContent>
+            </Card>
+          ) : !isConnected ? (
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+                <WifiOff className="h-6 w-6 text-muted-foreground/60" />
+                <p className="text-sm font-medium">WhatsApp desconectado</p>
+                <p className="max-w-sm text-xs text-muted-foreground">
+                  Reconecte o WhatsApp na etapa Conexão para voltar a receber e ver as conversas.
+                </p>
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => setStep(1)}>
+                  Ir para Conexão
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
             <LiveMessagesPanel
               clinicId={currentClinicId}
               showMetrics
               allowTakeover
               connected={isConnected}
             />
-          ) : (
-            <Card className="rounded-xl shadow-sm">
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Selecione uma clínica para ver as conversas.
-              </CardContent>
-            </Card>
           )}
         </div>
       )}
