@@ -19,6 +19,9 @@ export interface WhatsAppStatus {
   connected: boolean;
   status: string;
   instance_name: string | null;
+  phone?: string | null;
+  phone_number?: string | null;
+  number?: string | null;
 }
 
 export interface WhatsAppConnectResponse {

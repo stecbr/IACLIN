@@ -17,6 +17,7 @@ import {
   MessageSquare,
   UserCog,
   Zap,
+  Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -549,15 +550,27 @@ export default function SecretariaIA() {
                 </>
               ) : (
               <>
-              <div
-                className={`flex h-14 w-14 items-center justify-center rounded-full ${
-                  isConnected ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'
-                }`}
-              >
-                {isConnected ? <Wifi className="h-7 w-7" /> : <QrCode className="h-7 w-7" />}
+              <div className="relative flex items-center justify-center">
+                {connectMutation.isPending && (
+                  <>
+                    <span className="absolute inline-flex h-28 w-28 animate-ping rounded-full bg-emerald-500/20" />
+                    <span className="absolute inline-flex h-24 w-24 animate-pulse rounded-full bg-emerald-500/10" />
+                  </>
+                )}
+                <div
+                  className={`relative flex h-24 w-24 items-center justify-center rounded-full shadow-lg transition-colors ${
+                    isConnected
+                      ? 'bg-gradient-to-br from-emerald-400 to-emerald-600'
+                      : 'bg-gradient-to-br from-emerald-500 to-emerald-700'
+                  }`}
+                >
+                  <svg viewBox="0 0 32 32" className="h-12 w-12 text-white" fill="currentColor" aria-hidden="true">
+                    <path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.49 0-.143-.73-2.09-.832-2.335-.143-.372-.214-.487-.6-.487-.187 0-.36-.043-.53-.043-.302 0-.53.115-.746.315-.688.645-1.032 1.318-1.06 2.264v.114c-.015.99.472 1.977 1.017 2.78 1.23 1.82 2.506 3.41 4.554 4.34.616.287 2.035.888 2.708.888.717 0 2.18-.515 2.45-1.318.144-.444.144-.717.144-.732 0-.43-1.318-.815-1.704-.93zM16.225 3C8.984 3 3 8.984 3 16.225a13.165 13.165 0 0 0 2.422 7.692L3.043 30.86l7.18-2.292a13.197 13.197 0 0 0 6.002 1.426c7.241 0 13.225-5.984 13.225-13.225S23.466 3 16.225 3zm0 23.948a10.65 10.65 0 0 1-5.45-1.492l-.387-.23-3.793 1.21 1.232-3.687-.247-.39a10.665 10.665 0 0 1-1.634-5.674c0-5.873 4.864-10.737 10.737-10.737S26.42 11.74 26.42 17.613c0 5.872-4.323 10.736-10.196 10.736z"/>
+                  </svg>
+                </div>
               </div>
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-xl font-semibold">
                   {isConnected ? 'WhatsApp conectado' : 'Conectar WhatsApp'}
                 </h3>
                 <p className="max-w-md text-sm text-muted-foreground">
@@ -579,11 +592,17 @@ export default function SecretariaIA() {
                       <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
                         <Check className="h-3 w-3" /> WhatsApp Conectado
                       </Badge>
-                      {statusQuery.data?.instance_name && (
-                        <span className="text-xs text-muted-foreground">
-                          Instância: {statusQuery.data.instance_name}
-                        </span>
-                      )}
+                      {(() => {
+                        const d = statusQuery.data as any;
+                        const phone = d?.phone || d?.phone_number || d?.number || null;
+                        if (!phone) return null;
+                        return (
+                          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Phone className="h-3.5 w-3.5" />
+                            {phone}
+                          </span>
+                        );
+                      })()}
                     </>
                   ) : statusQuery.isError ? (
                     <Badge variant="destructive" className="gap-1">
@@ -708,11 +727,17 @@ export default function SecretariaIA() {
                       <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
                         <Check className="h-3 w-3" /> Conectado
                       </Badge>
-                      {statusQuery.data?.instance_name && (
-                        <span className="text-xs text-muted-foreground">
-                          Instância: {statusQuery.data.instance_name}
-                        </span>
-                      )}
+                      {(() => {
+                        const d = statusQuery.data as any;
+                        const phone = d?.phone || d?.phone_number || d?.number || null;
+                        if (!phone) return null;
+                        return (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            {phone}
+                          </span>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
