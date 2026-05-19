@@ -218,7 +218,15 @@ function MetricCard({
   );
 }
 
-function ConversationRow({ conversation }: { conversation: Conversation }) {
+function ConversationRow({
+  conversation,
+  onTakeover,
+  takingOver,
+}: {
+  conversation: Conversation;
+  onTakeover?: () => void;
+  takingOver?: boolean;
+}) {
   const last = conversation.last_message;
   const isInbound = last?.direction === 'inbound';
   const time = last?.at
@@ -226,6 +234,17 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
     : conversation.last_message_at
     ? format(new Date(conversation.last_message_at), 'dd/MM HH:mm', { locale: ptBR })
     : '';
+
+  const status = conversation.status;
+  const isHuman = status === 'human' || status === 'handoff';
+  const isClosed = status === 'closed' || status === 'ended' || status === 'finished';
+  const statusBadge = isHuman ? (
+    <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">Humano</Badge>
+  ) : isClosed ? (
+    <Badge variant="outline" className="h-4 px-1.5 text-[10px]">Encerrado</Badge>
+  ) : (
+    <Badge variant="outline" className="h-4 border-primary/40 px-1.5 text-[10px] text-primary">IA</Badge>
+  );
 
   return (
     <div className="flex gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40">
@@ -242,11 +261,7 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
             {conversation.patient_name || conversation.patient_phone}
           </span>
           <div className="flex shrink-0 items-center gap-2">
-            {conversation.status === 'human' || conversation.status === 'handoff' ? (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                Humano
-              </Badge>
-            ) : null}
+            {statusBadge}
             <span className="text-xs text-muted-foreground">{time}</span>
           </div>
         </div>
@@ -265,8 +280,26 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
         ) : (
           <p className="text-xs italic text-muted-foreground">Sem mensagens</p>
         )}
-        <div className="text-[11px] text-muted-foreground">
-          {conversation.message_count} mensagens
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] text-muted-foreground">
+            {conversation.message_count} mensagens
+          </div>
+          {onTakeover && !isHuman && !isClosed && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs"
+              onClick={onTakeover}
+              disabled={takingOver}
+            >
+              {takingOver ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <HandHelping className="h-3 w-3" />
+              )}
+              Assumir atendimento
+            </Button>
+          )}
         </div>
       </div>
     </div>
