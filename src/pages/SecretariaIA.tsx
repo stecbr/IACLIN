@@ -424,6 +424,8 @@ export default function SecretariaIA() {
             if (s.connected) {
               stopPolling();
               setQrModalOpen(false);
+              qc.setQueryData(['ai-conversations', currentClinicId], []);
+              qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
               setShouldAutoAdvanceToTraining(true);
               toast.success('WhatsApp conectado!');
             }
@@ -458,7 +460,7 @@ export default function SecretariaIA() {
         instance_name: null,
       });
       qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
-      // limpa as conversas para que a aba 3 fique vazia ao desconectar
+      // limpa as conversas para que o próximo número escaneado comece sem histórico antigo
       qc.setQueryData(['ai-conversations', currentClinicId], []);
       qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
       setQrCode(null);
