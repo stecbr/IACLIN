@@ -56,6 +56,7 @@ import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel'
 import { useAiContext } from '@/hooks/useAiContext';
 import { KnowledgeSourcePanel } from '@/components/secretaria-ia/KnowledgeSourcePanel';
 import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
+import { OverviewMetrics } from '@/components/secretaria-ia/OverviewMetrics';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
