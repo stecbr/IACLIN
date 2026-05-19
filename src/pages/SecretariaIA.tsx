@@ -50,7 +50,7 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
+import { aiBackend, isAiBackendConfigured, AI_BACKEND_URL } from '@/lib/aiBackend';
 import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel';
 import { useAiContext } from '@/hooks/useAiContext';
 import { KnowledgeSourcePanel } from '@/components/secretaria-ia/KnowledgeSourcePanel';
