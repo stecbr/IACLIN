@@ -2,3 +2,6 @@ project_id = "fwyulywxhjyxdreeuqna"
 
 [functions.validate-clinic-code]
 verify_jwt = false
+
+[functions.redeem-patient-chart]
+verify_jwt = false
