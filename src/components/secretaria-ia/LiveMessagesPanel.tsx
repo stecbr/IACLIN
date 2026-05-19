@@ -42,6 +42,7 @@ interface Props {
   clinicId: string;
   showMetrics?: boolean;
   allowTakeover?: boolean;
+  connected?: boolean;
 }
 
 function toConvId(clinicId: string, phone: string): string {
@@ -67,13 +68,14 @@ export function LiveMessagesPanel({
   clinicId,
   showMetrics = true,
   allowTakeover = false,
+  connected = true,
 }: Props) {
   const qc = useQueryClient();
   const { data: conversations = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['ai-conversations', clinicId],
     queryFn: () => fetchConversations(clinicId),
-    enabled: !!clinicId && isAiBackendConfigured(),
-    refetchInterval: 5000,
+    enabled: !!clinicId && isAiBackendConfigured() && connected,
+    refetchInterval: connected ? 5000 : false,
   });
 
   const takeoverMutation = useMutation({
