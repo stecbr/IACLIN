@@ -28,6 +28,8 @@ interface AutomationRecord {
   type: AutomationType;
   active: boolean;
   message: string;
+  trigger_keywords?: string;
+  target_phone?: string;
 }
 
 const AUTOMATION_DEFS: Array<{
@@ -85,6 +87,8 @@ function normalize(payload: unknown): AutomationRecord[] {
     type: a.type,
     active: a.active ?? a.enabled ?? false,
     message: a.message ?? a.template ?? '',
+    trigger_keywords: a.trigger_keywords ?? '',
+    target_phone: a.target_phone ?? '',
   }));
 }
 
@@ -164,20 +168,34 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
   const Icon = def.icon;
   const [active, setActive] = useState<boolean>(record?.active ?? false);
   const [message, setMessage] = useState<string>(record?.message ?? '');
+  const [triggerKeywords, setTriggerKeywords] = useState<string>(record?.trigger_keywords ?? '');
+  const [targetPhone, setTargetPhone] = useState<string>(record?.target_phone ?? '');
+  const isEscalate = def.type === 'escalate';
 
   useEffect(() => {
     setActive(record?.active ?? false);
     setMessage(record?.message ?? '');
-  }, [record?.id, record?.active, record?.message]);
+    setTriggerKeywords(record?.trigger_keywords ?? '');
+    setTargetPhone(record?.target_phone ?? '');
+  }, [record?.id, record?.active, record?.message, record?.trigger_keywords, record?.target_phone]);
 
   const dirty = useMemo(
-    () => (record?.active ?? false) !== active || (record?.message ?? '') !== message,
-    [record, active, message],
+    () =>
+      (record?.active ?? false) !== active ||
+      (record?.message ?? '') !== message ||
+      (isEscalate &&
+        ((record?.trigger_keywords ?? '') !== triggerKeywords ||
+          (record?.target_phone ?? '') !== targetPhone)),
+    [record, active, message, triggerKeywords, targetPhone, isEscalate],
   );
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { type: def.type, active, message } as any;
+      const payload: any = { type: def.type, active, message };
+      if (isEscalate) {
+        payload.trigger_keywords = triggerKeywords;
+        payload.target_phone = targetPhone;
+      }
       if (record?.id) {
         return aiBackend.updateAutomation(clinicId, record.id, payload);
       }
@@ -227,6 +245,39 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
             className="resize-none text-sm"
           />
         </div>
+
+        {isEscalate && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Palavras-chave para escalar</Label>
+              <input
+                type="text"
+                value={triggerKeywords}
+                onChange={(e) => setTriggerKeywords(e.target.value)}
+                placeholder="urgente, dor, emergência"
+                disabled={!active}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Separe por vírgula. Se o paciente usar qualquer uma dessas palavras, a IA encaminha automaticamente para humano.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Telefone de apoio (opcional)</Label>
+              <input
+                type="text"
+                value={targetPhone}
+                onChange={(e) => setTargetPhone(e.target.value)}
+                placeholder="5592..."
+                disabled={!active}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Número que o paciente pode contatar fora do horário.
+              </p>
+            </div>
+          </>
+        )}
 
         <div className="mt-auto flex justify-end">
           <Button
