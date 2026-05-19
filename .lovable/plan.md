@@ -1,53 +1,46 @@
-## Objetivo
+## Mudanças na Dashboard do Médico (`src/pages/dentist/DentistHome.tsx`)
 
-Eliminar todo `<input>` de texto livre para "convênio" e substituir por um **select de catálogo** consistente em toda a plataforma.
+### 1. Novo KPI: Sessões/Atendimentos concluídos hoje
 
-## Regra de catálogo
+Adicionar um card mostrando quantos atendimentos o médico tem no dia (status `completed` em `appointments` com `start_time` dentro de hoje e `dentist_id = user.id`).
 
-| Contexto | Catálogo usado | Tabela |
-|---|---|---|
-| Lado **clínica** (cadastro/edição de paciente pela clínica) | Planos cadastrados pela própria clínica | `insurance_plans` filtrada por `clinic_id` |
-| Lado **paciente** (signup público + portal) | Operadoras ativas globais | `insurance_operators` onde `is_active = true` |
+- Label: "Sessões de Hoje"
+- Valor: contagem de appointments de hoje com status `completed`
+- Descrição: "de X agendados" (X = `todayApts.length`)
 
-Em todos os casos, **inclui opção "Nenhum (Particular)"** que salva `null`.
+Reaproveita a query `todayApts` que já existe — basta derivar via `useMemo`.
 
-## Mudanças por arquivo
+### 2. KPIs financeiros condicionais (só quando é o dono da clínica)
 
-### 1. `src/components/patients/PatientFormDialog.tsx`
-- Remover o fallback de input livre.
-- Se a clínica não tem `insurance_plans` cadastrados, mostrar mensagem "Nenhum convênio cadastrado — adicione em Configurações → Convênios" com link, e desabilitar o campo (ou só mostrar "Particular").
-- Mantém o `Select` já existente (mas garantir item "Particular" salvando `null`).
+Detectar se a clínica atualmente selecionada (`currentClinicId`) pertence ao usuário:
 
-### 2. `src/pages/Auth.tsx` (signup paciente, passo 2)
-- Trocar `<Input>` de `insuranceProvider` por `<Select>` carregando `insurance_operators (id, name)` ativas, ordenadas por nome.
-- Salvar o **nome** da operadora em `insurance_provider` (mantém schema atual, sem migration).
-- Manter `insurance_number` (carteirinha) como input livre logo abaixo.
+- Buscar `clinics.owner_id` para `currentClinicId` e comparar com `user.id`.
+- Criar flag `isClinicOwner`.
 
-### 3. `src/pages/patient/PatientPlan.tsx`
-- Editar dados do titular: trocar input de `editProvider` por select de `insurance_operators`.
-- Form de dependente (`depForm.insurance_provider`): mesmo select.
-- Carregar lista uma vez com `useQuery(['insurance-operators-catalog'])`.
+Quando `isClinicOwner === true`, exibir 2 cards extras:
 
-### 4. Componente reutilizável (novo)
-Criar `src/components/InsuranceOperatorSelect.tsx`:
-- Props: `value`, `onChange`, `placeholder?`, `disabled?`.
-- Faz fetch de `insurance_operators` ativas, cacheado via React Query.
-- Usado por `Auth.tsx` e `PatientPlan.tsx` (titular + dependentes).
+- **Faturado no mês** — soma de `financial_transactions` onde `clinic_id = currentClinicId`, `dentist_id = user.id`, `type = 'income'`, `status = 'paid'` (ou equivalente), no mês corrente.
+- **A receber** — soma de `financial_transactions` mesmo filtro mas `status = 'pending'` (ou `'open'`).
 
-### 5. Filtros (já são select, só auditar)
-- `BookingFilters.tsx` e `ClinicDoctorStep.tsx`: já usam `insurance_plans` via select — sem mudanças, só conferir UX.
-- `Patients.tsx`: mantém filtro "com/sem" conforme escolha do usuário.
-- Marketplace público: sem alteração (escolha do usuário).
+Esses cards ficam ocultos quando o médico está numa clínica em que ele é apenas membro vinculado.
 
-### 6. `BookingConfirmation.tsx`
-Já faz lookup do `insurance_provider` salvo contra `insurance_plans` da clínica — continua funcionando porque o nome salvo no paciente bate com o nome do plano/operadora.
+O grid de KPIs vira responsivo: 4 cards padrão quando não é dono, 6 cards quando é dono (`lg:grid-cols-4` mantém, vira `lg:grid-cols-6` quando dono — ou mantém 4 colunas e os 2 cards extras vão pra segunda linha).
 
-## Não faz parte
-- Sem migration de schema. Continua salvando o **nome** em `insurance_provider` (string).
-- Sem mudar marketplace público nem filtro da lista de pacientes (conforme escolha do usuário).
-- Sem mexer no fluxo de cadastro de planos pela clínica (`InsurancePlansSection`).
+### 3. Remover/ocultar "Aniversariantes da Semana"
 
-## Resumo da experiência final
-- **Clínica cadastrando paciente**: select dos planos da própria clínica.
-- **Paciente se cadastrando ou editando o próprio plano**: select das operadoras globais.
-- **Nenhum input de convênio em texto livre** sobra na aplicação.
+- Remover o card de aniversários do JSX.
+- Remover a query `birthdays` e o estado relacionado.
+- O card de "Sua Agenda de Hoje" passa a ocupar a linha inteira (`lg:col-span-3` ou simplesmente sem grid de 3 colunas).
+
+### Detalhes técnicos
+
+- Query nova `clinic-owner-check`: `select owner_id from clinics where id = currentClinicId`.
+- Query nova `dentist-financial-month` (enabled apenas quando `isClinicOwner`): agrupa por `status`, soma `amount`.
+- Manter formatação em BRL (`Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`) usando `AnimatedNumber` com `formatter`.
+
+### Confirmações necessárias
+
+Pra evitar retrabalho:
+
+1. O KPI de "sessões do dia" deve contar **concluídas hoje** (status `completed`) ou **total agendado hoje** (que já existe como "Atendimentos Hoje")? Minha proposta acima é contar as concluídas, complementando o card existente.
+2. "A receber" deve incluir só transações com vencimento até o fim do mês corrente, ou todas as pendentes vinculadas ao médico independente da data?
