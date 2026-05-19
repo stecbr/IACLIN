@@ -91,8 +91,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function OperatorProtectedRoute({ children }: { children?: React.ReactNode }) {
-  const { user, loading, isOperator } = useAuth();
-  if (loading) {
+  const { user, loading, isOperator, clinicsLoaded } = useAuth();
+  if (loading || (user && !clinicsLoaded)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
