@@ -398,8 +398,8 @@ export default function PatientDetail() {
                       <p className="text-xs text-muted-foreground">{format(new Date(tx.due_date), 'dd/MM/yyyy')}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${tx.type === 'receivable' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {tx.type === 'receivable' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
+                      <p className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
                       </p>
                       <Badge variant="outline" className="text-xs mt-1">
                         {paymentStatusLabels[tx.status] ?? tx.status}

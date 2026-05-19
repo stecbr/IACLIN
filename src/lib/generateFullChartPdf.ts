@@ -25,6 +25,8 @@ function safeDate(d?: string | null, fmt = 'dd/MM/yyyy') {
 
 const requestKindLabels: Record<string, string> = {
   exam: 'Solicitação de exames',
+  lab_exam: 'Exames laboratoriais',
+  imaging_exam: 'Exames de imagem',
   prescription: 'Prescrição',
   certificate: 'Atestado',
   referral: 'Encaminhamento',

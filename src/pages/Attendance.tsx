@@ -391,7 +391,7 @@ export default function Attendance() {
           appointment_id: appointment.id,
           dentist_id: user.id,
           clinic_id: currentClinicId ?? null,
-          type: 'receivable',
+          type: 'income',
           category: 'consultation',
           description: `Atendimento - ${(appointment as any).patients?.full_name}`,
           amount: totalAmount,
