@@ -17,6 +17,7 @@ import {
   MessageSquare,
   UserCog,
   Zap,
+  Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
