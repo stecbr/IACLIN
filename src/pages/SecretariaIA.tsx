@@ -727,11 +727,17 @@ export default function SecretariaIA() {
                       <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
                         <Check className="h-3 w-3" /> Conectado
                       </Badge>
-                      {statusQuery.data?.instance_name && (
-                        <span className="text-xs text-muted-foreground">
-                          Instância: {statusQuery.data.instance_name}
-                        </span>
-                      )}
+                      {(() => {
+                        const d = statusQuery.data as any;
+                        const phone = d?.phone || d?.phone_number || d?.number || null;
+                        if (!phone) return null;
+                        return (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            {phone}
+                          </span>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
