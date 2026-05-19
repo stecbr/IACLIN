@@ -102,6 +102,7 @@ type PromptSectionKey =
   | 'objetivo'
   | 'regras'
   | 'restricoes'
+  | 'endereco'
   | 'exemplos';
 
 const PROMPT_SECTIONS: {
@@ -149,6 +150,15 @@ const PROMPT_SECTIONS: {
     rows: 4,
   },
   {
+    key: 'endereco',
+    label: 'Endereço da clínica',
+    heading: 'ENDEREÇO DA CLÍNICA',
+    description: 'A IA informa este endereço quando o paciente pedir a localização.',
+    placeholder:
+      'Ex: Av. Paulista, 1000 — Bela Vista, São Paulo/SP. Próximo ao metrô Trianon-MASP.',
+    rows: 3,
+  },
+  {
     key: 'exemplos',
     label: 'Exemplos',
     heading: 'EXEMPLOS DE RESPOSTA',
@@ -166,6 +176,7 @@ const EMPTY_SECTIONS: SectionsState = {
   objetivo: '',
   regras: '',
   restricoes: '',
+  endereco: '',
   exemplos: '',
 };
 
