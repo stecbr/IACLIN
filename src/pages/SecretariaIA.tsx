@@ -465,7 +465,7 @@ export default function SecretariaIA() {
   const isConnected = !!statusQuery.data?.connected;
 
   // ---------- Stepper ----------
-  type Step = 1 | 2;
+  type Step = 1 | 2 | 3;
   const [step, setStep] = useState<Step>(1);
 
   // Avança automaticamente quando WhatsApp conectar
@@ -483,6 +483,7 @@ export default function SecretariaIA() {
   const STEPS: { id: Step; label: string; icon: React.ReactNode; enabled: boolean }[] = [
     { id: 1, label: 'Conexão', icon: <QrCode className="h-4 w-4" />, enabled: true },
     { id: 2, label: 'Painel', icon: <LayoutDashboard className="h-4 w-4" />, enabled: canGoStep2 },
+    { id: 3, label: 'Conversas', icon: <MessageSquare className="h-4 w-4" />, enabled: true },
   ];
 
   // Aba ativa do hub (step 2). Mantida fora do unmount para não perder edição.
@@ -879,6 +880,27 @@ export default function SecretariaIA() {
               <AutomationsPanel clinicId={currentClinicId ?? null} />
             </TabsContent>
           </Tabs>
+        </div>
+      )}
+
+      {/* ETAPA 3 — Conversas ao vivo */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-semibold tracking-tight">Conversas</h1>
+            <p className="text-sm text-muted-foreground">
+              Acompanhe as conversas da Secretária IA no WhatsApp e assuma manualmente quando precisar.
+            </p>
+          </div>
+          {currentClinicId ? (
+            <LiveMessagesPanel clinicId={currentClinicId} showMetrics allowTakeover />
+          ) : (
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                Selecione uma clínica para ver as conversas.
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
