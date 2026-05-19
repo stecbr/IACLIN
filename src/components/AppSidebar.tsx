@@ -92,6 +92,7 @@ const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categor
   { title: 'Financeiro', url: '/financial', icon: DollarSign, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
   { title: 'Orçamentos', url: '/budgets', icon: ClipboardList, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
+  { title: 'Atendimentos IA', url: '/atendimentos-ia', icon: Bot, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
 ];
 
 export function AppSidebar() {
@@ -341,7 +342,7 @@ export function AppSidebar() {
             const attendance = [...filteredOperationNav, ...attendanceExtra];
             const patientItems = [byUrl('/patients'), byUrl('/ferramentas'), byUrl('/odontogram')].filter(Boolean) as typeof finalClinicNav;
             const financialItems = [byUrl('/financial'), byUrl('/budgets')].filter(Boolean) as typeof finalClinicNav;
-            const automationItems = [byUrl('/secretaria-ia')].filter(Boolean) as typeof finalClinicNav;
+            const automationItems = [byUrl('/secretaria-ia'), byUrl('/atendimentos-ia')].filter(Boolean) as typeof finalClinicNav;
 
             return (
               <>
