@@ -339,6 +339,13 @@ export const aiBackend = {
       `/api/clinics/${clinicId}/conversations/${conversationId}/takeover`,
       { method: 'DELETE' },
     ),
+
+  /** Apaga todo o histórico de conversas da clínica */
+  clearConversations: (clinicId: string) =>
+    request<{ ok: boolean; removed: number }>(
+      `/api/clinics/${clinicId}/conversations`,
+      { method: 'DELETE' },
+    ),
 };
 
 // ============================================================
