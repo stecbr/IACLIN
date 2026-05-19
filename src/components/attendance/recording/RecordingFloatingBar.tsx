@@ -34,8 +34,11 @@ export function RecordingFloatingBar({ state, onPause, onResume, onFinish }: Pro
     ctx.clearRect(0, 0, w, h);
     const barW = w / barsRef.current.length;
     const grad = ctx.createLinearGradient(0, 0, w, 0);
-    grad.addColorStop(0, 'hsl(var(--primary))');
-    grad.addColorStop(1, 'hsl(var(--accent-foreground, var(--primary)))');
+    const styles = getComputedStyle(document.documentElement);
+    const primary = styles.getPropertyValue('--primary').trim() || '220 80% 50%';
+    const accent = styles.getPropertyValue('--accent-foreground').trim() || primary;
+    grad.addColorStop(0, `hsl(${primary})`);
+    grad.addColorStop(1, `hsl(${accent})`);
     ctx.fillStyle = grad;
     barsRef.current.forEach((v, i) => {
       const bh = Math.max(2, v * h * 0.95);
