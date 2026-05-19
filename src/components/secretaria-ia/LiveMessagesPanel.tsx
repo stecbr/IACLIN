@@ -11,7 +11,6 @@ import {
   Loader2,
   Undo2,
   RefreshCw,
-  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -97,16 +96,6 @@ export function LiveMessagesPanel({
       qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
     },
     onError: (e: any) => toast.error(e?.message ?? 'Não foi possível devolver para a IA'),
-  });
-
-  const clearMutation = useMutation({
-    mutationFn: () => aiBackend.clearConversations(clinicId),
-    onSuccess: (data) => {
-      qc.setQueryData(['ai-conversations', clinicId], []);
-      qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
-      toast.success(`Histórico apagado (${data?.removed ?? 0} conversas)`);
-    },
-    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível limpar o histórico'),
   });
 
   const metrics = useMemo(() => {
@@ -196,28 +185,6 @@ export function LiveMessagesPanel({
               >
                 <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
                 Atualizar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'Apagar todo o histórico de conversas desta clínica? Esta ação não pode ser desfeita.',
-                    )
-                  ) {
-                    clearMutation.mutate();
-                  }
-                }}
-                disabled={clearMutation.isPending || conversations.length === 0}
-              >
-                {clearMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3 w-3" />
-                )}
-                Limpar histórico
               </Button>
             </div>
           </div>
