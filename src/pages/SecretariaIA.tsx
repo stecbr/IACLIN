@@ -734,9 +734,9 @@ export default function SecretariaIA() {
           <CardHeader>
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
-                <CardTitle>System prompt</CardTitle>
+                <CardTitle>Personalidade da IA</CardTitle>
                 <CardDescription>
-                  Escreva livremente as instruções que definem o comportamento da IA.
+                  Defina como a IA se comunica, o que ela deve fazer e o que ela nunca pode fazer.
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2 text-xs">
@@ -788,35 +788,57 @@ export default function SecretariaIA() {
                 <p className="text-xs text-muted-foreground/80">
                   Preencha as etapas abaixo. Os exemplos somem assim que você começar a digitar — campos vazios são ignorados ao salvar.
                 </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {PROMPT_SECTIONS.map((s) => (
-                    <div
-                      key={s.key}
-                      className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 transition-colors hover:border-primary/30"
-                    >
-                      <div className="flex items-baseline justify-between gap-2">
-                        <Label htmlFor={`section-${s.key}`} className="text-sm font-medium">
-                          {s.label}
-                        </Label>
-                        {sections[s.key].trim() && (
-                          <span className="text-[10px] uppercase tracking-wide text-success">
-                            preenchido
-                          </span>
-                        )}
+                {(() => {
+                  const sectionByKey = Object.fromEntries(
+                    PROMPT_SECTIONS.map((s) => [s.key, s]),
+                  ) as Record<PromptSectionKey, (typeof PROMPT_SECTIONS)[number]>;
+                  const renderSection = (key: PromptSectionKey) => {
+                    const s = sectionByKey[key];
+                    return (
+                      <div
+                        key={s.key}
+                        className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 transition-colors hover:border-primary/30"
+                      >
+                        <div className="flex items-baseline justify-between gap-2">
+                          <Label htmlFor={`section-${s.key}`} className="text-sm font-medium">
+                            {s.label}
+                          </Label>
+                          {sections[s.key].trim() && (
+                            <span className="text-[10px] uppercase tracking-wide text-success">
+                              preenchido
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{s.description}</p>
+                        <Textarea
+                          id={`section-${s.key}`}
+                          value={sections[s.key]}
+                          onChange={(e) => updateSection(s.key, e.target.value)}
+                          disabled={saveConfig.isPending}
+                          placeholder={s.placeholder}
+                          rows={s.rows}
+                          className="text-sm leading-relaxed resize-y rounded-md bg-background"
+                        />
                       </div>
-                      <p className="text-xs text-muted-foreground">{s.description}</p>
-                      <Textarea
-                        id={`section-${s.key}`}
-                        value={sections[s.key]}
-                        onChange={(e) => updateSection(s.key, e.target.value)}
-                        disabled={saveConfig.isPending}
-                        placeholder={s.placeholder}
-                        rows={s.rows}
-                        className="text-sm leading-relaxed resize-y rounded-md bg-background"
-                      />
+                    );
+                  };
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-4">
+                          {renderSection('saudacao')}
+                          {renderSection('regras')}
+                        </div>
+                        <div className="space-y-4">
+                          {renderSection('objetivo')}
+                          {renderSection('restricoes')}
+                        </div>
+                      </div>
+                      {renderSection('endereco')}
+                      {renderSection('exemplos')}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-xs text-muted-foreground">
