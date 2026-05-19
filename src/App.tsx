@@ -26,6 +26,7 @@ import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
 import SecretariaIA from "./pages/SecretariaIA";
 import SecretariaIAPainel from "./pages/SecretariaIAPainel";
+import AtendimentosIA from "./pages/AtendimentosIA";
 import Availability from "./pages/Availability";
 import WaitingRoom from "./pages/WaitingRoom";
 import PatientsOfDay from "./pages/PatientsOfDay";
@@ -187,6 +188,7 @@ const AppRoutes = () => (
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
     <Route path="/secretaria-ia" element={<ProtectedRoute><SecretariaIA /></ProtectedRoute>} />
     <Route path="/secretaria-ia/painel" element={<ProtectedRoute><SecretariaIAPainel /></ProtectedRoute>} />
+    <Route path="/atendimentos-ia" element={<ProtectedRoute><AtendimentosIA /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
