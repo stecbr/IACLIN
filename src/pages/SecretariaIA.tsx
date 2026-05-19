@@ -57,6 +57,8 @@ import { useAiContext } from '@/hooks/useAiContext';
 import { KnowledgeSourcePanel } from '@/components/secretaria-ia/KnowledgeSourcePanel';
 import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
 import { OverviewMetrics } from '@/components/secretaria-ia/OverviewMetrics';
+import { KnowledgeShortcuts } from '@/components/secretaria-ia/KnowledgeShortcuts';
+import { AutomationsPanel } from '@/components/secretaria-ia/AutomationsPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
@@ -102,6 +104,7 @@ type PromptSectionKey =
   | 'objetivo'
   | 'regras'
   | 'restricoes'
+  | 'endereco'
   | 'exemplos';
 
 const PROMPT_SECTIONS: {
@@ -149,6 +152,15 @@ const PROMPT_SECTIONS: {
     rows: 4,
   },
   {
+    key: 'endereco',
+    label: 'Endereço da clínica',
+    heading: 'ENDEREÇO DA CLÍNICA',
+    description: 'A IA informa este endereço quando o paciente pedir a localização.',
+    placeholder:
+      'Ex: Av. Paulista, 1000 — Bela Vista, São Paulo/SP. Próximo ao metrô Trianon-MASP.',
+    rows: 3,
+  },
+  {
     key: 'exemplos',
     label: 'Exemplos',
     heading: 'EXEMPLOS DE RESPOSTA',
@@ -166,6 +178,7 @@ const EMPTY_SECTIONS: SectionsState = {
   objetivo: '',
   regras: '',
   restricoes: '',
+  endereco: '',
   exemplos: '',
 };
 
@@ -188,6 +201,7 @@ function parsePromptToSections(raw: string): SectionsState {
     objetivo: 'OBJETIVO',
     regras: 'REGRAS',
     restricoes: 'RESTRIÇÕES',
+    endereco: 'ENDEREÇO DA CLÍNICA',
     exemplos: 'EXEMPLOS DE RESPOSTA',
   };
 
@@ -693,17 +707,10 @@ export default function SecretariaIA() {
                 <Bot className="h-3.5 w-3.5" /> Comportamento
               </TabsTrigger>
               <TabsTrigger value="conhecimento" className="gap-1.5">
-                <BookOpen className="h-3.5 w-3.5" /> Conhecimento
+                <BookOpen className="h-3.5 w-3.5" /> O que a IA já sabe
               </TabsTrigger>
-              <TabsTrigger value="automacoes" disabled className="gap-1.5">
+              <TabsTrigger value="automacoes" className="gap-1.5">
                 <Zap className="h-3.5 w-3.5" /> Automações
-                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">em breve</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="handoff" className="gap-1.5">
-                <UserCog className="h-3.5 w-3.5" /> Atendimento humano
-              </TabsTrigger>
-              <TabsTrigger value="conversas" className="gap-1.5">
-                <MessageSquare className="h-3.5 w-3.5" /> Conversas
               </TabsTrigger>
             </TabsList>
 
@@ -722,9 +729,9 @@ export default function SecretariaIA() {
           <CardHeader>
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
-                <CardTitle>System prompt</CardTitle>
+                <CardTitle>Personalidade da IA</CardTitle>
                 <CardDescription>
-                  Escreva livremente as instruções que definem o comportamento da IA.
+                  Defina como a IA se comunica, o que ela deve fazer e o que ela nunca pode fazer.
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2 text-xs">
@@ -776,35 +783,57 @@ export default function SecretariaIA() {
                 <p className="text-xs text-muted-foreground/80">
                   Preencha as etapas abaixo. Os exemplos somem assim que você começar a digitar — campos vazios são ignorados ao salvar.
                 </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {PROMPT_SECTIONS.map((s) => (
-                    <div
-                      key={s.key}
-                      className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 transition-colors hover:border-primary/30"
-                    >
-                      <div className="flex items-baseline justify-between gap-2">
-                        <Label htmlFor={`section-${s.key}`} className="text-sm font-medium">
-                          {s.label}
-                        </Label>
-                        {sections[s.key].trim() && (
-                          <span className="text-[10px] uppercase tracking-wide text-success">
-                            preenchido
-                          </span>
-                        )}
+                {(() => {
+                  const sectionByKey = Object.fromEntries(
+                    PROMPT_SECTIONS.map((s) => [s.key, s]),
+                  ) as Record<PromptSectionKey, (typeof PROMPT_SECTIONS)[number]>;
+                  const renderSection = (key: PromptSectionKey) => {
+                    const s = sectionByKey[key];
+                    return (
+                      <div
+                        key={s.key}
+                        className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 transition-colors hover:border-primary/30"
+                      >
+                        <div className="flex items-baseline justify-between gap-2">
+                          <Label htmlFor={`section-${s.key}`} className="text-sm font-medium">
+                            {s.label}
+                          </Label>
+                          {sections[s.key].trim() && (
+                            <span className="text-[10px] uppercase tracking-wide text-success">
+                              preenchido
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{s.description}</p>
+                        <Textarea
+                          id={`section-${s.key}`}
+                          value={sections[s.key]}
+                          onChange={(e) => updateSection(s.key, e.target.value)}
+                          disabled={saveConfig.isPending}
+                          placeholder={s.placeholder}
+                          rows={s.rows}
+                          className="text-sm leading-relaxed resize-y rounded-md bg-background"
+                        />
                       </div>
-                      <p className="text-xs text-muted-foreground">{s.description}</p>
-                      <Textarea
-                        id={`section-${s.key}`}
-                        value={sections[s.key]}
-                        onChange={(e) => updateSection(s.key, e.target.value)}
-                        disabled={saveConfig.isPending}
-                        placeholder={s.placeholder}
-                        rows={s.rows}
-                        className="text-sm leading-relaxed resize-y rounded-md bg-background"
-                      />
+                    );
+                  };
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-4">
+                          {renderSection('saudacao')}
+                          {renderSection('regras')}
+                        </div>
+                        <div className="space-y-4">
+                          {renderSection('objetivo')}
+                          {renderSection('restricoes')}
+                        </div>
+                      </div>
+                      {renderSection('endereco')}
+                      {renderSection('exemplos')}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-xs text-muted-foreground">
@@ -835,7 +864,7 @@ export default function SecretariaIA() {
             {/* Conhecimento */}
             <TabsContent value="conhecimento" className="space-y-4">
               {currentClinicId && !isProfessional ? (
-                <KnowledgeSourcePanel clinicId={currentClinicId} />
+                <KnowledgeShortcuts clinicId={currentClinicId} />
               ) : (
                 <Card className="rounded-xl shadow-sm">
                   <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -845,33 +874,9 @@ export default function SecretariaIA() {
               )}
             </TabsContent>
 
-            {/* Automações (em breve) */}
+            {/* Automações */}
             <TabsContent value="automacoes" className="space-y-4">
-              <Card className="rounded-xl shadow-sm">
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                  Em breve: lembretes 24h/2h, mensagens fora do horário, NPS pós-consulta,
-                  retorno preventivo e aniversário.
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Atendimento humano */}
-            <TabsContent value="handoff" className="space-y-4">
-              <HandoffPanel />
-            </TabsContent>
-
-            {/* Conversas */}
-            <TabsContent value="conversas" className="space-y-4">
-              {currentClinicId && !isProfessional ? (
-                <LiveMessagesPanel clinicId={currentClinicId} />
-              ) : (
-                <Card className="rounded-xl shadow-sm">
-                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                    O painel ao vivo de mensagens será habilitado quando a conexão WhatsApp do
-                    profissional estiver disponível.
-                  </CardContent>
-                </Card>
-              )}
+              <AutomationsPanel clinicId={currentClinicId ?? null} />
             </TabsContent>
           </Tabs>
         </div>

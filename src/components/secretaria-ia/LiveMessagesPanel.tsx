@@ -1,14 +1,25 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Bot, User, MessageSquare, Activity, Clock, Users } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Bot,
+  User,
+  MessageSquare,
+  Activity,
+  Clock,
+  Users,
+  HandHelping,
+  Loader2,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AI_BACKEND_URL, isAiBackendConfigured } from '@/lib/aiBackend';
+import { Button } from '@/components/ui/button';
+import { AI_BACKEND_URL, aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 
 interface Conversation {
   id: string;
@@ -27,6 +38,8 @@ interface Conversation {
 
 interface Props {
   clinicId: string;
+  showMetrics?: boolean;
+  allowTakeover?: boolean;
 }
 
 async function fetchConversations(clinicId: string): Promise<Conversation[]> {
@@ -39,12 +52,27 @@ async function fetchConversations(clinicId: string): Promise<Conversation[]> {
   return (json?.data ?? []) as Conversation[];
 }
 
-export function LiveMessagesPanel({ clinicId }: Props) {
+export function LiveMessagesPanel({
+  clinicId,
+  showMetrics = true,
+  allowTakeover = false,
+}: Props) {
+  const qc = useQueryClient();
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ['ai-conversations', clinicId],
     queryFn: () => fetchConversations(clinicId),
     enabled: !!clinicId && isAiBackendConfigured(),
     refetchInterval: 5000,
+  });
+
+  const takeoverMutation = useMutation({
+    mutationFn: (conversationId: string) =>
+      aiBackend.takeoverConversation(clinicId, conversationId),
+    onSuccess: () => {
+      toast.success('Atendimento assumido — a IA ficou em modo silencioso para esta conversa');
+      qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível assumir o atendimento'),
   });
 
   const metrics = useMemo(() => {
@@ -80,6 +108,7 @@ export function LiveMessagesPanel({ clinicId }: Props) {
 
   return (
     <div className="space-y-6">
+      {showMetrics && (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={<MessageSquare className="h-4 w-4" />}
@@ -110,6 +139,7 @@ export function LiveMessagesPanel({ clinicId }: Props) {
           loading={isLoading}
         />
       </div>
+      )}
 
       <Card className="rounded-xl shadow-sm">
         <CardHeader>
@@ -139,7 +169,14 @@ export function LiveMessagesPanel({ clinicId }: Props) {
             <ScrollArea className="h-[420px] pr-3">
               <div className="space-y-3">
                 {sorted.map((c) => (
-                  <ConversationRow key={c.id} conversation={c} />
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    onTakeover={
+                      allowTakeover ? () => takeoverMutation.mutate(c.id) : undefined
+                    }
+                    takingOver={takeoverMutation.isPending && takeoverMutation.variables === c.id}
+                  />
                 ))}
               </div>
             </ScrollArea>
@@ -181,7 +218,15 @@ function MetricCard({
   );
 }
 
-function ConversationRow({ conversation }: { conversation: Conversation }) {
+function ConversationRow({
+  conversation,
+  onTakeover,
+  takingOver,
+}: {
+  conversation: Conversation;
+  onTakeover?: () => void;
+  takingOver?: boolean;
+}) {
   const last = conversation.last_message;
   const isInbound = last?.direction === 'inbound';
   const time = last?.at
@@ -189,6 +234,17 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
     : conversation.last_message_at
     ? format(new Date(conversation.last_message_at), 'dd/MM HH:mm', { locale: ptBR })
     : '';
+
+  const status = conversation.status;
+  const isHuman = status === 'human' || status === 'handoff';
+  const isClosed = status === 'closed' || status === 'ended' || status === 'finished';
+  const statusBadge = isHuman ? (
+    <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">Humano</Badge>
+  ) : isClosed ? (
+    <Badge variant="outline" className="h-4 px-1.5 text-[10px]">Encerrado</Badge>
+  ) : (
+    <Badge variant="outline" className="h-4 border-primary/40 px-1.5 text-[10px] text-primary">IA</Badge>
+  );
 
   return (
     <div className="flex gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40">
@@ -205,11 +261,7 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
             {conversation.patient_name || conversation.patient_phone}
           </span>
           <div className="flex shrink-0 items-center gap-2">
-            {conversation.status === 'human' || conversation.status === 'handoff' ? (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                Humano
-              </Badge>
-            ) : null}
+            {statusBadge}
             <span className="text-xs text-muted-foreground">{time}</span>
           </div>
         </div>
@@ -228,8 +280,26 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
         ) : (
           <p className="text-xs italic text-muted-foreground">Sem mensagens</p>
         )}
-        <div className="text-[11px] text-muted-foreground">
-          {conversation.message_count} mensagens
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] text-muted-foreground">
+            {conversation.message_count} mensagens
+          </div>
+          {onTakeover && !isHuman && !isClosed && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs"
+              onClick={onTakeover}
+              disabled={takingOver}
+            >
+              {takingOver ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <HandHelping className="h-3 w-3" />
+              )}
+              Assumir atendimento
+            </Button>
+          )}
         </div>
       </div>
     </div>
