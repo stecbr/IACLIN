@@ -399,7 +399,14 @@ export default function SecretariaIA() {
   useEffect(() => () => stopPolling(), []);
 
   const connectMutation = useMutation({
-    mutationFn: () => aiBackend.connectWhatsApp(currentClinicId!),
+    mutationFn: async () => {
+      // Antes de abrir um novo QR, zera qualquer histórico antigo da clínica.
+      // Assim, ao escanear outro número, só entram conversas geradas depois da nova conexão.
+      await aiBackend.clearConversations(currentClinicId!);
+      qc.setQueryData(['ai-conversations', currentClinicId], []);
+      qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
+      return aiBackend.connectWhatsApp(currentClinicId!);
+    },
     onSuccess: (data) => {
       // Caso 1: já está conectado — não abre modal
       if (data.connected) {
