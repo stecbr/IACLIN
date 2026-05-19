@@ -29,7 +29,13 @@ interface Props {
   onNavigate: (tab: string) => void;
 }
 
-const QUICK_LINKS = [
+const QUICK_LINKS: Array<{
+  tab: string;
+  label: string;
+  description: string;
+  icon: typeof Bot;
+  soon?: boolean;
+}> = [
   {
     tab: 'comportamento',
     label: 'Comportamento',
@@ -49,7 +55,7 @@ const QUICK_LINKS = [
     description: 'Encaminhamento para a equipe',
     icon: UserCog,
   },
-] as const;
+];
 
 export function OverviewMetrics({ clinicId, backendConfigured, onNavigate }: Props) {
   const enabled = !!clinicId && backendConfigured && isAiBackendConfigured();
