@@ -441,7 +441,16 @@ export default function SecretariaIA() {
   });
 
   const disconnectMutation = useMutation({
-    mutationFn: () => aiBackend.disconnectWhatsApp(currentClinicId!),
+    mutationFn: async () => {
+      const res = await aiBackend.disconnectWhatsApp(currentClinicId!);
+      // Limpa o histórico de conversas no backend logo após desconectar
+      try {
+        await aiBackend.clearConversations(currentClinicId!);
+      } catch (err) {
+        console.warn('[ai] falha ao limpar conversas após desconectar:', err);
+      }
+      return res;
+    },
     onSuccess: () => {
       qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
         connected: false,
