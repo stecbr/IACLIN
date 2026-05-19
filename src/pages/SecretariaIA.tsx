@@ -708,59 +708,11 @@ export default function SecretariaIA() {
 
             {/* Visão geral */}
             <TabsContent value="visao" className="space-y-4">
-              <Card className="rounded-xl shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Status do WhatsApp</CardTitle>
-                  <CardDescription>
-                    Conexão da instância usada pela Secretária IA.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {isProfessional ? (
-                    <p className="text-sm text-muted-foreground">
-                      Conexão WhatsApp do profissional será liberada em breve.
-                    </p>
-                  ) : !backendConfigured ? (
-                    <p className="text-sm text-muted-foreground">Backend não configurado.</p>
-                  ) : isConnected ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="gap-1 bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
-                        <Check className="h-3 w-3" /> Conectado
-                      </Badge>
-                      {(() => {
-                        const d = statusQuery.data as any;
-                        const phone = d?.phone || d?.phone_number || d?.number || null;
-                        if (!phone) return null;
-                        return (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {phone}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="gap-1 text-muted-foreground">
-                        <WifiOff className="h-3 w-3" /> Desconectado
-                      </Badge>
-                      <Button size="sm" variant="outline" onClick={() => setStep(1)}>
-                        Conectar agora
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-xl shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">Métricas</CardTitle>
-                  <CardDescription>Em breve: conversas, taxa de resolução e tempo médio de resposta.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <MessageSquare className="h-3.5 w-3.5" /> Indicadores serão exibidos aqui.
-                </CardContent>
-              </Card>
+              <OverviewMetrics
+                clinicId={currentClinicId}
+                backendConfigured={backendConfigured}
+                onNavigate={setActiveTab}
+              />
             </TabsContent>
 
             {/* Comportamento */}
