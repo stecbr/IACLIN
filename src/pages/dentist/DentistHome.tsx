@@ -9,12 +9,13 @@ import { Calendar, Users, ClipboardList, Clock, ArrowRight, Stethoscope, Eye, Fo
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { SoloModeBanner } from '@/components/dashboard/SoloModeBanner';
 import { specialtyLabel } from '@/components/SpecialtySelect';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -26,6 +27,8 @@ function getGreeting() {
 export default function DentistHome() {
   const { user, profile, currentClinicId } = useAuth();
   const [summaryAptId, setSummaryAptId] = useState<string | null>(null);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const navigate = useNavigate();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
 
   // Doctor's specialty family — drives terminology in this dashboard
@@ -209,7 +212,11 @@ export default function DentistHome() {
         {kpiCards.map((kpi, i) => (
           <Card
             key={kpi.title}
-            className="group relative overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-border/50 hover:-translate-y-0.5"
+            onClick={kpi.title === 'Sessões de Hoje' ? () => setSessionsOpen(true) : undefined}
+            role={kpi.title === 'Sessões de Hoje' ? 'button' : undefined}
+            tabIndex={kpi.title === 'Sessões de Hoje' ? 0 : undefined}
+            onKeyDown={kpi.title === 'Sessões de Hoje' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSessionsOpen(true); } } : undefined}
+            className={`group relative overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-border/50 hover:-translate-y-0.5 ${kpi.title === 'Sessões de Hoje' ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40' : ''}`}
             style={{ animationDelay: `${i * 80}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -331,6 +338,43 @@ export default function DentistHome() {
         open={!!summaryAptId}
         onOpenChange={(o) => { if (!o) setSummaryAptId(null); }}
       />
+
+      <Dialog open={sessionsOpen} onOpenChange={setSessionsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Sessões de hoje</DialogTitle>
+          </DialogHeader>
+          {todayApts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje 🎉</p>
+          ) : (
+            <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+              {(todayApts as any[]).map((apt) => (
+                <button
+                  key={apt.id}
+                  onClick={() => { setSessionsOpen(false); navigate(`/patients/${apt.patient_id}`); }}
+                  className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 hover:bg-muted/40 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-[64px]">
+                    <Clock className="h-3 w-3" />{format(parseISO(apt.start_time), 'HH:mm')}
+                  </div>
+                  <div
+                    className="w-1 h-8 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: apt.procedures?.color ?? 'hsl(var(--primary))' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
+                  </div>
+                  <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
+                    {statusLabels[apt.status] ?? apt.status}
+                  </Badge>
+                  <FolderHeart className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
