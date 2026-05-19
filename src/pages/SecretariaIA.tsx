@@ -199,6 +199,7 @@ function parsePromptToSections(raw: string): SectionsState {
     objetivo: 'OBJETIVO',
     regras: 'REGRAS',
     restricoes: 'RESTRIÇÕES',
+    endereco: 'ENDEREÇO DA CLÍNICA',
     exemplos: 'EXEMPLOS DE RESPOSTA',
   };
 
