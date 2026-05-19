@@ -5,9 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, ClipboardList, Clock, Cake, ArrowRight, Stethoscope, Eye, FolderHeart } from 'lucide-react';
+import { Calendar, Users, ClipboardList, Clock, ArrowRight, Stethoscope, Eye, FolderHeart, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
-import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
@@ -48,6 +48,17 @@ export default function DentistHome() {
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
   const monthStart = startOfMonth(now).toISOString();
   const monthEnd = endOfMonth(now).toISOString();
+
+  // Is the logged-in dentist the owner of the currently selected clinic?
+  const { data: isClinicOwner = false } = useQuery({
+    queryKey: ['dentist-is-clinic-owner', user?.id, currentClinicId],
+    enabled: !!user?.id && !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase.from('clinics')
+        .select('owner_id').eq('id', currentClinicId!).maybeSingle();
+      return data?.owner_id === user!.id;
+    },
+  });
 
   // Today's appointments (mine)
   const { data: todayApts = [] } = useQuery({
@@ -91,6 +102,39 @@ export default function DentistHome() {
     return { total, noShowRate, completed, uniquePatients };
   }, [monthApts]);
 
+  const completedToday = useMemo(
+    () => (todayApts as any[]).filter(a => a.status === 'completed').length,
+    [todayApts]
+  );
+
+  // Financial KPIs — only when the dentist owns the current clinic
+  const { data: financialMonth } = useQuery({
+    queryKey: ['dentist-financial-month', user?.id, currentClinicId, monthStart, monthEnd],
+    enabled: !!user?.id && !!currentClinicId && isClinicOwner,
+    queryFn: async () => {
+      const { data } = await supabase.from('financial_transactions')
+        .select('amount, status, type, due_date, paid_date')
+        .eq('clinic_id', currentClinicId!)
+        .eq('dentist_id', user!.id)
+        .eq('type', 'income');
+      const rows = (data ?? []) as any[];
+      const monthStartDate = startOfMonth(now);
+      const monthEndDate = endOfMonth(now);
+      const inMonth = (d?: string | null) => {
+        if (!d) return false;
+        const dt = parseISO(d);
+        return dt >= monthStartDate && dt <= monthEndDate;
+      };
+      const received = rows
+        .filter(r => r.status === 'paid' && inMonth(r.paid_date ?? r.due_date))
+        .reduce((s, r) => s + Number(r.amount ?? 0), 0);
+      const toReceive = rows
+        .filter(r => r.status === 'pending')
+        .reduce((s, r) => s + Number(r.amount ?? 0), 0);
+      return { received, toReceive };
+    },
+  });
+
   // Open treatment plans (mine)
   const { data: openPlans = 0 } = useQuery({
     queryKey: ['dentist-open-plans', user?.id],
@@ -122,37 +166,6 @@ export default function DentistHome() {
     enabled: !!user,
   });
 
-  // Birthdays this week among my patients
-  const { data: birthdays = [] } = useQuery({
-    queryKey: ['dentist-birthdays', user?.id, currentClinicId],
-    queryFn: async () => {
-      if (!user) return [];
-      // Get my patient IDs (from appointments + clinical_records)
-      const [aptRes, recRes] = await Promise.all([
-        supabase.from('appointments').select('patient_id').eq('dentist_id', user.id),
-        supabase.from('clinical_records').select('patient_id').eq('dentist_id', user.id),
-      ]);
-      const ids = Array.from(new Set([
-        ...(aptRes.data ?? []).map((a: any) => a.patient_id),
-        ...(recRes.data ?? []).map((r: any) => r.patient_id),
-      ]));
-      if (ids.length === 0) return [];
-      const { data } = await supabase.from('patients')
-        .select('id, full_name, date_of_birth')
-        .in('id', ids)
-        .not('date_of_birth', 'is', null);
-      const wkStart = startOfWeek(now, { weekStartsOn: 1 });
-      const wkEnd = endOfWeek(now, { weekStartsOn: 1 });
-      return (data ?? []).filter((p: any) => {
-        if (!p.date_of_birth) return false;
-        const d = parseISO(p.date_of_birth);
-        const thisYear = new Date(now.getFullYear(), d.getMonth(), d.getDate());
-        return thisYear >= wkStart && thisYear <= wkEnd;
-      }).slice(0, 5);
-    },
-    enabled: !!user,
-  });
-
   const statusLabels: Record<string, string> = {
     scheduled: 'Agendada', confirmed: 'Confirmada', completed: 'Concluída', no_show: 'Faltou', cancelled: 'Cancelada',
   };
@@ -164,12 +177,24 @@ export default function DentistHome() {
     cancelled: 'bg-muted text-muted-foreground',
   };
 
-  const kpiCards = [
+  const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+  const baseKpis = [
     { title: `${apptCapPlural} Hoje`, value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
+    { title: 'Sessões de Hoje', value: completedToday, desc: `de ${todayApts.length} agendadas`, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { title: `${apptCapPlural} no Mês`, value: kpis.completed, desc: `de ${kpis.total} agendados`, icon: family.icon, color: 'text-success', bg: 'bg-success/10' },
     { title: 'Pacientes Únicos', value: kpis.uniquePatients, desc: 'atendidos este mês', icon: Users, color: 'text-warning', bg: 'bg-warning/10' },
     { title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-  ];
+  ] as any[];
+
+  const ownerKpis = isClinicOwner
+    ? [
+        { title: 'Faturado no Mês', value: financialMonth?.received ?? 0, desc: 'recebido este mês', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-500/10', currency: true },
+        { title: 'A Receber', value: financialMonth?.toReceive ?? 0, desc: 'pendente de pagamento', icon: Wallet, color: 'text-amber-500', bg: 'bg-amber-500/10', currency: true },
+      ]
+    : [];
+
+  const kpiCards = [...baseKpis, ...ownerKpis];
 
   return (
     <div className="space-y-8">
@@ -180,7 +205,7 @@ export default function DentistHome() {
       <SoloModeBanner />
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${isClinicOwner ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-4'}`}>
         {kpiCards.map((kpi, i) => (
           <Card
             key={kpi.title}
@@ -194,16 +219,20 @@ export default function DentistHome() {
               </div>
             </CardHeader>
             <CardContent>
-              <AnimatedNumber value={kpi.value} className="text-2xl font-semibold text-foreground" />
+              <AnimatedNumber
+                value={kpi.value}
+                className="text-2xl font-semibold text-foreground"
+                formatter={kpi.currency ? brl : undefined}
+              />
               <p className="mt-1 text-xs text-muted-foreground">{kpi.desc}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Today's schedule + Birthdays */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 shadow-card border-border/50">
+      {/* Today's schedule */}
+      <div className="grid gap-6">
+        <Card className="shadow-card border-border/50">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">Sua Agenda de Hoje</CardTitle>
@@ -259,33 +288,6 @@ export default function DentistHome() {
                       </Button>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Cake className="h-4 w-4 text-pink-500" /> Aniversariantes da Semana
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {birthdays.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-6 text-center">Ninguém faz aniversário esta semana</p>
-            ) : (
-              <div className="space-y-2">
-                {birthdays.map((p: any) => (
-                  <Link key={p.id} to={`/patients/${p.id}`} className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-muted/40 transition-colors">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{p.full_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(parseISO(p.date_of_birth), "dd 'de' MMMM", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <Cake className="h-4 w-4 text-pink-400" />
-                  </Link>
                 ))}
               </div>
             )}
