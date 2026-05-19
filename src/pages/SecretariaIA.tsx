@@ -449,6 +449,9 @@ export default function SecretariaIA() {
         instance_name: null,
       });
       qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
+      // limpa as conversas para que a aba 3 fique vazia ao desconectar
+      qc.setQueryData(['ai-conversations', currentClinicId], []);
+      qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
       setQrCode(null);
       setShouldAutoAdvanceToTraining(false);
       setStep(1);
@@ -893,7 +896,12 @@ export default function SecretariaIA() {
             </p>
           </div>
           {currentClinicId ? (
-            <LiveMessagesPanel clinicId={currentClinicId} showMetrics allowTakeover />
+            <LiveMessagesPanel
+              clinicId={currentClinicId}
+              showMetrics
+              allowTakeover
+              connected={isConnected}
+            />
           ) : (
             <Card className="rounded-xl shadow-sm">
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
