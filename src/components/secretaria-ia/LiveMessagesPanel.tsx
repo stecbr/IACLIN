@@ -10,6 +10,7 @@ import {
   HandHelping,
   Loader2,
   Undo2,
+  RefreshCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -68,7 +69,7 @@ export function LiveMessagesPanel({
   allowTakeover = false,
 }: Props) {
   const qc = useQueryClient();
-  const { data: conversations = [], isLoading } = useQuery({
+  const { data: conversations = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['ai-conversations', clinicId],
     queryFn: () => fetchConversations(clinicId),
     enabled: !!clinicId && isAiBackendConfigured(),
@@ -168,10 +169,22 @@ export function LiveMessagesPanel({
               <MessageSquare className="h-4 w-4 text-primary" />
               <CardTitle className="text-base">Conversas ao vivo</CardTitle>
             </div>
-            <Badge variant="outline" className="gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Atualizando a cada 5s
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Atualizando a cada 5s
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            </div>
           </div>
           <CardDescription>
             Última mensagem de cada conversa do WhatsApp da clínica
