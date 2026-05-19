@@ -1421,6 +1421,42 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_chart_shares: {
+        Row: {
+          clinic_id: string | null
+          code: string
+          consumed_at: string | null
+          consumed_count: number
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          patient_id: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          code: string
+          consumed_at?: string | null
+          consumed_count?: number
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          patient_id: string
+        }
+        Update: {
+          clinic_id?: string | null
+          code?: string
+          consumed_at?: string | null
+          consumed_count?: number
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
       patient_dependents_insurance: {
         Row: {
           created_at: string

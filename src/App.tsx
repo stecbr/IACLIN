@@ -24,6 +24,7 @@ import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
+import PatientChartRedeem from "./pages/PatientChartRedeem";
 import SecretariaIA from "./pages/SecretariaIA";
 import SecretariaIAPainel from "./pages/SecretariaIAPainel";
 import AtendimentosIA from "./pages/AtendimentosIA";
@@ -147,6 +148,7 @@ const AppRoutes = () => (
     <Route path="/aguardando-clinica" element={<Navigate to="/onboarding" replace />} />
     <Route path="/marketplace" element={<Marketplace />} />
     <Route path="/marketplace/agendar" element={<MarketplaceBooking />} />
+    <Route path="/prontuario/compartilhado" element={<PatientChartRedeem />} />
     <Route path="/paciente" element={<PatientProtectedRoute><PatientLayout /></PatientProtectedRoute>}>
       <Route index element={<PatientHome />} />
       <Route path="plano" element={<PatientPlan />} />
