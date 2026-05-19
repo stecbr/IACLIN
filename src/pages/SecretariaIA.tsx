@@ -57,6 +57,8 @@ import { useAiContext } from '@/hooks/useAiContext';
 import { KnowledgeSourcePanel } from '@/components/secretaria-ia/KnowledgeSourcePanel';
 import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
 import { OverviewMetrics } from '@/components/secretaria-ia/OverviewMetrics';
+import { KnowledgeShortcuts } from '@/components/secretaria-ia/KnowledgeShortcuts';
+import { AutomationsPanel } from '@/components/secretaria-ia/AutomationsPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
@@ -705,17 +707,10 @@ export default function SecretariaIA() {
                 <Bot className="h-3.5 w-3.5" /> Comportamento
               </TabsTrigger>
               <TabsTrigger value="conhecimento" className="gap-1.5">
-                <BookOpen className="h-3.5 w-3.5" /> Conhecimento
+                <BookOpen className="h-3.5 w-3.5" /> O que a IA já sabe
               </TabsTrigger>
-              <TabsTrigger value="automacoes" disabled className="gap-1.5">
+              <TabsTrigger value="automacoes" className="gap-1.5">
                 <Zap className="h-3.5 w-3.5" /> Automações
-                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">em breve</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="handoff" className="gap-1.5">
-                <UserCog className="h-3.5 w-3.5" /> Atendimento humano
-              </TabsTrigger>
-              <TabsTrigger value="conversas" className="gap-1.5">
-                <MessageSquare className="h-3.5 w-3.5" /> Conversas
               </TabsTrigger>
             </TabsList>
 
@@ -869,7 +864,7 @@ export default function SecretariaIA() {
             {/* Conhecimento */}
             <TabsContent value="conhecimento" className="space-y-4">
               {currentClinicId && !isProfessional ? (
-                <KnowledgeSourcePanel clinicId={currentClinicId} />
+                <KnowledgeShortcuts clinicId={currentClinicId} />
               ) : (
                 <Card className="rounded-xl shadow-sm">
                   <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -879,33 +874,9 @@ export default function SecretariaIA() {
               )}
             </TabsContent>
 
-            {/* Automações (em breve) */}
+            {/* Automações */}
             <TabsContent value="automacoes" className="space-y-4">
-              <Card className="rounded-xl shadow-sm">
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                  Em breve: lembretes 24h/2h, mensagens fora do horário, NPS pós-consulta,
-                  retorno preventivo e aniversário.
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Atendimento humano */}
-            <TabsContent value="handoff" className="space-y-4">
-              <HandoffPanel />
-            </TabsContent>
-
-            {/* Conversas */}
-            <TabsContent value="conversas" className="space-y-4">
-              {currentClinicId && !isProfessional ? (
-                <LiveMessagesPanel clinicId={currentClinicId} />
-              ) : (
-                <Card className="rounded-xl shadow-sm">
-                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                    O painel ao vivo de mensagens será habilitado quando a conexão WhatsApp do
-                    profissional estiver disponível.
-                  </CardContent>
-                </Card>
-              )}
+              <AutomationsPanel clinicId={currentClinicId ?? null} />
             </TabsContent>
           </Tabs>
         </div>
