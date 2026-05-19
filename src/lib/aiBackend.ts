@@ -325,10 +325,19 @@ export const aiBackend = {
   // ============================================================
   // Conversas — assumir manualmente (handoff humano)
   // ============================================================
-  takeoverConversation: (clinicId: string, conversationId: string) =>
-    request<{ ok: boolean }>(
+  takeoverConversation: (clinicId: string, conversationId: string, agentName?: string) =>
+    request<{ ok: boolean; conv_id?: string; phone?: string }>(
       `/api/clinics/${clinicId}/conversations/${conversationId}/takeover`,
-      { method: 'POST' },
+      {
+        method: 'POST',
+        body: JSON.stringify(agentName ? { agent_name: agentName } : {}),
+      },
+    ),
+
+  releaseConversation: (clinicId: string, conversationId: string) =>
+    request<{ ok: boolean; conv_id?: string; phone?: string }>(
+      `/api/clinics/${clinicId}/conversations/${conversationId}/takeover`,
+      { method: 'DELETE' },
     ),
 };
 

@@ -9,6 +9,7 @@ import {
   Users,
   HandHelping,
   Loader2,
+  Undo2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -42,6 +43,15 @@ interface Props {
   allowTakeover?: boolean;
 }
 
+function toConvId(clinicId: string, phone: string): string {
+  const raw = `${clinicId}:${phone}`;
+  // base64url
+  const b64 = typeof btoa !== 'undefined'
+    ? btoa(unescape(encodeURIComponent(raw)))
+    : Buffer.from(raw, 'utf8').toString('base64');
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 async function fetchConversations(clinicId: string): Promise<Conversation[]> {
   if (!AI_BACKEND_URL) throw new Error('Backend da Secretária IA não configurado.');
   const res = await fetch(`${AI_BACKEND_URL}/api/clinics/${clinicId}/conversations`, {
@@ -66,13 +76,23 @@ export function LiveMessagesPanel({
   });
 
   const takeoverMutation = useMutation({
-    mutationFn: (conversationId: string) =>
-      aiBackend.takeoverConversation(clinicId, conversationId),
+    mutationFn: (phone: string) =>
+      aiBackend.takeoverConversation(clinicId, toConvId(clinicId, phone)),
     onSuccess: () => {
       toast.success('Atendimento assumido — a IA ficou em modo silencioso para esta conversa');
       qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
     },
     onError: (e: any) => toast.error(e?.message ?? 'Não foi possível assumir o atendimento'),
+  });
+
+  const releaseMutation = useMutation({
+    mutationFn: (phone: string) =>
+      aiBackend.releaseConversation(clinicId, toConvId(clinicId, phone)),
+    onSuccess: () => {
+      toast.success('Conversa devolvida para a IA');
+      qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível devolver para a IA'),
   });
 
   const metrics = useMemo(() => {
@@ -173,9 +193,19 @@ export function LiveMessagesPanel({
                     key={c.id}
                     conversation={c}
                     onTakeover={
-                      allowTakeover ? () => takeoverMutation.mutate(c.id) : undefined
+                      allowTakeover ? () => takeoverMutation.mutate(c.patient_phone) : undefined
                     }
-                    takingOver={takeoverMutation.isPending && takeoverMutation.variables === c.id}
+                    onRelease={
+                      allowTakeover ? () => releaseMutation.mutate(c.patient_phone) : undefined
+                    }
+                    takingOver={
+                      takeoverMutation.isPending &&
+                      takeoverMutation.variables === c.patient_phone
+                    }
+                    releasing={
+                      releaseMutation.isPending &&
+                      releaseMutation.variables === c.patient_phone
+                    }
                   />
                 ))}
               </div>
@@ -221,11 +251,15 @@ function MetricCard({
 function ConversationRow({
   conversation,
   onTakeover,
+  onRelease,
   takingOver,
+  releasing,
 }: {
   conversation: Conversation;
   onTakeover?: () => void;
+  onRelease?: () => void;
   takingOver?: boolean;
+  releasing?: boolean;
 }) {
   const last = conversation.last_message;
   const isInbound = last?.direction === 'inbound';
@@ -298,6 +332,22 @@ function ConversationRow({
                 <HandHelping className="h-3 w-3" />
               )}
               Assumir atendimento
+            </Button>
+          )}
+          {onRelease && isHuman && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs"
+              onClick={onRelease}
+              disabled={releasing}
+            >
+              {releasing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Undo2 className="h-3 w-3" />
+              )}
+              Devolver para IA
             </Button>
           )}
         </div>
