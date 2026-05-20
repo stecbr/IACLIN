@@ -27,6 +27,7 @@ import MarketplaceBooking from "./pages/MarketplaceBooking";
 import PatientChartRedeem from "./pages/PatientChartRedeem";
 import SecretariaIA from "./pages/SecretariaIA";
 import SecretariaIAPainel from "./pages/SecretariaIAPainel";
+import IaGestor from "./pages/IaGestor";
 import AtendimentosIA from "./pages/AtendimentosIA";
 import Availability from "./pages/Availability";
 import WaitingRoom from "./pages/WaitingRoom";
@@ -190,6 +191,8 @@ const AppRoutes = () => (
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
     <Route path="/secretaria-ia" element={<ProtectedRoute><SecretariaIA /></ProtectedRoute>} />
     <Route path="/secretaria-ia/painel" element={<ProtectedRoute><SecretariaIAPainel /></ProtectedRoute>} />
+    <Route path="/ia-gestor" element={<ProtectedRoute><IaGestor /></ProtectedRoute>} />
+    <Route path="/ia-gestor/:threadId" element={<ProtectedRoute><IaGestor /></ProtectedRoute>} />
     <Route path="/atendimentos-ia" element={<ProtectedRoute><AtendimentosIA /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

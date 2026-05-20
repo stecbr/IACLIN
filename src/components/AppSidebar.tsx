@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   Bot,
+  Brain,
   CalendarClock,
   Building2,
   Stethoscope,
@@ -228,7 +229,7 @@ export function AppSidebar() {
     .toUpperCase() ?? 'U';
 
   const renderNavItem = (
-    item: { title: string; url: string; icon: typeof LayoutDashboard },
+    item: { title: string; url: string; icon: typeof LayoutDashboard; beta?: boolean },
     badge?: number,
   ) => (
     <SidebarMenuItem key={item.title}>
@@ -251,6 +252,11 @@ export function AppSidebar() {
           {!collapsed && (
             <>
               <span className="flex-1">{item.title}</span>
+              {item.beta && (
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-sm">
+                  BETA
+                </span>
+              )}
               {badge !== undefined && badge > 0 && (
                 <span className="relative flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground px-1.5">
                   {badge}
@@ -434,6 +440,7 @@ export function AppSidebar() {
                     <SidebarGroupContent>
                       <SidebarMenu>
                         {automationItems.map((item) => renderNavItem(item))}
+                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain, beta: true })}
                       </SidebarMenu>
                     </SidebarGroupContent>
                   </SidebarGroup>
@@ -514,6 +521,21 @@ export function AppSidebar() {
                     {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {(effectiveRole === 'dentist' || effectiveRole === 'secretary') && currentClinicId && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Inteligência
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain, beta: true })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
