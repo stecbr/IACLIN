@@ -34,7 +34,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { useState } from 'react';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
-import { PatientPickerDialog } from '@/components/patients/PatientPickerDialog';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -109,7 +109,6 @@ export function AppSidebar() {
   const activeConsultation = useActiveConsultation();
   const navigate = useNavigate();
   const [logoutBlocked, setLogoutBlocked] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleSignOut = () => {
     if (activeConsultation) {
@@ -387,12 +386,22 @@ export function AppSidebar() {
                         {patientItems.map((item) => renderNavItem(item))}
                         <SidebarMenuItem>
                           <SidebarMenuButton
-                            onClick={() => setPickerOpen(true)}
+                            asChild
+                            isActive={isActive('/prontuarios')}
                             tooltip="Abrir prontuário"
-                            className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/60"
                           >
-                            <FolderHeart className="h-4 w-4 flex-shrink-0" />
-                            {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                            <NavLink
+                              to="/prontuarios"
+                              className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+                                isActive('/prontuarios')
+                                  ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium'
+                                  : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
+                              }`}
+                              activeClassName=""
+                            >
+                              <FolderHeart className="h-4 w-4 flex-shrink-0" />
+                              {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                            </NavLink>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       </SidebarMenu>
@@ -513,12 +522,22 @@ export function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => setPickerOpen(true)}
+                    asChild
+                    isActive={isActive('/prontuarios')}
                     tooltip="Abrir prontuário"
-                    className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/60"
                   >
-                    <FolderHeart className="h-4 w-4 flex-shrink-0" />
-                    {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                    <NavLink
+                      to="/prontuarios"
+                      className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+                        isActive('/prontuarios')
+                          ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium'
+                          : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
+                      }`}
+                      activeClassName=""
+                    >
+                      <FolderHeart className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span className="flex-1 text-left">Abrir prontuário</span>}
+                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -662,7 +681,6 @@ export function AppSidebar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <PatientPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
     </Sidebar>
   );
 }

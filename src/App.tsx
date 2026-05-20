@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import Agenda from "./pages/Agenda";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
+import OpenChart from "./pages/OpenChart";
 import Odontogram from "./pages/Odontogram";
 import ClinicalMapPage from "./components/clinical-map/ClinicalMapPage";
 import Financial from "./pages/Financial";
@@ -174,6 +175,7 @@ const AppRoutes = () => (
     <Route path="/pacientes-do-dia" element={<ProtectedRoute><PatientsOfDay /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
     <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
+    <Route path="/prontuarios" element={<ProtectedRoute><OpenChart /></ProtectedRoute>} />
     <Route path="/clinica" element={<ProtectedRoute><ClinicaHome /></ProtectedRoute>} />
     <Route path="/clinica/medicos" element={<ProtectedRoute><ClinicaMedicos /></ProtectedRoute>} />
     <Route path="/clinica/aprovacoes" element={<ProtectedRoute><ClinicaAprovacoes /></ProtectedRoute>} />
