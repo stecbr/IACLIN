@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,8 @@ import { ptBR } from 'date-fns/locale';
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromBudgetId = (location.state as any)?.fromBudgetId as string | undefined;
   const [editOpen, setEditOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -121,10 +123,23 @@ export default function PatientDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/patients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" />
-        Voltar
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link to="/patients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Link>
+        {fromBudgetId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            onClick={() => navigate('/budgets', { state: { openBudgetId: fromBudgetId } })}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Voltar ao orçamento
+          </Button>
+        )}
+      </div>
 
       {/* Patient Header */}
       <div className="flex items-start justify-between">

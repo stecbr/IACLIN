@@ -1,28 +1,29 @@
-## Problema identificado
+## Objetivo
 
-O erro `treatment_plans_status_check` ocorre porque o banco só aceita os status `pending`, `approved`, `in_progress`, `completed`, `cancelled` — mas o Kanban usa `pending`, `negotiating`, `approved`, `lost`. Por isso só "Aprovado" funciona; arrastar para **Em Negociação** ou **Perdido** é bloqueado pelo banco.
+1. Adicionar botão "Abrir prontuário" dentro do modal de detalhes do orçamento (`BudgetDetailDialog`), além do que já existe no card.
+2. Quando o usuário abrir o prontuário a partir do orçamento, mostrar um botão "Voltar ao orçamento" no `PatientDetail`, que retorna para `/budgets` com o modal do mesmo orçamento já aberto.
 
-## Plano
+## Mudanças
 
-### 1. Corrigir o check constraint (migration)
-- Substituir `treatment_plans_status_check` para aceitar: `pending`, `negotiating`, `approved`, `lost` (mantendo retrocompatibilidade com linhas antigas via normalização: `in_progress` → `negotiating`, `completed` → `approved`, `cancelled` → `lost`).
-- UPDATE para migrar quaisquer registros legados antes do novo CHECK.
+### 1. `src/components/budgets/BudgetDetailDialog.tsx`
+- Importar `useNavigate` do `react-router-dom` e ícone `FileText` (ou `Stethoscope`).
+- Garantir que a query retorna `patients(id, full_name)` (hoje só traz `full_name`).
+- Adicionar botão **"Abrir prontuário"** no `DialogFooter` (ao lado do "Fechar"), desabilitado se não houver `patient_id`.
+- Ao clicar: `navigate('/patients/' + patientId, { state: { fromBudgetId: planId } })` e fechar o modal.
 
-### 2. Enriquecer o BudgetCard
-Adicionar diretamente no card (visível sem abrir o modal):
-- **Médico que indicou** (dentist_name — já temos) com ícone de estetoscópio.
-- **Lista resumida de procedimentos/exames** (primeiros 2 nomes + "+N" se houver mais), buscados via join `treatment_plan_items → procedures(name)`.
-- **Botão "Prontuário"** no rodapé do card que navega para `/patients/:patient_id` (precisa de `patient_id` no payload — já temos via `patients` join, basta expor o id).
-- Manter drag pelo corpo do card; o botão de prontuário usa `stopPropagation` para não disparar o modal nem o drag.
+### 2. `src/pages/Budgets.tsx`
+- Ao montar a página, ler `location.state?.openBudgetId` (via `useLocation`) e, se presente, setar `selectedPlanId` para reabrir o modal automaticamente.
+- Limpar o state após consumir (`navigate('.', { replace: true, state: {} })`) para não reabrir em navegações futuras.
+- No card (`onOpenChart`) também propagar o `state: { fromBudgetId: plan.id }` ao navegar para `/patients/:id`, mantendo consistência.
 
-### 3. Ajustes em Budgets.tsx
-- Incluir `patients!inner(id, full_name, clinic_id)` e `treatment_plan_items(id, procedures(name))` no select.
-- Passar `patientId` e `procedureNames[]` para `BudgetCard`.
-- Usar `useNavigate` do react-router para o botão de prontuário.
+### 3. `src/pages/PatientDetail.tsx`
+- Usar `useLocation` para ler `state.fromBudgetId`.
+- Quando presente, renderizar no topo um botão discreto **"← Voltar ao orçamento"** que executa `navigate('/budgets', { state: { openBudgetId: fromBudgetId } })`.
+- Estilo coerente com o header do prontuário (botão `variant="ghost"` com ícone `ArrowLeft`).
 
-### Arquivos afetados
-- Nova migration SQL (status check)
-- `src/components/budgets/BudgetCard.tsx`
+## Arquivos afetados
+- `src/components/budgets/BudgetDetailDialog.tsx`
 - `src/pages/Budgets.tsx`
+- `src/pages/PatientDetail.tsx`
 
-Sem alterações no `BudgetDetailDialog` (os status já estavam corretos lá — o erro vinha apenas do CHECK do banco).
+Sem mudanças de banco. Sem mudanças no `BudgetCard` (já tem o botão de prontuário).

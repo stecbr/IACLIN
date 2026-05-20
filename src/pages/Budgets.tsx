@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DndContext, closestCorners, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, useDroppable } from '@dnd-kit/core';
@@ -26,12 +26,21 @@ const COLUMNS = [
 export default function Budgets() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, currentClinicId, clinics } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
   const [activeId, setActiveId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openId = (location.state as any)?.openBudgetId;
+    if (openId) {
+      setSelectedPlanId(openId);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -192,7 +201,7 @@ export default function Budgets() {
                 total={total}
                 items={items}
                 onCardClick={(id) => setSelectedPlanId(id)}
-                onOpenChart={(pid) => navigate(`/patients/${pid}`)}
+                onOpenChart={(pid, budgetId) => navigate(`/patients/${pid}`, { state: { fromBudgetId: budgetId } })}
               />
             );
           })}
@@ -233,7 +242,7 @@ interface KanbanColumnProps {
   total: number;
   items: any[];
   onCardClick: (id: string) => void;
-  onOpenChart: (patientId: string) => void;
+  onOpenChart: (patientId: string, budgetId: string) => void;
 }
 
 function KanbanColumn({ id, label, barClass, total, items, onCardClick, onOpenChart }: KanbanColumnProps) {
@@ -269,7 +278,7 @@ function KanbanColumn({ id, label, barClass, total, items, onCardClick, onOpenCh
                 dentistName={plan.dentist_name}
                 procedureNames={plan.procedure_names}
                 patientId={plan.patients?.id}
-                onOpenChart={plan.patients?.id ? () => onOpenChart(plan.patients.id) : undefined}
+                onOpenChart={plan.patients?.id ? () => onOpenChart(plan.patients.id, plan.id) : undefined}
                 onClick={() => onCardClick(plan.id)}
               />
             ))}
