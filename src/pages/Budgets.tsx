@@ -16,10 +16,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const COLUMNS = [
-  { id: 'pending', label: 'Pendente', color: 'border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10' },
-  { id: 'negotiating', label: 'Em Negociação', color: 'border-blue-400/50 bg-blue-50/30 dark:bg-blue-950/10' },
-  { id: 'approved', label: 'Aprovado', color: 'border-emerald-400/50 bg-emerald-50/30 dark:bg-emerald-950/10' },
-  { id: 'lost', label: 'Perdido', color: 'border-rose-400/50 bg-rose-50/30 dark:bg-rose-950/10' },
+  { id: 'pending', label: 'Pendente', bar: 'bg-amber-400' },
+  { id: 'negotiating', label: 'Em Negociação', bar: 'bg-blue-400' },
+  { id: 'approved', label: 'Aprovado', bar: 'bg-emerald-400' },
+  { id: 'lost', label: 'Perdido', bar: 'bg-rose-400' },
 ];
 
 export default function Budgets() {
@@ -32,7 +32,7 @@ export default function Budgets() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
   const activeClinic = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
@@ -56,7 +56,17 @@ export default function Budgets() {
       if (isDentist && user) query = query.eq('dentist_id', user.id);
       const { data, error } = await query;
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      const dentistIds = Array.from(new Set(rows.map((r: any) => r.dentist_id).filter(Boolean)));
+      let dentistMap: Record<string, string> = {};
+      if (dentistIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', dentistIds);
+        dentistMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      }
+      return rows.map((r: any) => ({ ...r, dentist_name: dentistMap[r.dentist_id] ?? null }));
     },
   });
 
@@ -170,7 +180,7 @@ export default function Budgets() {
                 key={col.id}
                 id={col.id}
                 label={col.label}
-                colorClass={col.color}
+                barClass={col.bar}
                 total={total}
                 items={items}
                 onCardClick={(id) => setSelectedPlanId(id)}
@@ -181,7 +191,7 @@ export default function Budgets() {
 
         <DragOverlay>
           {activePlan && (
-            <div className="w-64 opacity-90">
+            <div className="w-72 opacity-95 rotate-2">
               <BudgetCard
                 id={activePlan.id}
                 title={activePlan.title}
@@ -190,6 +200,7 @@ export default function Budgets() {
                 itemCount={activePlan.treatment_plan_items?.length ?? 0}
                 createdAt={activePlan.created_at}
                 status={activePlan.status}
+                dentistName={activePlan.dentist_name}
               />
             </div>
           )}
@@ -208,50 +219,54 @@ export default function Budgets() {
 interface KanbanColumnProps {
   id: string;
   label: string;
-  colorClass: string;
+  barClass: string;
   total: number;
   items: any[];
   onCardClick: (id: string) => void;
 }
 
-function KanbanColumn({ id, label, colorClass, total, items, onCardClick }: KanbanColumnProps) {
+function KanbanColumn({ id, label, barClass, total, items, onCardClick }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-xl border-2 border-dashed p-3 min-h-[300px] transition-all ${colorClass} ${isOver ? 'ring-2 ring-primary/40 scale-[1.01]' : ''}`}
+      className={`rounded-xl bg-muted/40 border border-border/40 shadow-sm overflow-hidden min-h-[360px] flex flex-col transition-all ${isOver ? 'ring-2 ring-primary/40 bg-muted/60' : ''}`}
     >
-      <div className="flex items-center justify-between mb-3 px-1">
+      <div className={`h-1 w-full ${barClass}`} />
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">{label}</h3>
-          <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5">{items.length}</span>
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">{label}</h3>
+          <span className="text-[11px] font-medium text-muted-foreground bg-background rounded-full px-1.5 min-w-[20px] text-center">{items.length}</span>
         </div>
-        <span className="text-xs text-muted-foreground font-medium">
+        <span className="text-[11px] text-muted-foreground font-medium">
           R$ {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
         </span>
       </div>
-      <SortableContext items={items.map((p: any) => p.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2">
-          {items.map((plan: any) => (
-            <BudgetCard
-              key={plan.id}
-              id={plan.id}
-              title={plan.title}
-              patientName={plan.patients?.full_name ?? 'Paciente'}
-              totalCost={Number(plan.total_cost)}
-              itemCount={plan.treatment_plan_items?.length ?? 0}
-              createdAt={plan.created_at}
-              status={plan.status}
-              onClick={() => onCardClick(plan.id)}
-            />
-          ))}
-        </div>
-      </SortableContext>
-      {items.length === 0 && (
-        <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-border/40">
-          <p className="text-xs text-muted-foreground">Arraste aqui</p>
-        </div>
-      )}
+      <div className="flex-1 px-2 pb-2 overflow-y-auto">
+        <SortableContext items={items.map((p: any) => p.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {items.map((plan: any) => (
+              <BudgetCard
+                key={plan.id}
+                id={plan.id}
+                title={plan.title}
+                patientName={plan.patients?.full_name ?? 'Paciente'}
+                totalCost={Number(plan.total_cost)}
+                itemCount={plan.treatment_plan_items?.length ?? 0}
+                createdAt={plan.created_at}
+                status={plan.status}
+                dentistName={plan.dentist_name}
+                onClick={() => onCardClick(plan.id)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+        {items.length === 0 && (
+          <div className="flex items-center justify-center h-24 mt-1 rounded-lg border border-dashed border-border/40">
+            <p className="text-xs text-muted-foreground">Solte um orçamento aqui</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
