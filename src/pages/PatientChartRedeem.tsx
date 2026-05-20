@@ -1,15 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShieldCheck, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, FileText, Loader2, AlertCircle, ArrowLeft, EyeOff, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { openFullChartPdf } from '@/lib/generateFullChartPdf';
+import { buildFullChartHtml, type FullChartData } from '@/lib/generateFullChartPdf';
 
 export default function PatientChartRedeem() {
+  const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chartHtml, setChartHtml] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState<string>('');
+
+  // Block browser print while viewer is open
+  useEffect(() => {
+    if (!chartHtml) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 's')) {
+        e.preventDefault();
+      }
+    };
+    const onBeforePrint = (e: Event) => { e.preventDefault?.(); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('beforeprint', onBeforePrint);
+    document.body.classList.add('chart-viewer-open');
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('beforeprint', onBeforePrint);
+      document.body.classList.remove('chart-viewer-open');
+    };
+  }, [chartHtml]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +49,10 @@ export default function PatientChartRedeem() {
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      await openFullChartPdf(data as any);
+      const chart = data as FullChartData;
+      const html = await buildFullChartHtml(chart);
+      setPatientName(chart.patient?.full_name ?? '');
+      setChartHtml(html);
     } catch (err: any) {
       setError(err.message ?? 'Não foi possível resgatar o prontuário.');
     } finally {
@@ -34,9 +60,74 @@ export default function PatientChartRedeem() {
     }
   };
 
+  if (chartHtml) {
+    return (
+      <div
+        className="min-h-screen bg-muted/30"
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <style>{`
+          @media print {
+            body.chart-viewer-open * { visibility: hidden !important; }
+            body.chart-viewer-open::after {
+              content: "Impressão bloqueada — visualização somente leitura.";
+              visibility: visible; position: fixed; inset: 0;
+              display: flex; align-items: center; justify-content: center;
+              font-family: sans-serif; font-size: 18px;
+            }
+          }
+          .chart-frame { user-select: none; -webkit-user-select: none; }
+        `}</style>
+        <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">Prontuário — {patientName}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <EyeOff className="h-3 w-3" /> Somente leitura · salvar e imprimir desabilitados
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setChartHtml(null); setCode(''); }} className="gap-2 flex-shrink-0">
+              <X className="h-3.5 w-3.5" />
+              Fechar
+            </Button>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto p-4">
+          <div
+            className="chart-frame bg-card border border-border rounded-lg shadow-sm overflow-hidden"
+            onCopy={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
+          >
+            <iframe
+              title="Prontuário"
+              sandbox=""
+              srcDoc={chartHtml}
+              className="w-full bg-white"
+              style={{ height: 'calc(100vh - 120px)', border: 'none', pointerEvents: 'none' }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md border-border/50 shadow-lg">
+      <div className="w-full max-w-md space-y-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/prontuarios'))}
+          className="gap-2 text-muted-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Button>
+        <Card className="border-border/50 shadow-lg">
         <CardContent className="p-8 space-y-6">
           <div className="text-center space-y-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 mx-auto flex items-center justify-center">
@@ -74,10 +165,11 @@ export default function PatientChartRedeem() {
 
           <div className="flex items-start gap-2 text-xs text-muted-foreground border-t border-border pt-4">
             <ShieldCheck className="h-4 w-4 flex-shrink-0 mt-0.5 text-emerald-600" />
-            <span>O acesso é temporário e auditado. Após abrir, o PDF é exibido em uma nova aba pronto para impressão ou salvamento.</span>
+            <span>O acesso é temporário, auditado e somente para visualização. O download e a impressão estão desabilitados.</span>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -95,7 +95,7 @@ function renderRecord(rec: any): string {
   `;
 }
 
-export async function openFullChartPdf(data: FullChartData) {
+export async function buildFullChartHtml(data: FullChartData): Promise<string> {
   const { patient, clinic, anamnese, records, odontogram, map_entries, documents, issued_by, issued_at } = data;
 
   let logoHtml = '';
@@ -219,7 +219,11 @@ ${docsHtml ? `<div class="section"><h3>Documentos Anexos</h3>${docsHtml}</div>` 
 </div>
 
 </body></html>`;
+  return html;
+}
 
+export async function openFullChartPdf(data: FullChartData) {
+  const html = await buildFullChartHtml(data);
   const w = window.open('', '_blank');
   if (!w) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');
   w.document.write(html);
