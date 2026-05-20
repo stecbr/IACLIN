@@ -129,17 +129,19 @@ export default function Financial() {
   return (
     <div className="space-y-6">
       <PageHeader title={contextLabel} description={contextDescription}>
-        <Badge variant="outline" className="gap-1.5 mr-1">
+        <Badge variant="outline" className="gap-1.5">
           {currentClinicId ? <Building2 className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
           {currentClinicId ? 'Clínica' : 'Pessoal'}
         </Badge>
-        <Button variant="outline" className="gap-2" onClick={() => setShowImport(true)}>
+        <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none sm:size-default" onClick={() => setShowImport(true)}>
           <Sparkles className="h-4 w-4" />
-          Importar Extrato (IA)
+          <span className="hidden sm:inline">Importar Extrato (IA)</span>
+          <span className="sm:hidden">Importar</span>
         </Button>
-        <Button className="gap-2" onClick={() => setShowNewTx(true)}>
+        <Button size="sm" className="gap-2 flex-1 sm:flex-none sm:size-default" onClick={() => setShowNewTx(true)}>
           <Plus className="h-4 w-4" />
-          Nova Transação
+          <span className="hidden sm:inline">Nova Transação</span>
+          <span className="sm:hidden">Nova</span>
         </Button>
       </PageHeader>
 
@@ -166,7 +168,7 @@ export default function Financial() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
           {importedTxs.length > 0 && (
@@ -252,9 +254,9 @@ export default function Financial() {
 
         <TabsContent value="transactions" className="space-y-4">
           {/* Filters */}
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="current">Mês Atual</SelectItem>
                 <SelectItem value="last">Mês Anterior</SelectItem>
@@ -263,7 +265,7 @@ export default function Financial() {
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="income">Receitas</SelectItem>
@@ -271,7 +273,7 @@ export default function Financial() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full col-span-2 sm:col-span-1 sm:w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="pending">Pendentes</SelectItem>
@@ -291,7 +293,8 @@ export default function Financial() {
             />
           ) : (
             <Card className="shadow-card border-border/50 overflow-hidden">
-              <Table>
+              <div className="w-full overflow-x-auto">
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead className="font-semibold">Data</TableHead>
@@ -335,6 +338,7 @@ export default function Financial() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </Card>
           )}
         </TabsContent>
