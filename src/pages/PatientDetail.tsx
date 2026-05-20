@@ -40,6 +40,7 @@ export default function PatientDetail() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
+  const { data: personalization } = usePatientPersonalization(id);
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -154,9 +155,24 @@ export default function PatientDetail() {
           </Avatar>
           <div>
             <div className="flex items-center gap-2">
+              {personalization.is_favorite && (
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              )}
               <h1 className="text-2xl font-semibold text-foreground">{patient.full_name}</h1>
               {!patient.is_active && <Badge variant="secondary">Inativo</Badge>}
               {patient.insurance_provider && <Badge variant="outline">{patient.insurance_provider}</Badge>}
+              {personalization.tag && (
+                <Badge
+                  variant="secondary"
+                  style={
+                    personalization.color
+                      ? { backgroundColor: `${personalization.color}1A`, color: personalization.color }
+                      : undefined
+                  }
+                >
+                  {personalization.tag}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               {patient.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{patient.phone}</span>}
@@ -232,6 +248,14 @@ export default function PatientDetail() {
             <Edit className="h-4 w-4" />
             Editar
           </Button>
+          {id && (
+            <PatientPersonalizeMenu patientId={id}>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Palette className="h-4 w-4" />
+                Personalizar
+              </Button>
+            </PatientPersonalizeMenu>
+          )}
         </div>
       </div>
 
