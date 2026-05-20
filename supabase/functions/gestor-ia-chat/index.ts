@@ -134,7 +134,27 @@ Deno.serve(async (req) => {
 
     const { clinicName, contextText } = await loadClinicContext(admin, clinicId);
 
-    const system = `Você é o Gestor IA da clínica ${clinicName}. Você tem acesso completo aos dados operacionais abaixo e deve responder como um assistente de gestão clínica especializado. Responda sempre em português, use markdown (negrito, listas, tabelas) quando ajudar. Seja direto e baseie suas respostas nos dados reais fornecidos.\n\n--- DADOS DA CLÍNICA ---\n${contextText}\n--- FIM DOS DADOS ---\n\nQuando o usuário pedir uma imagem (cartaz, logo, ilustração, post, etc.), chame a tool generate_image com um prompt detalhado em inglês.`;
+    const system = `Você é o Gestor IA da clínica ${clinicName}, um copiloto de gestão clínica.
+
+REGRAS DE ESTILO (muito importantes):
+- Seja CONCISO por padrão. Respostas curtas, diretas, sem rodeios.
+- Use no máximo 2-4 frases quando for uma resposta simples. Só escreva textos longos se a pergunta realmente exigir explicação detalhada.
+- Nada de "introduções", "resumos do que vou fazer" ou "conclusões" desnecessárias.
+- Use markdown (negrito, listas, tabelas) só quando ajudar de verdade. Evite listas enormes para respostas simples.
+- Responda sempre em português, em tom amigável e direto (como ChatGPT).
+
+AÇÕES NO SISTEMA (muito importante):
+- Sempre que sua resposta sugerir que o usuário faça algo em outra tela do sistema (cadastrar procedimentos, abrir agenda, ver financeiro, configurar clínica, ver pacientes, etc.), CHAME A TOOL "suggest_actions" com 1 a 4 cards de navegação curtos, em vez de descrever em texto onde ele deve clicar.
+- Os cards substituem as instruções textuais "vá em tal menu". Escreva no texto só uma frase curta apresentando, e deixe os cards conduzirem.
+- Use rotas reais do sistema. Rotas disponíveis (exemplos): /agenda, /pacientes, /financial, /budgets, /odontogram, /availability, /settings, /atendimentos-ia, /secretaria-ia, /tools, /waiting-room, /marketplace, /clinica/medicos, /clinica/aprovacoes.
+- "label" curto (1-4 palavras), "description" curtíssima (uma frase explicando o que fazer lá), "route" sempre começando com "/". Use "icon" opcional dentre: calendar, users, dollar, file, tooth, settings, sparkles, message, map, clock, plus, edit.
+
+IMAGENS:
+- Quando o usuário pedir imagem/cartaz/post/logo/ilustração, chame "generate_image" com prompt detalhado em inglês.
+
+--- DADOS DA CLÍNICA ---
+${contextText}
+--- FIM DOS DADOS ---`;
 
     const modelMessages = await convertToModelMessages(messages);
 
@@ -144,6 +164,19 @@ Deno.serve(async (req) => {
       messages: modelMessages,
       stopWhen: stepCountIs(50),
       tools: {
+        suggest_actions: tool({
+          description: "Mostra cards de navegação clicáveis para o usuário ir até uma tela do sistema. Use sempre que sugerir uma ação operacional (cadastrar, configurar, abrir uma página).",
+          inputSchema: z.object({
+            intro: z.string().optional().describe("Frase curta opcional antes dos cards."),
+            actions: z.array(z.object({
+              label: z.string().describe("Texto curto do card (1-4 palavras)"),
+              description: z.string().describe("Descrição curta (uma frase)"),
+              route: z.string().describe("Rota interna começando com /"),
+              icon: z.string().optional().describe("Ícone opcional: calendar, users, dollar, file, tooth, settings, sparkles, message, map, clock, plus, edit"),
+            })).min(1).max(4),
+          }),
+          execute: async ({ intro, actions }) => ({ intro: intro ?? null, actions }),
+        }),
         generate_image: tool({
           description: "Gera uma imagem a partir de um prompt. Use quando o usuário pedir cartaz, post, ilustração, logo, foto, etc.",
           inputSchema: z.object({
