@@ -242,7 +242,7 @@ interface KanbanColumnProps {
   total: number;
   items: any[];
   onCardClick: (id: string) => void;
-  onOpenChart: (patientId: string) => void;
+  onOpenChart: (patientId: string, budgetId: string) => void;
 }
 
 function KanbanColumn({ id, label, barClass, total, items, onCardClick, onOpenChart }: KanbanColumnProps) {
@@ -278,7 +278,7 @@ function KanbanColumn({ id, label, barClass, total, items, onCardClick, onOpenCh
                 dentistName={plan.dentist_name}
                 procedureNames={plan.procedure_names}
                 patientId={plan.patients?.id}
-                onOpenChart={plan.patients?.id ? () => onOpenChart(plan.patients.id) : undefined}
+                onOpenChart={plan.patients?.id ? () => onOpenChart(plan.patients.id, plan.id) : undefined}
                 onClick={() => onCardClick(plan.id)}
               />
             ))}
