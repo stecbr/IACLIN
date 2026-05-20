@@ -115,6 +115,16 @@ export function KnowledgeShortcuts({ clinicId }: Props) {
               to={c.to}
               onClick={() => {
                 try {
+                  const stateRaw = sessionStorage.getItem('iaclin.secretariaIaState');
+                  const state = stateRaw ? JSON.parse(stateRaw) : {};
+                  sessionStorage.setItem(
+                    'iaclin.secretariaIaRestore',
+                    JSON.stringify({
+                      tab: state.tab ?? 'visao',
+                      step: state.step ?? 2,
+                      scroll: window.scrollY,
+                    }),
+                  );
                   sessionStorage.setItem(
                     'iaclin.backNav',
                     JSON.stringify({

@@ -510,6 +510,35 @@ export default function SecretariaIA() {
   // Aba ativa do hub (step 2). Mantida fora do unmount para não perder edição.
   const [activeTab, setActiveTab] = useState<string>('visao');
 
+  // Restaura tab/step/scroll quando o usuário volta de um atalho de configuração.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('iaclin.secretariaIaRestore');
+      if (!raw) return;
+      const { tab, step: savedStep, scroll } = JSON.parse(raw) as {
+        tab?: string; step?: 1 | 2 | 3; scroll?: number;
+      };
+      if (tab) setActiveTab(tab);
+      if (savedStep) setStep(savedStep);
+      sessionStorage.removeItem('iaclin.secretariaIaRestore');
+      const y = typeof scroll === 'number' ? scroll : 0;
+      requestAnimationFrame(() => {
+        setTimeout(() => window.scrollTo({ top: y, behavior: 'auto' }), 60);
+      });
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mantém um snapshot do estado atual para que os atalhos possam restaurar.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        'iaclin.secretariaIaState',
+        JSON.stringify({ tab: activeTab, step }),
+      );
+    } catch {}
+  }, [activeTab, step]);
+
   return (
     <div className="space-y-8">
       {/* Stepper */}

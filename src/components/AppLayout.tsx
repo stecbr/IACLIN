@@ -87,11 +87,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <button
                   onClick={handleBack}
                   title={backNav.label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  aria-label={backNav.label}
+                  className="inline-flex items-center justify-center rounded-full border border-border/60 bg-muted/40 h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{backNav.label}</span>
-                  <span className="sm:hidden">Voltar</span>
                 </button>
               )}
               {/* Mobile logo */}
