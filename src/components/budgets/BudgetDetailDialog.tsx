@@ -29,9 +29,10 @@ import {
 } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Trash2, User as UserIcon } from 'lucide-react';
+import { Trash2, User as UserIcon, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface BudgetDetailDialogProps {
   planId: string | null;
@@ -55,6 +56,7 @@ const statusBadge: Record<string, string> = {
 
 export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailDialogProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: plan, isLoading } = useQuery({
@@ -64,7 +66,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
       const { data, error } = await supabase
         .from('treatment_plans')
         .select(
-          '*, patients(full_name), treatment_plan_items(id, tooth_number, price, notes, procedures(name))'
+          '*, patients(id, full_name), treatment_plan_items(id, tooth_number, price, notes, procedures(name))'
         )
         .eq('id', planId!)
         .single();
@@ -216,6 +218,19 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
             >
               <Trash2 className="h-4 w-4 mr-1.5" />
               Excluir
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const pid = (plan as any)?.patients?.id;
+                if (!pid) return;
+                onOpenChange(false);
+                navigate(`/patients/${pid}`, { state: { fromBudgetId: planId } });
+              }}
+              disabled={!plan || !(plan as any)?.patients?.id}
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              Abrir prontuário
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Fechar
