@@ -160,7 +160,7 @@ export default function Budgets() {
         {headerButton}
       </PageHeader>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {COLUMNS.map(col => {
             const items = columnData[col.id] ?? [];
