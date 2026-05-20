@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +7,7 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, FolderHeart, Users, Star, MoreHorizontal } from 'lucide-react';
+import { Search, FolderHeart, Users, Star, MoreHorizontal, KeyRound } from 'lucide-react';
 import { usePatientPersonalizations } from '@/hooks/usePatientPersonalization';
 import { PatientPersonalizeMenu } from '@/components/patients/PatientPersonalizeMenu';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 const SEARCH_STORAGE_KEY = 'open-chart.search';
 
 export default function OpenChart() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState(() => {
     if (typeof window === 'undefined') return '';
     return sessionStorage.getItem(SEARCH_STORAGE_KEY) ?? '';
@@ -91,7 +92,18 @@ export default function OpenChart() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Abrir prontuário" description={contextLabel} />
+      <PageHeader title="Abrir prontuário" description={contextLabel}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate('/prontuario/compartilhado')}
+          className="gap-2"
+        >
+          <KeyRound className="h-4 w-4" />
+          <span className="hidden sm:inline">Abrir prontuário compartilhado</span>
+          <span className="sm:hidden">Resgatar código</span>
+        </Button>
+      </PageHeader>
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
