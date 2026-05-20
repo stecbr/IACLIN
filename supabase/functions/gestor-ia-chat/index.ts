@@ -134,6 +134,51 @@ Deno.serve(async (req) => {
 
     const { clinicName, contextText } = await loadClinicContext(admin, clinicId);
 
+    // Folder shared context: include short summary of messages from the FIRST thread
+    // of the same folder (excluding the current thread) so conversations in the
+    // same folder share context.
+    let folderContextBlock = "";
+    try {
+      const { data: currentThread } = await admin
+        .from("ia_gestor_threads")
+        .select("folder_id")
+        .eq("id", threadId)
+        .maybeSingle();
+      const folderId = (currentThread as any)?.folder_id as string | null;
+      if (folderId) {
+        const { data: folder } = await admin
+          .from("ia_gestor_folders")
+          .select("name")
+          .eq("id", folderId)
+          .maybeSingle();
+        const { data: firstThread } = await admin
+          .from("ia_gestor_threads")
+          .select("id, title")
+          .eq("folder_id", folderId)
+          .neq("id", threadId)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (firstThread) {
+          const { data: msgs } = await admin
+            .from("ia_gestor_messages")
+            .select("role, content")
+            .eq("thread_id", (firstThread as any).id)
+            .order("created_at", { ascending: true })
+            .limit(40);
+          const lines = (msgs ?? []).map((m: any) =>
+            `${m.role === "user" ? "Usuário" : "Você"}: ${String(m.content || "").slice(0, 500)}`
+          );
+          folderContextBlock = `\n\n--- CONTEXTO DA PASTA "${(folder as any)?.name ?? ""}" ---\n` +
+            `As mensagens abaixo são de uma conversa anterior na MESMA pasta. Use-as como contexto compartilhado (assuntos, decisões, preferências do usuário).\n\n` +
+            lines.join("\n") +
+            `\n--- FIM DO CONTEXTO DA PASTA ---`;
+        }
+      }
+    } catch (e) {
+      console.warn("folder context load failed", e);
+    }
+
     const system = `Você é o Gestor IA da clínica ${clinicName}, um copiloto de gestão clínica.
 
 REGRAS DE ESTILO (muito importantes):
@@ -154,7 +199,7 @@ IMAGENS:
 
 --- DADOS DA CLÍNICA ---
 ${contextText}
---- FIM DOS DADOS ---`;
+--- FIM DOS DADOS ---${folderContextBlock}`;
 
     const modelMessages = await convertToModelMessages(messages);
 

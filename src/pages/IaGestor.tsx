@@ -5,9 +5,15 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, Plus, Trash2, Send, Loader2, MessageSquare, Download, Image as ImageIcon, Calendar, Users, DollarSign, FileText, Settings as SettingsIcon, Sparkles, MapPin, Clock, Edit, ArrowRight } from 'lucide-react';
+import { Brain, Plus, Trash2, Send, Loader2, MessageSquare, Download, Image as ImageIcon, Calendar, Users, DollarSign, FileText, Settings as SettingsIcon, Sparkles, MapPin, Clock, Edit, ArrowRight, Folder, FolderPlus, MoreHorizontal, ChevronRight, FolderInput, Pencil, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -17,43 +23,274 @@ import { Link } from 'react-router-dom';
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
 const FN_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/gestor-ia-chat`;
 
-type ThreadRow = { id: string; title: string; updated_at: string };
+type ThreadRow = { id: string; title: string; updated_at: string; folder_id: string | null };
+type FolderRow = { id: string; name: string; color: string };
 
-function ThreadList({ threads, activeId, onNew, onSelect, onDelete }: {
-  threads: ThreadRow[]; activeId?: string;
-  onNew: () => void; onSelect: (id: string) => void; onDelete: (id: string) => void;
+const FOLDER_COLORS: { id: string; label: string; dot: string; bg: string }[] = [
+  { id: 'rose',    label: 'Rosa',     dot: 'bg-rose-400',    bg: 'bg-rose-500/10' },
+  { id: 'amber',   label: 'Âmbar',    dot: 'bg-amber-400',   bg: 'bg-amber-500/10' },
+  { id: 'emerald', label: 'Verde',    dot: 'bg-emerald-400', bg: 'bg-emerald-500/10' },
+  { id: 'sky',     label: 'Azul',     dot: 'bg-sky-400',     bg: 'bg-sky-500/10' },
+  { id: 'violet',  label: 'Violeta',  dot: 'bg-violet-400',  bg: 'bg-violet-500/10' },
+  { id: 'slate',   label: 'Cinza',    dot: 'bg-slate-400',   bg: 'bg-slate-500/10' },
+];
+
+function colorDot(color: string) {
+  return FOLDER_COLORS.find((c) => c.id === color)?.dot ?? 'bg-muted-foreground';
+}
+
+function ThreadItem({
+  thread, active, folders, onSelect, onRename, onDelete, onMove,
+}: {
+  thread: ThreadRow; active: boolean; folders: FolderRow[];
+  onSelect: () => void;
+  onRename: (newTitle: string) => void;
+  onDelete: () => void;
+  onMove: (folderId: string | null) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(thread.title);
+
+  const submit = () => {
+    const v = value.trim();
+    if (v && v !== thread.title) onRename(v);
+    setEditing(false);
+  };
+
+  return (
+    <div
+      onClick={() => !editing && onSelect()}
+      className={cn(
+        'group flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors',
+        active ? 'bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      )}
+    >
+      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+      {editing ? (
+        <Input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); submit(); }
+            if (e.key === 'Escape') { setEditing(false); setValue(thread.title); }
+          }}
+          onBlur={submit}
+          className="h-6 px-1 py-0 text-sm flex-1"
+        />
+      ) : (
+        <span className="flex-1 truncate">{thread.title}</span>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+          <button
+            className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 text-muted-foreground hover:text-foreground transition-opacity p-0.5 rounded"
+            aria-label="Opções"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem onSelect={() => { setValue(thread.title); setEditing(true); }}>
+            <Pencil className="h-3.5 w-3.5 mr-2" /> Renomear
+          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <FolderInput className="h-3.5 w-3.5 mr-2" /> Mover para
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onSelect={() => onMove(null)}>
+                <Folder className="h-3.5 w-3.5 mr-2 opacity-50" /> Sem pasta
+              </DropdownMenuItem>
+              {folders.length > 0 && <DropdownMenuSeparator />}
+              {folders.map((f) => (
+                <DropdownMenuItem key={f.id} onSelect={() => onMove(f.id)}>
+                  <span className={cn('h-2 w-2 rounded-full mr-2', colorDot(f.color))} />
+                  {f.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
+            <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function FolderItem({
+  folder, children, onRename, onDelete, onSetColor, onAddThread,
+}: {
+  folder: FolderRow; children: React.ReactNode;
+  onRename: (newName: string) => void;
+  onDelete: () => void;
+  onSetColor: (color: string) => void;
+  onAddThread: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(folder.name);
+
+  const submit = () => {
+    const v = value.trim();
+    if (v && v !== folder.name) onRename(v);
+    setEditing(false);
+  };
+
+  return (
+    <div className="space-y-0.5">
+      <div className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors">
+        <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-1.5 flex-1 min-w-0 text-left">
+          <ChevronRight className={cn('h-3 w-3 text-muted-foreground transition-transform', open && 'rotate-90')} />
+          <span className={cn('h-2 w-2 rounded-full flex-shrink-0', colorDot(folder.color))} />
+          {editing ? (
+            <Input
+              autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); submit(); }
+                if (e.key === 'Escape') { setEditing(false); setValue(folder.name); }
+              }}
+              onBlur={submit}
+              className="h-6 px-1 py-0 text-xs font-medium flex-1"
+            />
+          ) : (
+            <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80 truncate">{folder.name}</span>
+          )}
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 text-muted-foreground hover:text-foreground transition-opacity p-0.5 rounded"
+              aria-label="Opções da pasta"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onSelect={onAddThread}>
+              <Plus className="h-3.5 w-3.5 mr-2" /> Nova conversa aqui
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { setValue(folder.name); setEditing(true); }}>
+              <Pencil className="h-3.5 w-3.5 mr-2" /> Renomear
+            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <span className={cn('h-2 w-2 rounded-full mr-2', colorDot(folder.color))} />
+                Cor
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {FOLDER_COLORS.map((c) => (
+                  <DropdownMenuItem key={c.id} onSelect={() => onSetColor(c.id)}>
+                    <span className={cn('h-2.5 w-2.5 rounded-full mr-2', c.dot)} />
+                    {c.label}
+                    {folder.color === c.id && <Check className="h-3 w-3 ml-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
+              <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir pasta
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {open && <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5">{children}</div>}
+    </div>
+  );
+}
+
+function Sidebar({
+  threads, folders, activeId, onNew, onNewFolder, onSelect,
+  onRenameThread, onDeleteThread, onMoveThread,
+  onRenameFolder, onDeleteFolder, onSetFolderColor, onAddThreadInFolder,
+}: {
+  threads: ThreadRow[]; folders: FolderRow[]; activeId?: string;
+  onNew: () => void; onNewFolder: () => void; onSelect: (id: string) => void;
+  onRenameThread: (id: string, title: string) => void;
+  onDeleteThread: (id: string) => void;
+  onMoveThread: (id: string, folderId: string | null) => void;
+  onRenameFolder: (id: string, name: string) => void;
+  onDeleteFolder: (id: string) => void;
+  onSetFolderColor: (id: string, color: string) => void;
+  onAddThreadInFolder: (folderId: string) => void;
+}) {
+  const ungrouped = threads.filter((t) => !t.folder_id);
+
   return (
     <aside className="hidden md:flex w-64 flex-col border-r border-border bg-muted/20 h-full">
-      <div className="p-3 border-b border-border">
+      <div className="p-3 border-b border-border space-y-2">
         <Button onClick={onNew} className="w-full justify-start gap-2" variant="default">
           <Plus className="h-4 w-4" /> Nova conversa
         </Button>
+        <Button onClick={onNewFolder} className="w-full justify-start gap-2" variant="outline" size="sm">
+          <FolderPlus className="h-3.5 w-3.5" /> Nova pasta
+        </Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {threads.length === 0 && (
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {folders.length === 0 && threads.length === 0 && (
           <div className="text-xs text-muted-foreground p-3">Nenhuma conversa ainda.</div>
         )}
-        {threads.map((t) => (
-          <div
-            key={t.id}
-            onClick={() => onSelect(t.id)}
-            className={cn(
-              'group flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors',
-              activeId === t.id ? 'bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-            )}
-          >
-            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="flex-1 truncate">{t.title}</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(t.id); }}
-              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-              aria-label="Excluir"
+
+        {folders.map((f) => {
+          const inFolder = threads.filter((t) => t.folder_id === f.id);
+          return (
+            <FolderItem
+              key={f.id}
+              folder={f}
+              onRename={(name) => onRenameFolder(f.id, name)}
+              onDelete={() => onDeleteFolder(f.id)}
+              onSetColor={(c) => onSetFolderColor(f.id, c)}
+              onAddThread={() => onAddThreadInFolder(f.id)}
             >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+              {inFolder.length === 0 ? (
+                <div className="text-[11px] text-muted-foreground px-3 py-1.5 italic">Vazio</div>
+              ) : (
+                inFolder.map((t) => (
+                  <ThreadItem
+                    key={t.id}
+                    thread={t}
+                    active={activeId === t.id}
+                    folders={folders}
+                    onSelect={() => onSelect(t.id)}
+                    onRename={(title) => onRenameThread(t.id, title)}
+                    onDelete={() => onDeleteThread(t.id)}
+                    onMove={(folderId) => onMoveThread(t.id, folderId)}
+                  />
+                ))
+              )}
+            </FolderItem>
+          );
+        })}
+
+        {ungrouped.length > 0 && (
+          <div className="space-y-0.5 pt-1">
+            {folders.length > 0 && (
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                Sem pasta
+              </div>
+            )}
+            {ungrouped.map((t) => (
+              <ThreadItem
+                key={t.id}
+                thread={t}
+                active={activeId === t.id}
+                folders={folders}
+                onSelect={() => onSelect(t.id)}
+                onRename={(title) => onRenameThread(t.id, title)}
+                onDelete={() => onDeleteThread(t.id)}
+                onMove={(folderId) => onMoveThread(t.id, folderId)}
+              />
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </aside>
   );
@@ -284,11 +521,25 @@ export default function IaGestor() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ia_gestor_threads')
-        .select('id, title, updated_at')
+        .select('id, title, updated_at, folder_id')
         .eq('user_id', user!.id)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ThreadRow[];
+    },
+  });
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ['ia-folders', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ia_gestor_folders')
+        .select('id, name, color')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as FolderRow[];
     },
   });
 
@@ -316,23 +567,67 @@ export default function IaGestor() {
     }
   }, [user?.id, threadId, threads, threadsLoading, navigate, currentClinicId, qc]);
 
-  const handleNew = async () => {
+  const createThread = async (folderId: string | null = null) => {
     if (!user?.id) return;
     const { data, error } = await supabase
       .from('ia_gestor_threads')
-      .insert({ user_id: user.id, clinic_id: currentClinicId, title: 'Nova conversa' })
+      .insert({ user_id: user.id, clinic_id: currentClinicId, title: 'Nova conversa', folder_id: folderId } as any)
       .select('id')
       .single();
     if (error) { toast.error('Erro ao criar conversa'); return; }
     qc.invalidateQueries({ queryKey: ['ia-threads'] });
     navigate(`/ia-gestor/${data.id}`);
   };
+  const handleNew = () => createThread(null);
+  const handleAddThreadInFolder = (folderId: string) => createThread(folderId);
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('ia_gestor_threads').delete().eq('id', id);
     if (error) { toast.error('Erro ao excluir'); return; }
     qc.invalidateQueries({ queryKey: ['ia-threads'] });
     if (threadId === id) navigate('/ia-gestor', { replace: true });
+  };
+
+  const handleRenameThread = async (id: string, title: string) => {
+    const { error } = await supabase.from('ia_gestor_threads').update({ title }).eq('id', id);
+    if (error) { toast.error('Erro ao renomear'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-threads'] });
+  };
+
+  const handleMoveThread = async (id: string, folderId: string | null) => {
+    const { error } = await (supabase as any).from('ia_gestor_threads').update({ folder_id: folderId }).eq('id', id);
+    if (error) { toast.error('Erro ao mover'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-threads'] });
+    toast.success(folderId ? 'Movida para pasta' : 'Removida da pasta');
+  };
+
+  const handleNewFolder = async () => {
+    if (!user?.id) return;
+    const { error } = await (supabase as any).from('ia_gestor_folders').insert({
+      user_id: user.id, clinic_id: currentClinicId, name: 'Nova pasta', color: 'rose',
+    });
+    if (error) { toast.error('Erro ao criar pasta'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
+  };
+
+  const handleRenameFolder = async (id: string, name: string) => {
+    const { error } = await (supabase as any).from('ia_gestor_folders').update({ name }).eq('id', id);
+    if (error) { toast.error('Erro ao renomear pasta'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm('Excluir esta pasta? As conversas não serão apagadas.')) return;
+    const { error } = await (supabase as any).from('ia_gestor_folders').delete().eq('id', id);
+    if (error) { toast.error('Erro ao excluir pasta'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
+    qc.invalidateQueries({ queryKey: ['ia-threads'] });
+  };
+
+  const handleSetFolderColor = async (id: string, color: string) => {
+    const { error } = await (supabase as any).from('ia_gestor_folders').update({ color }).eq('id', id);
+    if (error) { toast.error('Erro ao mudar cor'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
   };
 
   // Load messages for active thread
@@ -364,12 +659,20 @@ export default function IaGestor() {
 
   return (
     <div className="flex h-[calc(100vh-12rem)] md:h-[calc(100vh-8rem)] -m-4 md:-m-6 rounded-none overflow-hidden border-t border-border bg-background">
-      <ThreadList
+      <Sidebar
         threads={threads}
+        folders={folders}
         activeId={threadId}
         onNew={handleNew}
+        onNewFolder={handleNewFolder}
         onSelect={(id) => navigate(`/ia-gestor/${id}`)}
-        onDelete={handleDelete}
+        onRenameThread={handleRenameThread}
+        onDeleteThread={handleDelete}
+        onMoveThread={handleMoveThread}
+        onRenameFolder={handleRenameFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onSetFolderColor={handleSetFolderColor}
+        onAddThreadInFolder={handleAddThreadInFolder}
       />
       {threadId && !msgsLoading ? (
         <ChatView key={threadId} threadId={threadId} clinicId={currentClinicId} initialMessages={initialMessages} />
