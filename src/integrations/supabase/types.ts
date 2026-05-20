@@ -1028,6 +1028,71 @@ export type Database = {
           },
         ]
       }
+      ia_gestor_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          parts: Json
+          role: string
+          sdk_message_id: string | null
+          thread_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          parts?: Json
+          role: string
+          sdk_message_id?: string | null
+          thread_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          parts?: Json
+          role?: string
+          sdk_message_id?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ia_gestor_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ia_gestor_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ia_gestor_threads: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imported_transactions: {
         Row: {
           amount: number
