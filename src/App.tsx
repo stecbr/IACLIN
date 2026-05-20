@@ -144,6 +144,19 @@ function OnboardingRoute() {
   return <Onboarding />;
 }
 
+function HomeRoute() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (!user) return <Landing />;
+  return <ProtectedRoute><Index /></ProtectedRoute>;
+}
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<Auth />} />
