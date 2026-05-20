@@ -1,33 +1,17 @@
 ## Objetivo
-1. Na tela de resgatar código (`/prontuario/compartilhado`), adicionar botão "Voltar" para o médico que abriu por engano poder sair.
-2. Após digitar o código, em vez de abrir um PDF para impressão/salvamento, mostrar o prontuário em uma **visualização inline** dentro da própria página, sem opção de salvar/imprimir/baixar.
+Gerar um código de compartilhamento de teste, válido por 5 minutos, para o paciente **Flavio Batista** (`c9483c6b-...`) — o mesmo que você está visualizando — para testar a tela `/prontuario/compartilhado`.
 
-## Mudanças
+## Ação
+Inserir uma linha em `patient_chart_shares` via `supabase--insert`:
 
-### 1. `src/pages/PatientChartRedeem.tsx`
-- Adicionar botão "Voltar" no topo (ícone `ArrowLeft` + label), antes do card, que executa `navigate(-1)` (fallback para `/prontuarios`).
-- Após resposta da edge function `redeem-patient-chart`, **não** chamar `openFullChartPdf`. Em vez disso, guardar o resultado em estado e renderizar o conteúdo numa view de leitura.
-- Criar um componente local `<SharedChartViewer data={...} onClose={...} />` (mesmo arquivo, ou novo `src/components/patients/SharedChartViewer.tsx`) que renderiza o mesmo HTML hoje gerado pelo `generateFullChartPdf`, mas dentro do React/Tailwind, sem ações de imprimir/baixar.
-- Restrições anti-salvamento (best-effort, deixar claro que é frontend):
-  - `user-select: none` e `pointer-events` controlados no container
-  - `onContextMenu={(e) => e.preventDefault()}` para desabilitar menu de contexto
-  - `@media print { body { display: none } }` aplicado enquanto a view está aberta
-  - **Não** incluir botão de imprimir, baixar PDF ou copiar
-- Aviso visível no topo: "Acesso somente leitura. Não é permitido salvar nem imprimir."
-- Botão "Fechar" volta ao estado de input do código (limpa `data` e `code`).
+- `code`: `123456`
+- `patient_id`: `c9483c6b-6b05-40a7-a319-8dae28363bdc`
+- `clinic_id`: `cf88a719-c991-4188-bbc9-e5f2d210d656`
+- `created_by`: dono da clínica (lookup pelo `clinics.owner_id`)
+- `expires_at`: `now() + interval '5 minutes'`
 
-### 2. `src/lib/generateFullChartPdf.ts`
-- Extrair a função que monta o **HTML do prontuário** (linhas ~111-220) numa função exportada `renderFullChartHtml(data: FullChartData): Promise<string>` para reaproveitar no novo viewer. `openFullChartPdf` continua existindo (usada em `PatientDetail.tsx`) e passa a chamar `renderFullChartHtml`.
-- Alternativa mais simples: criar `renderFullChartSections(data)` retornando JSX/strings prontas para o viewer React. Vou optar pela **mesma string HTML** sendo injetada via `dangerouslySetInnerHTML` num container estilizado (mais rápido e mantém paridade visual com o PDF).
+Depois é só digitar `123456` na tela de resgate.
 
 ## Fora do escopo
-- Bloqueio real de print screen / DevTools (impossível no frontend; só comunicar via UX).
-- Marca d'água com nome do médico que resgatou (pode ser iteração futura).
-- Mudar a edge function `redeem-patient-chart` (continua retornando o mesmo JSON).
-- Mexer no fluxo do `PatientDetail.tsx` (PDF do dono do prontuário continua igual).
-
-## Verificação
-- `/prontuario/compartilhado` mostra botão "Voltar" e volta para a tela anterior.
-- Ao digitar código válido, **não** abre nova aba/PDF; o prontuário aparece inline na mesma página.
-- Sem botões de imprimir/baixar/copiar; menu de contexto desabilitado; `Ctrl+P` resulta em página em branco.
-- Botão "Fechar" retorna à tela de digitar código.
+- Nenhuma mudança de código.
+- Nenhuma mudança de schema.
