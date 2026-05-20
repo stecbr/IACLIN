@@ -526,6 +526,21 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {(effectiveRole === 'dentist' || effectiveRole === 'secretary') && currentClinicId && (
+          <SidebarGroup>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/50 px-3 mb-1 font-semibold">
+                Inteligência
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain, beta: true })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {!isDentist && effectiveRole !== 'patient' && (
           <>
             <div className="mx-3 my-2">
