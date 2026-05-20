@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
+import Landing from "./pages/Landing";
 import Agenda from "./pages/Agenda";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
@@ -167,7 +168,8 @@ const AppRoutes = () => (
       <Route path="agenda" element={<OperatorAgenda />} />
       <Route path="configuracoes" element={<OperatorSettings />} />
     </Route>
-    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+    <Route path="/" element={<HomeRoute />} />
+    <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/minha-agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/disponibilidade" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
