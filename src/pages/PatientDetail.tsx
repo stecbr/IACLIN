@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,8 @@ import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { generateBudgetPdf, fetchClinicForPdf } from '@/lib/generateBudgetPdf';
 import { openFullChartPdf, fetchFullChartData } from '@/lib/generateFullChartPdf';
 import { SharePatientChartDialog } from '@/components/patients/SharePatientChartDialog';
+import { PatientPersonalizeMenu } from '@/components/patients/PatientPersonalizeMenu';
+import { usePatientPersonalization } from '@/hooks/usePatientPersonalization';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +31,9 @@ export default function PatientDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const fromBudgetId = (location.state as any)?.fromBudgetId as string | undefined;
+  const fromRoute = (location.state as any)?.from as string | undefined;
+  const backTo = fromRoute === '/prontuarios' ? '/prontuarios' : '/patients';
+  const backLabel = fromRoute === '/prontuarios' ? 'Voltar aos prontuários' : 'Voltar';
   const [editOpen, setEditOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -124,9 +129,9 @@ export default function PatientDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Link to="/patients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <Link to={backTo} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
-          Voltar
+          {backLabel}
         </Link>
         {fromBudgetId && (
           <Button
