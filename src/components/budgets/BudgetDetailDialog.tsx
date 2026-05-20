@@ -98,8 +98,15 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
         .delete()
         .eq('treatment_plan_id', planId!);
       if (itemsErr) throw itemsErr;
-      const { error } = await supabase.from('treatment_plans').delete().eq('id', planId!);
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .delete()
+        .eq('id', planId!)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Não foi possível excluir: você não tem permissão para este orçamento.');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
