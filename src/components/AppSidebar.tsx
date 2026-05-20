@@ -440,7 +440,7 @@ export function AppSidebar() {
                     <SidebarGroupContent>
                       <SidebarMenu>
                         {automationItems.map((item) => renderNavItem(item))}
-                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain, beta: true })}
+                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
                       </SidebarMenu>
                     </SidebarGroupContent>
                   </SidebarGroup>
@@ -535,7 +535,7 @@ export function AppSidebar() {
             )}
             <SidebarGroupContent>
               <SidebarMenu>
-                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain, beta: true })}
+                {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
