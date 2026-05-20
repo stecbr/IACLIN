@@ -135,13 +135,13 @@ export default function Financial() {
         </Badge>
         <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none sm:size-default" onClick={() => setShowImport(true)}>
           <Sparkles className="h-4 w-4" />
-          <span className="hidden xs:inline sm:inline">Importar Extrato (IA)</span>
-          <span className="xs:hidden sm:hidden">Importar</span>
+          <span className="hidden sm:inline">Importar Extrato (IA)</span>
+          <span className="sm:hidden">Importar</span>
         </Button>
         <Button size="sm" className="gap-2 flex-1 sm:flex-none sm:size-default" onClick={() => setShowNewTx(true)}>
           <Plus className="h-4 w-4" />
-          <span className="hidden xs:inline sm:inline">Nova Transação</span>
-          <span className="xs:hidden sm:hidden">Nova</span>
+          <span className="hidden sm:inline">Nova Transação</span>
+          <span className="sm:hidden">Nova</span>
         </Button>
       </PageHeader>
 
