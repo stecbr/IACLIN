@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ClipboardList, Stethoscope } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 
 interface BudgetCardProps {
   id: string;
