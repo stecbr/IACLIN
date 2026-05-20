@@ -1,86 +1,48 @@
-## Prontuário Completo + Compartilhamento Seguro
+## Problemas identificados em `/budgets`
 
-Construir exportação completa do prontuário em PDF e um sistema de compartilhamento via código de acesso temporário (expira em 5 minutos), para o profissional enviar a outro colega com segurança.
+1. **Clique no card de orçamento não abre nada**
+   - `src/components/budgets/BudgetCard.tsx` não possui `onClick` e a página `Budgets.tsx` não renderiza nenhum dialog de detalhe. Só existe o `BudgetFormDialog` (criar novo).
+2. **Drag-and-drop não move o card entre colunas**
+   - Em `src/pages/Budgets.tsx`, as colunas são `<div id={col.id}>` simples. Elas **não** são registradas com `useDroppable` do `@dnd-kit/core`, então `closestCenter` só detecta os próprios cards. Resultado: arrastar para uma coluna vazia, ou soltar no "espaço" entre cards, não dispara `onDragEnd` com um `over` válido → o status não muda.
 
-### 1. Geração do PDF completo (`src/lib/generateFullChartPdf.ts`)
+## Correções
 
-Novo helper reaproveitando `jsPDF` + `autoTable` (mesmo padrão de `generateAttendancePdf.ts`). Recebe `patientId` e monta um documento único com:
+### 1. Tornar cada coluna dropável
+Criar um pequeno componente `KanbanColumn` (no próprio `Budgets.tsx` ou em `src/components/budgets/KanbanColumn.tsx`) que:
+- Usa `useDroppable({ id: col.id })`.
+- Aplica `setNodeRef` no wrapper da coluna.
+- Aplica um leve realce visual (ring/bg) quando `isOver` for true.
+- Recebe os cards como `children` mantendo o `SortableContext` atual.
 
-- Capa: dados da clínica (logo, nome, endereço, CNPJ) + dados do paciente (nome, CPF, nascimento, telefone, convênio) + data de emissão e profissional responsável.
-- Anamnese (tabela `anamneses`): alergias, condições, medicações, hábitos, tipo sanguíneo, observações.
-- Linha do tempo de atendimentos (`clinical_records` ordenados por data desc): para cada visita — data, profissional, queixa, HDA, exame físico, sinais vitais, hipóteses, diagnóstico, plano, retorno, evolução/notas, procedimentos realizados (com dente/face/valor) e solicitações (receitas, exames, atestados, encaminhamentos).
-- Odontograma (`odontogram_entries`) e mapa clínico (`clinical_map_entries`) — lista resumida por dente/região + condição.
-- Documentos anexos (`documents`) — apenas listagem com nome e categoria (sem incluir o binário).
-- Rodapé com numeração de página e identificação ("Prontuário emitido por IACLIN — uso clínico restrito").
+Em `handleDragEnd`, manter a lógica já existente: se `over.id` é uma coluna → muda status; se é outro card → usa o status daquele card. Já está correta; só passa a funcionar quando a coluna é droppable.
 
-Áudios/transcrições de `consultation_recordings` ficam de fora por padrão (mantém PDF enxuto); fica como melhoria futura.
+### 2. Abrir detalhes ao clicar no card
+Criar `src/components/budgets/BudgetDetailDialog.tsx` (estilo Apple/iOS, fade-in, sem slide), com:
+- Cabeçalho: título do orçamento + badge de status + nome do paciente.
+- Lista dos itens (`treatment_plan_items` + nome do procedimento via join) com dente (se houver), valor unitário, observação.
+- Total, data de criação.
+- Seletor de status (Pendente / Em Negociação / Aprovado / Perdido) — usa a mesma mutation já existente para atualizar `status` no `treatment_plans`.
+- Botão "Excluir orçamento" (com `AlertDialog` de confirmação) que apaga `treatment_plan_items` + `treatment_plans` e invalida a query `treatment-plans-kanban`.
+- Botão "Fechar".
 
-### 2. Botão "Exportar prontuário (PDF)" no `PatientDetail.tsx`
+Ajustar `BudgetCard.tsx`:
+- Aceitar `onClick?: () => void`.
+- Disparar `onClick` **apenas** quando o clique não vier do "punho" de arrastar (já há um botão dedicado `GripVertical` com `attributes/listeners`; remover `cursor-grab` do card inteiro e tornar o restante do card clicável com `cursor-pointer`).
+- Manter `setNodeRef`/`transform` do `useSortable` no wrapper, mas `attributes`/`listeners` ficam exclusivamente no botão de arrastar para o clique não ser capturado pelo dnd.
 
-Adicionar ação no cabeçalho do prontuário do paciente, com loading e `toast` de erro/sucesso. Visível apenas para membros da clínica (já garantido pelas rotas atuais).
+Em `Budgets.tsx`:
+- Estado `selectedPlanId: string | null`.
+- Passar `onClick={() => setSelectedPlanId(plan.id)}` para cada `BudgetCard` (tanto na coluna quanto no `DragOverlay` pode ficar sem onClick).
+- Renderizar `<BudgetDetailDialog planId={selectedPlanId} open={!!selectedPlanId} onOpenChange={(o)=>!o && setSelectedPlanId(null)} />`.
 
-### 3. Compartilhamento seguro via código temporário (5 min)
+### 3. Pequenos polimentos
+- Garantir `aria-describedby`/`DialogDescription` nos dialogs para silenciar o warning do Radix já visto no console.
+- Manter as cores e o look já existentes (sem alterar paleta).
 
-#### 3.1 Migration (nova tabela `patient_chart_shares`)
-- `id uuid pk`
-- `patient_id uuid not null`
-- `clinic_id uuid not null`
-- `created_by uuid not null` (profissional que gerou)
-- `code text not null` (6 dígitos numéricos, único enquanto ativo)
-- `access_token uuid not null default gen_random_uuid()` (usado internamente para baixar)
-- `expires_at timestamptz not null` (`now() + interval '5 minutes'`)
-- `consumed_at timestamptz` (marca quando o destinatário abriu — opcional, permitir múltiplas aberturas até expirar)
-- `created_at timestamptz default now()`
-- Índice em `(code) where expires_at > now()`.
-- RLS: insert/select apenas para membros da clínica (`user_belongs_to_clinic`). Nada exposto publicamente via PostgREST — o resgate do PDF acontece via edge function com service role.
+## Arquivos afetados
+- `src/pages/Budgets.tsx` — novo `KanbanColumn` droppable, estado de seleção, render do detail dialog.
+- `src/components/budgets/BudgetCard.tsx` — `onClick`, isolar listeners no handle.
+- `src/components/budgets/BudgetDetailDialog.tsx` — **novo** componente (ver, mudar status, excluir).
+- (opcional) `src/components/budgets/KanbanColumn.tsx` — se preferir extrair para fora.
 
-#### 3.2 Edge function `share-patient-chart` (POST, autenticado)
-Gera o código:
-- Valida JWT do solicitante e que ele pertence à `clinic_id` do paciente.
-- Cria registro em `patient_chart_shares` com código aleatório de 6 dígitos e `expires_at = now()+5min`.
-- Retorna `{ code, expires_at, share_url }` onde `share_url` aponta para `/prontuario/compartilhado` na própria plataforma.
-
-#### 3.3 Edge function `redeem-patient-chart` (POST, público)
-Resgata e gera o PDF:
-- Recebe `{ code }`.
-- Busca share válido (`expires_at > now()`). Se expirado/inexistente → 404 "código inválido ou expirado".
-- Carrega todos os dados do paciente (mesma agregação do helper PDF, server-side com `jsPDF` via npm) e devolve o PDF como `application/pdf` em stream para download.
-- Não exige login do destinatário — o código de 5 min é o fator de acesso.
-- Log mínimo (sem dados clínicos) em `notifications` para o emissor: "Prontuário acessado".
-
-Alternativa considerada: gerar o PDF no cliente do emissor e subir a um Storage privado com signed URL de 5 min. Descartado porque exigiria o emissor manter a aba aberta e duplicaria a lógica de PDF.
-
-#### 3.4 UI de compartilhamento (`SharePatientChartDialog.tsx`)
-Disparado por novo botão "Compartilhar prontuário" ao lado de "Exportar PDF":
-- Botão "Gerar código de acesso" → chama `share-patient-chart`.
-- Exibe código grande (ex: `483 921`), contador regressivo de 5:00, botões "Copiar código", "Copiar link" e "Enviar por WhatsApp" (usando `whatsappLink` do `clinicalDocsHelpers`).
-- Aviso de segurança: "Este código expira em 5 minutos e dá acesso ao prontuário completo. Compartilhe apenas com o profissional destinatário."
-- Após expirar, botão "Gerar novo código".
-
-#### 3.5 Página pública `/prontuario/compartilhado` (`PatientChartRedeem.tsx`)
-- Formulário simples: input do código de 6 dígitos.
-- Ao submeter, chama `redeem-patient-chart` e dispara o download do PDF.
-- Mensagens claras de erro (expirado, inválido).
-- Sem necessidade de login.
-
-### 4. Detalhes técnicos
-
-```text
-PatientDetail
-  ├─ [Exportar PDF]        → generateFullChartPdf(patientId)
-  └─ [Compartilhar]        → SharePatientChartDialog
-                              └─ edge: share-patient-chart  → { code, expires_at }
-
-Destinatário
-  /prontuario/compartilhado
-  └─ input code → edge: redeem-patient-chart → PDF stream
-```
-
-Rotas alteradas: adicionar `<Route path="/prontuario/compartilhado" element={<PatientChartRedeem/>} />` em `App.tsx` (fora do `AppLayout` autenticado).
-
-Sem mudanças em RLS de tabelas clínicas — a edge `redeem-patient-chart` usa service role e só libera dados quando o share está válido.
-
-### Itens fora deste plano
-- Incluir áudio/transcrição da consulta no PDF.
-- Histórico de quem acessou (auditoria) além do "consumed_at".
-- Limite de tentativas por IP (pode ser adicionado depois com rate limit simples na edge).
+Nenhuma mudança de schema/banco é necessária — `treatment_plans` e `treatment_plan_items` já têm as colunas e RLS necessárias.

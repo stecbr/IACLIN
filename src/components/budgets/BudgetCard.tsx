@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,6 +14,7 @@ interface BudgetCardProps {
   itemCount: number;
   createdAt: string;
   status: string;
+  onClick?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -24,7 +24,7 @@ const statusColors: Record<string, string> = {
   lost: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
 };
 
-export function BudgetCard({ id, title, patientName, totalCost, itemCount, createdAt, status }: BudgetCardProps) {
+export function BudgetCard({ id, title, patientName, totalCost, itemCount, createdAt, status, onClick }: BudgetCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
@@ -39,13 +39,22 @@ export function BudgetCard({ id, title, patientName, totalCost, itemCount, creat
     <Card
       ref={setNodeRef}
       style={style}
-      className={`p-3 cursor-grab active:cursor-grabbing border-border/50 hover:shadow-md transition-shadow ${isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''}`}
+      className={`p-3 border-border/50 hover:shadow-md transition-shadow ${isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''}`}
     >
       <div className="flex items-start gap-2">
-        <button {...attributes} {...listeners} className="mt-1 text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Arrastar"
+          className="mt-1 text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing touch-none"
+        >
           <GripVertical className="h-4 w-4" />
         </button>
-        <div className="flex-1 min-w-0">
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={onClick}
+          role={onClick ? 'button' : undefined}
+        >
           <p className="text-sm font-medium text-foreground truncate">{title}</p>
           <div className="flex items-center gap-2 mt-1.5">
             <Avatar className="h-5 w-5">
