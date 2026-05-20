@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent } from '@dnd-kit/core';
+import { DndContext, closestCorners, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { BudgetCard } from '@/components/budgets/BudgetCard';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
+import { BudgetDetailDialog } from '@/components/budgets/BudgetDetailDialog';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ export default function Budgets() {
   const isDentist = effectiveRole === 'dentist';
   const [activeId, setActiveId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -164,38 +166,15 @@ export default function Budgets() {
             const items = columnData[col.id] ?? [];
             const total = items.reduce((s: number, p: any) => s + Number(p.total_cost), 0);
             return (
-              <div key={col.id} id={col.id} className={`rounded-xl border-2 border-dashed p-3 min-h-[300px] ${col.color} transition-colors`}>
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
-                    <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5">{items.length}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-medium">
-                    R$ {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-                  </span>
-                </div>
-                <SortableContext items={items.map((p: any) => p.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {items.map((plan: any) => (
-                      <BudgetCard
-                        key={plan.id}
-                        id={plan.id}
-                        title={plan.title}
-                        patientName={plan.patients?.full_name ?? 'Paciente'}
-                        totalCost={Number(plan.total_cost)}
-                        itemCount={plan.treatment_plan_items?.length ?? 0}
-                        createdAt={plan.created_at}
-                        status={plan.status}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-                {items.length === 0 && (
-                  <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-border/40">
-                    <p className="text-xs text-muted-foreground">Arraste aqui</p>
-                  </div>
-                )}
-              </div>
+              <KanbanColumn
+                key={col.id}
+                id={col.id}
+                label={col.label}
+                colorClass={col.color}
+                total={total}
+                items={items}
+                onCardClick={(id) => setSelectedPlanId(id)}
+              />
             );
           })}
         </div>
@@ -217,6 +196,62 @@ export default function Budgets() {
         </DragOverlay>
       </DndContext>
       <BudgetFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      <BudgetDetailDialog
+        planId={selectedPlanId}
+        open={!!selectedPlanId}
+        onOpenChange={(o) => !o && setSelectedPlanId(null)}
+      />
+    </div>
+  );
+}
+
+interface KanbanColumnProps {
+  id: string;
+  label: string;
+  colorClass: string;
+  total: number;
+  items: any[];
+  onCardClick: (id: string) => void;
+}
+
+function KanbanColumn({ id, label, colorClass, total, items, onCardClick }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-xl border-2 border-dashed p-3 min-h-[300px] transition-all ${colorClass} ${isOver ? 'ring-2 ring-primary/40 scale-[1.01]' : ''}`}
+    >
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+          <span className="text-xs text-muted-foreground bg-background rounded-full px-2 py-0.5">{items.length}</span>
+        </div>
+        <span className="text-xs text-muted-foreground font-medium">
+          R$ {total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+        </span>
+      </div>
+      <SortableContext items={items.map((p: any) => p.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2">
+          {items.map((plan: any) => (
+            <BudgetCard
+              key={plan.id}
+              id={plan.id}
+              title={plan.title}
+              patientName={plan.patients?.full_name ?? 'Paciente'}
+              totalCost={Number(plan.total_cost)}
+              itemCount={plan.treatment_plan_items?.length ?? 0}
+              createdAt={plan.created_at}
+              status={plan.status}
+              onClick={() => onCardClick(plan.id)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+      {items.length === 0 && (
+        <div className="flex items-center justify-center h-24 rounded-lg border border-dashed border-border/40">
+          <p className="text-xs text-muted-foreground">Arraste aqui</p>
+        </div>
+      )}
     </div>
   );
 }
