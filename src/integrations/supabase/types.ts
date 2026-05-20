@@ -1028,6 +1028,36 @@ export type Database = {
           },
         ]
       }
+      ia_gestor_folders: {
+        Row: {
+          clinic_id: string | null
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clinic_id?: string | null
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ia_gestor_messages: {
         Row: {
           content: string | null
@@ -1070,6 +1100,7 @@ export type Database = {
         Row: {
           clinic_id: string | null
           created_at: string
+          folder_id: string | null
           id: string
           title: string
           updated_at: string
@@ -1078,6 +1109,7 @@ export type Database = {
         Insert: {
           clinic_id?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           title?: string
           updated_at?: string
@@ -1086,12 +1118,21 @@ export type Database = {
         Update: {
           clinic_id?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ia_gestor_threads_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "ia_gestor_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imported_transactions: {
         Row: {
