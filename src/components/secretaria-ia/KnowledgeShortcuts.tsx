@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Clock, ShieldCheck, Stethoscope, CalendarRange, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -14,6 +14,7 @@ interface Props {
 const WEEKDAYS: (keyof BusinessHours)[] = ['mon','tue','wed','thu','fri','sat','sun'];
 
 export function KnowledgeShortcuts({ clinicId }: Props) {
+  const location = useLocation();
   const { data, isLoading } = useQuery({
     queryKey: ['ai-knowledge-shortcuts', clinicId],
     queryFn: async () => {
@@ -112,6 +113,18 @@ export function KnowledgeShortcuts({ clinicId }: Props) {
             <Link
               key={c.title}
               to={c.to}
+              onClick={() => {
+                try {
+                  sessionStorage.setItem(
+                    'iaclin.backNav',
+                    JSON.stringify({
+                      to: c.to,
+                      from: location.pathname + location.search,
+                      label: 'Voltar para Secretária IA',
+                    }),
+                  );
+                } catch {}
+              }}
               className="group rounded-xl border border-border/60 bg-card p-4 transition-colors hover:border-primary/40 hover:bg-muted/30"
             >
               <div className="flex items-start gap-3">
