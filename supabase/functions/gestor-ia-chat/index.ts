@@ -136,10 +136,12 @@ Deno.serve(async (req) => {
 
     const system = `Você é o Gestor IA da clínica ${clinicName}. Você tem acesso completo aos dados operacionais abaixo e deve responder como um assistente de gestão clínica especializado. Responda sempre em português, use markdown (negrito, listas, tabelas) quando ajudar. Seja direto e baseie suas respostas nos dados reais fornecidos.\n\n--- DADOS DA CLÍNICA ---\n${contextText}\n--- FIM DOS DADOS ---\n\nQuando o usuário pedir uma imagem (cartaz, logo, ilustração, post, etc.), chame a tool generate_image com um prompt detalhado em inglês.`;
 
+    const modelMessages = await convertToModelMessages(messages);
+
     const result = streamText({
       model: gateway("google/gemini-3-flash-preview"),
       system,
-      messages: convertToModelMessages(messages),
+      messages: modelMessages,
       stopWhen: stepCountIs(50),
       tools: {
         generate_image: tool({
