@@ -5,13 +5,14 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, Plus, Trash2, Send, Loader2, MessageSquare, Download, Image as ImageIcon } from 'lucide-react';
+import { Brain, Plus, Trash2, Send, Loader2, MessageSquare, Download, Image as ImageIcon, Calendar, Users, DollarSign, FileText, Settings as SettingsIcon, Sparkles, MapPin, Clock, Edit, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Link } from 'react-router-dom';
 
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
 const FN_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/gestor-ia-chat`;
@@ -68,6 +69,48 @@ function MessagePart({ part }: { part: any }) {
   }
   if (part.type?.startsWith('tool-')) {
     const toolName = part.type.replace('tool-', '');
+    if (toolName === 'suggest_actions') {
+      const output = part.output;
+      const state = part.state;
+      if (state !== 'output-available' || !output?.actions) {
+        return (
+          <div className="my-2 text-xs text-muted-foreground">Preparando sugestões…</div>
+        );
+      }
+      const iconMap: Record<string, any> = {
+        calendar: Calendar, users: Users, dollar: DollarSign, file: FileText,
+        tooth: Sparkles, settings: SettingsIcon, sparkles: Sparkles,
+        message: MessageSquare, map: MapPin, clock: Clock, plus: Plus, edit: Edit,
+      };
+      return (
+        <div className="my-2 space-y-2">
+          {output.intro && <p className="text-sm text-foreground">{output.intro}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {output.actions.map((a: any, i: number) => {
+              const Icon = iconMap[a.icon] ?? ArrowRight;
+              return (
+                <Link
+                  key={i}
+                  to={a.route}
+                  className="group flex items-start gap-3 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-all px-3 py-2.5 text-left"
+                >
+                  <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground truncate">{a.label}</div>
+                    {a.description && (
+                      <div className="text-xs text-muted-foreground line-clamp-2">{a.description}</div>
+                    )}
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     if (toolName === 'generate_image') {
       const state = part.state;
       const output = part.output;
