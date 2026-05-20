@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,8 @@ import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { generateBudgetPdf, fetchClinicForPdf } from '@/lib/generateBudgetPdf';
 import { openFullChartPdf, fetchFullChartData } from '@/lib/generateFullChartPdf';
 import { SharePatientChartDialog } from '@/components/patients/SharePatientChartDialog';
+import { PatientPersonalizeMenu } from '@/components/patients/PatientPersonalizeMenu';
+import { usePatientPersonalization } from '@/hooks/usePatientPersonalization';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
@@ -29,12 +31,16 @@ export default function PatientDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const fromBudgetId = (location.state as any)?.fromBudgetId as string | undefined;
+  const fromRoute = (location.state as any)?.from as string | undefined;
+  const backTo = fromRoute === '/prontuarios' ? '/prontuarios' : '/patients';
+  const backLabel = fromRoute === '/prontuarios' ? 'Voltar aos prontuários' : 'Voltar';
   const [editOpen, setEditOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
+  const { data: personalization } = usePatientPersonalization(id);
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -124,9 +130,9 @@ export default function PatientDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Link to="/patients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <Link to={backTo} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
-          Voltar
+          {backLabel}
         </Link>
         {fromBudgetId && (
           <Button
@@ -149,9 +155,24 @@ export default function PatientDetail() {
           </Avatar>
           <div>
             <div className="flex items-center gap-2">
+              {personalization.is_favorite && (
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              )}
               <h1 className="text-2xl font-semibold text-foreground">{patient.full_name}</h1>
               {!patient.is_active && <Badge variant="secondary">Inativo</Badge>}
               {patient.insurance_provider && <Badge variant="outline">{patient.insurance_provider}</Badge>}
+              {personalization.tag && (
+                <Badge
+                  variant="secondary"
+                  style={
+                    personalization.color
+                      ? { backgroundColor: `${personalization.color}1A`, color: personalization.color }
+                      : undefined
+                  }
+                >
+                  {personalization.tag}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
               {patient.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{patient.phone}</span>}
@@ -227,6 +248,14 @@ export default function PatientDetail() {
             <Edit className="h-4 w-4" />
             Editar
           </Button>
+          {id && (
+            <PatientPersonalizeMenu patientId={id}>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Palette className="h-4 w-4" />
+                Personalizar
+              </Button>
+            </PatientPersonalizeMenu>
+          )}
         </div>
       </div>
 
