@@ -1,48 +1,46 @@
-## Problemas identificados em `/budgets`
+## Problema atual
 
-1. **Clique no card de orçamento não abre nada**
-   - `src/components/budgets/BudgetCard.tsx` não possui `onClick` e a página `Budgets.tsx` não renderiza nenhum dialog de detalhe. Só existe o `BudgetFormDialog` (criar novo).
-2. **Drag-and-drop não move o card entre colunas**
-   - Em `src/pages/Budgets.tsx`, as colunas são `<div id={col.id}>` simples. Elas **não** são registradas com `useDroppable` do `@dnd-kit/core`, então `closestCenter` só detecta os próprios cards. Resultado: arrastar para uma coluna vazia, ou soltar no "espaço" entre cards, não dispara `onDragEnd` com um `over` válido → o status não muda.
+1. **Arrastar não funciona ao segurar o card** — só funciona segurando o ícone ⠿ (GripVertical), que é pequeno e nada intuitivo. O usuário tentou segurar o card inteiro e não respondeu.
+2. **Visual do Kanban está "básico"** — colunas tracejadas, cards simples. O usuário quer algo no estilo **Pipefy** (referência da imagem): cards mais ricos, com cabeçalho, chips/badges, avatar, informações organizadas, e colunas mais "sólidas" e profissionais — mas adaptado ao contexto de **clínicas e médicos** (não estoque).
 
-## Correções
+## O que vou fazer
 
-### 1. Tornar cada coluna dropável
-Criar um pequeno componente `KanbanColumn` (no próprio `Budgets.tsx` ou em `src/components/budgets/KanbanColumn.tsx`) que:
-- Usa `useDroppable({ id: col.id })`.
-- Aplica `setNodeRef` no wrapper da coluna.
-- Aplica um leve realce visual (ring/bg) quando `isOver` for true.
-- Recebe os cards como `children` mantendo o `SortableContext` atual.
+### 1. Corrigir o arrastar (card inteiro vira "pegável")
 
-Em `handleDragEnd`, manter a lógica já existente: se `over.id` é uma coluna → muda status; se é outro card → usa o status daquele card. Já está correta; só passa a funcionar quando a coluna é droppable.
+- Remover o `button` com `GripVertical` como único drag handle no `BudgetCard`.
+- Aplicar `{...attributes} {...listeners}` no **card inteiro** (Card raiz), com `cursor-grab` / `active:cursor-grabbing`.
+- Manter o clique para abrir o `BudgetDetailDialog`: usar o `activationConstraint: { distance: 8 }` do `PointerSensor` (já existe com 5px — aumentar levemente) para diferenciar clique de drag, e disparar `onClick` no `onPointerUp` apenas se não houve drag. Solução mais limpa: deixar o dnd-kit cuidar — se passar de 8px é drag, senão o `onClick` do Card dispara normalmente (dnd-kit não cancela cliques curtos por padrão).
+- Manter o ícone ⠿ como **indicador visual** no canto (não mais como handle exclusivo), apenas decorativo.
 
-### 2. Abrir detalhes ao clicar no card
-Criar `src/components/budgets/BudgetDetailDialog.tsx` (estilo Apple/iOS, fade-in, sem slide), com:
-- Cabeçalho: título do orçamento + badge de status + nome do paciente.
-- Lista dos itens (`treatment_plan_items` + nome do procedimento via join) com dente (se houver), valor unitário, observação.
-- Total, data de criação.
-- Seletor de status (Pendente / Em Negociação / Aprovado / Perdido) — usa a mesma mutation já existente para atualizar `status` no `treatment_plans`.
-- Botão "Excluir orçamento" (com `AlertDialog` de confirmação) que apaga `treatment_plan_items` + `treatment_plans` e invalida a query `treatment-plans-kanban`.
-- Botão "Fechar".
+### 2. Redesign Pipefy-style do Kanban (contexto clínica/médico)
 
-Ajustar `BudgetCard.tsx`:
-- Aceitar `onClick?: () => void`.
-- Disparar `onClick` **apenas** quando o clique não vier do "punho" de arrastar (já há um botão dedicado `GripVertical` com `attributes/listeners`; remover `cursor-grab` do card inteiro e tornar o restante do card clicável com `cursor-pointer`).
-- Manter `setNodeRef`/`transform` do `useSortable` no wrapper, mas `attributes`/`listeners` ficam exclusivamente no botão de arrastar para o clique não ser capturado pelo dnd.
+**Colunas (`KanbanColumn`)**
+- Remover borda tracejada. Usar fundo sólido sutil (`bg-muted/40`), cabeçalho com **barra colorida superior** (4px) indicando a fase (âmbar/azul/esmeralda/rosa).
+- Cabeçalho da coluna: título em negrito, contagem em pill, total em R$ alinhado à direita.
+- Coluna com `rounded-xl`, `shadow-sm`, padding interno consistente, scroll vertical se passar de N cards.
+- Placeholder de coluna vazia mais elegante ("Solte um orçamento aqui").
 
-Em `Budgets.tsx`:
-- Estado `selectedPlanId: string | null`.
-- Passar `onClick={() => setSelectedPlanId(plan.id)}` para cada `BudgetCard` (tanto na coluna quanto no `DragOverlay` pode ficar sem onClick).
-- Renderizar `<BudgetDetailDialog planId={selectedPlanId} open={!!selectedPlanId} onOpenChange={(o)=>!o && setSelectedPlanId(null)} />`.
+**Cards (`BudgetCard`) — estilo Pipefy adaptado a clínica**
+- Card branco/superfície com `rounded-lg`, `shadow-sm`, `hover:shadow-md`, borda esquerda colorida (4px) na cor da fase — referência visual rápida do status.
+- **Linha 1 (cabeçalho):** ID curto do orçamento (`#abc123`) em mono pequeno + data à direita.
+- **Linha 2 (título):** título do orçamento em `font-medium`, 2 linhas com `line-clamp-2`.
+- **Linha 3 (paciente):** avatar circular com iniciais + nome do paciente + (se houver) nome do **médico/dentista responsável** com avatar menor — esse é o "voltando para médicos e clínicas".
+- **Linha 4 (chips):** badge com nº de procedimentos (`ClipboardList` icon + "3 itens"), badge da **especialidade/clínica** se disponível, badge de convênio se houver.
+- **Linha 5 (rodapé):** valor total em destaque (`text-base font-semibold`) à esquerda, mini-indicador de fase à direita.
 
-### 3. Pequenos polimentos
-- Garantir `aria-describedby`/`DialogDescription` nos dialogs para silenciar o warning do Radix já visto no console.
-- Manter as cores e o look já existentes (sem alterar paleta).
+### 3. Buscar dados extras já disponíveis
+
+Verificar no `treatment_plans` se existe `dentist_id` (já existe — usado no filtro) e fazer join com `profiles` para mostrar o médico responsável. Mostrar nome da clínica não é necessário no card (já está no contexto da página via `contextLabel`).
 
 ## Arquivos afetados
-- `src/pages/Budgets.tsx` — novo `KanbanColumn` droppable, estado de seleção, render do detail dialog.
-- `src/components/budgets/BudgetCard.tsx` — `onClick`, isolar listeners no handle.
-- `src/components/budgets/BudgetDetailDialog.tsx` — **novo** componente (ver, mudar status, excluir).
-- (opcional) `src/components/budgets/KanbanColumn.tsx` — se preferir extrair para fora.
 
-Nenhuma mudança de schema/banco é necessária — `treatment_plans` e `treatment_plan_items` já têm as colunas e RLS necessárias.
+- `src/components/budgets/BudgetCard.tsx` — drag no card todo, redesign Pipefy-style com avatar do médico e chips.
+- `src/pages/Budgets.tsx` — `KanbanColumn` redesenhado (barra colorida, sem tracejado), query incluindo `dentist:profiles!treatment_plans_dentist_id_fkey(full_name, avatar_url)`, `activationConstraint` ajustado.
+- Sem mudanças de schema, sem mudanças no `BudgetDetailDialog`.
+
+## Detalhes técnicos
+
+- `useSortable` aplicado ao Card raiz; ícone ⠿ removido como botão, mantido apenas como ornamento opcional (ou removido por completo já que o card todo arrasta).
+- `onClick` do Card abre detalhes; `PointerSensor` com `distance: 8` garante que cliques curtos não disparem drag.
+- Cores das fases derivadas de um único mapa `PHASE_STYLE` (border-left + barra superior da coluna + chip do badge) para consistência.
+- Avatar do médico: componente `Avatar` shadcn com fallback de iniciais, tamanho `h-5 w-5`.
