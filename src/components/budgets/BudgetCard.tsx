@@ -4,7 +4,8 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Stethoscope, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface BudgetCardProps {
   id: string;
@@ -15,6 +16,9 @@ interface BudgetCardProps {
   createdAt: string;
   status: string;
   dentistName?: string | null;
+  procedureNames?: string[];
+  patientId?: string | null;
+  onOpenChart?: () => void;
   onClick?: () => void;
 }
 
@@ -29,7 +33,7 @@ function initialsOf(name: string) {
   return name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-export function BudgetCard({ id, title, patientName, totalCost, itemCount, createdAt, status, dentistName, onClick }: BudgetCardProps) {
+export function BudgetCard({ id, title, patientName, totalCost, itemCount, createdAt, status, dentistName, procedureNames = [], patientId, onOpenChart, onClick }: BudgetCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
@@ -41,6 +45,8 @@ export function BudgetCard({ id, title, patientName, totalCost, itemCount, creat
   const patientInitials = initialsOf(patientName);
   const dentistInitials = dentistName ? initialsOf(dentistName) : '';
   const shortId = id.slice(0, 6);
+  const visibleProcs = procedureNames.slice(0, 2);
+  const extraProcs = procedureNames.length - visibleProcs.length;
 
   return (
     <Card
@@ -70,10 +76,21 @@ export function BudgetCard({ id, title, patientName, totalCost, itemCount, creat
 
       {dentistName && (
         <div className="mt-1 flex items-center gap-1.5">
-          <Avatar className="h-4 w-4">
-            <AvatarFallback className="text-[8px] bg-muted text-muted-foreground">{dentistInitials}</AvatarFallback>
-          </Avatar>
-          <span className="text-[11px] text-muted-foreground truncate flex-1">{dentistName}</span>
+          <Stethoscope className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[11px] text-muted-foreground truncate flex-1">Dr(a). {dentistName}</span>
+        </div>
+      )}
+
+      {visibleProcs.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {visibleProcs.map((p, i) => (
+            <span key={i} className="text-[10px] bg-muted/70 text-foreground/80 rounded px-1.5 py-0.5 truncate max-w-[140px]">
+              {p}
+            </span>
+          ))}
+          {extraProcs > 0 && (
+            <span className="text-[10px] text-muted-foreground px-1 py-0.5">+{extraProcs}</span>
+          )}
         </div>
       )}
 
@@ -86,6 +103,27 @@ export function BudgetCard({ id, title, patientName, totalCost, itemCount, creat
           R$ {totalCost.toFixed(2).replace('.', ',')}
         </span>
       </div>
+
+      {patientId && onOpenChart && (
+        <div
+          className="mt-2 pt-2 border-t border-border/40"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-full justify-center gap-1.5 text-[11px] text-primary hover:text-primary hover:bg-primary/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenChart();
+            }}
+          >
+            <FileText className="h-3 w-3" />
+            Abrir prontuário
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

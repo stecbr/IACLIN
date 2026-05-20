@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DndContext, closestCorners, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay, DragStartEvent, useDroppable } from '@dnd-kit/core';
@@ -24,6 +25,7 @@ const COLUMNS = [
 
 export default function Budgets() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { user, currentClinicId, clinics } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const isDentist = effectiveRole === 'dentist';
@@ -46,7 +48,7 @@ export default function Budgets() {
     queryFn: async () => {
       let query = supabase
         .from('treatment_plans')
-        .select('*, patients!inner(full_name, clinic_id), treatment_plan_items(id)')
+        .select('*, patients!inner(id, full_name, clinic_id), treatment_plan_items(id, procedures(name))')
         .order('created_at', { ascending: false });
       if (currentClinicId) {
         query = query.eq('patients.clinic_id', currentClinicId);
@@ -66,7 +68,13 @@ export default function Budgets() {
           .in('id', dentistIds);
         dentistMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.full_name]));
       }
-      return rows.map((r: any) => ({ ...r, dentist_name: dentistMap[r.dentist_id] ?? null }));
+      return rows.map((r: any) => ({
+        ...r,
+        dentist_name: dentistMap[r.dentist_id] ?? null,
+        procedure_names: (r.treatment_plan_items ?? [])
+          .map((it: any) => it.procedures?.name)
+          .filter(Boolean),
+      }));
     },
   });
 
@@ -184,6 +192,7 @@ export default function Budgets() {
                 total={total}
                 items={items}
                 onCardClick={(id) => setSelectedPlanId(id)}
+                onOpenChart={(pid) => navigate(`/patients/${pid}`)}
               />
             );
           })}
@@ -201,6 +210,7 @@ export default function Budgets() {
                 createdAt={activePlan.created_at}
                 status={activePlan.status}
                 dentistName={activePlan.dentist_name}
+                procedureNames={activePlan.procedure_names}
               />
             </div>
           )}
@@ -223,9 +233,10 @@ interface KanbanColumnProps {
   total: number;
   items: any[];
   onCardClick: (id: string) => void;
+  onOpenChart: (patientId: string) => void;
 }
 
-function KanbanColumn({ id, label, barClass, total, items, onCardClick }: KanbanColumnProps) {
+function KanbanColumn({ id, label, barClass, total, items, onCardClick, onOpenChart }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div
@@ -256,6 +267,9 @@ function KanbanColumn({ id, label, barClass, total, items, onCardClick }: Kanban
                 createdAt={plan.created_at}
                 status={plan.status}
                 dentistName={plan.dentist_name}
+                procedureNames={plan.procedure_names}
+                patientId={plan.patients?.id}
+                onOpenChart={plan.patients?.id ? () => onOpenChart(plan.patients.id) : undefined}
                 onClick={() => onCardClick(plan.id)}
               />
             ))}
