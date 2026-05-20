@@ -59,6 +59,7 @@ function Navbar() {
     { href: "#recursos", label: "Recursos" },
     { href: "#diferenciais", label: "Diferenciais" },
     { href: "#profissionais", label: "Para quem é" },
+    { href: "#marketplace", label: "Marketplace" },
   ];
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
@@ -645,6 +646,7 @@ export default function Landing() {
         <Features />
         <Differentials />
         <Professionals />
+        <MarketplacePreview />
         <FinalCTA />
       </main>
       <Footer />
