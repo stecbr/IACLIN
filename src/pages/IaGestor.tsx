@@ -150,17 +150,13 @@ function ChatView({ threadId, clinicId, initialMessages }: { threadId: string; c
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.length === 0 && (
             <div className="text-center py-16">
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-4">
-                <Brain className="h-7 w-7 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold mb-2">Gestor IA</h2>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Pergunte sobre agenda, pacientes, financeiro, ou peça para redigir mensagens e gerar imagens.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-2 justify-center">
+              <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-8">
+                No que você está pensando hoje?
+              </h2>
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-2 px-1 -mx-1 snap-x scrollbar-thin md:justify-center md:flex-wrap md:overflow-visible">
                 {['Quantos pacientes temos?', 'Quais consultas são amanhã?', 'Faturamento dos últimos 30 dias', 'Crie um post para o Instagram'].map((s) => (
-                  <button key={s} onClick={() => setInput(s)}
-                    className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors">
+                  <button key={s} onClick={() => { setInput(s); inputRef.current?.focus(); }}
+                    className="flex-shrink-0 snap-start text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
                     {s}
                   </button>
                 ))}
