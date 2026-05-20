@@ -521,11 +521,25 @@ export default function IaGestor() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ia_gestor_threads')
-        .select('id, title, updated_at')
+        .select('id, title, updated_at, folder_id')
         .eq('user_id', user!.id)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as ThreadRow[];
+    },
+  });
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ['ia-folders', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('ia_gestor_folders')
+        .select('id, name, color')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as FolderRow[];
     },
   });
 
@@ -553,23 +567,67 @@ export default function IaGestor() {
     }
   }, [user?.id, threadId, threads, threadsLoading, navigate, currentClinicId, qc]);
 
-  const handleNew = async () => {
+  const createThread = async (folderId: string | null = null) => {
     if (!user?.id) return;
     const { data, error } = await supabase
       .from('ia_gestor_threads')
-      .insert({ user_id: user.id, clinic_id: currentClinicId, title: 'Nova conversa' })
+      .insert({ user_id: user.id, clinic_id: currentClinicId, title: 'Nova conversa', folder_id: folderId } as any)
       .select('id')
       .single();
     if (error) { toast.error('Erro ao criar conversa'); return; }
     qc.invalidateQueries({ queryKey: ['ia-threads'] });
     navigate(`/ia-gestor/${data.id}`);
   };
+  const handleNew = () => createThread(null);
+  const handleAddThreadInFolder = (folderId: string) => createThread(folderId);
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('ia_gestor_threads').delete().eq('id', id);
     if (error) { toast.error('Erro ao excluir'); return; }
     qc.invalidateQueries({ queryKey: ['ia-threads'] });
     if (threadId === id) navigate('/ia-gestor', { replace: true });
+  };
+
+  const handleRenameThread = async (id: string, title: string) => {
+    const { error } = await supabase.from('ia_gestor_threads').update({ title }).eq('id', id);
+    if (error) { toast.error('Erro ao renomear'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-threads'] });
+  };
+
+  const handleMoveThread = async (id: string, folderId: string | null) => {
+    const { error } = await (supabase as any).from('ia_gestor_threads').update({ folder_id: folderId }).eq('id', id);
+    if (error) { toast.error('Erro ao mover'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-threads'] });
+    toast.success(folderId ? 'Movida para pasta' : 'Removida da pasta');
+  };
+
+  const handleNewFolder = async () => {
+    if (!user?.id) return;
+    const { error } = await (supabase as any).from('ia_gestor_folders').insert({
+      user_id: user.id, clinic_id: currentClinicId, name: 'Nova pasta', color: 'rose',
+    });
+    if (error) { toast.error('Erro ao criar pasta'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
+  };
+
+  const handleRenameFolder = async (id: string, name: string) => {
+    const { error } = await (supabase as any).from('ia_gestor_folders').update({ name }).eq('id', id);
+    if (error) { toast.error('Erro ao renomear pasta'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm('Excluir esta pasta? As conversas não serão apagadas.')) return;
+    const { error } = await (supabase as any).from('ia_gestor_folders').delete().eq('id', id);
+    if (error) { toast.error('Erro ao excluir pasta'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
+    qc.invalidateQueries({ queryKey: ['ia-threads'] });
+  };
+
+  const handleSetFolderColor = async (id: string, color: string) => {
+    const { error } = await (supabase as any).from('ia_gestor_folders').update({ color }).eq('id', id);
+    if (error) { toast.error('Erro ao mudar cor'); return; }
+    qc.invalidateQueries({ queryKey: ['ia-folders'] });
   };
 
   // Load messages for active thread
@@ -601,12 +659,20 @@ export default function IaGestor() {
 
   return (
     <div className="flex h-[calc(100vh-12rem)] md:h-[calc(100vh-8rem)] -m-4 md:-m-6 rounded-none overflow-hidden border-t border-border bg-background">
-      <ThreadList
+      <Sidebar
         threads={threads}
+        folders={folders}
         activeId={threadId}
         onNew={handleNew}
+        onNewFolder={handleNewFolder}
         onSelect={(id) => navigate(`/ia-gestor/${id}`)}
-        onDelete={handleDelete}
+        onRenameThread={handleRenameThread}
+        onDeleteThread={handleDelete}
+        onMoveThread={handleMoveThread}
+        onRenameFolder={handleRenameFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onSetFolderColor={handleSetFolderColor}
+        onAddThreadInFolder={handleAddThreadInFolder}
       />
       {threadId && !msgsLoading ? (
         <ChatView key={threadId} threadId={threadId} clinicId={currentClinicId} initialMessages={initialMessages} />
