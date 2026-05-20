@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Sun, Moon, User } from 'lucide-react';
+import { ReactNode, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Sun, Moon, User, ArrowLeft } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -30,6 +30,7 @@ const breadcrumbMap: Record<string, string> = {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
   const { currentClinicId, isPersonalMode } = useAuth();
   const { effectiveRole } = useRoleAccess();
@@ -49,6 +50,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const crumbs = getBreadcrumb();
   const toggleTheme = () => setTheme(resolved === 'dark' ? 'light' : 'dark');
 
+  const [backNav, setBackNav] = useState<{ to: string; from: string; label: string } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('iaclin.backNav');
+      if (!raw) { setBackNav(null); return; }
+      const parsed = JSON.parse(raw) as { to: string; from: string; label: string };
+      if (parsed?.to && location.pathname.startsWith(parsed.to)) {
+        setBackNav(parsed);
+      } else {
+        sessionStorage.removeItem('iaclin.backNav');
+        setBackNav(null);
+      }
+    } catch {
+      setBackNav(null);
+    }
+  }, [location.pathname]);
+
+  const handleBack = () => {
+    if (!backNav) return;
+    sessionStorage.removeItem('iaclin.backNav');
+    navigate(backNav.from);
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -59,6 +83,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
+              {backNav && (
+                <button
+                  onClick={handleBack}
+                  title={backNav.label}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{backNav.label}</span>
+                  <span className="sm:hidden">Voltar</span>
+                </button>
+              )}
               {/* Mobile logo */}
               <div className="flex md:hidden items-center gap-2">
                 {!(hideIaclinLogo && logoUrl) && (
