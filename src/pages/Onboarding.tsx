@@ -72,15 +72,14 @@ export default function Onboarding() {
     if (!user) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('clinics').insert({
-        name: form.name,
-        phone: form.phone || null,
-        cnpj: form.cnpj || null,
-        city: form.city || null,
-        state: form.state || null,
-        owner_id: user.id,
-        category: form.category,
-      } as any);
+      const { error } = await supabase.functions.invoke('create-own-clinic', {
+        body: {
+          trade_name: form.name,
+          phone: form.phone || null,
+          cnpj: form.cnpj || null,
+          category: form.category,
+        },
+      });
       if (error) throw error;
       toast.success('Clínica criada com sucesso!');
       // Reload to refresh AuthContext with new clinic membership
