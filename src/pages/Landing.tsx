@@ -27,6 +27,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SYSTEM_URL, SIGNUP_URL } from "@/config/landing";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Search, MapPin } from "lucide-react";
+import { DoctorCard, type DoctorData } from "@/components/marketplace/DoctorCard";
+import { addDays, format } from "date-fns";
 
 const fadeUp = {
   initial: { opacity: 0, y: 12 },
