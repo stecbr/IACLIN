@@ -1607,6 +1607,47 @@ export type Database = {
           },
         ]
       }
+      patient_personalizations: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          is_favorite: boolean
+          patient_id: string
+          tag: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_favorite?: boolean
+          patient_id: string
+          tag?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_favorite?: boolean
+          patient_id?: string
+          tag?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_personalizations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           address: string | null
