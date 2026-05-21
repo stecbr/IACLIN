@@ -232,18 +232,13 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
                 <div className={`grid gap-3 ${showToothField ? 'sm:grid-cols-[1fr_80px_100px_32px]' : 'sm:grid-cols-[1fr_100px_32px]'}`}>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Procedimento</Label>
-                    <Select value={item.procedure_id} onValueChange={v => updateItem(idx, 'procedure_id', v)}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {procedures.map(proc => (
-                          <SelectItem key={proc.id} value={proc.id}>
-                            {proc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ProcedureCombobox
+                      procedures={procedures}
+                      procedureId={item.procedure_id}
+                      customName={item.custom_name}
+                      onPickFromCatalog={(id) => updateItem(idx, 'procedure_id', id)}
+                      onUseCustom={(name) => updateItem(idx, 'custom_name', name)}
+                    />
                   </div>
                   {showToothField && (
                     <div className="space-y-1">
