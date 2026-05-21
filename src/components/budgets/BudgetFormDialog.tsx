@@ -15,6 +15,82 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 
+interface ProcedureOption { id: string; name: string; default_price: number }
+
+function ProcedureCombobox({
+  procedures,
+  procedureId,
+  customName,
+  onPickFromCatalog,
+  onUseCustom,
+}: {
+  procedures: ProcedureOption[];
+  procedureId: string;
+  customName: string;
+  onPickFromCatalog: (id: string) => void;
+  onUseCustom: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = procedures.find(p => p.id === procedureId);
+  const label = selected?.name ?? customName ?? '';
+  const term = search.trim();
+  const hasExactMatch = term.length > 0 && procedures.some(p => p.name.toLowerCase() === term.toLowerCase());
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          className={cn(
+            'h-9 w-full justify-between font-normal',
+            !label && 'text-muted-foreground'
+          )}
+        >
+          <span className="truncate">{label || 'Selecione ou digite...'}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+        <Command shouldFilter>
+          <CommandInput
+            placeholder="Buscar ou digitar..."
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            {term.length > 0 && !hasExactMatch && (
+              <CommandGroup heading="Personalizado">
+                <CommandItem
+                  value={`__custom__${term}`}
+                  onSelect={() => { onUseCustom(term); setOpen(false); setSearch(''); }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Usar "{term}"
+                </CommandItem>
+              </CommandGroup>
+            )}
+            <CommandEmpty>Nenhum procedimento encontrado.</CommandEmpty>
+            <CommandGroup heading="Catálogo">
+              {procedures.map(p => (
+                <CommandItem
+                  key={p.id}
+                  value={p.name}
+                  onSelect={() => { onPickFromCatalog(p.id); setOpen(false); setSearch(''); }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', procedureId === p.id ? 'opacity-100' : 'opacity-0')} />
+                  {p.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface PlanItem {
   procedure_id: string;          // empty string = free-text item
   custom_name: string;           // free-text procedure name when procedure_id is empty
