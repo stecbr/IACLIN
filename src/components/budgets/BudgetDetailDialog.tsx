@@ -256,6 +256,16 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
                     ))}
                   </SelectContent>
                 </Select>
+                {!isSolo && effectiveRole === 'dentist' && (
+                  <p className="text-xs text-muted-foreground">
+                    A aprovação final e a geração das cobranças são feitas pela secretaria/admin da clínica.
+                  </p>
+                )}
+                {(isSolo || effectiveRole === 'admin' || effectiveRole === 'secretary') && plan.status !== 'approved' && (
+                  <p className="text-xs text-muted-foreground">
+                    Ao aprovar, o sistema cria automaticamente as cobranças no financeiro do paciente.
+                  </p>
+                )}
               </div>
             </div>
           )}
