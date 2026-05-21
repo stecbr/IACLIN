@@ -201,6 +201,12 @@ export default function Financial() {
         <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
+          {canApprove && currentClinicId && awaitingApproval.length > 0 && (
+            <TabsTrigger value="approvals">
+              Aprovações
+              <Badge variant="destructive" className="ml-2 text-[10px] h-5 px-1.5">{awaitingApproval.length}</Badge>
+            </TabsTrigger>
+          )}
           {importedTxs.length > 0 && (
             <TabsTrigger value="review">
               Revisão IA
@@ -378,16 +384,110 @@ export default function Financial() {
             <ReviewImportedTransactions transactions={importedTxs} onComplete={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
           </TabsContent>
         )}
+
+        {canApprove && currentClinicId && (
+          <TabsContent value="approvals" className="space-y-4">
+            <ApprovalsList
+              transactions={awaitingApproval}
+              onComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+                queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+              }}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
-      <NewTransactionDialog open={showNewTx} onOpenChange={setShowNewTx} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })} />
+      <TransactionDialog
+        open={showNewTx}
+        onOpenChange={setShowNewTx}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+          queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+          queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+          queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+        }}
+      />
       <ImportStatementDialog open={showImport} onOpenChange={setShowImport} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
     </div>
   );
 }
 
-// ---- New Transaction Dialog ----
-function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
+// ---- Approvals List ----
+function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
+  const { user } = useAuth();
+
+  const approve = async (tx: any) => {
+    const { error } = await supabase
+      .from('financial_transactions')
+      .update({
+        approval_status: 'approved',
+        approval_decided_by: user?.id ?? null,
+        approval_decided_at: new Date().toISOString(),
+      })
+      .eq('id', tx.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Cobrança aprovada'); onComplete(); }
+  };
+
+  const reject = async (tx: any) => {
+    const reason = window.prompt('Motivo da recusa (opcional):') ?? '';
+    const { error } = await supabase
+      .from('financial_transactions')
+      .update({
+        approval_status: 'rejected',
+        approval_decided_by: user?.id ?? null,
+        approval_decided_at: new Date().toISOString(),
+        approval_rejection_reason: reason || null,
+      })
+      .eq('id', tx.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Cobrança recusada'); onComplete(); }
+  };
+
+  if (transactions.length === 0) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma cobrança aguardando aprovação.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">
+        Cobranças criadas por dentistas aguardando sua aprovação.
+      </p>
+      {transactions.map((tx) => (
+        <Card key={tx.id} className="p-4 border-border/50">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">
+                {tx.description ?? tx.category}
+              </p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                <span>{format(parseISO(tx.due_date), 'dd/MM/yyyy')}</span>
+                {tx.patients?.full_name && <span>· {tx.patients.full_name}</span>}
+              </div>
+            </div>
+            <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+              {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
+            </span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => reject(tx)}>
+                <XCircle className="h-4 w-4 mr-1" /> Recusar
+              </Button>
+              <Button size="sm" onClick={() => approve(tx)}>
+                <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// ---- Legacy New Transaction Dialog (kept for reference; replaced by TransactionDialog) ----
+function _LegacyNewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
   const { user, currentClinicId, clinics } = useAuth();
   const frozenClinicId = useRef<string | null>(null);
   const [contextName, setContextName] = useState<string>('Pessoal');
