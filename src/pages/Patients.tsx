@@ -220,6 +220,7 @@ export default function Patients() {
                           )}
                         </div>
                         <span className="font-medium text-foreground">{patient.full_name}</span>
+                        <FinancialDot status={financialMap?.get(patient.id)?.status} />
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{patient.phone ?? '—'}</TableCell>
