@@ -1,24 +1,48 @@
-## Problema
+# Plano
 
-No cabeçalho do prontuário do paciente há 6 botões lado a lado (Iniciar atendimento, Exportar prontuário, Compartilhar, WhatsApp, Editar, Personalizar). Em telas médias eles transbordam horizontalmente, forçando o usuário a rolar para a direita.
+## 1. Orçamento — procedimento com texto livre
 
-## Solução
+Hoje o campo "Procedimento" é um `Select` que só aceita itens do catálogo (`procedures`). Vou transformá-lo em um **combobox** (estilo busca) onde o usuário pode:
+- escolher um item existente da lista, **ou**
+- digitar um nome livre que não está no catálogo e usar exatamente o que digitou.
 
-Manter apenas **Iniciar atendimento** como botão primário sempre visível, e agrupar os demais em um único botão **"Ações"** com ícone de três pontos (`MoreHorizontal`) que abre um `DropdownMenu` com a lista vertical das ações.
+### Banco
+Migration em `treatment_plan_items`:
+- Tornar `procedure_id` **nullable**.
+- Adicionar coluna `custom_procedure_name text` (nullable).
+- Validação por trigger: pelo menos um dos dois (`procedure_id` ou `custom_procedure_name`) precisa estar preenchido.
 
-## Mudanças
+### Frontend
+- `src/components/budgets/BudgetFormDialog.tsx`:
+  - Trocar o `Select` de procedimento por um `Popover + Command` (padrão shadcn combobox) com `CommandInput` filtrando o catálogo e um item final "Usar '<texto digitado>'" quando não houver match exato.
+  - Estado do item passa a guardar `procedure_id?: string | null` **e** `custom_procedure_name?: string`.
+  - Insert envia ambos os campos; auto-preenchimento de preço só ocorre quando seleciona do catálogo.
+- `src/components/budgets/BudgetDetailDialog.tsx` e `BudgetCard.tsx`:
+  - Exibir `custom_procedure_name` quando `procedure_id` for nulo (fallback para nome do procedimento do catálogo).
 
-Arquivo único: `src/pages/PatientDetail.tsx` (header de ações do paciente).
+## 2. Gravação de consulta persistente entre telas
 
-1. Importar `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuSeparator` de `@/components/ui/dropdown-menu` e o ícone `MoreHorizontal`.
-2. No header, manter o botão **Iniciar atendimento** intacto (primário, azul).
-3. Substituir os botões soltos (Exportar prontuário, Compartilhar, WhatsApp, Editar, Personalizar, Nova cobrança se existir aqui) por um único `<Button variant="outline">` com label **"Ações"** + ícone `MoreHorizontal`, que abre um `DropdownMenu`.
-4. Cada item do dropdown reusa o `onClick` / handler atual do botão correspondente e mantém o ícone à esquerda (Download, Share2, MessageCircle, Pencil, Palette…). Itens que abrem diálogos (Compartilhar, Editar, Personalizar) continuam usando seus dialogs/menus atuais — embrulhar `DropdownMenuItem` com `onSelect={(e) => e.preventDefault()}` quando o item já é um trigger de outro componente, para evitar fechamento prematuro, ou colocar o trigger original dentro do item.
-5. Para WhatsApp, manter o destaque visual (texto verde) dentro do item do dropdown.
-6. Responsivo: no mobile o comportamento fica naturalmente mais limpo (2 botões apenas). Em desktop, o header deixa de transbordar.
+Hoje `useAudioRecorder` vive dentro de `RecordConsultationButton`. Ao navegar, o componente desmonta, o `useEffect cleanup` para o stream e a gravação morre. Vou **elevar a gravação para um contexto global**, deixando-a ativa até o usuário clicar no botão vermelho de finalizar.
 
-## Fora do escopo
+### Arquivos
+- **Novo** `src/contexts/RecordingContext.tsx`:
+  - Provider único montado em `src/App.tsx` (acima das rotas).
+  - Detém uma instância única de `useAudioRecorder` + metadados da sessão atual (`appointmentId`, `patientId`, `clinicalRecordId`, `clinicId`, `setters` opcionais).
+  - Expõe: `state`, `start(meta)`, `pause`, `resume`, `finish()` (que devolve o blob), `isRecording`, `currentAppointmentId`.
+- **Novo** `src/components/attendance/recording/GlobalRecordingBar.tsx`:
+  - Lê do contexto; renderiza `RecordingFloatingBar` sempre que houver gravação ativa, **independente da rota**.
+  - Cuida do fluxo de finalização (upload + edge function `transcribe-consultation` + dialog de resultados). Esse fluxo, hoje dentro do botão, é movido para cá para sobreviver à navegação.
+- Refatorar `src/components/attendance/recording/RecordConsultationButton.tsx`:
+  - Vira um botão "magro": apenas dispara `start` no contexto (com checagem de consentimento) ou `finish` quando a gravação atual pertence a este atendimento.
+  - Não renderiza mais a `RecordingFloatingBar` nem o `ProcessingOverlay`/`RecordingResultsDialog` — esses ficam no provider global.
+- `src/App.tsx`: envolver as rotas com `<RecordingProvider>` e montar `<GlobalRecordingBar />` no topo do layout.
 
-- Nenhuma mudança de lógica de negócio, permissões ou dados.
-- Nenhuma alteração nas tabs abaixo do header.
-- Nenhuma alteração em outros headers (lista de pacientes, etc.).
+### Garantias
+- `useAudioRecorder` continua igual; só muda o **local** onde ele vive (uma vez, no provider) — o `cleanup` do `useEffect` não dispara mais ao navegar porque o provider permanece montado.
+- Confirmação de saída do app (beforeunload) opcional quando houver gravação ativa, para evitar perder áudio ao fechar a aba.
+- A gravação só termina ao clicar no botão vermelho (Finalizar) na barra flutuante.
+
+## Fora de escopo
+- Mudanças no schema de `procedures` ou no catálogo.
+- Mudanças visuais na barra de gravação (mantém o design atual).
+- Sincronizar a gravação entre abas do navegador.
