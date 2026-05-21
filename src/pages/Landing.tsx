@@ -33,6 +33,7 @@ import { Search, MapPin } from "lucide-react";
 import { DoctorCard, type DoctorData } from "@/components/marketplace/DoctorCard";
 import { addDays, format } from "date-fns";
 import logoLight from "@/assets/logo-light.png";
+import landingDashboard from "@/assets/landing-dashboard.png";
 
 const fadeUp = {
   initial: { opacity: 0, y: 12 },
@@ -128,69 +129,12 @@ function DashboardMockup() {
           <span className="text-xs font-medium text-muted-foreground">iaclin.app/dashboard</span>
           <div className="h-6 w-6 rounded-full bg-primary/10" />
         </div>
-        {/* KPI row */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {[
-            { label: "Consultas hoje", value: "24", trend: "+12%" },
-            { label: "Pacientes ativos", value: "1.284", trend: "+4%" },
-            { label: "Receita mensal", value: "R$ 48k", trend: "+18%" },
-          ].map((k) => (
-            <div key={k.label} className="rounded-xl border border-border bg-background/60 p-3">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                {k.label}
-              </p>
-              <p className="mt-1 text-lg font-semibold text-foreground">{k.value}</p>
-              <p className="text-[10px] font-medium text-success">{k.trend}</p>
-            </div>
-          ))}
-        </div>
-        {/* Chart + list */}
-        <div className="mt-3 grid grid-cols-5 gap-3">
-          <div className="col-span-3 rounded-xl border border-border bg-background/60 p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-foreground">Atendimentos da semana</p>
-              <span className="text-[10px] text-muted-foreground">Últimos 7 dias</span>
-            </div>
-            <svg viewBox="0 0 280 90" className="mt-2 w-full">
-              <defs>
-                <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0,70 C30,55 50,40 80,45 C110,50 130,20 160,25 C190,30 210,55 240,40 L280,30 L280,90 L0,90 Z"
-                fill="url(#g1)"
-              />
-              <path
-                d="M0,70 C30,55 50,40 80,45 C110,50 130,20 160,25 C190,30 210,55 240,40 L280,30"
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="2"
-              />
-            </svg>
-          </div>
-          <div className="col-span-2 rounded-xl border border-border bg-background/60 p-3">
-            <p className="text-xs font-semibold text-foreground">Próximas consultas</p>
-            <ul className="mt-2 space-y-2">
-              {[
-                { n: "Ana M.", t: "09:00" },
-                { n: "Carlos R.", t: "10:30" },
-                { n: "Júlia P.", t: "11:15" },
-              ].map((p) => (
-                <li key={p.n} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                      {p.n[0]}
-                    </span>
-                    <span className="text-[11px] text-foreground">{p.n}</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-muted-foreground">{p.t}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        <img
+          src={landingDashboard}
+          alt="Painel do Iaclin"
+          loading="lazy"
+          className="mt-4 w-full rounded-lg border border-border"
+        />
       </div>
     </div>
   );
