@@ -23,10 +23,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { TransactionDialog } from '@/components/finance/TransactionDialog';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useSoloMode } from '@/hooks/useSoloMode';
+import { canManageClinicFinance } from '@/lib/financePermissions';
 
 export default function Financial() {
   const { user, currentClinicId, isPersonalMode, clinics } = useAuth();
   const queryClient = useQueryClient();
+  const { effectiveRole } = useRoleAccess();
+  const { isSolo } = useSoloMode();
+  const canApprove = canManageClinicFinance({
+    isSolo,
+    role: effectiveRole as any,
+    hasClinic: !!currentClinicId,
+  });
   const [showNewTx, setShowNewTx] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -75,6 +86,22 @@ export default function Financial() {
     },
   });
 
+  // Transactions awaiting approval (only relevant in clinic mode)
+  const { data: awaitingApproval = [] } = useQuery({
+    queryKey: ['financial-awaiting-approval', currentClinicId],
+    enabled: !!user && !!currentClinicId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('financial_transactions')
+        .select('*, patients(full_name)')
+        .eq('clinic_id', currentClinicId!)
+        .eq('approval_status', 'awaiting_approval')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Imported transactions (pending review)
   const { data: importedTxs = [] } = useQuery({
     queryKey: ['imported-transactions', user?.id],
@@ -91,18 +118,21 @@ export default function Financial() {
     },
   });
 
-  // Filtered transactions
-  const filtered = transactions.filter((tx: any) => {
+  // Filtered transactions (only fully approved ones show up in the main lists)
+  const approvedTx = transactions.filter((tx: any) =>
+    !tx.approval_status || tx.approval_status === 'approved'
+  );
+  const filtered = approvedTx.filter((tx: any) => {
     if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
     return true;
   });
 
   // KPIs
-  const totalIncome = transactions.filter((t: any) => t.type === 'income' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalExpense = transactions.filter((t: any) => t.type === 'expense' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const pendingIncome = transactions.filter((t: any) => t.type === 'income' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const pendingExpense = transactions.filter((t: any) => t.type === 'expense' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalIncome = approvedTx.filter((t: any) => t.type === 'income' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalExpense = approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const pendingIncome = approvedTx.filter((t: any) => t.type === 'income' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const pendingExpense = approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
   // Monthly chart data (last 6 months)
@@ -113,7 +143,7 @@ export default function Financial() {
       const key = format(m, 'MMM', { locale: ptBR });
       months[key] = { income: 0, expense: 0 };
     }
-    transactions.forEach((tx: any) => {
+    approvedTx.forEach((tx: any) => {
       if (tx.status !== 'paid') return;
       const key = format(parseISO(tx.paid_date || tx.due_date), 'MMM', { locale: ptBR });
       if (months[key]) {
@@ -122,7 +152,7 @@ export default function Financial() {
       }
     });
     return Object.entries(months).map(([month, data]) => ({ month, ...data }));
-  }, [transactions]);
+  }, [approvedTx]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -171,6 +201,12 @@ export default function Financial() {
         <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
+          {canApprove && currentClinicId && awaitingApproval.length > 0 && (
+            <TabsTrigger value="approvals">
+              Aprovações
+              <Badge variant="destructive" className="ml-2 text-[10px] h-5 px-1.5">{awaitingApproval.length}</Badge>
+            </TabsTrigger>
+          )}
           {importedTxs.length > 0 && (
             <TabsTrigger value="review">
               Revisão IA
@@ -348,151 +384,105 @@ export default function Financial() {
             <ReviewImportedTransactions transactions={importedTxs} onComplete={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
           </TabsContent>
         )}
+
+        {canApprove && currentClinicId && (
+          <TabsContent value="approvals" className="space-y-4">
+            <ApprovalsList
+              transactions={awaitingApproval}
+              onComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+                queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+              }}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
-      <NewTransactionDialog open={showNewTx} onOpenChange={setShowNewTx} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })} />
+      <TransactionDialog
+        open={showNewTx}
+        onOpenChange={setShowNewTx}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+          queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+          queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+          queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+        }}
+      />
       <ImportStatementDialog open={showImport} onOpenChange={setShowImport} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
     </div>
   );
 }
 
-// ---- New Transaction Dialog ----
-function NewTransactionDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
-  const { user, currentClinicId, clinics } = useAuth();
-  const frozenClinicId = useRef<string | null>(null);
-  const [contextName, setContextName] = useState<string>('Pessoal');
-  useEffect(() => {
-    if (open) {
-      frozenClinicId.current = currentClinicId;
-      const c = clinics.find((x) => x.clinic_id === currentClinicId);
-      setContextName(currentClinicId ? (c?.clinic_name ?? 'Clínica') : 'Pessoal');
-    }
-  }, [open, currentClinicId, clinics]);
-  const [form, setForm] = useState({
-    type: 'income',
-    category: 'consultation',
-    description: '',
-    amount: '',
-    due_date: format(new Date(), 'yyyy-MM-dd'),
-    status: 'pending',
-    payment_method: '',
-    notes: '',
-  });
-  const [saving, setSaving] = useState(false);
+// ---- Approvals List ----
+function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
+  const { user } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    if (frozenClinicId.current !== currentClinicId) {
-      toast.error('O contexto foi alterado. Reabra o formulário para continuar.');
-      onOpenChange(false);
-      return;
-    }
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('financial_transactions').insert({
-        type: form.type,
-        category: form.category,
-        description: form.description || null,
-        amount: parseFloat(form.amount),
-        due_date: form.due_date,
-        status: form.status,
-        payment_method: form.payment_method || null,
-        notes: form.notes || null,
-        dentist_id: user.id,
-        clinic_id: frozenClinicId.current ?? null,
-      });
-      if (error) throw error;
-      toast.success('Transação registrada!');
-      onOpenChange(false);
-      onSuccess();
-      setForm({ type: 'income', category: 'consultation', description: '', amount: '', due_date: format(new Date(), 'yyyy-MM-dd'), status: 'pending', payment_method: '', notes: '' });
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSaving(false);
-    }
+  const approve = async (tx: any) => {
+    const { error } = await supabase
+      .from('financial_transactions')
+      .update({
+        approval_status: 'approved',
+        approval_decided_by: user?.id ?? null,
+        approval_decided_at: new Date().toISOString(),
+      })
+      .eq('id', tx.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Cobrança aprovada'); onComplete(); }
   };
 
+  const reject = async (tx: any) => {
+    const reason = window.prompt('Motivo da recusa (opcional):') ?? '';
+    const { error } = await supabase
+      .from('financial_transactions')
+      .update({
+        approval_status: 'rejected',
+        approval_decided_by: user?.id ?? null,
+        approval_decided_at: new Date().toISOString(),
+        approval_rejection_reason: reason || null,
+      })
+      .eq('id', tx.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Cobrança recusada'); onComplete(); }
+  };
+
+  if (transactions.length === 0) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma cobrança aguardando aprovação.</p>;
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Nova Transação</DialogTitle></DialogHeader>
-        <div className="text-xs text-muted-foreground -mt-2 mb-1">
-          Será registrada em: <span className="font-medium text-foreground">{contextName}</span>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="income">Receita</SelectItem>
-                  <SelectItem value="expense">Despesa</SelectItem>
-                </SelectContent>
-              </Select>
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">
+        Cobranças criadas por dentistas aguardando sua aprovação.
+      </p>
+      {transactions.map((tx) => (
+        <Card key={tx.id} className="p-4 border-border/50">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">
+                {tx.description ?? tx.category}
+              </p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                <span>{format(parseISO(tx.due_date), 'dd/MM/yyyy')}</span>
+                {tx.patients?.full_name && <span>· {tx.patients.full_name}</span>}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="consultation">Consulta</SelectItem>
-                  <SelectItem value="procedure">Procedimento</SelectItem>
-                  <SelectItem value="rent">Aluguel</SelectItem>
-                  <SelectItem value="supplies">Material</SelectItem>
-                  <SelectItem value="salary">Salário</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                </SelectContent>
-              </Select>
+            <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+              {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
+            </span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => reject(tx)}>
+                <XCircle className="h-4 w-4 mr-1" /> Recusar
+              </Button>
+              <Button size="sm" onClick={() => approve(tx)}>
+                <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+              </Button>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Descrição</Label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descrição da transação" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Valor (R$)</Label>
-              <Input type="number" step="0.01" min="0" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Vencimento</Label>
-              <Input type="date" required value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="paid">Pago</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Forma Pgto</Label>
-              <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pix">PIX</SelectItem>
-                  <SelectItem value="credit_card">Cartão Crédito</SelectItem>
-                  <SelectItem value="debit_card">Cartão Débito</SelectItem>
-                  <SelectItem value="cash">Dinheiro</SelectItem>
-                  <SelectItem value="bank_transfer">Transferência</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar Transação'}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </Card>
+      ))}
+    </div>
   );
 }
 

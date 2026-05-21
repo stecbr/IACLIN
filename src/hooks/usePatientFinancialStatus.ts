@@ -17,6 +17,8 @@ function summarize(rows: any[]): PatientFinancialStatus {
   let paid = 0, pending = 0, overdue = 0, pendingCount = 0, overdueCount = 0;
   for (const r of rows) {
     if (r.type !== 'income') continue;
+    // Skip charges that haven't been approved yet (or were rejected).
+    if (r.approval_status && r.approval_status !== 'approved') continue;
     const amount = Number(r.amount) || 0;
     if (r.status === 'paid') {
       paid += amount;
@@ -43,7 +45,7 @@ export function usePatientFinancialStatus(patientId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('financial_transactions')
-        .select('amount, status, type, due_date')
+        .select('amount, status, type, due_date, approval_status')
         .eq('patient_id', patientId!);
       if (error) throw error;
       return summarize(data ?? []);
@@ -58,7 +60,7 @@ export function usePatientsFinancialStatusBulk(patientIds: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('financial_transactions')
-        .select('patient_id, amount, status, type, due_date')
+        .select('patient_id, amount, status, type, due_date, approval_status')
         .in('patient_id', patientIds);
       if (error) throw error;
       const map = new Map<string, PatientFinancialStatus>();

@@ -953,6 +953,11 @@ export type Database = {
         Row: {
           amount: number
           appointment_id: string | null
+          approval_decided_at: string | null
+          approval_decided_by: string | null
+          approval_rejection_reason: string | null
+          approval_requested_by: string | null
+          approval_status: string
           category: string
           clinic_id: string | null
           created_at: string
@@ -971,6 +976,11 @@ export type Database = {
         Insert: {
           amount: number
           appointment_id?: string | null
+          approval_decided_at?: string | null
+          approval_decided_by?: string | null
+          approval_rejection_reason?: string | null
+          approval_requested_by?: string | null
+          approval_status?: string
           category: string
           clinic_id?: string | null
           created_at?: string
@@ -989,6 +999,11 @@ export type Database = {
         Update: {
           amount?: number
           appointment_id?: string | null
+          approval_decided_at?: string | null
+          approval_decided_by?: string | null
+          approval_rejection_reason?: string | null
+          approval_requested_by?: string | null
+          approval_status?: string
           category?: string
           clinic_id?: string | null
           created_at?: string
