@@ -15,6 +15,7 @@ import { PatientAnamnese } from '@/components/patients/PatientAnamnese';
 import { PatientDocuments } from '@/components/patients/PatientDocuments';
 import { PatientSpecialtyList } from '@/components/patients/PatientSpecialtyList';
 import { PatientFinancialSummary } from '@/components/patient/PatientFinancialSummary';
+import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { PATIENT_TAB_LABELS, type PatientTabKey } from '@/lib/specialtyProfile';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
@@ -39,6 +40,7 @@ export default function PatientDetail() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [txDialogOpen, setTxDialogOpen] = useState(false);
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
   const { data: personalization } = usePatientPersonalization(id);
@@ -431,10 +433,21 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="financial">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground">
+              Cobranças e pagamentos vinculados a este paciente.
+            </p>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setTxDialogOpen(true)}>
+              <Plus className="h-4 w-4" /> Nova cobrança
+            </Button>
+          </div>
           {transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
               <CreditCard className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Nenhuma transação registrada</p>
+              <p className="text-sm text-muted-foreground mb-3">Nenhuma transação registrada</p>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setTxDialogOpen(true)}>
+                <Plus className="h-4 w-4" /> Nova cobrança
+              </Button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -442,7 +455,19 @@ export default function PatientDetail() {
                 <Card key={tx.id} className="p-4 border-border/50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{tx.description ?? tx.category}</p>
+                      <p className="text-sm font-medium">
+                        {tx.description ?? tx.category}
+                        {tx.approval_status === 'awaiting_approval' && (
+                          <Badge variant="outline" className="ml-2 text-[10px] border-amber-300 text-amber-700 dark:border-amber-900/60 dark:text-amber-400">
+                            Aguardando aprovação
+                          </Badge>
+                        )}
+                        {tx.approval_status === 'rejected' && (
+                          <Badge variant="outline" className="ml-2 text-[10px] border-rose-300 text-rose-700 dark:border-rose-900/60 dark:text-rose-400">
+                            Recusada
+                          </Badge>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">{format(new Date(tx.due_date), 'dd/MM/yyyy')}</p>
                     </div>
                     <div className="text-right">
@@ -512,6 +537,19 @@ export default function PatientDetail() {
         onOpenChange={setBudgetOpen}
         onSuccess={() => refetchPlans()}
         preselectedPatientId={id}
+      />
+      <TransactionDialog
+        open={txDialogOpen}
+        onOpenChange={setTxDialogOpen}
+        lockedPatientId={id}
+        lockedPatientName={patient?.full_name}
+        forcedClinicId={(patient as any)?.clinic_id ?? currentClinicId ?? null}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['patient-transactions', id] });
+          queryClient.invalidateQueries({ queryKey: ['patient-financial-status', id] });
+          queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+          queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+        }}
       />
     </div>
   );
