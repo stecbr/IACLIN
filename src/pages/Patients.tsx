@@ -46,6 +46,16 @@ function getGradient(name: string) {
   return AVATAR_GRADIENTS[idx];
 }
 
+function FinancialDot({ status }: { status?: 'up_to_date' | 'pending' | 'overdue' }) {
+  if (!status) return null;
+  const config = {
+    up_to_date: { color: 'bg-emerald-500', title: 'Em dia financeiramente' },
+    pending: { color: 'bg-amber-500', title: 'Cobrança em aberto' },
+    overdue: { color: 'bg-rose-500', title: 'Pagamento atrasado' },
+  }[status];
+  return <span className={`inline-block h-2 w-2 rounded-full ${config.color}`} title={config.title} aria-label={config.title} />;
+}
+
 export default function Patients() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -271,6 +281,7 @@ export default function Patients() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-foreground truncate">{patient.full_name}</p>
+                      <FinancialDot status={financialMap?.get(patient.id)?.status} />
                       {!patient.is_active && (
                         <Badge variant="secondary" className="text-xs">Inativo</Badge>
                       )}
