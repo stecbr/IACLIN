@@ -449,9 +449,34 @@ export default function PatientDetail() {
                       <p className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
                       </p>
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {paymentStatusLabels[tx.status] ?? tx.status}
-                      </Badge>
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {paymentStatusLabels[tx.status] ?? tx.status}
+                        </Badge>
+                        {tx.type === 'income' && tx.status !== 'paid' && tx.status !== 'cancelled' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900/60 dark:hover:bg-emerald-900/20"
+                            onClick={async () => {
+                              const today = format(new Date(), 'yyyy-MM-dd');
+                              const { error } = await supabase
+                                .from('financial_transactions')
+                                .update({ status: 'paid', paid_date: today })
+                                .eq('id', tx.id);
+                              if (error) {
+                                toast.error('Erro ao marcar como pago', { description: error.message });
+                              } else {
+                                toast.success('Cobrança marcada como paga');
+                                queryClient.invalidateQueries({ queryKey: ['patient-transactions', id] });
+                                queryClient.invalidateQueries({ queryKey: ['patient-financial-status', id] });
+                              }
+                            }}
+                          >
+                            Marcar como pago
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>
