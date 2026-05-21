@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { RecordingProvider } from "@/contexts/RecordingContext";
+import { GlobalRecordingBar } from "@/components/attendance/recording/GlobalRecordingBar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { CustomThemeProvider } from "@/components/CustomThemeProvider";
 import { AppLayout } from "@/components/AppLayout";
@@ -226,7 +228,10 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <CustomThemeProvider>
-              <AppRoutes />
+              <RecordingProvider>
+                <AppRoutes />
+                <GlobalRecordingBar />
+              </RecordingProvider>
             </CustomThemeProvider>
           </AuthProvider>
         </BrowserRouter>
