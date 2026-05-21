@@ -72,7 +72,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
       const { data, error } = await supabase
         .from('treatment_plans')
         .select(
-          '*, patients(id, full_name), treatment_plan_items(id, tooth_number, price, notes, procedures(name))'
+          '*, patients(id, full_name), treatment_plan_items(id, tooth_number, price, notes, custom_procedure_name, procedures(name))'
         )
         .eq('id', planId!)
         .single();
@@ -107,7 +107,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
           const rows = items.map((it: any) => ({
             type: 'income' as const,
             category: 'procedure',
-            description: `${it.procedures?.name ?? 'Procedimento'}${it.tooth_number ? ` (dente ${it.tooth_number})` : ''} — ${plan.title ?? 'Orçamento'}`,
+            description: `${it.procedures?.name ?? it.custom_procedure_name ?? 'Procedimento'}${it.tooth_number ? ` (dente ${it.tooth_number})` : ''} — ${plan.title ?? 'Orçamento'}`,
             amount: Number(it.price) || 0,
             due_date: today,
             status: 'pending' as const,
@@ -209,7 +209,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
                       <div key={item.id} className="p-3 flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground">
-                            {item.procedures?.name ?? 'Procedimento'}
+                            {item.procedures?.name ?? item.custom_procedure_name ?? 'Procedimento'}
                             {item.tooth_number && (
                               <span className="ml-2 text-xs text-muted-foreground">
                                 · Dente {item.tooth_number}

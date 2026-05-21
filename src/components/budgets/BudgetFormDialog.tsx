@@ -8,12 +8,92 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 
+interface ProcedureOption { id: string; name: string; default_price: number }
+
+function ProcedureCombobox({
+  procedures,
+  procedureId,
+  customName,
+  onPickFromCatalog,
+  onUseCustom,
+}: {
+  procedures: ProcedureOption[];
+  procedureId: string;
+  customName: string;
+  onPickFromCatalog: (id: string) => void;
+  onUseCustom: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = procedures.find(p => p.id === procedureId);
+  const label = selected?.name ?? customName ?? '';
+  const term = search.trim();
+  const hasExactMatch = term.length > 0 && procedures.some(p => p.name.toLowerCase() === term.toLowerCase());
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          className={cn(
+            'h-9 w-full justify-between font-normal',
+            !label && 'text-muted-foreground'
+          )}
+        >
+          <span className="truncate">{label || 'Selecione ou digite...'}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+        <Command shouldFilter>
+          <CommandInput
+            placeholder="Buscar ou digitar..."
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            {term.length > 0 && !hasExactMatch && (
+              <CommandGroup heading="Personalizado">
+                <CommandItem
+                  value={`__custom__${term}`}
+                  onSelect={() => { onUseCustom(term); setOpen(false); setSearch(''); }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Usar "{term}"
+                </CommandItem>
+              </CommandGroup>
+            )}
+            <CommandEmpty>Nenhum procedimento encontrado.</CommandEmpty>
+            <CommandGroup heading="Catálogo">
+              {procedures.map(p => (
+                <CommandItem
+                  key={p.id}
+                  value={p.name}
+                  onSelect={() => { onPickFromCatalog(p.id); setOpen(false); setSearch(''); }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', procedureId === p.id ? 'opacity-100' : 'opacity-0')} />
+                  {p.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface PlanItem {
-  procedure_id: string;
+  procedure_id: string;          // empty string = free-text item
+  custom_name: string;           // free-text procedure name when procedure_id is empty
   tooth_number: string;
   price: string;
   notes: string;
@@ -33,7 +113,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
   const [description, setDescription] = useState('');
   const [patientId, setPatientId] = useState(preselectedPatientId ?? '');
   const [items, setItems] = useState<PlanItem[]>([
-    { procedure_id: '', tooth_number: '', price: '', notes: '' },
+    { procedure_id: '', custom_name: '', tooth_number: '', price: '', notes: '' },
   ]);
 
   const { data: patients = [] } = useQuery({
@@ -86,7 +166,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
   });
 
   const addItem = () => {
-    setItems(prev => [...prev, { procedure_id: '', tooth_number: '', price: '', notes: '' }]);
+    setItems(prev => [...prev, { procedure_id: '', custom_name: '', tooth_number: '', price: '', notes: '' }]);
   };
 
   const removeItem = (index: number) => {
@@ -104,6 +184,10 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
         if (proc && !item.price) {
           updated.price = String(proc.default_price);
         }
+        updated.custom_name = '';
+      }
+      if (field === 'custom_name' && value) {
+        updated.procedure_id = '';
       }
       return updated;
     }));
@@ -117,7 +201,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
       if (!patientId) throw new Error('Selecione um paciente');
       if (!title.trim()) throw new Error('Informe um título');
       
-      const validItems = items.filter(i => i.procedure_id && parseFloat(i.price) > 0);
+      const validItems = items.filter(i => (i.procedure_id || i.custom_name.trim()) && parseFloat(i.price) > 0);
       if (validItems.length === 0) throw new Error('Adicione pelo menos um procedimento com valor');
 
       const { data: plan, error: planError } = await supabase
@@ -137,7 +221,8 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
 
       const planItems = validItems.map(item => ({
         treatment_plan_id: plan.id,
-        procedure_id: item.procedure_id,
+        procedure_id: item.procedure_id || null,
+        custom_procedure_name: item.procedure_id ? null : item.custom_name.trim(),
         tooth_number: item.tooth_number ? parseInt(item.tooth_number) : null,
         price: parseFloat(item.price),
         notes: item.notes.trim() || null,
@@ -155,7 +240,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
       setTitle('');
       setDescription('');
       if (!preselectedPatientId) setPatientId('');
-      setItems([{ procedure_id: '', tooth_number: '', price: '', notes: '' }]);
+      setItems([{ procedure_id: '', custom_name: '', tooth_number: '', price: '', notes: '' }]);
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -223,18 +308,13 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
                 <div className={`grid gap-3 ${showToothField ? 'sm:grid-cols-[1fr_80px_100px_32px]' : 'sm:grid-cols-[1fr_100px_32px]'}`}>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Procedimento</Label>
-                    <Select value={item.procedure_id} onValueChange={v => updateItem(idx, 'procedure_id', v)}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {procedures.map(proc => (
-                          <SelectItem key={proc.id} value={proc.id}>
-                            {proc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ProcedureCombobox
+                      procedures={procedures}
+                      procedureId={item.procedure_id}
+                      customName={item.custom_name}
+                      onPickFromCatalog={(id) => updateItem(idx, 'procedure_id', id)}
+                      onUseCustom={(name) => updateItem(idx, 'custom_name', name)}
+                    />
                   </div>
                   {showToothField && (
                     <div className="space-y-1">

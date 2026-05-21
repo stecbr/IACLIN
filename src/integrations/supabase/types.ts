@@ -2030,30 +2030,33 @@ export type Database = {
       treatment_plan_items: {
         Row: {
           created_at: string
+          custom_procedure_name: string | null
           id: string
           notes: string | null
           price: number
-          procedure_id: string
+          procedure_id: string | null
           status: string
           tooth_number: number | null
           treatment_plan_id: string
         }
         Insert: {
           created_at?: string
+          custom_procedure_name?: string | null
           id?: string
           notes?: string | null
           price?: number
-          procedure_id: string
+          procedure_id?: string | null
           status?: string
           tooth_number?: number | null
           treatment_plan_id: string
         }
         Update: {
           created_at?: string
+          custom_procedure_name?: string | null
           id?: string
           notes?: string | null
           price?: number
-          procedure_id?: string
+          procedure_id?: string | null
           status?: string
           tooth_number?: number | null
           treatment_plan_id?: string
