@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, MapPin } from "lucide-react";
 import { DoctorCard, type DoctorData } from "@/components/marketplace/DoctorCard";
 import { addDays, format } from "date-fns";
+import logoLight from "@/assets/logo-light.png";
 
 const fadeUp = {
   initial: { opacity: 0, y: 12 },
@@ -43,12 +44,7 @@ const fadeUp = {
 function Logo({ className = "" }: { className?: string }) {
   return (
     <Link to="/" className={`flex items-center gap-2 ${className}`}>
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shadow-card">
-        i
-      </span>
-      <span className="text-lg font-semibold tracking-tight text-foreground">
-        Iaclin<span className="text-primary">.</span>
-      </span>
+      <img src={logoLight} alt="Iaclin" className="h-8 object-contain" />
     </Link>
   );
 }
