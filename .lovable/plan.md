@@ -1,38 +1,24 @@
-## Vincular paciente em transações financeiras
+## Problema
 
-### 1. Diálogo "Nova Transação" (Financeiro global)
+No cabeçalho do prontuário do paciente há 6 botões lado a lado (Iniciar atendimento, Exportar prontuário, Compartilhar, WhatsApp, Editar, Personalizar). Em telas médias eles transbordam horizontalmente, forçando o usuário a rolar para a direita.
 
-No `NewTransactionDialog` em `src/pages/Financial.tsx`:
+## Solução
 
-- Adicionar campo opcional **Paciente** (combobox com busca) que carrega `patients` do `currentClinicId` (ou do dentista, em modo solo).
-- Mostrar somente quando `type = 'income'` (faz sentido vincular paciente em receita).
-- Persistir `patient_id` no insert em `financial_transactions`.
-- Se a clínica não é solo e o usuário é `dentist` (sem permissão financeira da clínica), bloquear receitas vinculadas a paciente da clínica com toast: *"Apenas a secretaria/admin da clínica pode lançar cobranças. Solicite à equipe."* — usando a mesma regra de `useSoloMode` + `useRoleAccess` já adotada em `BudgetDetailDialog`.
+Manter apenas **Iniciar atendimento** como botão primário sempre visível, e agrupar os demais em um único botão **"Ações"** com ícone de três pontos (`MoreHorizontal`) que abre um `DropdownMenu` com a lista vertical das ações.
 
-### 2. Lançar transação direto do prontuário
+## Mudanças
 
-Na aba **Financeiro** de `src/pages/PatientDetail.tsx`:
+Arquivo único: `src/pages/PatientDetail.tsx` (header de ações do paciente).
 
-- Adicionar botão **"Nova cobrança"** no topo da lista (e no estado vazio).
-- Abrir um novo diálogo `PatientTransactionDialog` (reutiliza grande parte do form atual), com paciente já fixado (`patient_id = id`) e contexto `clinic_id` do paciente.
-- Mesma regra de aprovação: dentista comum em clínica multi-membro não pode criar — mostra mensagem orientando pedir à secretaria. Solo / admin / secretaria podem.
-- Após salvar, invalidar `patient-transactions`, `patient-financial-status`, `patients-financial-status-bulk` e `financial-transactions`.
+1. Importar `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuSeparator` de `@/components/ui/dropdown-menu` e o ícone `MoreHorizontal`.
+2. No header, manter o botão **Iniciar atendimento** intacto (primário, azul).
+3. Substituir os botões soltos (Exportar prontuário, Compartilhar, WhatsApp, Editar, Personalizar, Nova cobrança se existir aqui) por um único `<Button variant="outline">` com label **"Ações"** + ícone `MoreHorizontal`, que abre um `DropdownMenu`.
+4. Cada item do dropdown reusa o `onClick` / handler atual do botão correspondente e mantém o ícone à esquerda (Download, Share2, MessageCircle, Pencil, Palette…). Itens que abrem diálogos (Compartilhar, Editar, Personalizar) continuam usando seus dialogs/menus atuais — embrulhar `DropdownMenuItem` com `onSelect={(e) => e.preventDefault()}` quando o item já é um trigger de outro componente, para evitar fechamento prematuro, ou colocar o trigger original dentro do item.
+5. Para WhatsApp, manter o destaque visual (texto verde) dentro do item do dropdown.
+6. Responsivo: no mobile o comportamento fica naturalmente mais limpo (2 botões apenas). Em desktop, o header deixa de transbordar.
 
-### 3. Exibição
+## Fora do escopo
 
-- Mostrar nome do paciente como badge/linha secundária nos cards de transação em `Financial.tsx` (consulta já pode trazer `patients(full_name)`).
-- No prontuário, manter a lista atual (já filtra por paciente).
-
-### Detalhes técnicos
-
-- Sem mudanças de schema: `financial_transactions.patient_id` e `clinic_id` já existem; RLS atual já cobre.
-- Componente compartilhado sugerido: extrair `TransactionFormFields` para reuso entre `NewTransactionDialog` (Financeiro) e `PatientTransactionDialog` (prontuário), evitando duplicação.
-- Hook novo `useClinicPatients(clinicId)` simples para o combobox (cacheável via React Query).
-- Regra de permissão centralizada num helper `canManageClinicFinance({ isSolo, role })` retornando boolean — usar nos dois diálogos e em `BudgetDetailDialog` (refator opcional).  
-  
-Fluxo de aprovação assíncrona (dentista /*medico cria como "aguardando aprovação" e secretaria libera). Hoje é bloqueio simples. - Adiciona isso tambem por favor
-
-### Fora de escopo
-
-- Parcelamento da cobrança.
-- Fluxo de aprovação assíncrona (dentista /*medico cria como "aguardando aprovação" e secretaria libera). Hoje é bloqueio simples. - Adiciona isso tambem por favor
+- Nenhuma mudança de lógica de negócio, permissões ou dados.
+- Nenhuma alteração nas tabs abaixo do header.
+- Nenhuma alteração em outros headers (lista de pacientes, etc.).
