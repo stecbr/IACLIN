@@ -1,0 +1,1 @@
+ALTER TABLE public.treatment_plans ADD COLUMN IF NOT EXISTS charges_generated_at timestamptz;

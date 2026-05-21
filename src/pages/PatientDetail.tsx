@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette } from 'lucide-react';
@@ -14,6 +14,7 @@ import { PatientTimeline } from '@/components/patients/PatientTimeline';
 import { PatientAnamnese } from '@/components/patients/PatientAnamnese';
 import { PatientDocuments } from '@/components/patients/PatientDocuments';
 import { PatientSpecialtyList } from '@/components/patients/PatientSpecialtyList';
+import { PatientFinancialSummary } from '@/components/patient/PatientFinancialSummary';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { PATIENT_TAB_LABELS, type PatientTabKey } from '@/lib/specialtyProfile';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
@@ -41,6 +42,7 @@ export default function PatientDetail() {
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
   const { data: personalization } = usePatientPersonalization(id);
+  const queryClient = useQueryClient();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -267,6 +269,8 @@ export default function PatientDetail() {
         onOpenChange={setShareOpen}
       />
 
+      {id && <PatientFinancialSummary patientId={id} />}
+
       {/* Tabs */}
       <Tabs defaultValue={profile.patientTabs[0] ?? 'info'} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -445,9 +449,34 @@ export default function PatientDetail() {
                       <p className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
                       </p>
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {paymentStatusLabels[tx.status] ?? tx.status}
-                      </Badge>
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {paymentStatusLabels[tx.status] ?? tx.status}
+                        </Badge>
+                        {tx.type === 'income' && tx.status !== 'paid' && tx.status !== 'cancelled' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900/60 dark:hover:bg-emerald-900/20"
+                            onClick={async () => {
+                              const today = format(new Date(), 'yyyy-MM-dd');
+                              const { error } = await supabase
+                                .from('financial_transactions')
+                                .update({ status: 'paid', paid_date: today })
+                                .eq('id', tx.id);
+                              if (error) {
+                                toast.error('Erro ao marcar como pago', { description: error.message });
+                              } else {
+                                toast.success('Cobrança marcada como paga');
+                                queryClient.invalidateQueries({ queryKey: ['patient-transactions', id] });
+                                queryClient.invalidateQueries({ queryKey: ['patient-financial-status', id] });
+                              }
+                            }}
+                          >
+                            Marcar como pago
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>

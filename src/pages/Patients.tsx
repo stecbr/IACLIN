@@ -30,6 +30,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Users } from 'lucide-react';
 import { SkeletonCards } from '@/components/SkeletonLoaders';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { usePatientsFinancialStatusBulk } from '@/hooks/usePatientFinancialStatus';
 
 const AVATAR_GRADIENTS = [
   'from-blue-400 to-blue-600',
@@ -43,6 +44,16 @@ const AVATAR_GRADIENTS = [
 function getGradient(name: string) {
   const idx = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
   return AVATAR_GRADIENTS[idx];
+}
+
+function FinancialDot({ status }: { status?: 'up_to_date' | 'pending' | 'overdue' }) {
+  if (!status) return null;
+  const config = {
+    up_to_date: { color: 'bg-emerald-500', title: 'Em dia financeiramente' },
+    pending: { color: 'bg-amber-500', title: 'Cobrança em aberto' },
+    overdue: { color: 'bg-rose-500', title: 'Pagamento atrasado' },
+  }[status];
+  return <span className={`inline-block h-2 w-2 rounded-full ${config.color}`} title={config.title} aria-label={config.title} />;
 }
 
 export default function Patients() {
@@ -91,6 +102,8 @@ export default function Patients() {
       return data;
     },
   });
+
+  const { data: financialMap } = usePatientsFinancialStatusBulk(patients.map((p: any) => p.id));
 
   const filtered = patients.filter((p) => {
     const matchesSearch =
@@ -217,6 +230,7 @@ export default function Patients() {
                           )}
                         </div>
                         <span className="font-medium text-foreground">{patient.full_name}</span>
+                        <FinancialDot status={financialMap?.get(patient.id)?.status} />
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{patient.phone ?? '—'}</TableCell>
@@ -267,6 +281,7 @@ export default function Patients() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-foreground truncate">{patient.full_name}</p>
+                      <FinancialDot status={financialMap?.get(patient.id)?.status} />
                       {!patient.is_active && (
                         <Badge variant="secondary" className="text-xs">Inativo</Badge>
                       )}

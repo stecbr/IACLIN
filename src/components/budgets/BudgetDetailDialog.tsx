@@ -33,6 +33,9 @@ import { Trash2, User as UserIcon, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useSoloMode } from '@/hooks/useSoloMode';
 
 interface BudgetDetailDialogProps {
   planId: string | null;
@@ -57,6 +60,9 @@ const statusBadge: Record<string, string> = {
 export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailDialogProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const { isSolo } = useSoloMode();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: plan, isLoading } = useQuery({
@@ -77,15 +83,53 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
 
   const updateStatus = useMutation({
     mutationFn: async (status: string) => {
+      // Approval is special: may auto-generate financial charges
+      if (status === 'approved') {
+        const canApproveForClinic =
+          isSolo || effectiveRole === 'admin' || effectiveRole === 'secretary';
+        if (!canApproveForClinic) {
+          throw new Error(
+            'Apenas a secretaria ou admin da clínica pode aprovar este orçamento. Mantenha em "Em negociação" e aguarde a aprovação.'
+          );
+        }
+      }
+
       const { error } = await supabase
         .from('treatment_plans')
         .update({ status })
         .eq('id', planId!);
       if (error) throw error;
+
+      if (status === 'approved' && plan && !(plan as any).charges_generated_at) {
+        const items = (plan as any).treatment_plan_items ?? [];
+        if (items.length > 0) {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          const rows = items.map((it: any) => ({
+            type: 'income' as const,
+            category: 'procedure',
+            description: `${it.procedures?.name ?? 'Procedimento'}${it.tooth_number ? ` (dente ${it.tooth_number})` : ''} — ${plan.title ?? 'Orçamento'}`,
+            amount: Number(it.price) || 0,
+            due_date: today,
+            status: 'pending' as const,
+            clinic_id: (plan as any).clinic_id ?? null,
+            dentist_id: (plan as any).dentist_id ?? user?.id ?? null,
+            patient_id: (plan as any).patient_id ?? null,
+          }));
+          const { error: txErr } = await supabase.from('financial_transactions').insert(rows);
+          if (txErr) throw new Error(`Status atualizado, mas falhou ao gerar cobranças: ${txErr.message}`);
+          await supabase
+            .from('treatment_plans')
+            .update({ charges_generated_at: new Date().toISOString() })
+            .eq('id', planId!);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
       queryClient.invalidateQueries({ queryKey: ['treatment-plan-detail', planId] });
+      queryClient.invalidateQueries({ queryKey: ['patient-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+      queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
       toast.success('Status atualizado');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -212,6 +256,16 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
                     ))}
                   </SelectContent>
                 </Select>
+                {!isSolo && effectiveRole === 'dentist' && (
+                  <p className="text-xs text-muted-foreground">
+                    A aprovação final e a geração das cobranças são feitas pela secretaria/admin da clínica.
+                  </p>
+                )}
+                {(isSolo || effectiveRole === 'admin' || effectiveRole === 'secretary') && plan.status !== 'approved' && (
+                  <p className="text-xs text-muted-foreground">
+                    Ao aprovar, o sistema cria automaticamente as cobranças no financeiro do paciente.
+                  </p>
+                )}
               </div>
             </div>
           )}

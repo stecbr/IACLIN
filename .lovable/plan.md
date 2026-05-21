@@ -1,21 +1,62 @@
-## Substituir o mockup genérico do hero por um screenshot real do dashboard
+## Contexto
 
-Hoje o componente `DashboardMockup` em `src/pages/Landing.tsx` (linhas 116–197) desenha um mockup falso em SVG/HTML com KPIs fictícios ("Consultas hoje 24", gráfico inventado, lista "Ana/Carlos/Júlia"). Vamos trocar por uma imagem real do dashboard do Iaclin, mantendo a moldura macOS (traffic lights + URL bar) que já dá o tom premium.
+Hoje o sistema **já tem** lançamentos financeiros por paciente (tabela `financial_transactions` com `patient_id`, `status` pendente/pago/atrasado/cancelado e a aba "Financeiro" dentro do prontuário). O que **falta** é:
 
-### Passos
+1. Um resumo claro de "este paciente está em dia ou devendo".
+2. Visibilidade desse status fora do prontuário (lista de pacientes).
+3. Conexão automática entre orçamento aprovado e cobranças — respeitando a regra que você levantou: quem aprova depende de quem é o dono do paciente.
 
-1. Salvar a imagem enviada (`user-uploads://image-101.png` — print real do dashboard com "Bom dia, Cassia", KPIs e gráfico) em `src/assets/landing-dashboard.png`.
-2. Em `src/pages/Landing.tsx`:
-   - Importar `landingDashboard from "@/assets/landing-dashboard.png"`.
-   - Reescrever `DashboardMockup`: manter o wrapper com glow (`absolute -inset-6 ... blur-2xl`), o card arredondado com borda e a barra de título (3 bolinhas + "iaclin.app/dashboard"). Abaixo da barra, renderizar `<img src={landingDashboard} alt="Painel do Iaclin" className="w-full rounded-lg" loading="lazy" />` no lugar dos blocos de KPI/gráfico/lista falsos.
-   - Remover o código morto dos KPIs, SVG do gráfico e lista de pacientes.
-3. Sem mudanças em outros componentes, rotas, schema ou edge functions.
+## Regra de quem gera as cobranças (importante)
 
-### Observação
+- **Médico solo (clínica própria, sem secretária/admin além dele)** → ao mudar o orçamento para "Aprovado" no Kanban, o próprio sistema gera as cobranças automaticamente.
+- **Médico vinculado a uma clínica de terceiros (existem outros admins/secretárias)** → o dentista só *envia* o orçamento ("em negociação"). Só a aprovação feita por um usuário com papel `admin` ou `secretary` da clínica dispara a criação das cobranças. Se o próprio dentista marcar como aprovado, nada é gerado (e mostramos um aviso "aguardando aprovação da clínica").
 
-Vou usar o screenshot real (image-101). Se preferir, posso depois gerar uma versão "limpa" via `browser--screenshot` da rota `/` logada para ter dados mais polidos — mas o print enviado já funciona bem como prova visual.
+Detecção do modo solo: clínica em que o dentista é `owner` **e** `clinic_members` da mesma clínica tem só ele como `admin`/`secretary` (já existe `useSoloMode`).
 
-### Arquivos
+## O que será entregue
 
-- **Adicionar** `src/assets/landing-dashboard.png`
-- **Editar** `src/pages/Landing.tsx` (apenas `DashboardMockup` + import)
+### 1. Resumo financeiro no topo do prontuário (`PatientDetail.tsx`)
+Card compacto acima das tabs, com:
+- Total pago (verde)
+- Em aberto (âmbar) — soma de `pending` com `due_date >= hoje`
+- Atrasado (vermelho) — `pending`/`overdue` com `due_date < hoje`
+- Badge grande: **"Em dia"** (sem nada em aberto) ou **"Devendo R$ X,XX"**
+- Link "Ver detalhes" que rola até a aba Financeiro existente.
+
+### 2. Badge na lista `/patients`
+Próximo ao nome, um pequeno indicador:
+- 🟢 Em dia
+- 🟡 Em aberto
+- 🔴 Atrasado
+
+Calculado em um único query agregada por paciente (Map em memória), sem N+1.
+
+### 3. Geração automática de cobranças a partir do orçamento
+Em `BudgetDetailDialog`, quando o status muda para `approved`:
+- Verifica se o usuário atual tem permissão (solo OU role admin/secretary da clínica).
+- Se sim: cria N `financial_transactions` (`type=income`, `category=procedure`, `patient_id`, `clinic_id`, `dentist_id`, `amount`, `description` com nome do procedimento, `due_date` = hoje, `status=pending`). Marca o orçamento como `has_generated_charges` para nunca duplicar.
+- Se não: bloqueia a aprovação no client e mostra toast "Apenas a secretaria/admin da clínica pode aprovar este orçamento".
+
+### 4. Ação rápida "Marcar como pago" *(extra opcional, baixo custo)*
+Botão em cada linha da aba Financeiro do prontuário que faz `update status=paid, paid_date=today` — facilita o dia-a-dia.
+
+## Detalhes técnicos
+
+**Migration necessária** (uma só):
+- Adicionar coluna `treatment_plans.charges_generated_at timestamptz` (idempotência da geração).
+- Nenhuma mudança em RLS — `financial_transactions` já tem policies corretas para clinic members.
+
+**Arquivos a alterar:**
+- `src/pages/PatientDetail.tsx` — adicionar `PatientFinancialSummary` no topo + botão "marcar como pago" na aba Financeiro.
+- `src/components/patient/PatientFinancialSummary.tsx` *(novo)* — card de resumo.
+- `src/pages/Patients.tsx` — query agregada + badge na lista.
+- `src/components/budgets/BudgetDetailDialog.tsx` — hook na mudança para `approved` (checa permissão, gera transações, marca `charges_generated_at`).
+- `src/hooks/usePatientFinancialStatus.ts` *(novo)* — hook reutilizável que retorna `{ paid, pending, overdue, status }`.
+
+**Sem mudanças em:** edge functions, auth, tabelas além da coluna citada.
+
+## Fora de escopo (intencional)
+
+- Parcelamento configurável do orçamento (gera 1 cobrança por item; parcelar fica para Fase 2).
+- Cobrança automática via Pix/boleto (continua sendo "registro manual" como definido no PRD).
+- Notificação push ao paciente sobre pendência financeira.
