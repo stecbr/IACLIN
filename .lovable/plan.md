@@ -1,28 +1,21 @@
-## Substituir o texto "Iaclin" pela logo oficial na landing
+## Substituir o mockup genérico do hero por um screenshot real do dashboard
 
-Hoje o componente `Logo` em `src/pages/Landing.tsx` renderiza um quadradinho azul com "i" + wordmark "Iaclin." em texto. O resto do sistema (sidebar, AppLayout) já usa as imagens oficiais `src/assets/logo-light.png` e `src/assets/logo-dark.png`, trocando conforme o tema.
+Hoje o componente `DashboardMockup` em `src/pages/Landing.tsx` (linhas 116–197) desenha um mockup falso em SVG/HTML com KPIs fictícios ("Consultas hoje 24", gráfico inventado, lista "Ana/Carlos/Júlia"). Vamos trocar por uma imagem real do dashboard do Iaclin, mantendo a moldura macOS (traffic lights + URL bar) que já dá o tom premium.
 
-### Mudança
+### Passos
 
-Em `src/pages/Landing.tsx`:
+1. Salvar a imagem enviada (`user-uploads://image-101.png` — print real do dashboard com "Bom dia, Cassia", KPIs e gráfico) em `src/assets/landing-dashboard.png`.
+2. Em `src/pages/Landing.tsx`:
+   - Importar `landingDashboard from "@/assets/landing-dashboard.png"`.
+   - Reescrever `DashboardMockup`: manter o wrapper com glow (`absolute -inset-6 ... blur-2xl`), o card arredondado com borda e a barra de título (3 bolinhas + "iaclin.app/dashboard"). Abaixo da barra, renderizar `<img src={landingDashboard} alt="Painel do Iaclin" className="w-full rounded-lg" loading="lazy" />` no lugar dos blocos de KPI/gráfico/lista falsos.
+   - Remover o código morto dos KPIs, SVG do gráfico e lista de pacientes.
+3. Sem mudanças em outros componentes, rotas, schema ou edge functions.
 
-1. Importar as imagens:
-   ```ts
-   import logoLight from "@/assets/logo-light.png";
-   import logoDark from "@/assets/logo-dark.png";
-   import { useTheme } from "next-themes"; // mesmo hook usado no AppSidebar (via resolved)
-   ```
-   (Se a landing não tiver provider de tema resolvido, uso só `logoLight` — já que a landing é pública e atualmente clara. Confirmo lendo o hook real antes de aplicar.)
+### Observação
 
-2. Reescrever o componente `Logo`:
-   - Remover o quadrado com "i" e o `<span>Iaclin.</span>`.
-   - Renderizar `<img src={logoLight} alt="Iaclin" className="h-8 object-contain" />` dentro do `<Link to="/">`.
-   - Manter o mesmo `Link` e `className` recebido por prop para não quebrar layout (navbar e footer).
-
-3. Verificar se `Logo` é usado em outros pontos do arquivo (ex: rodapé) — se sim, a mesma troca vale para todos, já que é o mesmo componente.
-
-Nenhuma outra alteração: navbar, links, CTAs e demais seções permanecem iguais. Sem novas dependências, sem mudanças de schema, sem edge functions.
+Vou usar o screenshot real (image-101). Se preferir, posso depois gerar uma versão "limpa" via `browser--screenshot` da rota `/` logada para ter dados mais polidos — mas o print enviado já funciona bem como prova visual.
 
 ### Arquivos
 
-- **Editar** `src/pages/Landing.tsx` (apenas o componente `Logo` + imports).
+- **Adicionar** `src/assets/landing-dashboard.png`
+- **Editar** `src/pages/Landing.tsx` (apenas `DashboardMockup` + import)
