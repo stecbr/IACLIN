@@ -57,7 +57,7 @@ export default function Budgets() {
     queryFn: async () => {
       let query = supabase
         .from('treatment_plans')
-        .select('*, patients!inner(id, full_name, clinic_id), treatment_plan_items(id, procedures(name))')
+        .select('*, patients!inner(id, full_name, clinic_id), treatment_plan_items(id, custom_procedure_name, procedures(name))')
         .order('created_at', { ascending: false });
       if (currentClinicId) {
         query = query.eq('patients.clinic_id', currentClinicId);
@@ -81,7 +81,7 @@ export default function Budgets() {
         ...r,
         dentist_name: dentistMap[r.dentist_id] ?? null,
         procedure_names: (r.treatment_plan_items ?? [])
-          .map((it: any) => it.procedures?.name)
+          .map((it: any) => it.procedures?.name ?? it.custom_procedure_name)
           .filter(Boolean),
       }));
     },
