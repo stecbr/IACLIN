@@ -23,10 +23,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { TransactionDialog } from '@/components/finance/TransactionDialog';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useSoloMode } from '@/hooks/useSoloMode';
+import { canManageClinicFinance } from '@/lib/financePermissions';
 
 export default function Financial() {
   const { user, currentClinicId, isPersonalMode, clinics } = useAuth();
   const queryClient = useQueryClient();
+  const { effectiveRole } = useRoleAccess();
+  const { isSolo } = useSoloMode();
+  const canApprove = canManageClinicFinance({
+    isSolo,
+    role: effectiveRole as any,
+    hasClinic: !!currentClinicId,
+  });
   const [showNewTx, setShowNewTx] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -75,6 +86,22 @@ export default function Financial() {
     },
   });
 
+  // Transactions awaiting approval (only relevant in clinic mode)
+  const { data: awaitingApproval = [] } = useQuery({
+    queryKey: ['financial-awaiting-approval', currentClinicId],
+    enabled: !!user && !!currentClinicId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('financial_transactions')
+        .select('*, patients(full_name)')
+        .eq('clinic_id', currentClinicId!)
+        .eq('approval_status', 'awaiting_approval')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Imported transactions (pending review)
   const { data: importedTxs = [] } = useQuery({
     queryKey: ['imported-transactions', user?.id],
@@ -91,18 +118,21 @@ export default function Financial() {
     },
   });
 
-  // Filtered transactions
-  const filtered = transactions.filter((tx: any) => {
+  // Filtered transactions (only fully approved ones show up in the main lists)
+  const approvedTx = transactions.filter((tx: any) =>
+    !tx.approval_status || tx.approval_status === 'approved'
+  );
+  const filtered = approvedTx.filter((tx: any) => {
     if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
     return true;
   });
 
   // KPIs
-  const totalIncome = transactions.filter((t: any) => t.type === 'income' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalExpense = transactions.filter((t: any) => t.type === 'expense' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const pendingIncome = transactions.filter((t: any) => t.type === 'income' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const pendingExpense = transactions.filter((t: any) => t.type === 'expense' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalIncome = approvedTx.filter((t: any) => t.type === 'income' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalExpense = approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'paid').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const pendingIncome = approvedTx.filter((t: any) => t.type === 'income' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const pendingExpense = approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
   // Monthly chart data (last 6 months)
@@ -113,7 +143,7 @@ export default function Financial() {
       const key = format(m, 'MMM', { locale: ptBR });
       months[key] = { income: 0, expense: 0 };
     }
-    transactions.forEach((tx: any) => {
+    approvedTx.forEach((tx: any) => {
       if (tx.status !== 'paid') return;
       const key = format(parseISO(tx.paid_date || tx.due_date), 'MMM', { locale: ptBR });
       if (months[key]) {
@@ -122,7 +152,7 @@ export default function Financial() {
       }
     });
     return Object.entries(months).map(([month, data]) => ({ month, ...data }));
-  }, [transactions]);
+  }, [approvedTx]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
