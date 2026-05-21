@@ -1,18 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { ConsentDialog } from './ConsentDialog';
-import { RecordingFloatingBar } from './RecordingFloatingBar';
-import { FinishConfirmDialog } from './FinishConfirmDialog';
-import { ProcessingOverlay, type ProcessingStep } from './ProcessingOverlay';
-import { RecordingResultsDialog } from './RecordingResultsDialog';
-import { applyAiResultToAttendance, type AiAttendanceResult, type AttendanceSetters } from '@/lib/applyAiResultToAttendance';
-
-const SKIP_FINISH_KEY = 'recording.skipFinishConfirm';
+import type { AttendanceSetters } from '@/lib/applyAiResultToAttendance';
+import {
+  useRecording,
+  readPendingRecordingResult,
+  clearPendingRecordingResult,
+  RECORDING_RESULT_EVENT,
+} from '@/contexts/RecordingContext';
 
 interface Props {
   appointmentId: string;
@@ -24,19 +23,37 @@ interface Props {
 
 export function RecordConsultationButton({ appointmentId, patientId, clinicalRecordId, clinicId, setters }: Props) {
   const { user } = useAuth();
-  const recorder = useAudioRecorder();
+  const recording = useRecording();
   const [showConsent, setShowConsent] = useState(false);
-  const [showFinish, setShowFinish] = useState(false);
-  const [recordingId, setRecordingId] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [step, setStep] = useState<ProcessingStep>('uploading');
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<(AiAttendanceResult & { transcript?: string }) | null>(null);
-  const [showResults, setShowResults] = useState(false);
+
+  // Register this attendance's setters with the global recording context so
+  // the result dialog (which lives at the app root) can apply changes to the
+  // form even after the user navigated away and back.
+  useEffect(() => {
+    recording.registerHandlers(appointmentId, setters);
+    return () => recording.unregisterHandlers(appointmentId);
+  }, [appointmentId, recording, setters]);
+
+  // If a recording finished while the user was on another page, re-open the
+  // results dialog when they come back to the corresponding attendance.
+  useEffect(() => {
+    const reopen = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.appointmentId !== appointmentId) return;
+      if (readPendingRecordingResult(appointmentId)) {
+        recording.setShowResults(true);
+      }
+    };
+    window.addEventListener(RECORDING_RESULT_EVENT, reopen);
+    // Mount-time check: a recording could have completed before this page mounted.
+    if (readPendingRecordingResult(appointmentId) && recording.result && recording.session?.appointmentId === appointmentId) {
+      recording.setShowResults(true);
+    }
+    return () => window.removeEventListener(RECORDING_RESULT_EVENT, reopen);
+  }, [appointmentId, recording]);
 
   const startRecordingFlow = async () => {
     if (!user) return;
-    // Check consent
     const { data: consent } = await supabase
       .from('user_consents').select('id')
       .eq('user_id', user.id).eq('consent_type', 'recording_terms').maybeSingle();
@@ -49,88 +66,17 @@ export function RecordConsultationButton({ appointmentId, patientId, clinicalRec
 
   const beginRecording = async () => {
     try {
-      await recorder.start();
+      await recording.start({ appointmentId, patientId, clinicalRecordId, clinicId });
     } catch (err) {
       toast.error('Não foi possível acessar o microfone: ' + (err as Error).message);
     }
   };
 
-  const requestFinish = () => {
-    if (localStorage.getItem(SKIP_FINISH_KEY) === '1') {
-      void doFinish();
-    } else {
-      setShowFinish(true);
-    }
-  };
-
-  const doFinish = async (dontAskAgain?: boolean) => {
-    if (dontAskAgain) localStorage.setItem(SKIP_FINISH_KEY, '1');
-    setShowFinish(false);
-    if (!user) return;
-    setProcessing(true);
-    setStep('uploading');
-    setProgress(10);
-    try {
-      const blob = await recorder.stop();
-      if (!blob) throw new Error('Sem áudio gravado');
-      const durationSeconds = Math.round(recorder.state.durationMs / 1000);
-
-      // Insert recording row
-      const { data: rec, error: insErr } = await supabase
-        .from('consultation_recordings')
-        .insert({
-          appointment_id: appointmentId,
-          clinical_record_id: clinicalRecordId,
-          patient_id: patientId,
-          dentist_id: user.id,
-          clinic_id: clinicId,
-          duration_seconds: durationSeconds,
-          status: 'uploaded',
-          consent_accepted_at: new Date().toISOString(),
-        })
-        .select('id').single();
-      if (insErr || !rec) throw new Error(insErr?.message || 'Falha ao registrar gravação');
-      setRecordingId(rec.id);
-
-      const path = `${user.id}/${rec.id}.webm`;
-      const { error: upErr } = await supabase.storage.from('consultation-audio')
-        .upload(path, blob, { contentType: blob.type || 'audio/webm', upsert: true });
-      if (upErr) throw upErr;
-
-      await supabase.from('consultation_recordings').update({ audio_storage_path: path }).eq('id', rec.id);
-
-      setStep('transcribing');
-      setProgress(40);
-
-      const { data: fnData, error: fnErr } = await supabase.functions.invoke('transcribe-consultation', {
-        body: { recording_id: rec.id },
-      });
-      if (fnErr) throw fnErr;
-      setStep('summarizing');
-      setProgress(75);
-      const aiResult = (fnData as any)?.result as (AiAttendanceResult & { transcript?: string });
-      if (!aiResult) throw new Error('Resposta da IA vazia');
-
-      setStep('structuring');
-      setProgress(95);
-      setResult(aiResult);
-      setProgress(100);
-      setTimeout(() => {
-        setProcessing(false);
-        setShowResults(true);
-      }, 400);
-    } catch (err) {
-      setProcessing(false);
-      toast.error('Falha ao processar consulta: ' + (err as Error).message);
-    }
-  };
-
-  const handleApply = (edited: AiAttendanceResult) => {
-    applyAiResultToAttendance(edited, setters);
-    toast.success('Atendimento preenchido com IA. Revise antes de salvar.');
-  };
-
-  const isRecording = recorder.state.status === 'recording' || recorder.state.status === 'paused';
+  // This button is "active" only when the current global recording session
+  // belongs to *this* attendance. Other attendances see an idle button while
+  // someone else's session is running (rare, but safe).
+  const ownsSession = recording.session?.appointmentId === appointmentId;
+  const isRecording = ownsSession && recording.isRecording;
 
   return (
     <>
@@ -139,7 +85,8 @@ export function RecordConsultationButton({ appointmentId, patientId, clinicalRec
         variant={isRecording ? 'destructive' : 'outline'}
         size="sm"
         className="gap-2"
-        onClick={() => (isRecording ? requestFinish() : startRecordingFlow())}
+        onClick={() => (isRecording ? recording.requestFinish() : startRecordingFlow())}
+        disabled={!ownsSession && recording.isRecording}
       >
         <Mic className="h-4 w-4" />
         {isRecording ? 'Finalizar gravação' : 'Gravar consulta'}
@@ -149,30 +96,6 @@ export function RecordConsultationButton({ appointmentId, patientId, clinicalRec
         open={showConsent}
         onOpenChange={setShowConsent}
         onAccepted={() => { void beginRecording(); }}
-      />
-
-      {isRecording && (
-        <RecordingFloatingBar
-          state={recorder.state}
-          onPause={recorder.pause}
-          onResume={recorder.resume}
-          onFinish={requestFinish}
-        />
-      )}
-
-      <FinishConfirmDialog
-        open={showFinish}
-        onOpenChange={setShowFinish}
-        onConfirm={(dont) => { void doFinish(dont); }}
-      />
-
-      <ProcessingOverlay open={processing} step={step} progress={progress} />
-
-      <RecordingResultsDialog
-        open={showResults}
-        onOpenChange={setShowResults}
-        result={result}
-        onApply={handleApply}
       />
     </>
   );
