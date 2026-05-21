@@ -269,6 +269,8 @@ export default function PatientDetail() {
         onOpenChange={setShareOpen}
       />
 
+      {id && <PatientFinancialSummary patientId={id} />}
+
       {/* Tabs */}
       <Tabs defaultValue={profile.patientTabs[0] ?? 'info'} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
