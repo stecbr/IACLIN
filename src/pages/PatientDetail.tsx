@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette } from 'lucide-react';
@@ -14,6 +14,7 @@ import { PatientTimeline } from '@/components/patients/PatientTimeline';
 import { PatientAnamnese } from '@/components/patients/PatientAnamnese';
 import { PatientDocuments } from '@/components/patients/PatientDocuments';
 import { PatientSpecialtyList } from '@/components/patients/PatientSpecialtyList';
+import { PatientFinancialSummary } from '@/components/patient/PatientFinancialSummary';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { PATIENT_TAB_LABELS, type PatientTabKey } from '@/lib/specialtyProfile';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
@@ -41,6 +42,7 @@ export default function PatientDetail() {
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
   const { data: personalization } = usePatientPersonalization(id);
+  const queryClient = useQueryClient();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
