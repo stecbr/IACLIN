@@ -30,6 +30,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Users } from 'lucide-react';
 import { SkeletonCards } from '@/components/SkeletonLoaders';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { usePatientsFinancialStatusBulk } from '@/hooks/usePatientFinancialStatus';
 
 const AVATAR_GRADIENTS = [
   'from-blue-400 to-blue-600',
@@ -91,6 +92,8 @@ export default function Patients() {
       return data;
     },
   });
+
+  const { data: financialMap } = usePatientsFinancialStatusBulk(patients.map((p: any) => p.id));
 
   const filtered = patients.filter((p) => {
     const matchesSearch =
