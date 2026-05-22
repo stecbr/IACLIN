@@ -27,6 +27,10 @@ import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 
 export default function Financial() {
   const { user, currentClinicId, isPersonalMode, clinics } = useAuth();
@@ -122,6 +126,24 @@ export default function Financial() {
   const approvedTx = transactions.filter((tx: any) =>
     !tx.approval_status || tx.approval_status === 'approved'
   );
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'paid' | 'pending' | 'overdue' }) => {
+      const patch: any = { status };
+      if (status === 'paid') patch.paid_date = format(new Date(), 'yyyy-MM-dd');
+      else patch.paid_date = null;
+      const { error } = await supabase.from('financial_transactions').update(patch).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Status atualizado');
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+      queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const filtered = approvedTx.filter((tx: any) => {
     if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
@@ -354,18 +376,49 @@ export default function Financial() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-xs rounded-full gap-1 ${
-                          tx.status === 'paid' ? 'border-success/30 text-success' :
-                          tx.status === 'overdue' ? 'border-destructive/30 text-destructive' :
-                          'border-warning/30 text-warning'
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            tx.status === 'paid' ? 'bg-success' :
-                            tx.status === 'overdue' ? 'bg-destructive' :
-                            'bg-warning'
-                          }`} />
-                          {tx.status === 'paid' ? 'Pago' : tx.status === 'overdue' ? 'Vencido' : 'Pendente'}
-                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-muted/60 ${
+                                tx.status === 'paid' ? 'border-success/30 text-success' :
+                                tx.status === 'overdue' ? 'border-destructive/30 text-destructive' :
+                                'border-warning/30 text-warning'
+                              }`}
+                              title="Alterar status"
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${
+                                tx.status === 'paid' ? 'bg-success' :
+                                tx.status === 'overdue' ? 'bg-destructive' :
+                                'bg-warning'
+                              }`} />
+                              {tx.status === 'paid' ? 'Pago' : tx.status === 'overdue' ? 'Vencido' : 'Pendente'}
+                              <ChevronDown className="h-3 w-3 opacity-60" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-44">
+                            <DropdownMenuLabel className="text-xs">Alterar status</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={tx.status === 'paid' || updateStatusMutation.isPending}
+                              onSelect={() => updateStatusMutation.mutate({ id: tx.id, status: 'paid' })}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-success mr-2" /> Marcar como pago
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={tx.status === 'pending' || updateStatusMutation.isPending}
+                              onSelect={() => updateStatusMutation.mutate({ id: tx.id, status: 'pending' })}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-warning mr-2" /> Marcar como pendente
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={tx.status === 'overdue' || updateStatusMutation.isPending}
+                              onSelect={() => updateStatusMutation.mutate({ id: tx.id, status: 'overdue' })}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-destructive mr-2" /> Marcar como vencido
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                       <TableCell className={`text-right font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
                         {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
