@@ -126,6 +126,24 @@ export default function Financial() {
   const approvedTx = transactions.filter((tx: any) =>
     !tx.approval_status || tx.approval_status === 'approved'
   );
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'paid' | 'pending' | 'overdue' }) => {
+      const patch: any = { status };
+      if (status === 'paid') patch.paid_date = format(new Date(), 'yyyy-MM-dd');
+      else patch.paid_date = null;
+      const { error } = await supabase.from('financial_transactions').update(patch).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Status atualizado');
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-financial-status'] });
+      queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const filtered = approvedTx.filter((tx: any) => {
     if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
