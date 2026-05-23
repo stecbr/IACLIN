@@ -32,6 +32,7 @@ interface Props {
 }
 
 const STORAGE_KEY = 'iaclin.agendaDoctorFilter';
+const EMPTY_DOCTORS: DoctorOption[] = [];
 
 export function loadStoredDoctorFilter(): DoctorFilterValue {
   if (typeof window === 'undefined') return { kind: 'all' };
@@ -54,7 +55,7 @@ export function persistDoctorFilter(value: DoctorFilterValue) {
 export function AgendaDoctorFilter({ value, onChange, allowCompare = true, onDoctorsLoaded }: Props) {
   const { currentClinicId } = useAuth();
 
-  const { data: doctors = [] } = useQuery({
+  const { data: doctors = EMPTY_DOCTORS } = useQuery({
     queryKey: ['clinic-doctors', currentClinicId],
     enabled: !!currentClinicId,
     queryFn: async (): Promise<DoctorOption[]> => {
