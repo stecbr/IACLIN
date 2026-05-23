@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +43,9 @@ export default function Agenda() {
     restrictToSelf ? { kind: 'all' } : loadStoredDoctorFilter()
   );
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const handleDoctorsLoaded = useCallback((loadedDoctors: DoctorOption[]) => {
+    setDoctors(loadedDoctors);
+  }, []);
   const doctorById = useMemo(() => {
     const m = new Map<string, DoctorOption>();
     doctors.forEach((d) => m.set(d.user_id, d));
@@ -166,7 +169,7 @@ export default function Agenda() {
                 value={doctorFilter}
                 onChange={setDoctorFilter}
                 allowCompare={view !== 'month'}
-                onDoctorsLoaded={setDoctors}
+                onDoctorsLoaded={handleDoctorsLoaded}
               />
             )}
             <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
