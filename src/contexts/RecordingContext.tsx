@@ -25,6 +25,7 @@ interface RecordingContextValue {
   pause: () => void;
   resume: () => void;
   requestFinish: () => void;
+  cancel: () => Promise<void>;
   // finish-confirm dialog
   showFinishConfirm: boolean;
   setShowFinishConfirm: (open: boolean) => void;
@@ -64,6 +65,14 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const start = useCallback(async (s: RecordingSession) => {
     setSession(s);
     await recorder.start();
+  }, [recorder]);
+
+  const cancel = useCallback(async () => {
+    try { await recorder.stop(); } catch { /* ignore */ }
+    recorder.reset();
+    setShowFinishConfirm(false);
+    setProcessing(false);
+    setSession(null);
   }, [recorder]);
 
   const requestFinish = useCallback(() => {
@@ -138,6 +147,8 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       }, 400);
     } catch (err) {
       setProcessing(false);
+      setSession(null);
+      recorder.reset();
       toast.error('Falha ao processar consulta: ' + (err as Error).message);
     }
   }, [recorder, session, user]);
@@ -176,6 +187,16 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [recorder.state.status]);
 
+  // Auto-cancel any active recording when the user signs out so the
+  // microphone is released and the floating bar disappears.
+  const wasAuthed = useRef<boolean>(!!user);
+  useEffect(() => {
+    if (wasAuthed.current && !user) {
+      void cancel();
+    }
+    wasAuthed.current = !!user;
+  }, [user, cancel]);
+
   const value: RecordingContextValue = {
     state: recorder.state,
     session,
@@ -184,6 +205,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     pause: recorder.pause,
     resume: recorder.resume,
     requestFinish,
+    cancel,
     showFinishConfirm,
     setShowFinishConfirm,
     confirmFinish,
