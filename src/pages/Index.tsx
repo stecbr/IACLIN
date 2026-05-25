@@ -265,7 +265,7 @@ function AdminHome() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title={`${getGreeting()}, ${firstName} 👋`} description="Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje." />
+      <PageHeader title={`${getGreeting()}, ${firstName}`} description="Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje." />
       <SoloModeBanner />
 
       {/* KPIs */}

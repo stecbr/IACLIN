@@ -54,7 +54,7 @@ export default function PatientHome() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <h1 className="text-2xl font-semibold tracking-tight">{greeting}, {firstName} 👋</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{greeting}, {firstName}</h1>
         <p className="text-sm text-muted-foreground mt-1">Acompanhe suas consultas, exames e plano de saúde.</p>
       </motion.div>
 
