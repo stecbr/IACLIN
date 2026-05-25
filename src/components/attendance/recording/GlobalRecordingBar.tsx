@@ -24,6 +24,7 @@ export function GlobalRecordingBar() {
         open={r.showFinishConfirm}
         onOpenChange={r.setShowFinishConfirm}
         onConfirm={(dont) => { void r.confirmFinish(dont); }}
+        onDiscard={() => { void r.cancel(); }}
       />
       <ProcessingOverlay open={r.processing} step={r.processingStep} progress={r.processingProgress} />
       <RecordingResultsDialog

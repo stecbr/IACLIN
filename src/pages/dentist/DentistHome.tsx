@@ -202,7 +202,7 @@ export default function DentistHome() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title={`${getGreeting()}, Dr(a). ${firstName} 👋`}
+        title={`${getGreeting()}, Dr(a). ${firstName}`}
         description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Aqui está o resumo do seu dia.`}
       />
       <SoloModeBanner />
