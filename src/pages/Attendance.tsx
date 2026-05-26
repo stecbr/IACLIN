@@ -444,6 +444,10 @@ export default function Attendance() {
             patientId={appointment.patient_id}
             clinicalRecordId={clinicalRecordId}
             clinicId={currentClinicId ?? null}
+            hasExistingContent={[
+              chiefComplaint, hpi, physicalExam, diagnosis,
+              treatmentPlan, followUpReason, clinicalNotes,
+            ].some((v) => typeof v === 'string' && v.trim().length > 0) || hypotheses.length > 0 || requests.length > 0}
             setters={{
               setChiefComplaint, setHpi, setDurationValue, setDurationUnit,
               setPhysicalExam, setHypotheses, setDiagnosis, setSeverity,

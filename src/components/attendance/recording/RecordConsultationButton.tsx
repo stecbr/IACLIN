@@ -19,9 +19,14 @@ interface Props {
   clinicalRecordId: string | null;
   clinicId: string | null;
   setters: AttendanceSetters;
+  /** When true, the attendance already has user-written content, so we should
+   *  NOT auto-open the pending AI-result dialog on mount (it would risk
+   *  overwriting what the user typed). The user can still re-trigger it
+   *  manually via the recording flow. */
+  hasExistingContent?: boolean;
 }
 
-export function RecordConsultationButton({ appointmentId, patientId, clinicalRecordId, clinicId, setters }: Props) {
+export function RecordConsultationButton({ appointmentId, patientId, clinicalRecordId, clinicId, setters, hasExistingContent }: Props) {
   const { user } = useAuth();
   const recording = useRecording();
   const [showConsent, setShowConsent] = useState(false);
@@ -46,11 +51,17 @@ export function RecordConsultationButton({ appointmentId, patientId, clinicalRec
     };
     window.addEventListener(RECORDING_RESULT_EVENT, reopen);
     // Mount-time check: a recording could have completed before this page mounted.
-    if (readPendingRecordingResult(appointmentId) && recording.result && recording.session?.appointmentId === appointmentId) {
-      recording.setShowResults(true);
+    if (readPendingRecordingResult(appointmentId)) {
+      if (hasExistingContent) {
+        // The user already wrote something (likely after a page reload).
+        // Drop the pending AI result so we don't ask to overwrite their text.
+        clearPendingRecordingResult(appointmentId);
+      } else if (recording.result && recording.session?.appointmentId === appointmentId) {
+        recording.setShowResults(true);
+      }
     }
     return () => window.removeEventListener(RECORDING_RESULT_EVENT, reopen);
-  }, [appointmentId, recording]);
+  }, [appointmentId, recording, hasExistingContent]);
 
   const startRecordingFlow = async () => {
     if (!user) return;
