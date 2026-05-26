@@ -3,17 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShieldCheck, FileText, Loader2, AlertCircle, ArrowLeft, EyeOff, X } from 'lucide-react';
+import { ShieldCheck, FileText, Loader2, AlertCircle, ArrowLeft, EyeOff, X, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { buildFullChartHtml, type FullChartData } from '@/lib/generateFullChartPdf';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function PatientChartRedeem() {
   const navigate = useNavigate();
+  const { user, clinics, currentClinicId } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartHtml, setChartHtml] = useState<string | null>(null);
   const [patientName, setPatientName] = useState<string>('');
+  const [fromPatient, setFromPatient] = useState(false);
+  const [shareCode, setShareCode] = useState<string>('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [importClinicId, setImportClinicId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // Block browser print while viewer is open
   useEffect(() => {
@@ -53,10 +65,32 @@ export default function PatientChartRedeem() {
       const html = await buildFullChartHtml(chart);
       setPatientName(chart.patient?.full_name ?? '');
       setChartHtml(html);
+      setFromPatient(!!(data as any)?.from_patient);
+      setShareCode(clean);
+      setImportClinicId(currentClinicId);
     } catch (err: any) {
       setError(err.message ?? 'Não foi possível resgatar o prontuário.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runImport = async () => {
+    if (!user) return;
+    setImporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('import-shared-patient', {
+        body: { code: shareCode, clinic_id: importClinicId },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success('Paciente adicionado com sucesso');
+      setImportOpen(false);
+      navigate(`/pacientes/${(data as any).patient_id}`);
+    } catch (err: any) {
+      toast.error('Não foi possível adicionar', { description: err.message });
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -89,10 +123,18 @@ export default function PatientChartRedeem() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => { setChartHtml(null); setCode(''); }} className="gap-2 flex-shrink-0">
-              <X className="h-3.5 w-3.5" />
-              Fechar
-            </Button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {fromPatient && user && (
+                <Button size="sm" onClick={() => setImportOpen(true)} className="gap-2">
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Adicionar aos meus pacientes
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => { setChartHtml(null); setCode(''); setFromPatient(false); }} className="gap-2">
+                <X className="h-3.5 w-3.5" />
+                Fechar
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -111,6 +153,38 @@ export default function PatientChartRedeem() {
             />
           </div>
         </div>
+
+        <AlertDialog open={importOpen} onOpenChange={setImportOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Adicionar {patientName} aos seus pacientes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O paciente e o histórico clínico compartilhado serão importados para a clínica selecionada.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {clinics.length > 1 && (
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">Clínica de destino</label>
+                <select
+                  className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={importClinicId ?? ''}
+                  onChange={(e) => setImportClinicId(e.target.value || null)}
+                >
+                  {clinics.map((c) => (
+                    <option key={c.clinic_id} value={c.clinic_id}>{c.clinic_name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={importing}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={(e) => { e.preventDefault(); runImport(); }} disabled={importing}>
+                {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
