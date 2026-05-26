@@ -9,15 +9,47 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePatientData, type DocumentRow } from '@/hooks/usePatientData';
+import { generatePrescriptionPdf } from '@/lib/generatePrescriptionPdf';
+import { registrationLabelForSpecialty } from '@/components/SpecialtySelect';
+import { toast } from 'sonner';
 
 const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame']);
 const PRESCRIPTION_CATEGORIES = new Set(['prescription', 'receita']);
 
+interface RxItemPayload {
+  medication?: string;
+  concentration?: string;
+  dosage?: string;
+  duration?: string;
+  route?: string;
+  type?: string;
+  instructions?: string;
+}
+
 interface PrescriptionFromRecord {
   id: string;
   date: string;
-  dentistName: string | null;
-  items: Array<{ medication: string; concentration?: string; dosage?: string; duration?: string; route?: string; type?: string }>;
+  items: RxItemPayload[];
+  dentist: {
+    full_name: string;
+    registration_number: string | null;
+    specialty: string | null;
+    signature_url: string | null;
+  } | null;
+  clinic: {
+    name: string;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    cnpj: string | null;
+    logo_url: string | null;
+  } | null;
+  patient: {
+    full_name: string;
+    cpf: string | null;
+    date_of_birth: string | null;
+  } | null;
 }
 
 export default function PatientExams() {
@@ -29,26 +61,74 @@ export default function PatientExams() {
     queryFn: async () => {
       const { data: records } = await supabase
         .from('clinical_records')
-        .select('id, created_at, dentist_id, clinical_record_requests(id, kind, payload)')
+        .select('id, created_at, dentist_id, clinic_id, patient_id, clinical_record_requests(id, kind, payload)')
         .in('patient_id', patientIds)
         .order('created_at', { ascending: false })
         .limit(100);
       const recs = records ?? [];
       const dentistIds = [...new Set(recs.map((r: any) => r.dentist_id).filter(Boolean))];
-      const profMap = new Map<string, string>();
+      const clinicIds = [...new Set(recs.map((r: any) => r.clinic_id).filter(Boolean))];
+      const profMap = new Map<string, any>();
       if (dentistIds.length > 0) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', dentistIds);
-        (profs ?? []).forEach((p: any) => profMap.set(p.id, p.full_name));
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name, registration_number, specialty, signature_url')
+          .in('id', dentistIds);
+        (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
+      }
+      const clinicMap = new Map<string, any>();
+      if (clinicIds.length > 0) {
+        const { data: clins } = await supabase
+          .from('clinics')
+          .select('id, name, phone, address, city, state, cnpj, logo_url')
+          .in('id', clinicIds);
+        (clins ?? []).forEach((c: any) => clinicMap.set(c.id, c));
+      }
+      const patientMap = new Map<string, any>();
+      {
+        const { data: pats } = await supabase
+          .from('patients')
+          .select('id, full_name, cpf, date_of_birth')
+          .in('id', patientIds);
+        (pats ?? []).forEach((p: any) => patientMap.set(p.id, p));
       }
       const out: PrescriptionFromRecord[] = [];
       for (const r of recs as any[]) {
         const reqs = (r.clinical_record_requests ?? []).filter((x: any) => x.kind === 'prescription');
         if (reqs.length === 0) continue;
+        const prof = r.dentist_id ? profMap.get(r.dentist_id) : null;
+        const clin = r.clinic_id ? clinicMap.get(r.clinic_id) : null;
+        const pat = r.patient_id ? patientMap.get(r.patient_id) : null;
         out.push({
           id: r.id,
           date: r.created_at,
-          dentistName: profMap.get(r.dentist_id) ?? null,
           items: reqs.map((x: any) => x.payload ?? {}),
+          dentist: prof
+            ? {
+                full_name: prof.full_name ?? 'Médico(a)',
+                registration_number: prof.registration_number ?? null,
+                specialty: prof.specialty ?? null,
+                signature_url: prof.signature_url ?? null,
+              }
+            : null,
+          clinic: clin
+            ? {
+                name: clin.name ?? 'Clínica',
+                phone: clin.phone ?? null,
+                address: clin.address ?? null,
+                city: clin.city ?? null,
+                state: clin.state ?? null,
+                cnpj: clin.cnpj ?? null,
+                logo_url: clin.logo_url ?? null,
+              }
+            : null,
+          patient: pat
+            ? {
+                full_name: pat.full_name ?? '',
+                cpf: pat.cpf ?? null,
+                date_of_birth: pat.date_of_birth ?? null,
+              }
+            : null,
         });
       }
       return out;
@@ -171,13 +251,48 @@ function DocumentItem({ doc, onDownload, accent }: { doc: DocumentRow; onDownloa
 }
 
 function PrescriptionCard({ rx }: { rx: PrescriptionFromRecord }) {
+  const dentistLine = rx.dentist
+    ? [
+        `Dr(a). ${rx.dentist.full_name}`,
+        rx.dentist.registration_number
+          ? `${registrationLabelForSpecialty(rx.dentist.specialty)} ${rx.dentist.registration_number}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
+
+  const downloadPdf = async () => {
+    if (!rx.patient) {
+      toast.error('Não foi possível carregar os dados do paciente.');
+      return;
+    }
+    try {
+      await generatePrescriptionPdf({
+        items: rx.items.map((it) => ({
+          medication: [it.medication, it.concentration].filter(Boolean).join(' ') || 'Medicamento',
+          dosage: it.dosage ?? '',
+          frequency: it.dosage ?? '',
+          duration: it.duration ?? '',
+          instructions: [it.route, it.instructions].filter(Boolean).join(' · ') || undefined,
+        })) as any,
+        patient: rx.patient,
+        dentist: rx.dentist ?? { full_name: 'Médico(a)', registration_number: null, specialty: null, signature_url: null },
+        clinic: rx.clinic,
+      });
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao gerar receituário.');
+    }
+  };
+
   const shareWhatsApp = () => {
     const lines = rx.items.map((it, i) => {
       const med = [it.medication, it.concentration].filter(Boolean).join(' ');
       const dose = [it.dosage, it.duration ? `por ${it.duration}` : ''].filter(Boolean).join(' ');
       return `${i + 1}. ${med}${dose ? ' — ' + dose : ''}`;
     });
-    const msg = `Minha receita${rx.dentistName ? ` (${rx.dentistName})` : ''} — ${format(parseISO(rx.date), 'dd/MM/yyyy')}:\n\n${lines.join('\n')}`;
+    const who = rx.dentist?.full_name ? ` (Dr(a). ${rx.dentist.full_name})` : '';
+    const msg = `Minha receita${who} — ${format(parseISO(rx.date), 'dd/MM/yyyy')}:\n\n${lines.join('\n')}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -195,9 +310,20 @@ function PrescriptionCard({ rx }: { rx: PrescriptionFromRecord }) {
             </div>
             <p className="text-xs text-muted-foreground">
               {format(parseISO(rx.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-              {rx.dentistName && ` · ${rx.dentistName}`}
             </p>
+            {dentistLine && (
+              <p className="text-xs text-muted-foreground mt-0.5">{dentistLine}</p>
+            )}
           </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9 rounded-lg text-primary hover:bg-primary/10 flex-shrink-0"
+            onClick={downloadPdf}
+            aria-label="Baixar receituário"
+          >
+            <Download className="h-5 w-5" />
+          </Button>
         </div>
 
         <ul className="space-y-1.5 pl-1">
@@ -205,21 +331,34 @@ function PrescriptionCard({ rx }: { rx: PrescriptionFromRecord }) {
             const med = [it.medication, it.concentration].filter(Boolean).join(' ');
             const dose = [it.dosage, it.duration ? `por ${it.duration}` : ''].filter(Boolean).join(' ');
             return (
-              <li key={i} className="text-sm flex gap-2">
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={downloadPdf}
+                  className="w-full text-left flex gap-2 p-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors text-sm"
+                  title="Baixar receituário"
+                >
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700 text-[10px] font-bold flex-shrink-0 mt-0.5">{i + 1}</span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{med || 'Medicamento'}</p>
                   {dose && <p className="text-xs text-muted-foreground">{dose}</p>}
                   {it.type === 'controlled' && <Badge variant="outline" className="text-[10px] mt-1">Controlada</Badge>}
                 </div>
+                <Download className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0 mt-1" />
+                </button>
               </li>
             );
           })}
         </ul>
 
-        <Button variant="outline" size="sm" className="w-full gap-2" onClick={shareWhatsApp}>
-          <MessageCircle className="h-3.5 w-3.5" /> Compartilhar no WhatsApp
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1 gap-2" onClick={downloadPdf}>
+            <Download className="h-3.5 w-3.5" /> Baixar receituário
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={shareWhatsApp}>
+            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
