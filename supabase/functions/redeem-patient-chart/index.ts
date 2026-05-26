@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
     const { data: share } = await admin
       .from('patient_chart_shares')
-      .select('id, patient_id, clinic_id, created_by, expires_at')
+      .select('id, patient_id, clinic_id, created_by, expires_at, source')
       .eq('code', code)
       .gt('expires_at', nowIso)
       .maybeSingle();
@@ -34,6 +34,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Código expirado ou inválido' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    const isPatientShare = (share as any).source === 'patient';
+
+    // Resolve set of patients rows to aggregate
+    let patientIds: string[] = [share.patient_id];
+    let anchorPatient: any = null;
+    let patientUserId: string | null = null;
+
+    if (isPatientShare) {
+      const { data: anchor } = await admin
+        .from('patients').select('*').eq('id', share.patient_id).maybeSingle();
+      anchorPatient = anchor;
+      patientUserId = anchor?.patient_user_id ?? null;
+      if (patientUserId) {
+        const { data: linked } = await admin
+          .from('patients').select('id').eq('patient_user_id', patientUserId);
+        patientIds = Array.from(new Set([share.patient_id, ...(linked ?? []).map((p: any) => p.id)]));
+      }
     }
 
     // Fetch patient + clinic + professional
@@ -47,22 +66,24 @@ Deno.serve(async (req) => {
       { data: docs },
       { data: createdByProfile },
     ] = await Promise.all([
-      admin.from('patients').select('*').eq('id', share.patient_id).maybeSingle(),
+      isPatientShare
+        ? Promise.resolve({ data: anchorPatient })
+        : admin.from('patients').select('*').eq('id', share.patient_id).maybeSingle(),
       share.clinic_id
         ? admin.from('clinics').select('name, phone, email, address, city, state, cnpj, logo_url')
             .eq('id', share.clinic_id).maybeSingle()
         : Promise.resolve({ data: null }),
-      admin.from('anamneses').select('*').eq('patient_id', share.patient_id)
+      admin.from('anamneses').select('*').in('patient_id', patientIds)
         .order('updated_at', { ascending: false }).limit(1).maybeSingle(),
       admin.from('clinical_records')
         .select('*, clinical_record_procedures(*, procedures(name, code)), clinical_record_requests(*)')
-        .eq('patient_id', share.patient_id)
+        .in('patient_id', patientIds)
         .order('created_at', { ascending: false }),
-      admin.from('odontogram_entries').select('*').eq('patient_id', share.patient_id)
+      admin.from('odontogram_entries').select('*').in('patient_id', patientIds)
         .order('updated_at', { ascending: false }),
-      admin.from('clinical_map_entries').select('*').eq('patient_id', share.patient_id)
+      admin.from('clinical_map_entries').select('*').in('patient_id', patientIds)
         .order('updated_at', { ascending: false }),
-      admin.from('documents').select('id, name, category, created_at').eq('patient_id', share.patient_id)
+      admin.from('documents').select('id, name, category, created_at, file_url, file_type').in('patient_id', patientIds)
         .order('created_at', { ascending: false }),
       admin.from('profiles').select('full_name').eq('id', share.created_by).maybeSingle(),
     ]);
@@ -94,6 +115,9 @@ Deno.serve(async (req) => {
       documents: docs ?? [],
       issued_by: createdByProfile?.full_name ?? null,
       issued_at: nowIso,
+      from_patient: isPatientShare,
+      share_code: code,
+      patient_user_id: patientUserId,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
