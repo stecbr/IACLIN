@@ -81,7 +81,7 @@ export function PatientPersonalizeMenu({ patientId, children }: Props) {
               value={tag}
               onChange={(e) => setTag(e.target.value)}
               maxLength={24}
-              placeholder="Ex: VIP, Retorno"
+              placeholder="Ex: Retorno, Acompanhamento"
               className="h-8"
             />
             <Button
