@@ -165,8 +165,25 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     applyAiResultToAttendance(edited, setters);
     try { sessionStorage.removeItem(PENDING_RESULT_KEY(session.appointmentId)); } catch {}
     toast.success('Atendimento preenchido com IA. Revise antes de salvar.');
+    // After applying, the recording lifecycle is complete: drop the session
+    // and reset the recorder so the floating bar and stale state go away.
+    setShowResults(false);
+    setResult(null);
+    setSession(null);
+    recorder.reset();
     return true;
-  }, [session]);
+  }, [session, recorder]);
+
+  // When the user closes the results dialog without applying, also wind down
+  // the session so nothing keeps the "recording" UI alive.
+  const handleSetShowResults = useCallback((open: boolean) => {
+    setShowResults(open);
+    if (!open) {
+      setResult(null);
+      setSession(null);
+      recorder.reset();
+    }
+  }, [recorder]);
 
   const registerHandlers = useCallback((appointmentId: string, setters: AttendanceSetters) => {
     handlersRef.current.set(appointmentId, setters);
@@ -200,7 +217,10 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const value: RecordingContextValue = {
     state: recorder.state,
     session,
-    isRecording: recorder.state.status === 'recording' || recorder.state.status === 'paused',
+    // Only consider the recording "active" when there is a live session AND
+    // the underlying MediaRecorder is actually capturing. This prevents the
+    // floating bar from ever appearing when nothing has been started.
+    isRecording: !!session && (recorder.state.status === 'recording' || recorder.state.status === 'paused'),
     start,
     pause: recorder.pause,
     resume: recorder.resume,
@@ -214,7 +234,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     processingProgress,
     result,
     showResults,
-    setShowResults,
+    setShowResults: handleSetShowResults,
     applyResult,
     registerHandlers,
     unregisterHandlers,
