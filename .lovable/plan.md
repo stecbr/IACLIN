@@ -1,68 +1,37 @@
-## Objetivo
+## Receituário no estilo Hapvida (download em PDF)
 
-1. Remover a nomenclatura "VIP" (médicos não usam).
-2. Tornar o preenchimento de receita pelo médico muito mais rápido e intuitivo dentro do atendimento.
-3. Separar visualmente "Exames" e "Receitas" para o paciente, sem criar nova rota.
+Hoje a tela **Meus Documentos → Receitas** mostra as receitas como cards informativos, mas o paciente não consegue baixar um receituário formal com nome do médico, CRM e todos os remédios da mesma consulta. A proposta é tornar cada card (e cada medicamento dentro dele) um botão que abre o PDF do receituário — o mesmo gerador já usado pelo médico (`generatePrescriptionPdf`).
 
----
+### O que muda (apenas frontend)
 
-## 1. Remover "VIP"
+**1. `src/pages/patient/PatientExams.tsx`**
+- Ampliar a query `patient-rx-from-records` para também trazer:
+  - `clinic_id` do `clinical_records`
+  - dados do dentista (`registration_number`, `specialty`, `signature_url`) via `profiles`
+  - dados da clínica (`name`, `cnpj`, `phone`, `address`, `city`, `state`, `logo_url`) via `clinics`
+  - dados do paciente (`full_name`, `cpf`, `date_of_birth`) via `patients` (usando `patientIds` já disponíveis no hook)
+- Anexar esses metadados a cada `PrescriptionFromRecord`.
 
-**Arquivo:** `src/components/patients/PatientPersonalizeMenu.tsx` (linha 84)
+**2. `PrescriptionCard` (mesmo arquivo)**
+- Substituir o botão único "Compartilhar no WhatsApp" por um **bloco de ações**:
+  - Botão primário **"Baixar receituário"** (ícone `Download`) — destaque visual no estilo do print enviado (botão azul/ícone de download no canto superior direito do card).
+  - Botão secundário "Compartilhar no WhatsApp" (mantido).
+- Tornar cada item da lista de medicamentos **clicável**: ao clicar em qualquer remédio da consulta, abre o mesmo PDF do receituário completo daquela consulta (mesma ação do botão principal). Adicionar `hover` sutil e cursor pointer para indicar.
+- Cabeçalho do card passa a exibir explicitamente **"Dr(a). {nome} · {CRM/CRO} {número}"** quando disponível, igual ao padrão Hapvida.
 
-- Trocar `placeholder="Ex: VIP, Retorno"` por `placeholder="Ex: Retorno, Acompanhamento"`.
-- Verificar mais ocorrências no projeto (somente essa foi encontrada).
+**3. Mapeamento payload → `PrescriptionItem`**
+- O payload salvo em `clinical_record_requests` usa campos `medication`, `concentration`, `dosage`, `duration`, `route`, `type`. O gerador espera `medication`, `dosage`, `frequency`, `duration`, `instructions`.
+- Criar um helper local `mapToPrescriptionItem()` que:
+  - concatena `medication + concentration` em `medication`
+  - usa `dosage` como `frequency` (ex.: "1 cápsula a cada 8 horas")
+  - mantém `duration`
+  - move `route` (oral/tópico) para `instructions`
+- Chamar `generatePrescriptionPdf({ items, patient, dentist, clinic })` com os dados já buscados.
 
----
+### Fora do escopo
+- Nenhuma mudança de banco, RLS ou edge function.
+- Nenhuma mudança no fluxo do médico (`RequestsEditor.tsx`) — só consumo no lado do paciente.
+- Documentos em `prescriptionDocs` (PDFs já salvos no storage) continuam funcionando como hoje (download direto).
 
-## 2. Receita do médico — Modelos rápidos + autocomplete no atendimento
-
-**Arquivo principal:** `src/components/attendance/RequestsEditor.tsx` (seção "Prescrições / Receita")
-
-Hoje o médico vê 4 inputs soltos (medicação, concentração, posologia, duração, via, tipo) por item — sem modelos, sem sugestões, sem agrupamento visual.
-
-**Melhorias na seção `prescription`:**
-
-- **Barra de modelos rápidos** acima da lista: chips clicáveis ("Pós-extração", "Profilaxia antibiótica", "Pulpite aguda", "Pós-implante") reaproveitando `DEFAULT_PRESCRIPTION_TEMPLATES` de `src/lib/prescriptionTemplates.ts`. Clicar adiciona todos os itens do modelo de uma vez.
-- **Autocomplete de medicamento**: input com sugestões (combobox shadcn) a partir de uma lista curada de medicamentos comuns (criar `src/lib/medicationSuggestions.ts` com ~40 itens com concentração padrão: Dipirona 500mg, Ibuprofeno 600mg, Amoxicilina 500mg, Nimesulida 100mg, Paracetamol 750mg, Clorexidina 0,12%, etc.). Ao selecionar, preenche `medication` + `concentration` automaticamente.
-- **Botão "Duplicar"** ao lado do "Remover" em cada item.
-- **Labels mais claros e agrupamento visual**: cada receita vira um "card" numerado, com linha 1 (medicamento + concentração), linha 2 (posologia + duração), linha 3 (via + tipo). Hoje já está em grid mas sem hierarquia.
-- **Preview rápido**: pequeno texto cinza sob o item resumindo "Dipirona 500mg — 1 cp 8/8h por 3 dias, via oral", para o médico bater o olho e validar.
-
-Sem alterar tipo `RequestItem`/payload — só UX no editor.
-
----
-
-## 3. Paciente — Abas "Exames | Receitas | Documentos" em "Meus Exames"
-
-**Arquivo:** `src/pages/patient/PatientExams.tsx`
-
-- Renomear título da página para "Meus Documentos" (mantém rota `/paciente/exames`).
-- Adicionar `<Tabs>` com 3 abas: **Exames**, **Receitas**, **Outros documentos**.
-- **Aba Exames**: documentos com `category` em `['image','exam','lab_exam','imaging_exam']`.
-- **Aba Receitas**: documentos com `category = 'prescription'` **+** entradas extraídas de `clinical_records.requests` onde `kind = 'prescription'` (mesma lógica usada em `PatientTimelineMulti.tsx:77`). Card de receita mostra: medicamento(s) + posologia, nome do médico, data, badge "Receita", botão **Baixar PDF** (quando houver `file_url`) e botão **Compartilhar no WhatsApp** (gera texto com a lista de medicamentos via `whatsappLink` de `clinicalDocsHelpers`).
-- **Aba Outros documentos**: o restante.
-- Empty states por aba.
-
-**Hook:** estender `usePatientData` (ou query local na página) para também trazer `clinical_records` do paciente com `requests` contendo prescriptions, juntando com `documents` ao montar a aba Receitas.
-
----
-
-## Detalhes técnicos
-
-- Combobox: usar `Command` + `Popover` do shadcn (já em uso no projeto).
-- Nada de migrations — toda a lógica é frontend, lendo tabelas existentes (`documents`, `clinical_records`).
-- Modais/dialogs: nenhum novo (todos os modais existentes continuam com fade-in/out conforme regra Core).
-- Mobile: as abas usam `Tabs` shadcn responsivo; cards de receita empilham em 1 coluna.
-
----
-
-## Arquivos tocados
-
-- `src/components/patients/PatientPersonalizeMenu.tsx` — placeholder
-- `src/components/attendance/RequestsEditor.tsx` — modelos + autocomplete + duplicar + preview
-- `src/lib/medicationSuggestions.ts` — **novo** (lista de medicamentos)
-- `src/pages/patient/PatientExams.tsx` — abas + visualização de receitas
-- (opcional) `src/hooks/usePatientData.ts` — incluir `requests` das clinical_records se ainda não trouxer
-
-Fora de escopo: nova rota, novo modal de receita, mudanças no PDF/PrescriptionPad existente, mudanças no backend.
+### Resultado esperado
+Igual ao app do Hapvida: o paciente abre **Meus Documentos → Receitas**, vê a consulta do dia com a lista de remédios, e ao clicar em qualquer medicamento (ou no botão de download) recebe um único receituário em PDF com todos os medicamentos prescritos naquela consulta, identificando o médico e seu CRM.
