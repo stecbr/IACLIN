@@ -151,11 +151,6 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       recorder.reset();
       toast.error('Falha ao processar consulta: ' + (err as Error).message);
     }
-    // Always release the microphone and clear the active session once the
-    // finalize flow ends, so the floating bar disappears and a new recording
-    // can be started cleanly.
-    recorder.reset();
-    setSession(null);
   }, [recorder, session, user]);
 
   const applyResult = useCallback((edited: AiAttendanceResult) => {
