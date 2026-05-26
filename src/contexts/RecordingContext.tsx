@@ -151,6 +151,11 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       recorder.reset();
       toast.error('Falha ao processar consulta: ' + (err as Error).message);
     }
+    // Always release the microphone and clear the active session once the
+    // finalize flow ends, so the floating bar disappears and a new recording
+    // can be started cleanly.
+    recorder.reset();
+    setSession(null);
   }, [recorder, session, user]);
 
   const applyResult = useCallback((edited: AiAttendanceResult) => {
@@ -200,7 +205,10 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const value: RecordingContextValue = {
     state: recorder.state,
     session,
-    isRecording: recorder.state.status === 'recording' || recorder.state.status === 'paused',
+    // Only consider the recording "active" when there is a live session AND
+    // the underlying MediaRecorder is actually capturing. This prevents the
+    // floating bar from ever appearing when nothing has been started.
+    isRecording: !!session && (recorder.state.status === 'recording' || recorder.state.status === 'paused'),
     start,
     pause: recorder.pause,
     resume: recorder.resume,
