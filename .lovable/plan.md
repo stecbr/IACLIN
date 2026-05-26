@@ -1,43 +1,68 @@
-## Contexto
+## Objetivo
 
-Fluxo testado: paciente **Flavio** gerou o código no `/paciente`; o médico, logado na conta da **Cássia**, abriu `/prontuario/compartilhado`, redimiu o código e clicou em **"Adicionar aos meus pacientes" → Confirmar**. A edge function `import-shared-patient` retorna **500** mas o cliente só vê *"Edge Function returned a non-2xx status code"*.
+1. Remover a nomenclatura "VIP" (médicos não usam).
+2. Tornar o preenchimento de receita pelo médico muito mais rápido e intuitivo dentro do atendimento.
+3. Separar visualmente "Exames" e "Receitas" para o paciente, sem criar nova rota.
 
-Investigação:
-- Logs da função `import-shared-patient` mostram apenas `boot/shutdown`. O `catch` final devolve a mensagem em JSON, mas **não chama `console.error`**, então o motivo real do 500 não aparece em lugar nenhum (nem no toast nem nos Edge Logs).
-- O schema das tabelas (`patients`, `clinical_records`, `anamneses`, `clinical_map_entries`, `odontogram_entries`, `documents`, `patient_chart_shares`) é compatível com os inserts.
-- Pontos suspeitos no código atual:
-  1. A query "existe paciente?" reaproveita o `query builder` `q` entre dois `await`s diferentes — pode disparar `maybeSingle()` retornando erro silencioso.
-  2. Tabelas como `clinical_map_entries` têm `CHECK (severity in 'low'|'medium'|'high')`; valores de origem fora desse conjunto quebram o insert e estouram tudo num único try.
-  3. Se `clinical_record_procedures.procedure_id` aponta para um procedimento global que foi removido, o insert quebra.
-  4. Todas as cópias estão dentro de um único `try`, então **uma falha pontual aborta a importação inteira**.
+---
 
-## O que vamos ajustar
+## 1. Remover "VIP"
 
-### 1. `supabase/functions/import-shared-patient/index.ts`
-- Adicionar `console.error('[import-shared-patient] step=<x>', err)` em cada etapa: busca do share, busca do anchor, validação de clínica, insert do paciente, anamnese, registros, procedimentos, requests, odontograma, mapa, documentos.
-- Refatorar a busca de paciente existente para **criar um novo query builder por chamada** (não reaproveitar `q`).
-- Quebrar as cópias em **try/catch individuais por bloco**, logando o erro mas seguindo para o próximo (importação resiliente).
-- Sanitizar `severity` em `clinical_map_entries` (`['low','medium','high'].includes(x) ? x : null`).
-- Garantir tipos numéricos: `Number(p.price ?? 0)`.
-- Manter a etapa final (`patient_chart_shares.update consumed`) mesmo se algum sub-bloco falhar.
-- Retornar no JSON, além de `patient_id`, um array `warnings: string[]` com os blocos que falharam, para mostrar no toast.
+**Arquivo:** `src/components/patients/PatientPersonalizeMenu.tsx` (linha 84)
 
-### 2. `src/pages/PatientChartRedeem.tsx`
-- Esconder o botão **"Adicionar aos meus pacientes"** quando o usuário logado for **o próprio dono do prontuário** (`data.patient_user_id === user.id`) — não faz sentido importar para si.
-- Quando `clinics.length === 0`, esconder o botão (sem clínica de destino não há onde importar).
-- No catch do `runImport`, exibir no toast o `data.error` real (já vem no body do 500 da função) em vez da mensagem genérica.
-- Se a função retornar `warnings`, mostrar toast `success` + descrição listando os blocos que não foram copiados.
+- Trocar `placeholder="Ex: VIP, Retorno"` por `placeholder="Ex: Retorno, Acompanhamento"`.
+- Verificar mais ocorrências no projeto (somente essa foi encontrada).
 
-### 3. Validação
-- Logar como Cássia, redimir o código gerado pelo Flavio, importar. Verificar:
-  - paciente aparece em `/pacientes` da clínica da Cássia,
-  - histórico (`atendimentos`, anamnese, mapa, documentos) replicado,
-  - `patient_chart_shares.consumed_at` preenchido,
-  - Edge Logs da função mostrando `step=...` em caso de erro.
-- Logar como Flavio (próprio dono) → botão **não** deve aparecer.
+---
 
-## Arquivos afetados
-- `supabase/functions/import-shared-patient/index.ts`
-- `src/pages/PatientChartRedeem.tsx`
+## 2. Receita do médico — Modelos rápidos + autocomplete no atendimento
 
-Sem novas migrações.
+**Arquivo principal:** `src/components/attendance/RequestsEditor.tsx` (seção "Prescrições / Receita")
+
+Hoje o médico vê 4 inputs soltos (medicação, concentração, posologia, duração, via, tipo) por item — sem modelos, sem sugestões, sem agrupamento visual.
+
+**Melhorias na seção `prescription`:**
+
+- **Barra de modelos rápidos** acima da lista: chips clicáveis ("Pós-extração", "Profilaxia antibiótica", "Pulpite aguda", "Pós-implante") reaproveitando `DEFAULT_PRESCRIPTION_TEMPLATES` de `src/lib/prescriptionTemplates.ts`. Clicar adiciona todos os itens do modelo de uma vez.
+- **Autocomplete de medicamento**: input com sugestões (combobox shadcn) a partir de uma lista curada de medicamentos comuns (criar `src/lib/medicationSuggestions.ts` com ~40 itens com concentração padrão: Dipirona 500mg, Ibuprofeno 600mg, Amoxicilina 500mg, Nimesulida 100mg, Paracetamol 750mg, Clorexidina 0,12%, etc.). Ao selecionar, preenche `medication` + `concentration` automaticamente.
+- **Botão "Duplicar"** ao lado do "Remover" em cada item.
+- **Labels mais claros e agrupamento visual**: cada receita vira um "card" numerado, com linha 1 (medicamento + concentração), linha 2 (posologia + duração), linha 3 (via + tipo). Hoje já está em grid mas sem hierarquia.
+- **Preview rápido**: pequeno texto cinza sob o item resumindo "Dipirona 500mg — 1 cp 8/8h por 3 dias, via oral", para o médico bater o olho e validar.
+
+Sem alterar tipo `RequestItem`/payload — só UX no editor.
+
+---
+
+## 3. Paciente — Abas "Exames | Receitas | Documentos" em "Meus Exames"
+
+**Arquivo:** `src/pages/patient/PatientExams.tsx`
+
+- Renomear título da página para "Meus Documentos" (mantém rota `/paciente/exames`).
+- Adicionar `<Tabs>` com 3 abas: **Exames**, **Receitas**, **Outros documentos**.
+- **Aba Exames**: documentos com `category` em `['image','exam','lab_exam','imaging_exam']`.
+- **Aba Receitas**: documentos com `category = 'prescription'` **+** entradas extraídas de `clinical_records.requests` onde `kind = 'prescription'` (mesma lógica usada em `PatientTimelineMulti.tsx:77`). Card de receita mostra: medicamento(s) + posologia, nome do médico, data, badge "Receita", botão **Baixar PDF** (quando houver `file_url`) e botão **Compartilhar no WhatsApp** (gera texto com a lista de medicamentos via `whatsappLink` de `clinicalDocsHelpers`).
+- **Aba Outros documentos**: o restante.
+- Empty states por aba.
+
+**Hook:** estender `usePatientData` (ou query local na página) para também trazer `clinical_records` do paciente com `requests` contendo prescriptions, juntando com `documents` ao montar a aba Receitas.
+
+---
+
+## Detalhes técnicos
+
+- Combobox: usar `Command` + `Popover` do shadcn (já em uso no projeto).
+- Nada de migrations — toda a lógica é frontend, lendo tabelas existentes (`documents`, `clinical_records`).
+- Modais/dialogs: nenhum novo (todos os modais existentes continuam com fade-in/out conforme regra Core).
+- Mobile: as abas usam `Tabs` shadcn responsivo; cards de receita empilham em 1 coluna.
+
+---
+
+## Arquivos tocados
+
+- `src/components/patients/PatientPersonalizeMenu.tsx` — placeholder
+- `src/components/attendance/RequestsEditor.tsx` — modelos + autocomplete + duplicar + preview
+- `src/lib/medicationSuggestions.ts` — **novo** (lista de medicamentos)
+- `src/pages/patient/PatientExams.tsx` — abas + visualização de receitas
+- (opcional) `src/hooks/usePatientData.ts` — incluir `requests` das clinical_records se ainda não trouxer
+
+Fora de escopo: nova rota, novo modal de receita, mudanças no PDF/PrescriptionPad existente, mudanças no backend.
