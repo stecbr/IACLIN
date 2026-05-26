@@ -207,14 +207,12 @@ Deno.serve(async (req) => {
       await admin.from('odontogram_entries').insert(
         odonto.map((o: any) => ({
           patient_id: newPatientId,
-          clinic_id: targetClinicId ?? null,
           dentist_id: user.id,
           tooth_number: o.tooth_number,
           surface: o.surface,
           condition: o.condition,
-          status: o.status,
           notes: o.notes,
-          payload: o.payload ?? {},
+          procedure_id: o.procedure_id,
         }))
       );
     }
