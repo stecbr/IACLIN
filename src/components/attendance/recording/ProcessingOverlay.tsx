@@ -1,5 +1,6 @@
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Loader2, FileText, Stethoscope, Sparkles, ListChecks } from 'lucide-react';
+import { Loader2, FileText, Stethoscope, Sparkles, ListChecks, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type ProcessingStep = 'uploading' | 'transcribing' | 'summarizing' | 'structuring' | 'done';
@@ -16,13 +17,18 @@ interface Props {
   open: boolean;
   step: ProcessingStep;
   progress: number; // 0..100
+  onCancel?: () => void;
 }
 
-export function ProcessingOverlay({ open, step, progress }: Props) {
+export function ProcessingOverlay({ open, step, progress, onCancel }: Props) {
   const idx = STEPS.findIndex((s) => s.key === step);
   return (
-    <Dialog open={open}>
-      <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel?.(); }}>
+      <DialogContent
+        className="sm:max-w-sm"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => { if (!onCancel) e.preventDefault(); }}
+      >
         <div className="flex flex-col items-center gap-5 py-2">
           <div className="relative h-20 w-20">
             <svg className="h-20 w-20 -rotate-90" viewBox="0 0 80 80">
@@ -57,6 +63,17 @@ export function ProcessingOverlay({ open, step, progress }: Props) {
               );
             })}
           </div>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" /> Cancelar e voltar
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
