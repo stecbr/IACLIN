@@ -6,7 +6,7 @@ import { format, parseISO, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Calendar, Clock, MapPin, Phone, FileText, Plus, Stethoscope,
-  CreditCard, Loader2, Building2, History,
+  CreditCard, Loader2, Building2, History, Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePatientData, appointmentStatusMap, type AppointmentRow } from '@/hooks/usePatientData';
 import { AppointmentDetailDrawer } from '@/components/patient/AppointmentDetailDrawer';
 import { PatientTimelineMulti } from '@/components/patient/PatientTimelineMulti';
+import { ShareMyChartDialog } from '@/components/patient/ShareMyChartDialog';
 
 export default function PatientHome() {
   const { profile } = useAuth();
@@ -22,6 +23,7 @@ export default function PatientHome() {
   const { account, appointments, documents, patientIds, loading, refetch } = usePatientData();
   const [selected, setSelected] = useState<AppointmentRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const upcoming = appointments.filter(
     (a) => isFuture(parseISO(a.start_time)) && a.status !== 'cancelled'
@@ -62,6 +64,10 @@ export default function PatientHome() {
         <Button onClick={() => navigate('/paciente/agendar')} className="gap-2">
           <Plus className="h-4 w-4" />
           Agendar nova consulta
+        </Button>
+        <Button variant="outline" onClick={() => setShareOpen(true)} className="gap-2">
+          <Share2 className="h-4 w-4" />
+          Compartilhar meu prontuário
         </Button>
       </div>
 
@@ -270,6 +276,12 @@ export default function PatientHome() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onChanged={refetch}
+      />
+
+      <ShareMyChartDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        patientName={account?.full_name ?? profile?.full_name ?? null}
       />
     </div>
   );

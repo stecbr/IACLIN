@@ -1553,6 +1553,7 @@ export type Database = {
           expires_at: string
           id: string
           patient_id: string
+          source: string
         }
         Insert: {
           clinic_id?: string | null
@@ -1564,6 +1565,7 @@ export type Database = {
           expires_at: string
           id?: string
           patient_id: string
+          source?: string
         }
         Update: {
           clinic_id?: string | null
@@ -1575,6 +1577,7 @@ export type Database = {
           expires_at?: string
           id?: string
           patient_id?: string
+          source?: string
         }
         Relationships: []
       }

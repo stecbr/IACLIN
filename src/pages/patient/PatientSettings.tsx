@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, LogOut, Sun, Moon, User } from 'lucide-react';
+import { Loader2, LogOut, Sun, Moon, User, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePatientData } from '@/hooks/usePatientData';
+import { ShareMyChartDialog } from '@/components/patient/ShareMyChartDialog';
 
 export default function PatientSettings() {
   const { user, profile, signOut } = useAuth();
@@ -19,6 +20,7 @@ export default function PatientSettings() {
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
   const [saving, setSaving] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     if (account) {
@@ -125,6 +127,22 @@ export default function PatientSettings() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Share2 className="h-4 w-4" /> Compartilhar prontuário
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Gere um código temporário para liberar seu prontuário completo para qualquer profissional.
+          </p>
+          <Button onClick={() => setShareOpen(true)} variant="outline" className="gap-2 flex-shrink-0">
+            <Share2 className="h-4 w-4" /> Gerar código
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card className="border-destructive/30">
         <CardHeader>
           <CardTitle className="text-base text-destructive">Sair da conta</CardTitle>
@@ -138,6 +156,8 @@ export default function PatientSettings() {
           </Button>
         </CardContent>
       </Card>
+
+      <ShareMyChartDialog open={shareOpen} onOpenChange={setShareOpen} patientName={account?.full_name ?? null} />
     </div>
   );
 }
