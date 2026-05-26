@@ -1,76 +1,43 @@
-## Objetivo
+## Contexto
 
-Permitir que o paciente compartilhe seu prontuário digital completo com qualquer médico via código de 6 dígitos (mesma mecânica usada hoje entre médicos). Ao resgatar, o médico visualiza em modo leitura e pode **importar** o paciente para sua clínica — copiando dados cadastrais, anamnese, registros clínicos, odontograma, mapa clínico e referências de documentos — já vinculando ao usuário do paciente (`patient_user_id`).
+Fluxo testado: paciente **Flavio** gerou o código no `/paciente`; o médico, logado na conta da **Cássia**, abriu `/prontuario/compartilhado`, redimiu o código e clicou em **"Adicionar aos meus pacientes" → Confirmar**. A edge function `import-shared-patient` retorna **500** mas o cliente só vê *"Edge Function returned a non-2xx status code"*.
 
-## Fluxo do paciente
+Investigação:
+- Logs da função `import-shared-patient` mostram apenas `boot/shutdown`. O `catch` final devolve a mensagem em JSON, mas **não chama `console.error`**, então o motivo real do 500 não aparece em lugar nenhum (nem no toast nem nos Edge Logs).
+- O schema das tabelas (`patients`, `clinical_records`, `anamneses`, `clinical_map_entries`, `odontogram_entries`, `documents`, `patient_chart_shares`) é compatível com os inserts.
+- Pontos suspeitos no código atual:
+  1. A query "existe paciente?" reaproveita o `query builder` `q` entre dois `await`s diferentes — pode disparar `maybeSingle()` retornando erro silencioso.
+  2. Tabelas como `clinical_map_entries` têm `CHECK (severity in 'low'|'medium'|'high')`; valores de origem fora desse conjunto quebram o insert e estouram tudo num único try.
+  3. Se `clinical_record_procedures.procedure_id` aponta para um procedimento global que foi removido, o insert quebra.
+  4. Todas as cópias estão dentro de um único `try`, então **uma falha pontual aborta a importação inteira**.
 
-1. No painel `/paciente` (e também em `Configurações`), novo cartão **"Compartilhar meu prontuário"**.
-2. Botão abre dialog reaproveitando o estilo de `SharePatientChartDialog`:
-   - Gera código de 6 dígitos via edge function (expira em 5 min).
-   - Mostra código grande, contagem regressiva, copiar código / link e enviar por WhatsApp.
-3. Sempre disponível, mesmo sem histórico.
+## O que vamos ajustar
 
-## Fluxo do médico
+### 1. `supabase/functions/import-shared-patient/index.ts`
+- Adicionar `console.error('[import-shared-patient] step=<x>', err)` em cada etapa: busca do share, busca do anchor, validação de clínica, insert do paciente, anamnese, registros, procedimentos, requests, odontograma, mapa, documentos.
+- Refatorar a busca de paciente existente para **criar um novo query builder por chamada** (não reaproveitar `q`).
+- Quebrar as cópias em **try/catch individuais por bloco**, logando o erro mas seguindo para o próximo (importação resiliente).
+- Sanitizar `severity` em `clinical_map_entries` (`['low','medium','high'].includes(x) ? x : null`).
+- Garantir tipos numéricos: `Number(p.price ?? 0)`.
+- Manter a etapa final (`patient_chart_shares.update consumed`) mesmo se algum sub-bloco falhar.
+- Retornar no JSON, além de `patient_id`, um array `warnings: string[]` com os blocos que falharam, para mostrar no toast.
 
-1. Acessa `/prontuario/compartilhado` (página `PatientChartRedeem` já existente) e digita o código.
-2. A resposta agora inclui o flag `from_patient: true` quando o código foi gerado pelo próprio paciente.
-3. Visualização em modo leitura (igual ao atual).
-4. Quando `from_patient` for `true`, aparece botão **"Adicionar aos meus pacientes"** no topo:
-   - Abre seletor de clínica (se o médico pertencer a mais de uma) e confirmação.
-   - Chama nova edge function `import-shared-patient` que copia tudo para a clínica do médico.
-   - Ao concluir, redireciona para `/pacientes/:novoId`.
+### 2. `src/pages/PatientChartRedeem.tsx`
+- Esconder o botão **"Adicionar aos meus pacientes"** quando o usuário logado for **o próprio dono do prontuário** (`data.patient_user_id === user.id`) — não faz sentido importar para si.
+- Quando `clinics.length === 0`, esconder o botão (sem clínica de destino não há onde importar).
+- No catch do `runImport`, exibir no toast o `data.error` real (já vem no body do 500 da função) em vez da mensagem genérica.
+- Se a função retornar `warnings`, mostrar toast `success` + descrição listando os blocos que não foram copiados.
 
-## Mudanças técnicas
+### 3. Validação
+- Logar como Cássia, redimir o código gerado pelo Flavio, importar. Verificar:
+  - paciente aparece em `/pacientes` da clínica da Cássia,
+  - histórico (`atendimentos`, anamnese, mapa, documentos) replicado,
+  - `patient_chart_shares.consumed_at` preenchido,
+  - Edge Logs da função mostrando `step=...` em caso de erro.
+- Logar como Flavio (próprio dono) → botão **não** deve aparecer.
 
-### Banco de dados (migration)
-- Adicionar coluna `source` em `patient_chart_shares` (`'professional' | 'patient'`, default `'professional'`).
-- Adicionar política RLS / permitir que o **paciente autenticado** insira shares onde `patient_user_id = auth.uid()` (a edge function usa service role, mas o flag fica no registro).
-- Sem deletes destrutivos.
+## Arquivos afetados
+- `supabase/functions/import-shared-patient/index.ts`
+- `src/pages/PatientChartRedeem.tsx`
 
-### Edge functions
-
-**Nova: `share-own-chart`** (paciente gera código)
-- Valida JWT → pega `auth.uid()`.
-- Localiza `patient_user_id = user.id` em `patient_accounts` / `patients`.
-- Gera código único de 6 dígitos, insere em `patient_chart_shares` com `source='patient'`, `clinic_id=null`, `patient_id` = id consolidado (o primeiro `patients` row vinculado, ou apenas grava `patient_user_id` extra).
-- Retorna `{ code, expires_at }`.
-
-**Atualizar: `redeem-patient-chart`**
-- Quando `source='patient'`, agrega dados de **todos** os `patients` rows vinculados ao mesmo `patient_user_id` (paciente pode existir em múltiplas clínicas) — anamneses, clinical_records, odontogram, map_entries, documents.
-- Retorna `from_patient: true` e `patient_user_id` para a UI saber que pode importar.
-
-**Nova: `import-shared-patient`**
-- Body: `{ code, clinic_id }`.
-- Valida JWT, checa se usuário é membro da `clinic_id`.
-- Revalida o code em `patient_chart_shares` (ainda válido, `source='patient'`).
-- Insere novo `patients` na clínica destino com CPF/nome/contato/conv. e `patient_user_id` preenchido (trigger `link_patients_by_cpf` já mantém vínculo).
-- Copia: 1 `anamneses` (mais recente), `clinical_records` (+ `clinical_record_procedures` e `_requests`), `odontogram_entries`, `clinical_map_entries`. Documentos: copia apenas o registro em `documents` apontando para o mesmo `file_url` (sem duplicar arquivo em storage) com `category='compartilhado'`.
-- Marca `patient_chart_shares.consumed_at`.
-- Retorna `{ patient_id }`.
-
-### Frontend
-
-- **Novo componente** `src/components/patient/ShareMyChartDialog.tsx` (clone enxuto de `SharePatientChartDialog`, sem dependência de `patientId` — usa a edge `share-own-chart`).
-- **Novo cartão** em `src/pages/patient/PatientHome.tsx` + entrada em `PatientSettings.tsx`.
-- **Atualizar** `src/pages/PatientChartRedeem.tsx`:
-  - Após resgate, se `from_patient`, mostrar barra superior com botão "Adicionar aos meus pacientes".
-  - Modal de confirmação com select de clínica (usa `currentClinicId` por padrão, lista via `AuthContext`).
-  - Toast de sucesso + `navigate('/pacientes/:id')`.
-
-### Sem alterações
-- `SharePatientChartDialog` médico→médico permanece igual.
-- Política de bucket `patient-files` mantida (URLs já públicas para essa categoria; documentos privados ficam fora do clone).
-
-## Detalhes técnicos relevantes
-
-- `patient_chart_shares.patient_id` é NOT NULL hoje? Se for, ao compartilhar pelo paciente passamos o primeiro `patients.id` ligado ao `patient_user_id`; o redeem expande o escopo via `patient_user_id`.
-- Códigos de 6 dígitos seguem a mesma geração (`Math.floor(random*1e6).padStart(6,'0')`).
-- TTL: 5 minutos, igual ao atual.
-- Edge functions com CORS + validação Zod do body.
-- RLS: nada que dependa de `auth.uid()` no insert via edge (usamos service role); leitura permanece via edge function pública.
-
-## Entregáveis
-
-1. 1 migration (coluna `source`).
-2. 2 novas edge functions + atualização de 1.
-3. 1 componente novo + atualização de 3 telas (`PatientHome`, `PatientSettings`, `PatientChartRedeem`).
+Sem novas migrações.
