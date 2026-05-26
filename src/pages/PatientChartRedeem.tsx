@@ -26,6 +26,7 @@ export default function PatientChartRedeem() {
   const [importOpen, setImportOpen] = useState(false);
   const [importClinicId, setImportClinicId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [isSelfChart, setIsSelfChart] = useState(false);
 
   // Block browser print while viewer is open
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function PatientChartRedeem() {
       setFromPatient(!!(data as any)?.from_patient);
       setShareCode(clean);
       setImportClinicId(currentClinicId);
+      setIsSelfChart(!!user && (data as any)?.patient_user_id === user.id);
     } catch (err: any) {
       setError(err.message ?? 'Não foi possível resgatar o prontuário.');
     } finally {
@@ -84,11 +86,19 @@ export default function PatientChartRedeem() {
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success('Paciente adicionado com sucesso');
+      const warns: string[] = (data as any)?.warnings ?? [];
+      if (warns.length) {
+        toast.success('Paciente adicionado', {
+          description: `Alguns blocos não puderam ser copiados: ${warns.join(', ')}`,
+        });
+      } else {
+        toast.success('Paciente adicionado com sucesso');
+      }
       setImportOpen(false);
       navigate(`/pacientes/${(data as any).patient_id}`);
     } catch (err: any) {
-      toast.error('Não foi possível adicionar', { description: err.message });
+      const msg = err?.context?.error || err?.message || 'Erro desconhecido';
+      toast.error('Não foi possível adicionar', { description: msg });
     } finally {
       setImporting(false);
     }
@@ -124,7 +134,7 @@ export default function PatientChartRedeem() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {fromPatient && user && (
+              {fromPatient && user && !isSelfChart && clinics.length > 0 && (
                 <Button size="sm" onClick={() => setImportOpen(true)} className="gap-2">
                   <UserPlus className="h-3.5 w-3.5" />
                   Adicionar aos meus pacientes
