@@ -26,6 +26,7 @@ interface RecordingContextValue {
   resume: () => void;
   requestFinish: () => void;
   cancel: () => Promise<void>;
+  cancelProcessing: () => void;
   // finish-confirm dialog
   showFinishConfirm: boolean;
   setShowFinishConfirm: (open: boolean) => void;
@@ -61,6 +62,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<PendingAiResult | null>(null);
   const [showResults, setShowResults] = useState(false);
   const handlersRef = useRef<Map<string, AttendanceSetters>>(new Map());
+  const processingCanceledRef = useRef(false);
 
   const start = useCallback(async (s: RecordingSession) => {
     setSession(s);
@@ -75,6 +77,19 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, [recorder]);
 
+  const cancelProcessing = useCallback(() => {
+    processingCanceledRef.current = true;
+    setProcessing(false);
+    setResult(null);
+    setShowResults(false);
+    if (session) {
+      try { sessionStorage.removeItem(PENDING_RESULT_KEY(session.appointmentId)); } catch {}
+    }
+    setSession(null);
+    recorder.reset();
+    toast.message('Processamento cancelado', { description: 'Você pode gravar novamente quando quiser.' });
+  }, [recorder, session]);
+
   const requestFinish = useCallback(() => {
     if (localStorage.getItem(SKIP_FINISH_KEY) === '1') {
       void confirmFinish();
@@ -88,11 +103,13 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     if (dontAskAgain) localStorage.setItem(SKIP_FINISH_KEY, '1');
     setShowFinishConfirm(false);
     if (!user || !session) return;
+    processingCanceledRef.current = false;
     setProcessing(true);
     setProcessingStep('uploading');
     setProcessingProgress(10);
     try {
       const blob = await recorder.stop();
+      if (processingCanceledRef.current) return;
       if (!blob) throw new Error('Sem áudio gravado');
       const durationSeconds = Math.round(recorder.state.durationMs / 1000);
 
@@ -115,6 +132,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       const { error: upErr } = await supabase.storage.from('consultation-audio')
         .upload(path, blob, { contentType: blob.type || 'audio/webm', upsert: true });
       if (upErr) throw upErr;
+      if (processingCanceledRef.current) return;
       await supabase.from('consultation_recordings').update({ audio_storage_path: path }).eq('id', rec.id);
 
       setProcessingStep('transcribing');
@@ -123,6 +141,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('transcribe-consultation', {
         body: { recording_id: rec.id },
       });
+      if (processingCanceledRef.current) return;
       if (fnErr) throw fnErr;
       setProcessingStep('summarizing');
       setProcessingProgress(75);
@@ -146,6 +165,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
         setShowResults(true);
       }, 400);
     } catch (err) {
+      if (processingCanceledRef.current) return;
       setProcessing(false);
       setSession(null);
       recorder.reset();
@@ -226,6 +246,7 @@ export function RecordingProvider({ children }: { children: ReactNode }) {
     resume: recorder.resume,
     requestFinish,
     cancel,
+    cancelProcessing,
     showFinishConfirm,
     setShowFinishConfirm,
     confirmFinish,
