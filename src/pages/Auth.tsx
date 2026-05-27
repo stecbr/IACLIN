@@ -20,6 +20,7 @@ import {
   registrationPlaceholderForSpecialty,
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
+import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
@@ -70,6 +71,7 @@ export default function Auth() {
   const [userType, setUserType] = useState<UserType>(null);
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   // Professional fields (specialty / registration)
   const [specialty, setSpecialty] = useState('');
@@ -484,7 +486,13 @@ export default function Auth() {
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.25 }}>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Senha</Label>
-                    <button type="button" className="text-xs text-primary hover:underline">Esqueci minha senha</button>
+                    <button
+                      type="button"
+                      onClick={() => setForgotOpen(true)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Esqueci minha senha
+                    </button>
                   </div>
                   <div className="relative">
                     <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10 pr-10" />
@@ -835,6 +843,7 @@ export default function Auth() {
           )}
         </AnimatePresence>
       </motion.div>
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} initialEmail={email} />
     </div>
   );
 }

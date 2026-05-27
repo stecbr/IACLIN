@@ -11,6 +11,7 @@ import { CustomThemeProvider } from "@/components/CustomThemeProvider";
 import { AppLayout } from "@/components/AppLayout";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import Agenda from "./pages/Agenda";
@@ -195,6 +196,7 @@ const AppRoutes = () => (
     <Route path="/superadmin/configuracoes" element={<SuperAdminProtectedRoute><SuperAdminSettings /></SuperAdminProtectedRoute>} />
 
     <Route path="/auth" element={<Auth />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
     <Route path="/aguardando-clinica" element={<Navigate to="/onboarding" replace />} />
     <Route path="/marketplace" element={<Marketplace />} />
