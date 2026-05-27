@@ -334,6 +334,19 @@ export const aiBackend = {
       },
     ),
 
+  getConversationMessages: (clinicId: string, conversationId: string) =>
+    request<{
+      ok?: boolean;
+      data: Array<{
+        id?: string;
+        direction: 'inbound' | 'outbound';
+        text: string;
+        at: string;
+        sender?: 'patient' | 'ai' | 'human' | string;
+        agent_name?: string | null;
+      }>;
+    }>(`/api/clinics/${clinicId}/conversations/${conversationId}/messages`),
+
   releaseConversation: (clinicId: string, conversationId: string) =>
     request<{ ok: boolean; conv_id?: string; phone?: string }>(
       `/api/clinics/${clinicId}/conversations/${conversationId}/takeover`,
