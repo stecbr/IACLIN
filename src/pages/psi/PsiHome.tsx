@@ -75,7 +75,7 @@ export default function PsiHome() {
 
   return (
     <SpecialtyHomeShell
-      title={`${getGreeting()}, Dr(a). ${firstName} 🧠`}
+      title={`${getGreeting()}, Dr(a). ${firstName}`}
       description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Acompanhamento das suas sessões e evolução terapêutica.`}
       kpis={[
         { title: 'Sessões Hoje', value: todaySessions.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
@@ -95,7 +95,7 @@ export default function PsiHome() {
         </CardHeader>
         <CardContent>
           {todaySessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje 🌿</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje</p>
           ) : (
             <div className="space-y-1">
               {todaySessions.map((apt: any) => (

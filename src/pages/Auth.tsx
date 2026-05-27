@@ -646,9 +646,9 @@ export default function Auth() {
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Crie sua conta</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {userType === 'profissional'
-                    ? profSubType === 'dentista' ? '🦷 Dentista' : '🩺 Médico'
-                    : userType === 'clinica' ? '🏥 Clínica'
-                    : userType === 'operadora' ? '🏢 Operadora' : '👤 Paciente'}
+                    ? profSubType === 'dentista' ? 'Dentista' : 'Médico'
+                    : userType === 'clinica' ? 'Clínica'
+                    : userType === 'operadora' ? 'Operadora' : 'Paciente'}
                 </p>
               </div>
 
