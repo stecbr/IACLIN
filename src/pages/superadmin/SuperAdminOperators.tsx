@@ -235,10 +235,10 @@ export default function SuperAdminOperators() {
                 </span>
 
                 {/* Status */}
-                <div className="flex justify-end">
+                <div className="flex justify-end" title={op.is_active ? 'Ativa' : 'Inativa'}>
                   {op.is_active
-                    ? <CheckCircle2 className="h-4 w-4 text-emerald-500" title="Ativa" />
-                    : <XCircle     className="h-4 w-4 text-muted-foreground" title="Inativa" />
+                    ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    : <XCircle     className="h-4 w-4 text-muted-foreground" />
                   }
                 </div>
 
