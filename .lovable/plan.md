@@ -1,37 +1,51 @@
-## Receituário no estilo Hapvida (download em PDF)
+## Problema
 
-Hoje a tela **Meus Documentos → Receitas** mostra as receitas como cards informativos, mas o paciente não consegue baixar um receituário formal com nome do médico, CRM e todos os remédios da mesma consulta. A proposta é tornar cada card (e cada medicamento dentro dele) um botão que abre o PDF do receituário — o mesmo gerador já usado pelo médico (`generatePrescriptionPdf`).
+A página `/superadmin` chama três funções RPC (`admin_get_stats`, `admin_get_clinics`, `admin_get_doctors`) via `src/hooks/usePlatformAdminData.ts`, mas elas **não existem** no banco. Por isso aparece o erro `Could not find the function public.admin_get_doctors` e todos os contadores ficam em zero, mesmo havendo 41 membros de clínica cadastrados.
 
-### O que muda (apenas frontend)
+O painel já está corretamente protegido no frontend (sidebar, layout, rotas) e o e-mail `iaclin@gmail.com` é a única identidade autorizada.
 
-**1. `src/pages/patient/PatientExams.tsx`**
-- Ampliar a query `patient-rx-from-records` para também trazer:
-  - `clinic_id` do `clinical_records`
-  - dados do dentista (`registration_number`, `specialty`, `signature_url`) via `profiles`
-  - dados da clínica (`name`, `cnpj`, `phone`, `address`, `city`, `state`, `logo_url`) via `clinics`
-  - dados do paciente (`full_name`, `cpf`, `date_of_birth`) via `patients` (usando `patientIds` já disponíveis no hook)
-- Anexar esses metadados a cada `PrescriptionFromRecord`.
+## Solução
 
-**2. `PrescriptionCard` (mesmo arquivo)**
-- Substituir o botão único "Compartilhar no WhatsApp" por um **bloco de ações**:
-  - Botão primário **"Baixar receituário"** (ícone `Download`) — destaque visual no estilo do print enviado (botão azul/ícone de download no canto superior direito do card).
-  - Botão secundário "Compartilhar no WhatsApp" (mantido).
-- Tornar cada item da lista de medicamentos **clicável**: ao clicar em qualquer remédio da consulta, abre o mesmo PDF do receituário completo daquela consulta (mesma ação do botão principal). Adicionar `hover` sutil e cursor pointer para indicar.
-- Cabeçalho do card passa a exibir explicitamente **"Dr(a). {nome} · {CRM/CRO} {número}"** quando disponível, igual ao padrão Hapvida.
+Criar uma migration única adicionando as três funções `SECURITY DEFINER` no schema `public`, todas com a mesma trava de segurança:
 
-**3. Mapeamento payload → `PrescriptionItem`**
-- O payload salvo em `clinical_record_requests` usa campos `medication`, `concentration`, `dosage`, `duration`, `route`, `type`. O gerador espera `medication`, `dosage`, `frequency`, `duration`, `instructions`.
-- Criar um helper local `mapToPrescriptionItem()` que:
-  - concatena `medication + concentration` em `medication`
-  - usa `dosage` como `frequency` (ex.: "1 cápsula a cada 8 horas")
-  - mantém `duration`
-  - move `route` (oral/tópico) para `instructions`
-- Chamar `generatePrescriptionPdf({ items, patient, dentist, clinic })` com os dados já buscados.
+```sql
+IF (auth.jwt() ->> 'email') <> 'iaclin@gmail.com' THEN
+  RAISE EXCEPTION 'Forbidden' USING ERRCODE = '42501';
+END IF;
+```
 
-### Fora do escopo
-- Nenhuma mudança de banco, RLS ou edge function.
-- Nenhuma mudança no fluxo do médico (`RequestsEditor.tsx`) — só consumo no lado do paciente.
-- Documentos em `prescriptionDocs` (PDFs já salvos no storage) continuam funcionando como hoje (download direto).
+Assim só o super admin executa, mesmo que o RLS seja contornado pelo `SECURITY DEFINER`.
 
-### Resultado esperado
-Igual ao app do Hapvida: o paciente abre **Meus Documentos → Receitas**, vê a consulta do dia com a lista de remédios, e ao clicar em qualquer medicamento (ou no botão de download) recebe um único receituário em PDF com todos os medicamentos prescritos naquela consulta, identificando o médico e seu CRM.
+### `admin_get_stats() returns jsonb`
+Retorna agregados — nenhum dado pessoal:
+- `total_clinics`  → `SELECT count(*) FROM clinics`
+- `total_doctors`  → `SELECT count(DISTINCT user_id) FROM clinic_members WHERE role IN ('admin','dentist')`
+- `total_patients` → `SELECT count(*) FROM user_roles WHERE role = 'patient'`
+
+### `admin_get_clinics() returns setof jsonb`
+Lista clínicas com dados **operacionais** (sem pacientes/prontuários):
+`id, name, category, city, state, email, phone, created_at, member_count` (join com `clinic_members`).
+Ordenado por `created_at desc`.
+
+### `admin_get_doctors() returns setof jsonb`
+Lista membros profissionais com:
+`user_id, full_name` (de `profiles`), `specialty, registration_number, role, is_owner, clinic_id, clinic_name` (de `clinics`), `created_at`.
+Filtrado por `role IN ('admin','dentist')`, ordenado por `created_at desc`.
+**Não retorna** CPF, e-mail, telefone pessoal nem qualquer dado de paciente.
+
+### Permissões
+```sql
+GRANT EXECUTE ON FUNCTION public.admin_get_stats()   TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_get_clinics() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_get_doctors() TO authenticated;
+```
+
+A verificação de e-mail dentro de cada função impede que qualquer outro usuário autenticado obtenha dados.
+
+## Arquivos
+- **Novo:** `supabase/migrations/<timestamp>_superadmin_rpc.sql`
+
+Nenhum arquivo de frontend precisa mudar — o hook `usePlatformAdminData.ts` já está pronto para consumir essas RPCs e mapear o resultado para as páginas Visão Geral, Clínicas e Médicos.
+
+## Privacidade
+Nenhuma das funções retorna nome de paciente, CPF, prontuário, valores financeiros ou conteúdo de consultas — apenas metadados de clínicas e profissionais, conforme a nota já exibida no painel.

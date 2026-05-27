@@ -2247,6 +2247,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_get_clinics: {
+        Args: never
+        Returns: {
+          category: string
+          city: string
+          created_at: string
+          email: string
+          id: string
+          member_count: number
+          name: string
+          phone: string
+          state: string
+        }[]
+      }
+      admin_get_doctors: {
+        Args: never
+        Returns: {
+          clinic_id: string
+          clinic_name: string
+          created_at: string
+          full_name: string
+          is_owner: boolean
+          registration_number: string
+          role: string
+          specialty: string
+          user_id: string
+        }[]
+      }
+      admin_get_stats: { Args: never; Returns: Json }
       generate_clinic_invite_code: { Args: never; Returns: string }
       has_role: {
         Args: {
