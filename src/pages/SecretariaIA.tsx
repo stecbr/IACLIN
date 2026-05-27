@@ -763,6 +763,9 @@ export default function SecretariaIA() {
               <TabsTrigger value="automacoes" className="gap-1.5">
                 <Zap className="h-3.5 w-3.5" /> Automações
               </TabsTrigger>
+              <TabsTrigger value="transferencia" className="gap-1.5">
+                <UserCog className="h-3.5 w-3.5" /> Transferência
+              </TabsTrigger>
             </TabsList>
 
             {/* Visão geral */}
@@ -928,6 +931,11 @@ export default function SecretariaIA() {
             {/* Automações */}
             <TabsContent value="automacoes" className="space-y-4">
               <AutomationsPanel clinicId={currentClinicId ?? null} />
+            </TabsContent>
+
+            {/* Transferência para atendente humano */}
+            <TabsContent value="transferencia" className="space-y-4">
+              <HandoffPanel />
             </TabsContent>
           </Tabs>
         </div>
