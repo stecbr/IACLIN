@@ -426,7 +426,7 @@ export default function Auth() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
-          <img src={logoLight} alt="IACLIN" className="h-10" />
+          <img src={logoSrc} alt="IACLIN" className="h-10" />
         </motion.div>
 
         <AnimatePresence mode="wait">
