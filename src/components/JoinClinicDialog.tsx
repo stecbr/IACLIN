@@ -39,8 +39,9 @@ export function JoinClinicDialog({ open, onOpenChange }: JoinClinicDialogProps) 
         toast(data?.error || error?.message || 'Não foi possível vincular.');
         return;
       }
-      toast.success('Vínculo criado! Recarregando…');
-      setTimeout(() => window.location.reload(), 600);
+      toast.success('Vínculo criado!');
+      await refreshClinics();
+      onOpenChange(false);
     } catch (err: any) {
       toast(err?.message || 'Erro inesperado');
     } finally {

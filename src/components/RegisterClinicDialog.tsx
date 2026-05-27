@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RegisterClinicDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ function formatCnpj(value: string) {
 }
 
 export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialogProps) {
+  const { refreshClinics } = useAuth();
   const [cnpj, setCnpj] = useState('');
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
