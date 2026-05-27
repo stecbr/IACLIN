@@ -2275,6 +2275,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_get_operators: { Args: never; Returns: Json[] }
       admin_get_stats: { Args: never; Returns: Json }
       generate_clinic_invite_code: { Args: never; Returns: string }
       has_role: {

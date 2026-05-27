@@ -1,12 +1,20 @@
 ## Problema
 
-A página `/superadmin` chama três funções RPC (`admin_get_stats`, `admin_get_clinics`, `admin_get_doctors`) via `src/hooks/usePlatformAdminData.ts`, mas elas **não existem** no banco. Por isso aparece o erro `Could not find the function public.admin_get_doctors` e todos os contadores ficam em zero, mesmo havendo 41 membros de clínica cadastrados.
-
-O painel já está corretamente protegido no frontend (sidebar, layout, rotas) e o e-mail `iaclin@gmail.com` é a única identidade autorizada.
+A página `/superadmin/operadoras` (`SuperAdminOperators.tsx`) chama `supabase.rpc('admin_get_operators')`, mas essa função **não existe** no banco — apenas `admin_get_stats`, `admin_get_clinics` e `admin_get_doctors` foram criadas. Por isso a lista aparece vazia / com erro.
 
 ## Solução
 
-Criar uma migration única adicionando as três funções `SECURITY DEFINER` no schema `public`, todas com a mesma trava de segurança:
+Criar uma migration adicionando a função `admin_get_operators()` no schema `public`, seguindo o mesmo padrão `SECURITY DEFINER` das outras RPCs do super admin (trava por e-mail `iaclin@gmail.com`).
+
+### `admin_get_operators() returns setof jsonb`
+
+Retorna todas as operadoras de `insurance_operators` (sem filtrar por `is_active`, para o super admin enxergar inclusive as inativas), com os campos que a página já consome:
+
+`id, name, legal_name, cnpj, ans_code, type, contact_email, contact_phone, responsible_name, logo_url, brand_color, is_active, created_at`
+
+Ordenado por `created_at desc`.
+
+Trava de acesso idêntica às outras:
 
 ```sql
 IF (auth.jwt() ->> 'email') <> 'iaclin@gmail.com' THEN
@@ -14,38 +22,15 @@ IF (auth.jwt() ->> 'email') <> 'iaclin@gmail.com' THEN
 END IF;
 ```
 
-Assim só o super admin executa, mesmo que o RLS seja contornado pelo `SECURITY DEFINER`.
-
-### `admin_get_stats() returns jsonb`
-Retorna agregados — nenhum dado pessoal:
-- `total_clinics`  → `SELECT count(*) FROM clinics`
-- `total_doctors`  → `SELECT count(DISTINCT user_id) FROM clinic_members WHERE role IN ('admin','dentist')`
-- `total_patients` → `SELECT count(*) FROM user_roles WHERE role = 'patient'`
-
-### `admin_get_clinics() returns setof jsonb`
-Lista clínicas com dados **operacionais** (sem pacientes/prontuários):
-`id, name, category, city, state, email, phone, created_at, member_count` (join com `clinic_members`).
-Ordenado por `created_at desc`.
-
-### `admin_get_doctors() returns setof jsonb`
-Lista membros profissionais com:
-`user_id, full_name` (de `profiles`), `specialty, registration_number, role, is_owner, clinic_id, clinic_name` (de `clinics`), `created_at`.
-Filtrado por `role IN ('admin','dentist')`, ordenado por `created_at desc`.
-**Não retorna** CPF, e-mail, telefone pessoal nem qualquer dado de paciente.
-
 ### Permissões
 ```sql
-GRANT EXECUTE ON FUNCTION public.admin_get_stats()   TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_get_clinics() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_get_doctors() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_get_operators() TO authenticated;
 ```
 
-A verificação de e-mail dentro de cada função impede que qualquer outro usuário autenticado obtenha dados.
-
 ## Arquivos
-- **Novo:** `supabase/migrations/<timestamp>_superadmin_rpc.sql`
+- **Novo:** `supabase/migrations/<timestamp>_admin_get_operators.sql`
 
-Nenhum arquivo de frontend precisa mudar — o hook `usePlatformAdminData.ts` já está pronto para consumir essas RPCs e mapear o resultado para as páginas Visão Geral, Clínicas e Médicos.
+Nenhuma mudança de frontend — `SuperAdminOperators.tsx` já está pronto para consumir a RPC.
 
 ## Privacidade
-Nenhuma das funções retorna nome de paciente, CPF, prontuário, valores financeiros ou conteúdo de consultas — apenas metadados de clínicas e profissionais, conforme a nota já exibida no painel.
+Operadoras são entidades jurídicas (CNPJ, ANS, contato comercial) — não há dado pessoal de paciente envolvido.
