@@ -110,8 +110,9 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
         toast.error((data && data.error) || error?.message || 'Falha ao cadastrar clínica.');
         return;
       }
-      toast.success('Clínica cadastrada! Recarregando…');
-      setTimeout(() => window.location.reload(), 600);
+      toast.success('Clínica cadastrada!');
+      await refreshClinics();
+      onOpenChange(false);
     } catch (err: any) {
       toast(err?.message || 'Erro inesperado');
     } finally {
