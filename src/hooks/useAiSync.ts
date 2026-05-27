@@ -32,12 +32,13 @@ function silent<T>(p: Promise<T>): Promise<T | null> {
 // ---------- Builders de payload (a partir do Supabase) ----------
 
 async function buildConfigSnapshot(clinicId: string) {
-  const [clinicRes, procRes, plansRes, roomsRes, membersRes] = await Promise.all([
-    supabase.from('clinics').select('business_hours').eq('id', clinicId).maybeSingle(),
+  const [clinicRes, procRes, plansRes, roomsRes, membersRes, handoffRes] = await Promise.all([
+    supabase.from('clinics').select('name, business_hours').eq('id', clinicId).maybeSingle(),
     supabase.from('procedures').select('id, name, default_duration, category').eq('is_active', true),
     supabase.from('insurance_plans').select('id, name, ans_code').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_members').select('user_id, role, specialty').eq('clinic_id', clinicId),
+    supabase.from('ai_secretary_handoff').select('enabled, trigger_keywords, handoff_message, target_phone').eq('clinic_id', clinicId).maybeSingle(),
   ]);
 
   const memberRows = (membersRes.data ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
@@ -55,8 +56,18 @@ async function buildConfigSnapshot(clinicId: string) {
     active: true,
   }));
 
+  const handoff = handoffRes.data
+    ? {
+        enabled: (handoffRes.data as any).enabled ?? false,
+        trigger_keywords: (handoffRes.data as any).trigger_keywords ?? null,
+        handoff_message: (handoffRes.data as any).handoff_message ?? null,
+        target_phone: (handoffRes.data as any).target_phone ?? null,
+      }
+    : null;
+
   return {
     clinic_id: clinicId,
+    name: (clinicRes.data as any)?.name ?? null,
     business_hours: (clinicRes.data?.business_hours as Record<string, unknown> | null) ?? null,
     procedures: (procRes.data ?? []).map((p) => ({
       id: p.id,
@@ -71,6 +82,7 @@ async function buildConfigSnapshot(clinicId: string) {
     })),
     rooms: (roomsRes.data ?? []).map((r) => ({ id: r.id, name: r.name })),
     doctors,
+    handoff,
   };
 }
 

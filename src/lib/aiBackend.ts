@@ -65,13 +65,22 @@ export interface SyncDoctor {
   active?: boolean;
 }
 
+export interface SyncHandoff {
+  enabled: boolean;
+  trigger_keywords: string | null;
+  handoff_message: string | null;
+  target_phone: string | null;
+}
+
 export interface SyncConfigPayload {
   clinic_id: string;
+  name?: string | null;
   business_hours: Record<string, unknown> | null;
   procedures: SyncProcedure[];
   insurance_plans: SyncInsurancePlan[];
   rooms: SyncRoom[];
   doctors: SyncDoctor[];
+  handoff?: SyncHandoff | null;
 }
 
 export interface SyncDoctorsBatchPayload {

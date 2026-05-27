@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAiContext } from '@/hooks/useAiContext';
+import { syncClinicConfig } from '@/hooks/useAiSync';
 
 export function HandoffPanel() {
   const aiCtx = useAiContext();
@@ -99,6 +100,8 @@ export function HandoffPanel() {
     }
     toast.success('Encaminhamento atualizado');
     queryClient.invalidateQueries({ queryKey: ['ai-handoff'] });
+    // Sincroniza handoff com o backend da IA (fire-and-forget)
+    if (currentClinicId) syncClinicConfig(currentClinicId);
   };
 
   return (

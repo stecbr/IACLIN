@@ -86,7 +86,7 @@ function normalize(payload: unknown): AutomationRecord[] {
     id: a.id,
     type: a.type,
     active: a.active ?? a.enabled ?? false,
-    message: a.message ?? a.template ?? '',
+    message: a.message_template ?? a.message ?? a.template ?? '',
     trigger_keywords: a.trigger_keywords ?? '',
     target_phone: a.target_phone ?? '',
   }));
@@ -191,7 +191,7 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload: any = { type: def.type, active, message };
+      const payload: any = { type: def.type, enabled: active, message_template: message };
       if (isEscalate) {
         payload.trigger_keywords = triggerKeywords;
         payload.target_phone = targetPhone;
