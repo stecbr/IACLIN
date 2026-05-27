@@ -54,6 +54,11 @@ import OperatorNetwork from "./pages/operadora/OperatorNetwork";
 import OperatorRequests from "./pages/operadora/OperatorRequests";
 import OperatorAgenda from "./pages/operadora/OperatorAgenda";
 import OperatorSettings from "./pages/operadora/OperatorSettings";
+import { SuperAdminLayout } from "./components/superadmin/SuperAdminLayout";
+import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
+import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
+import SuperAdminDoctors from "./pages/superadmin/SuperAdminDoctors";
+import SuperAdminSettings from "./pages/superadmin/SuperAdminSettings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,7 +72,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, currentClinicId, isPatient, isOperator, simulatedRole, isPersonalMode, clinicsLoaded } = useAuth();
+  const { user, loading, currentClinicId, isPatient, isOperator, isPlatformAdmin, simulatedRole, isPersonalMode, clinicsLoaded } = useAuth();
   const { canAccess } = useRoleAccess();
   const location = useLocation();
 
@@ -80,6 +85,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  // Super admin da plataforma → redireciona para área exclusiva
+  if (isPlatformAdmin) return <Navigate to="/superadmin" replace />;
   // Dev simulation: simulating patient → send to patient area
   if (simulatedRole === 'patient') return <Navigate to="/paciente" replace />;
   // Operator users go to their own workspace
@@ -94,6 +101,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
 
   return <AppLayout>{children}</AppLayout>;
+}
+
+function SuperAdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading, isPlatformAdmin, clinicsLoaded } = useAuth();
+
+  if (loading || (user && !clinicsLoaded)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
+  if (!isPlatformAdmin) return <Navigate to="/" replace />;
+
+  return <SuperAdminLayout>{children}</SuperAdminLayout>;
 }
 
 function OperatorProtectedRoute({ children }: { children?: React.ReactNode }) {
@@ -147,7 +171,7 @@ function OnboardingRoute() {
 }
 
 function HomeRoute() {
-  const { user, loading } = useAuth();
+  const { user, loading, isPlatformAdmin } = useAuth();
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -156,11 +180,18 @@ function HomeRoute() {
     );
   }
   if (!user) return <Landing />;
+  if (isPlatformAdmin) return <Navigate to="/superadmin" replace />;
   return <ProtectedRoute><Index /></ProtectedRoute>;
 }
 
 const AppRoutes = () => (
   <Routes>
+    {/* ── Área exclusiva do Super Admin da Plataforma ── */}
+    <Route path="/superadmin" element={<SuperAdminProtectedRoute><SuperAdminDashboard /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/clinicas" element={<SuperAdminProtectedRoute><SuperAdminClinics /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/medicos" element={<SuperAdminProtectedRoute><SuperAdminDoctors /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/configuracoes" element={<SuperAdminProtectedRoute><SuperAdminSettings /></SuperAdminProtectedRoute>} />
+
     <Route path="/auth" element={<Auth />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
     <Route path="/aguardando-clinica" element={<Navigate to="/onboarding" replace />} />

@@ -6,6 +6,9 @@ import { isDevEmail, SimulatedRole, SIMULATED_ROLE_STORAGE_KEY } from '@/lib/dev
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
 
+/** E-mail do administrador geral da plataforma IACLIN */
+const PLATFORM_ADMIN_EMAIL = 'iaclin@gmail.com';
+
 interface ClinicMembership {
   clinic_id: string;
   clinic_name: string;
@@ -26,6 +29,7 @@ interface AuthContextType {
   clinicCategory: ClinicCategory;
   isPatient: boolean;
   isOperator: boolean;
+  isPlatformAdmin: boolean;
   operatorId: string | null;
   isPersonalMode: boolean;
   clinics: ClinicMembership[];
@@ -182,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isPersonalMode =
     roles.includes('dentist') && (personalScope || clinics.length === 0);
 
+  const isPlatformAdmin = user?.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL;
   const isDevUser = isDevEmail(user?.email);
   // Setter mantido por compatibilidade, mas é no-op (modo simulação removido).
   const setSimulatedRole = (_role: SimulatedRole | null) => {
@@ -203,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clinicCategory: currentMembership?.category ?? 'odonto',
       isPatient,
       isOperator,
+      isPlatformAdmin,
       operatorId,
       isPersonalMode,
       clinics,
