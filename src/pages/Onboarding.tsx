@@ -82,8 +82,7 @@ export default function Onboarding() {
       });
       if (error) throw error;
       toast.success('Clínica criada com sucesso!');
-      // Reload to refresh AuthContext with new clinic membership
-      setTimeout(() => window.location.reload(), 500);
+      await refreshClinics();
     } catch (err: any) {
       toast.error(err.message);
     } finally {

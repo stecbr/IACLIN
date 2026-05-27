@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface JoinClinicDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface JoinClinicDialogProps {
 }
 
 export function JoinClinicDialog({ open, onOpenChange }: JoinClinicDialogProps) {
+  const { refreshClinics } = useAuth();
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
 
