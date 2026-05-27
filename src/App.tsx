@@ -59,6 +59,7 @@ import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
 import SuperAdminDoctors from "./pages/superadmin/SuperAdminDoctors";
 import SuperAdminSettings from "./pages/superadmin/SuperAdminSettings";
+import SuperAdminOperators from "./pages/superadmin/SuperAdminOperators";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -190,6 +191,7 @@ const AppRoutes = () => (
     <Route path="/superadmin" element={<SuperAdminProtectedRoute><SuperAdminDashboard /></SuperAdminProtectedRoute>} />
     <Route path="/superadmin/clinicas" element={<SuperAdminProtectedRoute><SuperAdminClinics /></SuperAdminProtectedRoute>} />
     <Route path="/superadmin/medicos" element={<SuperAdminProtectedRoute><SuperAdminDoctors /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/operadoras" element={<SuperAdminProtectedRoute><SuperAdminOperators /></SuperAdminProtectedRoute>} />
     <Route path="/superadmin/configuracoes" element={<SuperAdminProtectedRoute><SuperAdminSettings /></SuperAdminProtectedRoute>} />
 
     <Route path="/auth" element={<Auth />} />

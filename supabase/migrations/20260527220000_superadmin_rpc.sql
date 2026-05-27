@@ -114,3 +114,39 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.admin_get_doctors() TO authenticated;
+
+-- 5. Lista de operadoras de saúde / convênios
+CREATE OR REPLACE FUNCTION public.admin_get_operators()
+RETURNS json
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_platform_admin() THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  RETURN (
+    SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
+    FROM (
+      SELECT
+        id,
+        name,
+        legal_name,
+        cnpj,
+        ans_code,
+        type,
+        contact_email,
+        contact_phone,
+        responsible_name,
+        logo_url,
+        brand_color,
+        is_active,
+        created_at
+      FROM public.insurance_operators
+      ORDER BY name ASC
+    ) t
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.admin_get_operators() TO authenticated;

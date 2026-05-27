@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Building2,
   Stethoscope,
+  HeartPulse,
   LogOut,
   Sun,
   Moon,
@@ -20,6 +21,7 @@ const nav = [
   { to: '/superadmin',               label: 'Visão Geral',    icon: LayoutDashboard, end: true },
   { to: '/superadmin/clinicas',      label: 'Clínicas',       icon: Building2 },
   { to: '/superadmin/medicos',       label: 'Médicos',        icon: Stethoscope },
+  { to: '/superadmin/operadoras',    label: 'Operadoras',     icon: HeartPulse },
   { to: '/superadmin/configuracoes', label: 'Configurações',  icon: Settings },
 ];
 
