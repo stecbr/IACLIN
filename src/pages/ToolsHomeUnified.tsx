@@ -142,7 +142,7 @@ export default function ToolsHomeUnified() {
         <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>Todas</FilterChip>
         {visibleSections.map((s) => (
           <FilterChip key={s.key} active={filter === s.key} onClick={() => setFilter(s.key)}>
-            <span className="mr-1">{s.icon}</span>{s.title}
+            {s.title}
           </FilterChip>
         ))}
       </div>
