@@ -61,7 +61,7 @@ export function AvailabilityCalendar({
                     <span className="block w-full h-full leading-9">{date.getDate()}</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    🎉 {holiday.name}
+                    {holiday.name}
                   </TooltipContent>
                 </Tooltip>
               );

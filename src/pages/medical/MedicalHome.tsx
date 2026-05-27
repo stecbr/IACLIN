@@ -94,7 +94,7 @@ export default function MedicalHome() {
 
   return (
     <SpecialtyHomeShell
-      title={`${getGreeting()}, Dr(a). ${firstName} 🩺`}
+      title={`${getGreeting()}, Dr(a). ${firstName}`}
       description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Resumo das suas consultas, exames e prescrições.`}
       kpis={[
         { title: 'Consultas Hoje', value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
@@ -114,7 +114,7 @@ export default function MedicalHome() {
         </CardHeader>
         <CardContent>
           {todayApts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma consulta agendada para hoje 🎉</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma consulta agendada para hoje</p>
           ) : (
             <div className="space-y-1">
               {todayApts.map((apt: any) => (

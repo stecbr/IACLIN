@@ -100,12 +100,12 @@ function buildSpecialtyTools(family: string): Tool[] {
   return [];
 }
 
-const SECTIONS: Array<{ key: SectionKey; title: string; icon: string }> = [
-  { key: 'documentos', title: 'Documentos', icon: '📋' },
-  { key: 'calculos', title: 'Cálculos clínicos', icon: '🧮' },
-  { key: 'produtividade', title: 'Produtividade', icon: '🎙️' },
-  { key: 'especialidade', title: 'Especialidade', icon: '⭐' },
-  { key: 'odonto', title: 'Odontologia', icon: '🦷' },
+const SECTIONS: Array<{ key: SectionKey; title: string }> = [
+  { key: 'documentos', title: 'Documentos' },
+  { key: 'calculos', title: 'Cálculos clínicos' },
+  { key: 'produtividade', title: 'Produtividade' },
+  { key: 'especialidade', title: 'Especialidade' },
+  { key: 'odonto', title: 'Odontologia' },
 ];
 
 export default function ToolsHomeUnified() {
@@ -142,7 +142,7 @@ export default function ToolsHomeUnified() {
         <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>Todas</FilterChip>
         {visibleSections.map((s) => (
           <FilterChip key={s.key} active={filter === s.key} onClick={() => setFilter(s.key)}>
-            <span className="mr-1">{s.icon}</span>{s.title}
+            {s.title}
           </FilterChip>
         ))}
       </div>
@@ -157,7 +157,6 @@ export default function ToolsHomeUnified() {
             return (
               <section key={section.key} className="space-y-3">
                 <h2 className="text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold flex items-center gap-2">
-                  <span>{section.icon}</span>
                   {section.title}
                   {section.key === 'odonto' && (
                     <span className="text-[9px] font-semibold uppercase tracking-wider text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">

@@ -73,7 +73,7 @@ export function SessionTimer() {
   useEffect(() => {
     if (!running) return;
     const orig = document.title;
-    document.title = `🧠 ${fmt(remaining)} · IACLIN`;
+    document.title = `${fmt(remaining)} · IACLIN`;
     return () => { document.title = orig; };
   }, [remaining, running]);
 

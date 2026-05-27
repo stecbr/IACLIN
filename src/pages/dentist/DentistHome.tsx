@@ -250,7 +250,7 @@ export default function DentistHome() {
           </CardHeader>
           <CardContent>
             {todayApts.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">{`Nenhuma ${family.appointmentNoun} agendada para hoje 🎉`}</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">{`Nenhuma ${family.appointmentNoun} agendada para hoje`}</p>
             ) : (
               <div className="space-y-1">
                 {todayApts.map((apt: any) => (
@@ -345,7 +345,7 @@ export default function DentistHome() {
             <DialogTitle>Sessões de hoje</DialogTitle>
           </DialogHeader>
           {todayApts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje 🎉</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje</p>
           ) : (
             <div className="space-y-1 max-h-[60vh] overflow-y-auto">
               {(todayApts as any[]).map((apt) => (
