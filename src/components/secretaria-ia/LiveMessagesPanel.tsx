@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bot,
@@ -21,6 +21,13 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { AI_BACKEND_URL, aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
 
 interface Conversation {
@@ -71,6 +78,7 @@ export function LiveMessagesPanel({
   connected = true,
 }: Props) {
   const qc = useQueryClient();
+  const [openConversation, setOpenConversation] = useState<Conversation | null>(null);
   const { data: conversations = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['ai-conversations', clinicId],
     queryFn: () => fetchConversations(clinicId),
@@ -207,6 +215,7 @@ export function LiveMessagesPanel({
                   <ConversationRow
                     key={c.id}
                     conversation={c}
+                    onOpen={() => setOpenConversation(c)}
                     onTakeover={
                       allowTakeover ? () => takeoverMutation.mutate(c.patient_phone) : undefined
                     }
@@ -228,6 +237,12 @@ export function LiveMessagesPanel({
           )}
         </CardContent>
       </Card>
+
+      <ConversationThreadDialog
+        clinicId={clinicId}
+        conversation={openConversation}
+        onClose={() => setOpenConversation(null)}
+      />
     </div>
   );
 }
@@ -265,12 +280,14 @@ function MetricCard({
 
 function ConversationRow({
   conversation,
+  onOpen,
   onTakeover,
   onRelease,
   takingOver,
   releasing,
 }: {
   conversation: Conversation;
+  onOpen?: () => void;
   onTakeover?: () => void;
   onRelease?: () => void;
   takingOver?: boolean;
@@ -296,7 +313,11 @@ function ConversationRow({
   );
 
   return (
-    <div className="flex gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-ring/50"
+    >
       <div
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
           isInbound ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'
@@ -338,7 +359,10 @@ function ConversationRow({
               size="sm"
               variant="outline"
               className="h-7 gap-1.5 text-xs"
-              onClick={onTakeover}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTakeover();
+              }}
               disabled={takingOver}
             >
               {takingOver ? (
@@ -354,7 +378,10 @@ function ConversationRow({
               size="sm"
               variant="outline"
               className="h-7 gap-1.5 text-xs"
-              onClick={onRelease}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRelease();
+              }}
               disabled={releasing}
             >
               {releasing ? (
@@ -367,6 +394,118 @@ function ConversationRow({
           )}
         </div>
       </div>
-    </div>
+    </button>
+  );
+}
+
+function ConversationThreadDialog({
+  clinicId,
+  conversation,
+  onClose,
+}: {
+  clinicId: string;
+  conversation: Conversation | null;
+  onClose: () => void;
+}) {
+  const convId = conversation ? toConvId(clinicId, conversation.patient_phone) : null;
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['ai-conversation-messages', clinicId, convId],
+    queryFn: () => aiBackend.getConversationMessages(clinicId, convId!),
+    enabled: !!conversation && !!convId && isAiBackendConfigured(),
+    refetchInterval: conversation ? 5000 : false,
+  });
+
+  const messages = data?.data ?? [];
+
+  return (
+    <Dialog open={!!conversation} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            {conversation?.patient_name || conversation?.patient_phone || 'Conversa'}
+          </DialogTitle>
+          <DialogDescription className="flex items-center justify-between">
+            <span>{conversation?.patient_phone}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="h-[60vh] pr-3">
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-16 w-3/4" />
+              <Skeleton className="ml-auto h-16 w-2/3" />
+              <Skeleton className="h-16 w-1/2" />
+            </div>
+          ) : isError ? (
+            <div className="py-10 text-center text-sm text-destructive">
+              {(error as Error)?.message || 'Não foi possível carregar as mensagens.'}
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              Nenhuma mensagem nesta conversa.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {messages.map((m, i) => {
+                const inbound = m.direction === 'inbound';
+                const isHuman = m.sender === 'human';
+                return (
+                  <div
+                    key={m.id ?? i}
+                    className={`flex ${inbound ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div
+                      className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
+                        inbound
+                          ? 'bg-muted text-foreground'
+                          : isHuman
+                          ? 'bg-secondary text-secondary-foreground'
+                          : 'bg-primary text-primary-foreground'
+                      }`}
+                    >
+                      <div className="mb-0.5 flex items-center gap-1.5 text-[10px] opacity-80">
+                        {inbound ? (
+                          <>
+                            <User className="h-3 w-3" />
+                            Paciente
+                          </>
+                        ) : isHuman ? (
+                          <>
+                            <User className="h-3 w-3" />
+                            {m.agent_name || 'Atendente'}
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="h-3 w-3" />
+                            IA
+                          </>
+                        )}
+                        <span>·</span>
+                        <span>
+                          {m.at ? format(new Date(m.at), 'dd/MM HH:mm', { locale: ptBR }) : ''}
+                        </span>
+                      </div>
+                      <p className="whitespace-pre-wrap break-words">{m.text}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }
