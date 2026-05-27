@@ -25,7 +25,7 @@ function formatCnpj(value: string) {
 }
 
 export default function Onboarding() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshClinics } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(false);
