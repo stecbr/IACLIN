@@ -16,7 +16,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function MyClinicsSection() {
-  const { user, clinics, currentClinicId, switchClinic } = useAuth();
+  const { user, clinics, currentClinicId, switchClinic, refreshClinics } = useAuth();
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [leavingId, setLeavingId] = useState<string | null>(null);
@@ -38,8 +38,9 @@ export default function MyClinicsSection() {
         toast(data?.error || error?.message || 'Não foi possível vincular.');
         return;
       }
-      toast.success('Vínculo criado! Recarregando…');
-      setTimeout(() => window.location.reload(), 600);
+      toast.success('Vínculo criado!');
+      setCode('');
+      await refreshClinics();
     } catch (err: any) {
       toast(err?.message || 'Erro inesperado');
     } finally {
@@ -59,7 +60,7 @@ export default function MyClinicsSection() {
         .eq('clinic_id', clinicId);
       if (error) throw error;
       toast.success('Você saiu da clínica.');
-      setTimeout(() => window.location.reload(), 500);
+      await refreshClinics();
     } catch (err: any) {
       toast.error(err.message);
     } finally {

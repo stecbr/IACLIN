@@ -25,7 +25,7 @@ function formatCnpj(value: string) {
 }
 
 export default function Onboarding() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshClinics } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -82,8 +82,7 @@ export default function Onboarding() {
       });
       if (error) throw error;
       toast.success('Clínica criada com sucesso!');
-      // Reload to refresh AuthContext with new clinic membership
-      setTimeout(() => window.location.reload(), 500);
+      await refreshClinics();
     } catch (err: any) {
       toast.error(err.message);
     } finally {

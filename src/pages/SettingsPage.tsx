@@ -249,7 +249,6 @@ function ClinicSection() {
         const { error } = await supabase.from('clinics').insert({ ...payload, owner_id: user.id });
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
-        setTimeout(() => window.location.reload(), 500);
       }
       toast.success('Clínica atualizada!');
     } catch (err: any) {

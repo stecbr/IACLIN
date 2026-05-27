@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface JoinClinicDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface JoinClinicDialogProps {
 }
 
 export function JoinClinicDialog({ open, onOpenChange }: JoinClinicDialogProps) {
+  const { refreshClinics } = useAuth();
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
 
@@ -39,8 +41,9 @@ export function JoinClinicDialog({ open, onOpenChange }: JoinClinicDialogProps) 
         toast(data?.error || error?.message || 'Não foi possível vincular.');
         return;
       }
-      toast.success('Vínculo criado! Recarregando…');
-      setTimeout(() => window.location.reload(), 600);
+      toast.success('Vínculo criado!');
+      await refreshClinics();
+      onOpenChange(false);
     } catch (err: any) {
       toast(err?.message || 'Erro inesperado');
     } finally {

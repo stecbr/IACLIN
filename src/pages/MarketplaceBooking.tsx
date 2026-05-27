@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { BookingConfirmation } from "@/components/marketplace/BookingConfirmation";
@@ -67,7 +67,7 @@ export default function MarketplaceBooking() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 py-3">
-        <a href="/marketplace" className="text-xl font-bold text-primary">IACLIN</a>
+        <Link to="/marketplace" className="text-xl font-bold text-primary">IACLIN</Link>
       </header>
       <BookingConfirmation
         dentistId={dentistId}

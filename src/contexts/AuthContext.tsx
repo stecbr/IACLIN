@@ -36,6 +36,7 @@ interface AuthContextType {
   clinicsLoaded: boolean;
   switchClinic: (clinicId: string) => void;
   switchToPersonal: () => void;
+  refreshClinics: () => Promise<void>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isDevUser: boolean;
@@ -117,6 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    // expose for refresh
+    (globalThis as any).__iaclinFetchUserData = fetchUserData;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       setSession(session);
@@ -156,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      delete (globalThis as any).__iaclinFetchUserData;
     };
   }, []);
 
@@ -163,6 +168,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.removeItem(SIMULATED_ROLE_STORAGE_KEY);
     setSimulatedRoleState(null);
     await supabase.auth.signOut();
+  };
+
+  const refreshClinics = async () => {
+    if (!user?.id) return;
+    const fn = (globalThis as any).__iaclinFetchUserData as ((id: string) => void) | undefined;
+    if (fn) fn(user.id);
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
@@ -215,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clinicsLoaded,
       switchClinic,
       switchToPersonal,
+      refreshClinics,
       signOut,
       hasRole,
       isDevUser,

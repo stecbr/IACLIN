@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RegisterClinicDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ function formatCnpj(value: string) {
 }
 
 export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialogProps) {
+  const { refreshClinics } = useAuth();
   const [cnpj, setCnpj] = useState('');
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
@@ -110,8 +112,9 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
         toast.error((data && data.error) || error?.message || 'Falha ao cadastrar clínica.');
         return;
       }
-      toast.success('Clínica cadastrada! Recarregando…');
-      setTimeout(() => window.location.reload(), 600);
+      toast.success('Clínica cadastrada!');
+      await refreshClinics();
+      onOpenChange(false);
     } catch (err: any) {
       toast(err?.message || 'Erro inesperado');
     } finally {

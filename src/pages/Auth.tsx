@@ -12,6 +12,8 @@ import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, Che
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
 import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
+import { useTheme } from '@/components/ThemeProvider';
 import {
   SpecialtySelect,
   registrationLabelForSpecialty,
@@ -50,6 +52,8 @@ const item = {
 export default function Auth() {
   const { user, loading, isPatient } = useAuth();
   const navigate = useNavigate();
+  const { resolved } = useTheme();
+  const logoSrc = resolved === 'dark' ? logoDark : logoLight;
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl');
   const inviteToken = searchParams.get('invite');
@@ -213,8 +217,7 @@ export default function Auth() {
             toast.error(error.message);
           } else {
             toast.success('Você foi vinculado à clínica!');
-            // Recarrega para o AuthContext refetchar a nova clínica vinculada.
-            setTimeout(() => window.location.replace(returnUrl ?? '/'), 400);
+              navigate(returnUrl ?? '/', { replace: true });
           }
         });
       return (
@@ -359,11 +362,10 @@ export default function Auth() {
               toast.error('Conta criada, mas falhou ao vincular à clínica: ' + acceptErr.message);
             } else {
               toast.success('Você foi vinculado à clínica!');
-              setTimeout(() => window.location.replace('/'), 400);
+              navigate('/', { replace: true });
             }
           } else if (userType === 'profissional') {
-            // Pure professional signup — go straight into the app (personal mode).
-            setTimeout(() => window.location.replace('/'), 400);
+            navigate('/', { replace: true });
           }
         }
       }
@@ -424,7 +426,7 @@ export default function Auth() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
-          <img src={logoLight} alt="IACLIN" className="h-10" />
+          <img src={logoSrc} alt="IACLIN" className="h-10" />
         </motion.div>
 
         <AnimatePresence mode="wait">
