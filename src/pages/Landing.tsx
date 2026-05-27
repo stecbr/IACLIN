@@ -56,7 +56,7 @@ function Navbar() {
     { href: "#recursos", label: "Recursos" },
     { href: "#diferenciais", label: "Diferenciais" },
     { href: "#profissionais", label: "Para quem é" },
-    { href: "#marketplace", label: "Marketplace" },
+    { href: "#marketplace", label: "Rede Médica" },
   ];
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
@@ -415,7 +415,7 @@ function MarketplacePreview() {
     <section id="marketplace" className="container py-20">
       <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-          Marketplace
+          Rede Médica
         </p>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
           Sua clínica encontrada por novos pacientes.
@@ -476,7 +476,7 @@ function MarketplacePreview() {
       <motion.div {...fadeUp} className="mt-10 flex justify-center">
         <Button asChild size="lg" variant="outline" className="shadow-card">
           <a href="/marketplace">
-            Explorar marketplace
+            Explorar Rede Médica
             <ArrowRight className="h-4 w-4" />
           </a>
         </Button>

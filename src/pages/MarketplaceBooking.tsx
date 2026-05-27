@@ -67,7 +67,7 @@ export default function MarketplaceBooking() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 py-3">
-        <a href="/marketplace" className="text-xl font-bold text-primary">IACLIN</a>
+        <Link to="/marketplace" className="text-xl font-bold text-primary">IACLIN</Link>
       </header>
       <BookingConfirmation
         dentistId={dentistId}

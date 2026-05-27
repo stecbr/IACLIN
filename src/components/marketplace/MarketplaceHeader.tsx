@@ -1,4 +1,5 @@
 import { Search, MapPin, LayoutDashboard, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
@@ -28,9 +29,9 @@ export function MarketplaceHeader({
   return (
     <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <a href="/marketplace" className="shrink-0">
+        <Link to="/marketplace" className="shrink-0">
           <img src={logo} alt="IACLIN" className="h-8 w-auto" />
-        </a>
+        </Link>
 
         <div className="flex flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-1.5 shadow-sm">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -55,12 +56,12 @@ export function MarketplaceHeader({
             <>
               <span className="text-sm text-muted-foreground">Olá, {firstName || 'paciente'}</span>
               <Button size="sm" variant="outline" asChild className="gap-1.5">
-                <a href="/paciente"><LayoutDashboard className="h-4 w-4" /> Meu painel</a>
+                <Link to="/paciente"><LayoutDashboard className="h-4 w-4" /> Meu painel</Link>
               </Button>
             </>
           ) : (
             <Button size="sm" asChild className="gap-1.5">
-              <a href="/auth"><LogIn className="h-4 w-4" /> Acesse a plataforma</a>
+              <Link to="/auth"><LogIn className="h-4 w-4" /> Acesse a plataforma</Link>
             </Button>
           )}
         </div>
