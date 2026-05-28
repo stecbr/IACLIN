@@ -91,19 +91,14 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
       <aside className="hidden md:flex w-72 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         {/* Operator brand block */}
         <div className="px-5 py-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-md bg-sidebar-accent flex items-center justify-center overflow-hidden ring-1 ring-sidebar-border shrink-0">
-              {op?.logo_url ? (
+          <div className="flex items-center gap-3 min-w-0">
+            {op?.logo_url && (
+              <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
                 <img src={op.logo_url} alt={op.name ?? 'Operadora'} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-sm font-bold text-sidebar-primary">{initials}</span>
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60 leading-none">
-                Painel B2B
               </div>
-              <div className="text-sm font-semibold text-white truncate mt-1">
+            )}
+            <div className="min-w-0">
+              <div className="text-base font-semibold text-white truncate">
                 {op?.name ?? 'Operadora'}
               </div>
               {op?.cnpj && (
