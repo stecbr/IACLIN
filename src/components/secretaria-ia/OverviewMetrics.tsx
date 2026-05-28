@@ -102,12 +102,12 @@ export function OverviewMetrics({ clinicId, backendConfigured, onNavigate }: Pro
         />
       </div>
 
-      <Card className="rounded-xl shadow-sm">
-        <CardHeader className="pb-3">
+      <Card className="rounded-xl shadow-sm overflow-hidden">
+        <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-3">
           <CardTitle className="text-base">Acesso rápido</CardTitle>
           <CardDescription>Pule direto para configurar cada parte da IA.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-3">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-3 sm:p-6">
           {QUICK_LINKS.map((link) => {
             const Icon = link.icon;
             return (
@@ -122,7 +122,7 @@ export function OverviewMetrics({ clinicId, backendConfigured, onNavigate }: Pro
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium">{link.label}</span>
+                    <span className="truncate text-sm font-medium">{link.label}</span>
                     {link.soon && (
                       <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
                         em breve
