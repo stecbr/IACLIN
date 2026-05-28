@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -543,31 +543,39 @@ export default function IaGestor() {
     },
   });
 
-  const location = useLocation();
-
-  // Bootstrap: choose or create thread
+  const isMountedRef = useRef(true);
   useEffect(() => {
-    // Não navegar se já saímos da rota /ia-gestor (ex: AnimatePresence ainda montado)
-    if (!location.pathname.startsWith('/ia-gestor')) return;
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  // Bootstrap: choose or create thread (só roda 1 vez quando entra na rota /ia-gestor sem threadId)
+  const bootstrappedRef = useRef(false);
+  useEffect(() => {
+    if (bootstrappedRef.current) return;
     if (!user?.id || threadsLoading) return;
-    if (threadId) return;
+    if (threadId) {
+      bootstrappedRef.current = true;
+      return;
+    }
+    bootstrappedRef.current = true;
     if (threads.length > 0) {
+      if (!isMountedRef.current) return;
       navigate(`/ia-gestor/${threads[0].id}`, { replace: true });
     } else {
-      // create first thread
       (async () => {
-        if (!location.pathname.startsWith('/ia-gestor')) return;
         const { data, error } = await supabase
           .from('ia_gestor_threads')
           .insert({ user_id: user.id, clinic_id: currentClinicId, title: 'Nova conversa' })
           .select('id')
           .single();
         if (error) { toast.error('Erro ao criar conversa'); return; }
+        if (!isMountedRef.current) return;
         qc.invalidateQueries({ queryKey: ['ia-threads'] });
         navigate(`/ia-gestor/${data.id}`, { replace: true });
       })();
     }
-  }, [user?.id, threadId, threads, threadsLoading, navigate, currentClinicId, qc, location.pathname]);
+  }, [user?.id, threadId, threads, threadsLoading, navigate, currentClinicId, qc]);
 
   const createThread = async (folderId: string | null = null) => {
     if (!user?.id) return;
