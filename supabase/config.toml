@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.redeem-patient-chart]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
