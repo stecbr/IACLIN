@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -543,18 +543,20 @@ export default function IaGestor() {
     },
   });
 
+  const location = useLocation();
+
   // Bootstrap: choose or create thread
   useEffect(() => {
+    // Não navegar se já saímos da rota /ia-gestor (ex: AnimatePresence ainda montado)
+    if (!location.pathname.startsWith('/ia-gestor')) return;
     if (!user?.id || threadsLoading) return;
-    if (threadId) {
-      // ensure thread exists in list (could be a fresh one not yet loaded)
-      return;
-    }
+    if (threadId) return;
     if (threads.length > 0) {
       navigate(`/ia-gestor/${threads[0].id}`, { replace: true });
     } else {
       // create first thread
       (async () => {
+        if (!location.pathname.startsWith('/ia-gestor')) return;
         const { data, error } = await supabase
           .from('ia_gestor_threads')
           .insert({ user_id: user.id, clinic_id: currentClinicId, title: 'Nova conversa' })
@@ -565,7 +567,7 @@ export default function IaGestor() {
         navigate(`/ia-gestor/${data.id}`, { replace: true });
       })();
     }
-  }, [user?.id, threadId, threads, threadsLoading, navigate, currentClinicId, qc]);
+  }, [user?.id, threadId, threads, threadsLoading, navigate, currentClinicId, qc, location.pathname]);
 
   const createThread = async (folderId: string | null = null) => {
     if (!user?.id) return;
