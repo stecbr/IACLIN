@@ -222,7 +222,9 @@ export default function Agenda() {
           />
         ) : (
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
+            {/* Scroll horizontal envolve header + grid juntos para sincronizar */}
             <div className="overflow-x-auto">
+            <div style={{ minWidth: `${60 + days.length * 80}px` }}>
             {/* Day Headers */}
             <div className="grid border-b border-border" style={{ gridTemplateColumns: `60px repeat(${days.length}, minmax(80px, 1fr))` }}>
               <div className="p-2 border-r border-border" />
@@ -244,7 +246,7 @@ export default function Agenda() {
             </div>
 
             {/* Time Grid */}
-            <div ref={gridRef} className="max-h-[calc(100vh-280px)] overflow-y-auto relative">
+            <div ref={gridRef} className="max-h-[calc(100vh-340px)] overflow-y-auto relative">
               {showTimeLine && (
                 <div
                   className="absolute left-0 right-0 z-10 pointer-events-none"
@@ -347,6 +349,7 @@ export default function Agenda() {
                 </div>
               ))}
             </div>
+            </div>{/* minWidth wrapper */}
             </div>{/* overflow-x-auto */}
           </div>
         )}

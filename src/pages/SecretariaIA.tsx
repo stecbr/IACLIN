@@ -553,7 +553,7 @@ export default function SecretariaIA() {
                 type="button"
                 onClick={() => s.enabled && setStep(s.id)}
                 disabled={!s.enabled}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-all ${
                   active
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : done
@@ -562,7 +562,7 @@ export default function SecretariaIA() {
                 }`}
               >
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
                     active
                       ? 'bg-primary-foreground/20 text-primary-foreground'
                       : done
@@ -572,14 +572,8 @@ export default function SecretariaIA() {
                 >
                   {done ? <Check className="h-3 w-3" /> : s.id}
                 </span>
-                {active ? (
-                  <>
-                    {s.icon}
-                    {s.label}
-                  </>
-                ) : (
-                  s.icon
-                )}
+                {s.icon}
+                <span className={active ? 'inline' : 'hidden sm:inline'}>{s.label}</span>
               </button>
             );
           })}
@@ -729,14 +723,14 @@ export default function SecretariaIA() {
       {/* ETAPA 2 — Painel (hub) */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="space-y-1.5">
-              <h1 className="text-2xl font-semibold tracking-tight">Painel da Secretária IA</h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Painel da Secretária IA</h1>
               <p className="text-sm text-muted-foreground">
                 Configure o comportamento, veja o que a IA já sabe e acompanhe as conversas.
               </p>
             </div>
-            <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
+            <div className="flex items-center gap-3 self-start rounded-lg border border-border/60 bg-card px-3 py-2 sm:self-auto">
               <Label htmlFor="enabled-switch" className="text-sm">
                 {enabled ? 'IA Ativa' : 'IA Pausada'}
               </Label>
@@ -752,19 +746,29 @@ export default function SecretariaIA() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/40 p-1">
               <TabsTrigger value="visao" className="gap-1.5">
-                <Activity className="h-3.5 w-3.5" /> Visão geral
+                <Activity className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Visão geral</span>
+                <span className="sm:hidden">Visão</span>
               </TabsTrigger>
               <TabsTrigger value="comportamento" className="gap-1.5">
-                <Bot className="h-3.5 w-3.5" /> Comportamento
+                <Bot className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Comportamento</span>
+                <span className="sm:hidden">IA</span>
               </TabsTrigger>
               <TabsTrigger value="conhecimento" className="gap-1.5">
-                <BookOpen className="h-3.5 w-3.5" /> O que a IA já sabe
+                <BookOpen className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">O que a IA já sabe</span>
+                <span className="sm:hidden">Sabe</span>
               </TabsTrigger>
               <TabsTrigger value="automacoes" className="gap-1.5">
-                <Zap className="h-3.5 w-3.5" /> Automações
+                <Zap className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Automações</span>
+                <span className="sm:hidden">Auto</span>
               </TabsTrigger>
               <TabsTrigger value="transferencia" className="gap-1.5">
-                <UserCog className="h-3.5 w-3.5" /> Transferência
+                <UserCog className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Transferência</span>
+                <span className="sm:hidden">Transfer</span>
               </TabsTrigger>
             </TabsList>
 
