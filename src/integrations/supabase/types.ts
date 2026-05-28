@@ -1746,6 +1746,254 @@ export type Database = {
           },
         ]
       }
+      platform_coupons: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          updated_at: string
+          uses_count: number
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          updated_at?: string
+          uses_count?: number
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          updated_at?: string
+          uses_count?: number
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      platform_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          due_date: string | null
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          notes: string | null
+          paid_at: string | null
+          receipt_url: string | null
+          recorded_by: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          stripe_invoice_id: string | null
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          notes?: string | null
+          paid_at?: string | null
+          receipt_url?: string | null
+          recorded_by?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          stripe_invoice_id?: string | null
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          notes?: string | null
+          paid_at?: string | null
+          receipt_url?: string | null
+          recorded_by?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          stripe_invoice_id?: string | null
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "platform_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_plans: {
+        Row: {
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          created_at: string
+          currency: string
+          description: string | null
+          features: Json
+          id: string
+          is_active: boolean
+          name: string
+          price_cents: number
+          segment: Database["public"]["Enums"]["plan_segment"]
+          sort_order: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          price_cents?: number
+          segment: Database["public"]["Enums"]["plan_segment"]
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_cents?: number
+          segment?: Database["public"]["Enums"]["plan_segment"]
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_subscriptions: {
+        Row: {
+          amount_cents: number
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          coupon_id: string | null
+          created_at: string
+          current_period_end: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"] | null
+          discount_value: number | null
+          due_date: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          final_amount_cents: number
+          id: string
+          last_payment_at: string | null
+          last_payment_method:
+            | Database["public"]["Enums"]["payment_method"]
+            | null
+          notes: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          plan_id: string | null
+          plan_name: string | null
+          status: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents?: number
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          coupon_id?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          discount_type?: Database["public"]["Enums"]["discount_type"] | null
+          discount_value?: number | null
+          due_date?: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          final_amount_cents?: number
+          id?: string
+          last_payment_at?: string | null
+          last_payment_method?:
+            | Database["public"]["Enums"]["payment_method"]
+            | null
+          notes?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          plan_id?: string | null
+          plan_name?: string | null
+          status?: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          coupon_id?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          discount_type?: Database["public"]["Enums"]["discount_type"] | null
+          discount_value?: number | null
+          due_date?: string | null
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["entity_type"]
+          final_amount_cents?: number
+          id?: string
+          last_payment_at?: string | null
+          last_payment_method?:
+            | Database["public"]["Enums"]["payment_method"]
+            | null
+          notes?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          plan_id?: string | null
+          plan_name?: string | null
+          status?: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_subscriptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "platform_coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prescription_templates: {
         Row: {
           category: string | null
@@ -2277,6 +2525,14 @@ export type Database = {
       }
       admin_get_operators: { Args: never; Returns: Json[] }
       admin_get_stats: { Args: never; Returns: Json }
+      calc_final_amount: {
+        Args: {
+          _base_cents: number
+          _discount_type: Database["public"]["Enums"]["discount_type"]
+          _discount_value: number
+        }
+        Returns: number
+      }
       generate_clinic_invite_code: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -2295,6 +2551,37 @@ export type Database = {
         Args: { _operator_id: string; _user_id: string }
         Returns: boolean
       }
+      is_platform_admin: { Args: never; Returns: boolean }
+      record_pix_payment: {
+        Args: {
+          p_amount_cents: number
+          p_notes?: string
+          p_paid_at?: string
+          p_receipt_url?: string
+          p_subscription_id: string
+        }
+        Returns: {
+          amount_cents: number
+          created_at: string
+          due_date: string | null
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          notes: string | null
+          paid_at: string | null
+          receipt_url: string | null
+          recorded_by: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          stripe_invoice_id: string | null
+          subscription_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "platform_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_or_create_ai_tenant_for_clinic: {
         Args: { _clinic_id: string }
         Returns: string
@@ -2302,6 +2589,53 @@ export type Database = {
       resolve_or_create_ai_tenant_for_user: {
         Args: { _user_id: string }
         Returns: string
+      }
+      upsert_platform_subscription: {
+        Args: {
+          p_billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          p_coupon_id?: string
+          p_discount_type?: Database["public"]["Enums"]["discount_type"]
+          p_discount_value?: number
+          p_due_date?: string
+          p_entity_id: string
+          p_entity_type: Database["public"]["Enums"]["entity_type"]
+          p_notes?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_plan_id?: string
+          p_status?: Database["public"]["Enums"]["sub_status"]
+        }
+        Returns: {
+          amount_cents: number
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          coupon_id: string | null
+          created_at: string
+          current_period_end: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"] | null
+          discount_value: number | null
+          due_date: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          final_amount_cents: number
+          id: string
+          last_payment_at: string | null
+          last_payment_method:
+            | Database["public"]["Enums"]["payment_method"]
+            | null
+          notes: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          plan_id: string | null
+          plan_name: string | null
+          status: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "platform_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       user_belongs_to_clinic: {
         Args: { _clinic_id: string; _user_id: string }
@@ -2318,12 +2652,19 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "dentist" | "secretary" | "patient" | "operator"
+      billing_cycle: "monthly" | "yearly"
       clinic_category:
         | "odonto"
         | "medico"
         | "estetica"
         | "veterinario"
         | "outro"
+      discount_type: "percent" | "fixed"
+      entity_type: "clinic" | "doctor" | "operator"
+      payment_method: "card" | "pix" | "manual"
+      payment_status: "paid" | "pending" | "failed" | "refunded"
+      plan_segment: "clinic" | "doctor" | "operator"
+      sub_status: "active" | "trial" | "overdue" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2452,7 +2793,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "dentist", "secretary", "patient", "operator"],
+      billing_cycle: ["monthly", "yearly"],
       clinic_category: ["odonto", "medico", "estetica", "veterinario", "outro"],
+      discount_type: ["percent", "fixed"],
+      entity_type: ["clinic", "doctor", "operator"],
+      payment_method: ["card", "pix", "manual"],
+      payment_status: ["paid", "pending", "failed", "refunded"],
+      plan_segment: ["clinic", "doctor", "operator"],
+      sub_status: ["active", "trial", "overdue", "cancelled"],
     },
   },
 } as const
