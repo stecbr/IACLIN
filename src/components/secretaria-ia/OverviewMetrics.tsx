@@ -115,23 +115,23 @@ export function OverviewMetrics({ clinicId, backendConfigured, onNavigate }: Pro
                 key={link.tab}
                 type="button"
                 onClick={() => onNavigate(link.tab)}
-                className="group flex items-center gap-3 rounded-lg border border-border/60 bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
+                className="group flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 overflow-hidden"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium">{link.label}</span>
                     {link.soon && (
-                      <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                      <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
                         em breve
                       </Badge>
                     )}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{link.description}</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </button>
             );
           })}
