@@ -290,21 +290,21 @@ export default function Patients() {
                         <Badge variant="outline" className="text-xs">{patient.insurance_provider}</Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
                       {patient.phone && (
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Phone className="h-3 w-3" />
+                          <Phone className="h-3 w-3 shrink-0" />
                           {formatPhone(patient.phone)}
                         </span>
                       )}
                       {patient.email && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Mail className="h-3 w-3" />
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 truncate max-w-[180px]">
+                          <Mail className="h-3 w-3 shrink-0" />
                           {patient.email}
                         </span>
                       )}
                       {patient.cpf && (
-                        <span className="text-xs text-muted-foreground">CPF: {formatCpf(patient.cpf)}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">CPF: {formatCpf(patient.cpf)}</span>
                       )}
                     </div>
                   </div>

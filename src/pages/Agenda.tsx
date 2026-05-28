@@ -101,8 +101,9 @@ export default function Agenda() {
     if (gridRef.current && view !== 'month') {
       const now = new Date();
       const currentHour = now.getHours();
-      const scrollTo = Math.max(0, (currentHour - 7) * 60 - 60);
-      gridRef.current.scrollTop = scrollTo;
+      // Scroll para 1h antes do horário atual, mínimo 6h da manhã
+      const targetHour = Math.max(6, currentHour - 1);
+      gridRef.current.scrollTop = targetHour * 60;
     }
   }, [view]);
 
@@ -138,8 +139,8 @@ export default function Agenda() {
 
   const now = new Date();
   const currentHourFrac = now.getHours() + now.getMinutes() / 60;
-  const showTimeLine = view !== 'month' && currentHourFrac >= 7 && currentHourFrac <= 20;
-  const timeLineTop = (currentHourFrac - 7) * 60;
+  const showTimeLine = view !== 'month';
+  const timeLineTop = currentHourFrac * 60;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -152,7 +153,7 @@ export default function Agenda() {
         </PageHeader>
 
         {/* Navigation */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
               <ChevronLeft className="h-4 w-4" />
@@ -161,7 +162,7 @@ export default function Agenda() {
             <Button variant="outline" size="icon" onClick={() => navigate(1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium text-foreground ml-2 capitalize">{headerLabel}</span>
+            <span className="text-sm font-medium text-foreground ml-1 capitalize">{headerLabel}</span>
           </div>
           <div className="flex items-center gap-2">
             {!restrictToSelf && (
