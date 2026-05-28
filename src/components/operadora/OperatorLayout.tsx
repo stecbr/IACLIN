@@ -7,6 +7,8 @@ import {
   Calendar,
   Settings,
   LogOut,
+  ArrowRight,
+  ChevronLeft,
   Sun,
   Moon,
   Building2,
@@ -21,6 +23,14 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
+import { CommandInput } from '@/components/ui/command';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type NavItem = { to: string; label: string; icon: any; end?: boolean };
 type NavGroup = { label: string; items: NavItem[] };
@@ -66,8 +76,9 @@ interface OperatorInfo {
 export function OperatorLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const { resolved, setTheme } = useTheme();
-  const { signOut, profile, operatorId } = useAuth();
+  const { signOut, profile, operatorId, user } = useAuth();
   const [op, setOp] = useState<OperatorInfo | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (!operatorId) return;
@@ -88,8 +99,8 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
   return (
     <div className={`operator-scope ${resolved === 'dark' ? 'dark' : ''} min-h-screen flex w-full bg-background`}>
-      <aside className="hidden md:flex w-72 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-        {/* Operator brand block */}
+      <aside className={`hidden ${sidebarOpen ? 'md:flex' : 'md:hidden'} w-72 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen overflow-hidden`}>
+        {/* Operator brand block: logo, status badge above name, and description */}
         <div className="px-5 py-5 border-b border-sidebar-border">
           <div className="flex items-center gap-3 min-w-0">
             {op?.logo_url && (
@@ -98,8 +109,20 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               </div>
             )}
             <div className="min-w-0">
-              <div className="text-base font-semibold text-white truncate">
+              <div className="flex items-center">
+                      <Badge
+                        variant={op?.is_active ? 'operator' : 'secondary'}
+                        className="text-[8px] uppercase tracking-wide"
+                      >
+                  <ShieldCheck className="h-2 w-2 mr-1" />
+                  {op?.is_active ? 'ATIVA' : 'PENDENTE'}
+                </Badge>
+              </div>
+              <div className="text-base font-semibold text-white truncate mt-1">
                 {op?.name ?? 'Operadora'}
+              </div>
+              <div className="text-[11px] text-sidebar-foreground/60 truncate mt-0.5">
+                Gestão de Operadora
               </div>
               {op?.cnpj && (
                 <div className="text-[10px] text-sidebar-foreground/60 truncate mt-0.5">
@@ -110,7 +133,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           </div>
         </div>
 
-        {/* Nav groups */}
+        {/* Nav groups (scrollable) */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {navGroups.map((group) => (
             <div key={group.label}>
@@ -124,9 +147,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     to={item.to}
                     end={item.end}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                      `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
                         isActive
-                          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary -ml-px pl-[calc(0.75rem-1px)]'
+                          ? 'bg-sidebar-accent/70 text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary -ml-px pl-[calc(0.75rem-1px)]'
                           : 'text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60'
                       }`
                     }
@@ -140,24 +163,52 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer (user card) */}
         <div className="px-3 py-3 border-t border-sidebar-border">
-          <div className="px-3 py-1.5 text-xs text-sidebar-foreground/70 truncate">
-            {profile?.full_name ?? 'Usuário'}
-          </div>
-          <button
-            onClick={signOut}
-            className="w-full flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </button>
+          <TooltipProvider>
+            <div className="w-full flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
+                  {profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() ?? 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-sidebar-accent-foreground truncate">
+                  {profile?.full_name ?? user?.email ?? 'Usuário'}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={signOut}
+                    className="p-2 rounded-xl border border-sidebar-border text-sidebar-accent-foreground hover:bg-sidebar-accent/40 transition-colors"
+                    aria-label="Sair"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Sair</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 flex items-center justify-between border-b border-border px-4 md:px-6 bg-card sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
+            <div className="hidden md:flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen((s) => !s)}
+                className="p-2 rounded-md text-muted-foreground hover:bg-muted/5 transition-colors"
+                aria-label="Fechar sidebar"
+              >
+                <ChevronLeft className={`h-4 w-4 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} />
+              </button>
+            </div>
             <div className="md:hidden h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center overflow-hidden">
               {op?.logo_url ? (
                 <img src={op.logo_url} alt="" className="h-full w-full object-cover" />
@@ -165,24 +216,14 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                 <Building2 className="h-4 w-4 text-primary" />
               )}
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold truncate">
-                  {op?.name ?? 'Painel da operadora'}
-                </span>
-                <Badge
-                  variant={op?.is_active ? 'default' : 'secondary'}
-                  className="text-[10px] uppercase tracking-wide"
-                >
-                  <ShieldCheck className="h-3 w-3 mr-1" />
-                  {op?.is_active ? 'Ativa' : 'Pendente'}
-                </Badge>
-              </div>
-              <div className="text-xs text-muted-foreground hidden sm:block">
-                Gestão de credenciamento, rede e faturamento
-              </div>
+          </div>
+
+          <div className="flex-1 px-4">
+            <div className="max-w-[720px] mx-auto">
+              <CommandInput placeholder="Buscar na operadora..." className="w-full" />
             </div>
           </div>
+
           <div className="flex items-center gap-1">
             <button
               onClick={() => setTheme(resolved === 'dark' ? 'light' : 'dark')}

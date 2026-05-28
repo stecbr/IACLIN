@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Settings,
   LogOut,
+  ArrowRight,
   Bot,
   Brain,
   CalendarClock,
@@ -612,24 +613,17 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 border-t border-sidebar-border">
         <TooltipProvider>
           {!collapsed ? (
-            <div className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-sidebar-accent/40 transition-colors">
-              <Avatar className="h-8 w-8 ring-2 ring-primary/20">
-                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-xs font-medium">
+            <div className="w-full flex items-center gap-3 p-3 rounded-lg bg-sidebar-accent/20 border border-sidebar-border/40 hover:bg-sidebar-accent/30 transition-colors">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-muted-foreground/10 text-muted-foreground text-xs font-medium">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {profile?.full_name ?? user?.email}
-                  </p>
-                  {simulatedRole && (
-                    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex-shrink-0">
-                      Simulando
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] text-muted-foreground truncate">
+                <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                  {profile?.full_name ?? user?.email}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                   {user?.email}
                 </p>
               </div>
@@ -637,9 +631,10 @@ export function AppSidebar() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={handleSignOut}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    className="p-2 rounded-md border border-sidebar-border/40 text-muted-foreground hover:bg-sidebar-accent/40 transition-colors"
+                    aria-label="Sair"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">Sair</TooltipContent>
