@@ -19,6 +19,29 @@ import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
 import logoDark from '@/assets/logo-dark.png';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
+import { ArrowRight } from 'lucide-react';
 
 const nav = [
   { to: '/superadmin',               label: 'Visão Geral',    icon: LayoutDashboard, end: true },
@@ -31,89 +54,161 @@ const nav = [
   { to: '/superadmin/configuracoes', label: 'Configurações',  icon: Settings },
 ];
 
-export function SuperAdminLayout({ children }: { children?: ReactNode }) {
+function SuperAdminSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
   const location = useLocation();
-  const { resolved, setTheme } = useTheme();
+  const { resolved } = useTheme();
   const { signOut, user } = useAuth();
 
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? 'SA';
+  const isActive = (url: string, end?: boolean) =>
+    end ? location.pathname === url : location.pathname.startsWith(url);
+
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar p-4 gap-1">
-        <div className="flex items-center gap-2 px-2 pb-4 border-b border-border mb-2">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60">
+        <div className="flex items-center gap-2">
           <img
             src={resolved === 'dark' ? logoDark : logoLight}
             alt="IACLIN"
-            className="h-7 object-contain"
+            className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'}
           />
-          <span className="text-xs font-bold text-primary border-l border-border pl-2 ml-1 uppercase tracking-wide">
-            Super Admin
-          </span>
-        </div>
-
-        {nav.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
-                isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`
-            }
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </NavLink>
-        ))}
-
-        <div className="mt-auto pt-4 border-t border-border space-y-1">
-          <div className="px-3 py-1.5 text-xs text-muted-foreground truncate">
-            {user?.email}
-          </div>
-          <button
-            onClick={signOut}
-            className="w-full flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold text-primary">
-              Administração da Plataforma IACLIN
+          {!collapsed && (
+            <span className="text-[10px] font-bold text-primary border-l border-sidebar-border/60 pl-2 ml-1 uppercase tracking-wider">
+              Super Admin
             </span>
-          </div>
-          <button
-            onClick={() => setTheme(resolved === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            {resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-        </header>
+          )}
+        </div>
+      </SidebarHeader>
 
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+      <SidebarContent className="px-2">
+        <SidebarGroup>
+          {!collapsed && (
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1 font-semibold">
+              Plataforma
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {nav.map((item) => {
+                const active = isActive(item.to, item.end);
+                return (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
+                      <NavLink
+                        to={item.to}
+                        end={item.end}
+                        className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+                          active
+                            ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]'
+                            : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
+                        }`}
+                      >
+                        <item.icon
+                          className={`h-4 w-4 flex-shrink-0 transition-colors ${active ? 'text-primary' : ''}`}
+                        />
+                        {!collapsed && <span className="flex-1">{item.label}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
+        <TooltipProvider>
+          {!collapsed ? (
+            <div className="w-full flex items-center gap-3 p-3 rounded-lg bg-sidebar-accent/20 border border-sidebar-border/40 hover:bg-sidebar-accent/30 transition-colors">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-muted-foreground/10 text-muted-foreground text-xs font-medium">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-sidebar-foreground truncate">Super Admin</p>
+                <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user?.email}</p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={signOut}
+                    className="p-2 rounded-md border border-sidebar-border/40 text-muted-foreground hover:bg-sidebar-accent/40 transition-colors"
+                    aria-label="Sair"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Sair</TooltipContent>
+              </Tooltip>
+            </div>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={signOut}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors mx-auto"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Sair</TooltipContent>
+            </Tooltip>
+          )}
+        </TooltipProvider>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+export function SuperAdminLayout({ children }: { children?: ReactNode }) {
+  const location = useLocation();
+  const { resolved, setTheme } = useTheme();
+
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <div className="hidden md:block">
+          <SuperAdminSidebar />
+        </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">
+                  Administração da Plataforma IACLIN
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setTheme(resolved === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title={resolved === 'dark' ? 'Modo claro' : 'Modo escuro'}
             >
-              {children ?? <Outlet />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+              {resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </header>
+
+          <main className="flex-1 p-4 md:p-6 overflow-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                {children ?? <Outlet />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
