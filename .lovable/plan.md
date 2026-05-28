@@ -1,55 +1,101 @@
-## Finalização do Sistema de Planos & Pagamentos
+## Painel da Operadora — Reformulação Completa
 
-Concluir as etapas pendentes do módulo de assinaturas (Stripe + PIX manual) já iniciado.
+Hoje o painel da operadora compartilha o mesmo visual da clínica/paciente e o fluxo de credenciamento está incompleto. Esta entrega vai diferenciar a identidade, completar o onboarding bilateral, adicionar contrato digital, geolocalização e antifraude no atendimento.
 
-### 1. Página de Status de Pagamentos (Superadmin)
-Criar `src/pages/superadmin/SuperAdminPayments.tsx`:
-- Tabela unificada de `platform_payments` com filtros por status (pago / pendente / atrasado / falhou) e método (cartão / PIX / manual).
-- Colunas: entidade (clínica/médico/operadora), plano, ciclo, valor final, método, status, vencimento, pago em.
-- Badges coloridos por status; destaque para vencidos.
-- Ação rápida "Registrar PIX" abrindo o `RecordPaymentDialog`.
-- KPIs no topo: MRR estimado, inadimplência, próximos vencimentos (7 dias).
+Trabalho dividido em 5 fases, entregáveis de forma incremental.
 
-### 2. Rotas e Navegação
-Em `src/App.tsx` registrar:
-- `/superadmin/planos` → `SuperAdminPlans`
-- `/superadmin/cupons` → `SuperAdminCoupons`
-- `/superadmin/pagamentos` → `SuperAdminPayments`
+---
 
-Em `SuperAdminLayout.tsx` adicionar os 3 links no menu lateral (ícones: `Package`, `TicketPercent`, `CreditCard`).
+### Fase 1 — Identidade Visual B2B do painel da operadora
 
-### 3. Integração nas Configurações dos Clientes
-Inserir `<SubscriptionSection />` em:
-- `src/pages/SettingsPage.tsx` (clínica / médico) — nova aba "Assinatura".
-- `src/pages/operadora/OperatorSettings.tsx` — card "Assinatura" abaixo dos dados.
-- `src/pages/patient/PatientSettings.tsx` — **não** (paciente não tem plano).
+- Novo tema (cores corporativas distintas do app clínico): paleta navy/azul-aço com accent âmbar, tipografia mais densa (estilo dashboard B2B).
+- `OperatorLayout` ganha:
+  - Logo da operadora (upload em Configurações) exibida no topo da sidebar — fallback IACLIN se ainda não tiver.
+  - Header com nome da operadora, CNPJ, status (ativa/pendente) e badge "Operadora".
+  - Sidebar mais larga, agrupada por seção (Visão geral · Rede · Onboarding · Atendimentos · Financeiro · Configurações).
+- Tokens próprios em `index.css` sob `.operator-scope` para não vazar pro restante do app.
 
-A `SubscriptionSection` já cobre: visualizar plano atual, ciclo, método de pagamento, vencimento, histórico, alerta de vencido, e botões "Trocar plano" / "Trocar forma de pagamento".
+### Fase 2 — Fluxo de Credenciamento Bilateral
 
-### 4. Edge Functions Stripe (built-in)
-Habilitar `enable_stripe_payments` e criar:
-- `create-checkout-session` — recebe `plan_id` + `entity_type/id`, cria Checkout Stripe (modo subscription) e devolve URL.
-- `create-customer-portal` — abre portal Stripe para o cliente trocar cartão / cancelar.
-- `stripe-webhook` (verify_jwt=false) — escuta `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`; insere em `platform_payments` (trigger já estende `current_period_end`) e atualiza `status` da assinatura.
+**Lado da Operadora:**
+- Página "Convites" (`/operadora/convites`): operadora envia convite por e-mail/telefone para clínica ou profissional específico. Gera link com token.
+- Briefing público da operadora (`/operadora/:slug/briefing`): página de vitrine com "anos de mercado", tabela de valores resumida, volume médio de pacientes/mês, regiões de atuação, diferenciais. Operadora edita em Configurações.
 
-Configuração em `supabase/config.toml`: bloco para `stripe-webhook` com `verify_jwt = false`.
+**Lado do Profissional:**
+- Em "Minhas operadoras" (já existe), cada operadora vira card com botão "Ver briefing" antes de "Solicitar credenciamento".
+- Wizard de credenciamento em etapas (substitui o pedido simples atual):
+  1. **Perfil profissional** — foto, nome, CPF, RG, estado civil, CRM/CRO (com validação de formato).
+  2. **Clínica** — endereço completo, fotos da clínica (upload múltiplo no bucket `clinic-assets`), horários.
+  3. **Especialidades e formação** — multiselect + campos livres.
+  4. **Procedimentos por operadora** — checklist filtrado pelo catálogo da operadora; o profissional marca quais aceita atender por aquela operadora específica.
+  5. **Revisão e envio**.
 
-### 5. Botões "Registrar PIX" nas Tabelas Admin
-Em `SuperAdminClinics`, `SuperAdminDoctors`, `SuperAdminOperators`: adicionar ação no menu da linha para abrir `RecordPaymentDialog` quando a entidade já tiver `subscription`.
+**Schema novo (migração):**
+- `operator_briefings` (operator_id, years_in_market, avg_monthly_volume, value_table_summary, differentials, regions[]).
+- `operator_invites` (operator_id, target_email, target_phone, target_user_id?, token, status, expires_at).
+- `professional_credentialing_profile` (user_id, cpf, rg, marital_status, photo_url, clinic_photos[]).
+- `credentialing_procedures` (credentialing_id, procedure_code, procedure_name) — procedimentos aceitos por aquela operadora.
 
-### 6. Tipos & Hook
-- Atualizar `usePlatformAdminData` para também retornar `payments` (lista global ou por entidade) usada no `SuperAdminPayments`.
-- Garantir tipos em `src/types/superadmin.ts` (já existem `PlatformPayment`).
+### Fase 3 — Validação, Contrato e Assinatura Digital
 
-### Ordem de execução
-1. Habilitar Stripe (`enable_stripe_payments`)
-2. Criar edge functions + config webhook
-3. Criar `SuperAdminPayments` + atualizar hook
-4. Registrar rotas + menu lateral
-5. Adicionar botões "Registrar PIX" nas tabelas
-6. Integrar `SubscriptionSection` em Settings e OperatorSettings
-7. Testar fluxo: criar plano → atribuir → checkout Stripe (modo teste) → webhook → status atualizado; registrar PIX manual → status atualizado.
+- Painel da operadora ganha aba "Análise" em cada pedido de credenciamento com checklist:
+  - CPF validado · CRM/CRO validado · Antecedentes (campo de upload/observação) · Fotos da clínica revisadas · Endereço confirmado.
+- Após "Aprovar", sistema **gera contrato PDF** (`generateCredentialingContractPdf.ts`) usando dados do profissional + operadora + procedimentos selecionados.
+- Tela de **assinatura digital dupla** (`/credenciamento/:id/assinar`):
+  - Profissional assina (nome digitado + checkbox de aceite + captura de IP/timestamp).
+  - Operadora assina (mesmo padrão).
+  - Status só vai para `active` (entra nas buscas do paciente/marketplace) após as duas assinaturas.
+- Schema: `credentialing_contracts` (credentialing_id, pdf_url, professional_signed_at, operator_signed_at, professional_signature_meta jsonb, operator_signature_meta jsonb).
 
-### Fora deste plano
-- Cobrança PIX automática (continua manual conforme decidido).
-- Notificações por e-mail de cobrança (pode entrar em uma etapa futura).
+### Fase 4 — Dashboard com Geolocalização e Métricas
+
+- `OperatorDashboard` ganha:
+  - **Mapa** (Leaflet, padrão do projeto) com pinos dos profissionais credenciados, agrupados por cidade.
+  - Cards: total por cidade/estado, distribuição por especialidade.
+- `OperatorNetwork` recebe filtros: estado · cidade · especialidade · tempo de credenciamento.
+- Perfil individual do credenciado (`/operadora/rede/:id`):
+  - Tempo de credenciamento.
+  - Volume de pacientes atendidos pela operadora.
+  - Faturamento gerado.
+  - Histórico de atendimentos.
+
+### Fase 5 — Atendimento Antifraude
+
+- Sincronização de agenda já existe (`professional_availability` modo `plano`/`ambos`) — manter.
+- Novo fluxo de **confirmação de execução**:
+  - Quando o profissional marca consulta como `completed`, o sistema cria um `attendance_confirmation` com token de 6 dígitos.
+  - O paciente recebe o token (notificação no app/SMS futuramente) e confirma na tela "Minhas consultas" → `confirmed_by_patient_at`.
+  - Alternativa: profissional pode pedir que o paciente assine na tela (assinatura no canvas, salva como imagem).
+  - **A operadora só vê o atendimento como "faturável" depois da confirmação do paciente**.
+- Nova página `/operadora/atendimentos`:
+  - Lista de atendimentos com status: `pendente_confirmacao_paciente` · `confirmado` · `disputado` · `pago`.
+  - Filtros por profissional, período e status.
+
+**Schema:** `attendance_confirmations` (appointment_id, token, patient_confirmed_at, professional_signature_url, status, disputed_reason).
+
+---
+
+### Stack técnica (sem alterações)
+
+- Frontend: React + Vite + Tailwind + shadcn, tema novo via CSS variables escopadas.
+- Backend: Lovable Cloud (Supabase) — migrações SQL com RLS e GRANTs explícitos para cada tabela nova.
+- PDF de contrato: jsPDF (mesmo padrão dos outros geradores em `src/lib/generate*Pdf.ts`).
+- Mapa: Leaflet imperativo via refs (memória do projeto).
+
+---
+
+### Ordem de execução sugerida
+
+1. Fase 1 (visual) — entrega rápida, alto impacto visual.
+2. Fase 2 (credenciamento bilateral) — maior valor de negócio.
+3. Fase 3 (contrato + assinatura) — fecha o ciclo de onboarding.
+4. Fase 4 (mapa + métricas).
+5. Fase 5 (antifraude).
+
+Cada fase é mergeada de forma independente e testável.
+
+---
+
+### Pergunta antes de começar
+
+Confirma que devo seguir **nesta ordem** e fazer **fase por fase** (te entrego a Fase 1 primeiro pra você validar, depois sigo)? Ou prefere que eu agrupe diferente (ex: visual + credenciamento juntos)?
