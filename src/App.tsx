@@ -55,6 +55,9 @@ import OperatorNetwork from "./pages/operadora/OperatorNetwork";
 import OperatorRequests from "./pages/operadora/OperatorRequests";
 import OperatorAgenda from "./pages/operadora/OperatorAgenda";
 import OperatorSettings from "./pages/operadora/OperatorSettings";
+import OperatorAttendances from "./pages/operadora/OperatorAttendances";
+import OperatorBilling from "./pages/operadora/OperatorBilling";
+import OperatorInvites from "./pages/operadora/OperatorInvites";
 import { SuperAdminLayout } from "./components/superadmin/SuperAdminLayout";
 import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
@@ -221,7 +224,10 @@ const AppRoutes = () => (
       <Route index element={<OperatorDashboard />} />
       <Route path="rede" element={<OperatorNetwork />} />
       <Route path="pedidos" element={<OperatorRequests />} />
+      <Route path="convites" element={<OperatorInvites />} />
       <Route path="agenda" element={<OperatorAgenda />} />
+      <Route path="atendimentos" element={<OperatorAttendances />} />
+      <Route path="faturamento" element={<OperatorBilling />} />
       <Route path="configuracoes" element={<OperatorSettings />} />
     </Route>
     <Route path="/" element={<HomeRoute />} />
