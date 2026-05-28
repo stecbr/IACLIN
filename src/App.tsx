@@ -61,6 +61,9 @@ import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
 import SuperAdminDoctors from "./pages/superadmin/SuperAdminDoctors";
 import SuperAdminSettings from "./pages/superadmin/SuperAdminSettings";
 import SuperAdminOperators from "./pages/superadmin/SuperAdminOperators";
+import SuperAdminPlans from "./pages/superadmin/SuperAdminPlans";
+import SuperAdminCoupons from "./pages/superadmin/SuperAdminCoupons";
+import SuperAdminPayments from "./pages/superadmin/SuperAdminPayments";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -193,6 +196,9 @@ const AppRoutes = () => (
     <Route path="/superadmin/clinicas" element={<SuperAdminProtectedRoute><SuperAdminClinics /></SuperAdminProtectedRoute>} />
     <Route path="/superadmin/medicos" element={<SuperAdminProtectedRoute><SuperAdminDoctors /></SuperAdminProtectedRoute>} />
     <Route path="/superadmin/operadoras" element={<SuperAdminProtectedRoute><SuperAdminOperators /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/planos" element={<SuperAdminProtectedRoute><SuperAdminPlans /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/cupons" element={<SuperAdminProtectedRoute><SuperAdminCoupons /></SuperAdminProtectedRoute>} />
+    <Route path="/superadmin/pagamentos" element={<SuperAdminProtectedRoute><SuperAdminPayments /></SuperAdminProtectedRoute>} />
     <Route path="/superadmin/configuracoes" element={<SuperAdminProtectedRoute><SuperAdminSettings /></SuperAdminProtectedRoute>} />
 
     <Route path="/auth" element={<Auth />} />

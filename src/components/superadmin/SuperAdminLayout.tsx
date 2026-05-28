@@ -10,6 +10,9 @@ import {
   Moon,
   ShieldCheck,
   Settings,
+  Package,
+  TicketPercent,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
@@ -22,6 +25,9 @@ const nav = [
   { to: '/superadmin/clinicas',      label: 'Clínicas',       icon: Building2 },
   { to: '/superadmin/medicos',       label: 'Médicos',        icon: Stethoscope },
   { to: '/superadmin/operadoras',    label: 'Operadoras',     icon: HeartPulse },
+  { to: '/superadmin/planos',        label: 'Planos',         icon: Package },
+  { to: '/superadmin/cupons',        label: 'Cupons',         icon: TicketPercent },
+  { to: '/superadmin/pagamentos',    label: 'Pagamentos',     icon: CreditCard },
   { to: '/superadmin/configuracoes', label: 'Configurações',  icon: Settings },
 ];
 
