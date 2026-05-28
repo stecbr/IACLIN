@@ -1,101 +1,76 @@
-## Painel da Operadora — Reformulação Completa
 
-Hoje o painel da operadora compartilha o mesmo visual da clínica/paciente e o fluxo de credenciamento está incompleto. Esta entrega vai diferenciar a identidade, completar o onboarding bilateral, adicionar contrato digital, geolocalização e antifraude no atendimento.
+# Ativação de Pagamentos — Stripe BYOK + Planos de Teste
 
-Trabalho dividido em 5 fases, entregáveis de forma incremental.
+## Decisões assumidas
+- **Provedor**: Stripe BYOK (você já criou a conta `iaclin.2026@gmail.com` e tem as 2 chaves). Vou usar a integração que aceita suas próprias chaves, não a nativa da Lovable.
+- **Imposto**: Opção 3 (sem automação) — você emite NF e cuida do tributo. Mais simples para começar e zero custo extra. Podemos trocar depois.
+- **Modo inicial**: Test mode (chaves `sk_test_...`). Quando validar, troca para `sk_live_...`.
+- **Catálogo**: 2 planos de teste, ambos genéricos "Plano IACLIN", sem segmentação clínica/profissional/operadora ainda — só para validar o fluxo de cobrança ponta a ponta.
 
----
+## Planos a criar
 
-### Fase 1 — Identidade Visual B2B do painel da operadora
+| Plano | Ciclo | Valor | Stripe Price ID |
+|---|---|---|---|
+| IACLIN Mensal (Teste) | mensal | R$ 99,99 | gerado na criação |
+| IACLIN Anual (Teste) | anual | R$ 859,99 | gerado na criação |
 
-- Novo tema (cores corporativas distintas do app clínico): paleta navy/azul-aço com accent âmbar, tipografia mais densa (estilo dashboard B2B).
-- `OperatorLayout` ganha:
-  - Logo da operadora (upload em Configurações) exibida no topo da sidebar — fallback IACLIN se ainda não tiver.
-  - Header com nome da operadora, CNPJ, status (ativa/pendente) e badge "Operadora".
-  - Sidebar mais larga, agrupada por seção (Visão geral · Rede · Onboarding · Atendimentos · Financeiro · Configurações).
-- Tokens próprios em `index.css` sob `.operator-scope` para não vazar pro restante do app.
+Os preços serão criados **diretamente no Stripe via API** dentro de uma edge function de bootstrap, e os IDs gravados na tabela `platform_plans` que já existe.
 
-### Fase 2 — Fluxo de Credenciamento Bilateral
+## O que vou fazer (passos)
 
-**Lado da Operadora:**
-- Página "Convites" (`/operadora/convites`): operadora envia convite por e-mail/telefone para clínica ou profissional específico. Gera link com token.
-- Briefing público da operadora (`/operadora/:slug/briefing`): página de vitrine com "anos de mercado", tabela de valores resumida, volume médio de pacientes/mês, regiões de atuação, diferenciais. Operadora edita em Configurações.
+### 1. Guardar suas credenciais
+- `STRIPE_SECRET_KEY` (a `sk_test_...`) — via secrets tool, te peço para colar no formulário seguro.
+- `STRIPE_PUBLISHABLE_KEY` (a `pk_test_...`) — pode ir no `.env` como `VITE_STRIPE_PUBLISHABLE_KEY` (é pública).
+- `STRIPE_WEBHOOK_SECRET` — adiciono depois do passo 4 (você copia do Stripe Dashboard).
 
-**Lado do Profissional:**
-- Em "Minhas operadoras" (já existe), cada operadora vira card com botão "Ver briefing" antes de "Solicitar credenciamento".
-- Wizard de credenciamento em etapas (substitui o pedido simples atual):
-  1. **Perfil profissional** — foto, nome, CPF, RG, estado civil, CRM/CRO (com validação de formato).
-  2. **Clínica** — endereço completo, fotos da clínica (upload múltiplo no bucket `clinic-assets`), horários.
-  3. **Especialidades e formação** — multiselect + campos livres.
-  4. **Procedimentos por operadora** — checklist filtrado pelo catálogo da operadora; o profissional marca quais aceita atender por aquela operadora específica.
-  5. **Revisão e envio**.
+### 2. Bootstrap dos planos no Stripe
+Edge function `stripe-bootstrap-plans` (chamada manualmente uma vez):
+- Cria Product "IACLIN Mensal (Teste)" + Price R$99,99/mês.
+- Cria Product "IACLIN Anual (Teste)" + Price R$859,99/ano.
+- Insere/atualiza linhas em `platform_plans` com `stripe_product_id` e `stripe_price_id`.
 
-**Schema novo (migração):**
-- `operator_briefings` (operator_id, years_in_market, avg_monthly_volume, value_table_summary, differentials, regions[]).
-- `operator_invites` (operator_id, target_email, target_phone, target_user_id?, token, status, expires_at).
-- `professional_credentialing_profile` (user_id, cpf, rg, marital_status, photo_url, clinic_photos[]).
-- `credentialing_procedures` (credentialing_id, procedure_code, procedure_name) — procedimentos aceitos por aquela operadora.
+### 3. Checkout
+Edge function `stripe-create-checkout`:
+- Recebe `plan_id` + usuário autenticado.
+- Cria/recupera `Customer` no Stripe (salva `stripe_customer_id` na `platform_subscriptions`).
+- Cria `Checkout Session` em modo `subscription`.
+- Retorna URL para redirecionar.
 
-### Fase 3 — Validação, Contrato e Assinatura Digital
+### 4. Webhook
+Edge function `stripe-webhook` (com `verify_jwt = false` e validação de assinatura):
+- `checkout.session.completed` → cria/ativa `platform_subscriptions`.
+- `invoice.paid` → insere `platform_payments` + estende `current_period_end`.
+- `invoice.payment_failed` → marca como `overdue`.
+- `customer.subscription.updated` / `.deleted` → sincroniza status.
 
-- Painel da operadora ganha aba "Análise" em cada pedido de credenciamento com checklist:
-  - CPF validado · CRM/CRO validado · Antecedentes (campo de upload/observação) · Fotos da clínica revisadas · Endereço confirmado.
-- Após "Aprovar", sistema **gera contrato PDF** (`generateCredentialingContractPdf.ts`) usando dados do profissional + operadora + procedimentos selecionados.
-- Tela de **assinatura digital dupla** (`/credenciamento/:id/assinar`):
-  - Profissional assina (nome digitado + checkbox de aceite + captura de IP/timestamp).
-  - Operadora assina (mesmo padrão).
-  - Status só vai para `active` (entra nas buscas do paciente/marketplace) após as duas assinaturas.
-- Schema: `credentialing_contracts` (credentialing_id, pdf_url, professional_signed_at, operator_signed_at, professional_signature_meta jsonb, operator_signature_meta jsonb).
+Depois de criar, te passo a URL do webhook (`https://fwyulywxhjyxdreeuqna.supabase.co/functions/v1/stripe-webhook`) para você colar no Stripe Dashboard → Developers → Webhooks, e copiar o `whsec_...` resultante.
 
-### Fase 4 — Dashboard com Geolocalização e Métricas
+### 5. Portal do cliente
+Edge function `stripe-customer-portal`:
+- Gera link do Stripe Billing Portal (cancelar, trocar cartão, ver faturas).
 
-- `OperatorDashboard` ganha:
-  - **Mapa** (Leaflet, padrão do projeto) com pinos dos profissionais credenciados, agrupados por cidade.
-  - Cards: total por cidade/estado, distribuição por especialidade.
-- `OperatorNetwork` recebe filtros: estado · cidade · especialidade · tempo de credenciamento.
-- Perfil individual do credenciado (`/operadora/rede/:id`):
-  - Tempo de credenciamento.
-  - Volume de pacientes atendidos pela operadora.
-  - Faturamento gerado.
-  - Histórico de atendimentos.
+### 6. Tela de assinatura (UI)
+Página `/assinatura` (ou bloco em `SettingsPage`):
+- Lista os 2 planos com preço.
+- Botão "Assinar" → chama `stripe-create-checkout`.
+- Se já tem assinatura ativa: mostra status, próximo vencimento, botão "Gerenciar" (abre portal).
 
-### Fase 5 — Atendimento Antifraude
+## O que você precisa fazer
 
-- Sincronização de agenda já existe (`professional_availability` modo `plano`/`ambos`) — manter.
-- Novo fluxo de **confirmação de execução**:
-  - Quando o profissional marca consulta como `completed`, o sistema cria um `attendance_confirmation` com token de 6 dígitos.
-  - O paciente recebe o token (notificação no app/SMS futuramente) e confirma na tela "Minhas consultas" → `confirmed_by_patient_at`.
-  - Alternativa: profissional pode pedir que o paciente assine na tela (assinatura no canvas, salva como imagem).
-  - **A operadora só vê o atendimento como "faturável" depois da confirmação do paciente**.
-- Nova página `/operadora/atendimentos`:
-  - Lista de atendimentos com status: `pendente_confirmacao_paciente` · `confirmado` · `disputado` · `pago`.
-  - Filtros por profissional, período e status.
+1. **Agora**: colar a `sk_test_...` no formulário de secret que vou abrir.
+2. **Depois do passo 4**: criar o webhook no Stripe Dashboard com a URL que te passo e colar o `whsec_...`.
+3. **Validar**: fazer um checkout de teste com cartão `4242 4242 4242 4242` (qualquer CVC/data futura).
 
-**Schema:** `attendance_confirmations` (appointment_id, token, patient_confirmed_at, professional_signature_url, status, disputed_reason).
+## Fora do escopo desta entrega
+- Cupons de desconto (já tem modelo no banco, fica para depois).
+- Segmentação clínica / profissional / operadora nos planos.
+- Notas fiscais / integração contábil.
+- Modo live (chaves `sk_live_`) — você ativa quando quiser, é só trocar o valor da secret.
 
----
+## Detalhes técnicos
+- SDK: `npm:stripe@^17` nas edge functions.
+- Tabelas usadas (já existem): `platform_plans`, `platform_subscriptions`, `platform_payments`.
+- CORS configurado em todas as funções chamadas do browser.
+- `stripe-webhook` precisa de `verify_jwt = false` no `supabase/config.toml`.
 
-### Stack técnica (sem alterações)
-
-- Frontend: React + Vite + Tailwind + shadcn, tema novo via CSS variables escopadas.
-- Backend: Lovable Cloud (Supabase) — migrações SQL com RLS e GRANTs explícitos para cada tabela nova.
-- PDF de contrato: jsPDF (mesmo padrão dos outros geradores em `src/lib/generate*Pdf.ts`).
-- Mapa: Leaflet imperativo via refs (memória do projeto).
-
----
-
-### Ordem de execução sugerida
-
-1. Fase 1 (visual) — entrega rápida, alto impacto visual.
-2. Fase 2 (credenciamento bilateral) — maior valor de negócio.
-3. Fase 3 (contrato + assinatura) — fecha o ciclo de onboarding.
-4. Fase 4 (mapa + métricas).
-5. Fase 5 (antifraude).
-
-Cada fase é mergeada de forma independente e testável.
-
----
-
-### Pergunta antes de começar
-
-Confirma que devo seguir **nesta ordem** e fazer **fase por fase** (te entrego a Fase 1 primeiro pra você validar, depois sigo)? Ou prefere que eu agrupe diferente (ex: visual + credenciamento juntos)?
+**Posso seguir? Se sim, ao aprovar este plano eu já te peço a `STRIPE_SECRET_KEY` no primeiro passo.**
