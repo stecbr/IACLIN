@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import ClinicRoomsSection from '@/components/settings/ClinicRoomsSection';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
+import SubscriptionSection from '@/components/settings/SubscriptionSection';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { aiBackend } from '@/lib/aiBackend';
 
@@ -28,6 +29,7 @@ const sections = [
   { id: 'rooms', label: 'Salas', icon: Armchair },
   { id: 'insurance', label: 'Convênios', icon: Shield },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
+  { id: 'subscription', label: 'Assinatura', icon: Sparkles },
 ];
 
 export default function SettingsPage() {
@@ -97,6 +99,9 @@ export default function SettingsPage() {
           {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'procedures' && <ProceduresCrudSection />}
+          {activeSection === 'subscription' && currentClinicId && (
+            <SubscriptionSection entityType="clinic" entityId={currentClinicId} />
+          )}
         </div>
       </div>
     </div>
