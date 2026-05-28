@@ -131,7 +131,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
           <ActiveConsultationBar />
-          <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">
+          <main className="flex-1 flex flex-col p-4 md:p-6 pb-24 md:pb-6 min-h-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
@@ -139,6 +139,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="flex-1 flex flex-col min-h-0"
               >
                 {children}
               </motion.div>

@@ -658,7 +658,7 @@ export default function IaGestor() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] md:h-[calc(100dvh-7rem)] rounded-lg overflow-hidden border border-border bg-background">
+    <div className="flex flex-1 min-h-0 rounded-lg overflow-hidden border border-border bg-background">
       <Sidebar
         threads={threads}
         folders={folders}
