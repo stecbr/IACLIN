@@ -33,7 +33,6 @@ export function MobileBottomNav() {
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
   const familyConfig = isDentist ? getFamilyConfig(memberSpecialty) : null;
   const isPsi = familyConfig?.family === 'psi';
-  const toolsUrl = familyConfig?.toolsRoute ?? '/ferramentas';
 
   const allMainItems = isDentist
     ? [
@@ -80,7 +79,7 @@ export function MobileBottomNav() {
       {/* More menu overlay */}
       {showMore && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setShowMore(false)}>
-          <div className="absolute bottom-[72px] left-4 right-4 bg-popover border border-border rounded-xl shadow-lg p-2 animate-in" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed bottom-[72px] left-4 right-4 bg-popover border border-border rounded-xl shadow-lg p-2 animate-in" onClick={(e) => e.stopPropagation()}>
             {moreItems.map((item) => (
               <Link
                 key={item.url}

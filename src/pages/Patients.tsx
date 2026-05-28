@@ -157,7 +157,8 @@ export default function Patients() {
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
+            <span className="text-muted-foreground text-xs mr-1">Status:</span>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
@@ -167,7 +168,8 @@ export default function Patients() {
         </Select>
         <Select value={insuranceFilter} onValueChange={setInsuranceFilter}>
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Convênio" />
+            <span className="text-muted-foreground text-xs mr-1">Convênio:</span>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>

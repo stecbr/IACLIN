@@ -152,8 +152,8 @@ export default function Agenda() {
           </Button>
         </PageHeader>
 
-        {/* Navigation */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {/* Navigation — linha 1: setas + data */}
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
               <ChevronLeft className="h-4 w-4" />
@@ -162,31 +162,46 @@ export default function Agenda() {
             <Button variant="outline" size="icon" onClick={() => navigate(1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium text-foreground ml-1 capitalize">{headerLabel}</span>
+            <span className="text-sm font-medium text-foreground ml-1 capitalize hidden sm:inline">{headerLabel}</span>
           </div>
+          {/* linha 1 direita: só view switcher (e médicos no desktop) */}
           <div className="flex items-center gap-2">
             {!restrictToSelf && (
-              <AgendaDoctorFilter
-                value={doctorFilter}
-                onChange={setDoctorFilter}
-                allowCompare={view !== 'month'}
-                onDoctorsLoaded={handleDoctorsLoaded}
-              />
+              <div className="hidden sm:block">
+                <AgendaDoctorFilter
+                  value={doctorFilter}
+                  onChange={setDoctorFilter}
+                  allowCompare={view !== 'month'}
+                  onDoctorsLoaded={handleDoctorsLoaded}
+                />
+              </div>
             )}
             <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-            {(['day', 'week', 'month'] as View[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-                  view === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {v === 'day' ? 'Dia' : v === 'week' ? 'Semana' : 'Mês'}
-              </button>
-            ))}
+              {(['day', 'week', 'month'] as View[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                    view === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {v === 'day' ? 'Dia' : v === 'week' ? 'Sem' : 'Mês'}
+                </button>
+              ))}
             </div>
           </div>
+        </div>
+        {/* linha 2 mobile: data + filtro médicos */}
+        <div className="flex items-center justify-between sm:hidden">
+          <span className="text-sm font-medium text-foreground capitalize">{headerLabel}</span>
+          {!restrictToSelf && (
+            <AgendaDoctorFilter
+              value={doctorFilter}
+              onChange={setDoctorFilter}
+              allowCompare={view !== 'month'}
+              onDoctorsLoaded={handleDoctorsLoaded}
+            />
+          )}
         </div>
 
         {/* Calendar Grid */}
