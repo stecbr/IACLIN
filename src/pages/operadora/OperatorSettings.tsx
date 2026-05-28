@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Upload } from 'lucide-react';
 import SubscriptionSection from '@/components/settings/SubscriptionSection';
 
 export default function OperatorSettings() {
@@ -33,12 +34,51 @@ export default function OperatorSettings() {
 
   if (!op) return <Card className="p-8 text-sm text-muted-foreground">Carregando...</Card>;
 
+  const uploadLogo = async (file: File) => {
+    if (!operatorId) return;
+    const ext = file.name.split('.').pop();
+    const path = `operators/${operatorId}/logo-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file, { upsert: true });
+    if (upErr) return toast.error('Erro no upload: ' + upErr.message);
+    const { data: pub } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+    const { error } = await supabase.from('insurance_operators').update({ logo_url: pub.publicUrl }).eq('id', operatorId);
+    if (error) return toast.error('Erro ao salvar logo');
+    setOp({ ...op, logo_url: pub.publicUrl });
+    toast.success('Logo atualizada');
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <p className="text-sm text-muted-foreground">Dados da sua operadora</p>
       </div>
+      <Card className="p-6">
+        <Label className="mb-3 block">Logo da operadora</Label>
+        <div className="flex items-center gap-4">
+          <div className="h-20 w-20 rounded-md border border-border bg-muted flex items-center justify-center overflow-hidden">
+            {op.logo_url ? (
+              <img src={op.logo_url} alt="Logo" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-xs text-muted-foreground">Sem logo</span>
+            )}
+          </div>
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+            />
+            <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-input hover:bg-muted transition">
+              <Upload className="h-4 w-4" /> Enviar logo
+            </span>
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          A logo aparece no topo da sidebar e no cabeçalho do painel.
+        </p>
+      </Card>
       <Card className="p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div><Label>Nome fantasia</Label><Input value={op.name ?? ''} onChange={(e) => setOp({ ...op, name: e.target.value })} /></div>
