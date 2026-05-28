@@ -46,12 +46,35 @@ export function PlanFormDialog({ open, onClose, plan }: Props) {
         name, description: description || null, segment, billing_cycle: cycle,
         price_cents, features: featuresArr, is_active: isActive,
       };
-      const { error } = isEdit
-        ? await (supabase as any).from('platform_plans').update(payload).eq('id', plan!.id)
-        : await (supabase as any).from('platform_plans').insert(payload);
-      if (error) throw error;
-      await qc.invalidateQueries({ queryKey: ['platform-plans'] });
+      let savedId = plan?.id;
+      if (isEdit) {
+        const { error } = await (supabase as any).from('platform_plans').update(payload).eq('id', plan!.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await (supabase as any).from('platform_plans').insert(payload).select('id').single();
+        if (error) throw error;
+        savedId = data?.id;
+      }
       toast.success(isEdit ? 'Plano atualizado!' : 'Plano criado!');
+
+      // Sync with Stripe (product + price)
+      if (savedId) {
+        try {
+          const { data: syncData, error: syncErr } = await supabase.functions.invoke('stripe-sync-plan', {
+            body: { plan_id: savedId },
+          });
+          if (syncErr) throw syncErr;
+          if (syncData?.price_changed) {
+            toast.success('Sincronizado com Stripe (novo preço criado)');
+          } else {
+            toast.success('Sincronizado com Stripe');
+          }
+        } catch (err: any) {
+          toast.error('Plano salvo, mas falhou sync com Stripe: ' + (err?.message ?? 'erro'));
+        }
+      }
+
+      await qc.invalidateQueries({ queryKey: ['platform-plans'] });
       onClose();
     } catch (err: any) {
       toast.error('Erro: ' + (err?.message ?? 'desconhecido'));

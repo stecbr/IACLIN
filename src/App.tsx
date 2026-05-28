@@ -22,7 +22,6 @@ import Odontogram from "./pages/Odontogram";
 import ClinicalMapPage from "./components/clinical-map/ClinicalMapPage";
 import Financial from "./pages/Financial";
 import SettingsPage from "./pages/SettingsPage";
-import Subscription from "./pages/Subscription";
 import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
@@ -262,7 +261,7 @@ const AppRoutes = () => (
     <Route path="/ia-gestor/:threadId" element={<ProtectedRoute><IaGestor /></ProtectedRoute>} />
     <Route path="/atendimentos-ia" element={<ProtectedRoute><AtendimentosIA /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-    <Route path="/assinatura" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+    <Route path="/assinatura" element={<Navigate to="/settings" replace />} />
     <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>

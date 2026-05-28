@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CreditCard, Receipt, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, Loader2, Receipt, Sparkles } from 'lucide-react';
 import {
   formatBRL,
   SUB_STATUS_LABELS,
@@ -15,6 +16,7 @@ import {
   type PlatformSubscription,
   type PlatformPayment,
   type PlanSegment,
+  type PlatformPlan,
   type SubStatus,
   type PaymentStatus,
 } from '@/types/superadmin';
@@ -40,6 +42,9 @@ const PAY_STATUS_STYLES: Record<PaymentStatus, string> = {
 };
 
 export default function SubscriptionSection({ entityType, entityId }: Props) {
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+
   const { data: subscription, isLoading } = useQuery({
     queryKey: ['my-subscription', entityType, entityId],
     enabled: !!entityId,
@@ -70,25 +75,148 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
     },
   });
 
+  const { data: plans = [] } = useQuery({
+    queryKey: ['available-plans', entityType],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('platform_plans')
+        .select('*')
+        .eq('segment', entityType)
+        .eq('is_active', true)
+        .order('price_cents', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PlatformPlan[];
+    },
+  });
+
+  const handleSubscribe = async (planId: string) => {
+    setCheckoutLoading(planId);
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-create-checkout', {
+        body: {
+          plan_id: planId,
+          entity_type: entityType,
+          entity_id: entityId,
+          success_url: `${window.location.origin}/settings?tab=subscription&status=success`,
+          cancel_url: `${window.location.origin}/settings?tab=subscription&status=cancelled`,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
+      else throw new Error('URL de checkout não retornada');
+    } catch (e: any) {
+      toast.error('Erro ao iniciar checkout: ' + (e?.message ?? 'desconhecido'));
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleOpenPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-customer-portal', {
+        body: {
+          entity_type: entityType,
+          entity_id: entityId,
+          return_url: `${window.location.origin}/settings?tab=subscription`,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) window.location.href = data.url;
+      else throw new Error('URL do portal não retornada');
+    } catch (e: any) {
+      toast.error('Erro ao abrir portal: ' + (e?.message ?? 'desconhecido'));
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   if (isLoading) {
     return <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">Carregando...</CardContent></Card>;
   }
 
+  const isActive = subscription && (subscription.status === 'active' || subscription.status === 'trial');
+
+  const PlansGrid = () => (
+    <Card className="shadow-card border-border/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sparkles className="h-4 w-4 text-primary" /> {isActive ? 'Trocar de plano' : 'Escolha seu plano'}
+        </CardTitle>
+        <CardDescription>
+          {isActive
+            ? 'Mudanças entram em vigor no próximo ciclo de cobrança.'
+            : 'Assine para liberar todos os recursos da plataforma.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {plans.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">Nenhum plano disponível no momento.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {plans.map((p) => {
+              const isCurrent = subscription?.plan_id === p.id && isActive;
+              return (
+                <div
+                  key={p.id}
+                  className={`rounded-xl border p-5 flex flex-col gap-3 transition ${
+                    isCurrent ? 'border-primary bg-primary/5' : 'border-border/60 hover:border-primary/40'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{CYCLE_LABELS[p.billing_cycle]}</p>
+                    </div>
+                    {isCurrent && <Badge className="bg-primary/10 text-primary border-primary/30" variant="outline">Atual</Badge>}
+                  </div>
+                  <div>
+                    <span className="text-2xl font-semibold">{formatBRL(p.price_cents)}</span>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      /{p.billing_cycle === 'yearly' ? 'ano' : 'mês'}
+                    </span>
+                  </div>
+                  {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
+                  {p.features && p.features.length > 0 && (
+                    <ul className="space-y-1 text-xs">
+                      {p.features.slice(0, 6).map((f, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Button
+                    className="mt-auto"
+                    size="sm"
+                    variant={isCurrent ? 'outline' : 'default'}
+                    disabled={isCurrent || checkoutLoading !== null}
+                    onClick={() => handleSubscribe(p.id)}
+                  >
+                    {checkoutLoading === p.id ? (
+                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Redirecionando...</>
+                    ) : isCurrent ? 'Plano atual' : isActive ? 'Trocar para este plano' : 'Assinar'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   if (!subscription) {
     return (
-      <Card className="shadow-card border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Assinatura</CardTitle>
-          <CardDescription>Você ainda não tem uma assinatura ativa.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-dashed p-6 text-center space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Entre em contato com a equipe IACLIN para ativar seu plano.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card className="shadow-card border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Assinatura</CardTitle>
+            <CardDescription>Você ainda não tem uma assinatura ativa.</CardDescription>
+          </CardHeader>
+        </Card>
+        <PlansGrid />
+      </div>
     );
   }
 
@@ -148,21 +276,17 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
               variant="outline"
               size="sm"
               className="gap-2"
-              onClick={() => toast.info('Para trocar de plano, entre em contato com a equipe IACLIN.')}
+              onClick={handleOpenPortal}
+              disabled={portalLoading}
             >
-              <Sparkles className="h-4 w-4" /> Trocar plano
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => toast.info('Pagamentos por cartão (Stripe) serão liberados em breve. Por enquanto utilize PIX manual com a equipe IACLIN.')}
-            >
-              <CreditCard className="h-4 w-4" /> Trocar forma de pagamento
+              {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              Gerenciar assinatura
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <PlansGrid />
 
       <Card className="shadow-card border-border/50">
         <CardHeader>
