@@ -374,30 +374,30 @@ export default function Onboarding() {
 
                 <div className="space-y-2">
                   {WEEKDAYS.map(({ key, label }) => (
-                    <div key={key} className={`flex items-center gap-3 rounded-lg border p-2.5 transition-colors ${
+                    <div key={key} className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors ${
                       businessHours[key].enabled ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20'
                     }`}>
                       <Switch
                         checked={businessHours[key].enabled}
                         onCheckedChange={() => toggleDay(key)}
                       />
-                      <span className={`w-16 text-sm font-medium ${businessHours[key].enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      <span className={`w-14 shrink-0 text-sm font-medium ${businessHours[key].enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {label}
                       </span>
                       {businessHours[key].enabled ? (
-                        <div className="flex items-center gap-1.5 ml-auto">
+                        <div className="flex items-center gap-1 ml-auto">
                           <Input
                             type="time"
                             value={businessHours[key].open}
                             onChange={e => updateDayTime(key, 'open', e.target.value)}
-                            className="h-7 w-24 text-xs"
+                            className="h-7 w-[88px] text-xs px-1.5"
                           />
-                          <span className="text-xs text-muted-foreground">às</span>
+                          <span className="text-xs text-muted-foreground shrink-0">às</span>
                           <Input
                             type="time"
                             value={businessHours[key].close}
                             onChange={e => updateDayTime(key, 'close', e.target.value)}
-                            className="h-7 w-24 text-xs"
+                            className="h-7 w-[88px] text-xs px-1.5"
                           />
                         </div>
                       ) : (

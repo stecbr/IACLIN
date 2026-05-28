@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,28 +58,28 @@ export function ClinicHoursSection({ value, onChange }: Props) {
       <Label className="text-sm font-medium">Horário de Funcionamento</Label>
       <div className="space-y-2">
         {(Object.keys(DAY_LABELS) as (keyof BusinessHours)[]).map((day) => (
-          <div key={day} className="flex items-center gap-3 py-1.5">
+          <div key={day} className="flex items-center gap-2 py-1.5">
             <Switch
               checked={hours[day].enabled}
               onCheckedChange={(v) => updateDay(day, 'enabled', v)}
             />
-            <span className={`w-20 text-sm ${hours[day].enabled ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+            <span className={`w-16 shrink-0 text-sm ${hours[day].enabled ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
               {DAY_LABELS[day]}
             </span>
             {hours[day].enabled ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <Input
                   type="time"
                   value={hours[day].open}
                   onChange={(e) => updateDay(day, 'open', e.target.value)}
-                  className="w-28 h-8 text-xs"
+                  className="w-24 h-8 text-xs px-2"
                 />
-                <span className="text-xs text-muted-foreground">até</span>
+                <span className="text-xs text-muted-foreground shrink-0">até</span>
                 <Input
                   type="time"
                   value={hours[day].close}
                   onChange={(e) => updateDay(day, 'close', e.target.value)}
-                  className="w-28 h-8 text-xs"
+                  className="w-24 h-8 text-xs px-2"
                 />
               </div>
             ) : (

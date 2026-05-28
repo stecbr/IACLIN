@@ -34,6 +34,7 @@ import { usePatientPersonalization } from '@/hooks/usePatientPersonalization';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
+import { formatCpf, formatPhone } from '@/lib/cpf';
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -159,17 +160,17 @@ export default function PatientDetail() {
       </div>
 
       {/* Patient Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
-          <Avatar className="h-14 w-14">
+          <Avatar className="h-14 w-14 shrink-0">
             <AvatarFallback className="bg-primary/10 text-primary text-lg font-medium">{initials}</AvatarFallback>
           </Avatar>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               {personalization.is_favorite && (
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
               )}
-              <h1 className="text-2xl font-semibold text-foreground">{patient.full_name}</h1>
+              <h1 className="text-xl font-semibold text-foreground leading-tight">{patient.full_name}</h1>
               {!patient.is_active && <Badge variant="secondary">Inativo</Badge>}
               {patient.insurance_provider && <Badge variant="outline">{patient.insurance_provider}</Badge>}
               {personalization.tag && (
@@ -185,14 +186,14 @@ export default function PatientDetail() {
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-              {patient.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{patient.phone}</span>}
-              {patient.email && <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{patient.email}</span>}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+              {patient.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{formatPhone(patient.phone)}</span>}
+              {patient.email && <span className="flex items-center gap-1 min-w-0 truncate"><Mail className="h-3.5 w-3.5 shrink-0" />{patient.email}</span>}
               {patient.city && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{patient.city}{patient.state ? `, ${patient.state}` : ''}</span>}
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button
             size="sm"
             className="gap-2"
@@ -324,7 +325,7 @@ export default function PatientDetail() {
             <Card className="border-border/50">
               <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Dados Pessoais</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                {patient.cpf && <div><span className="text-muted-foreground">CPF:</span> <span className="font-medium">{patient.cpf}</span></div>}
+                {patient.cpf && <div><span className="text-muted-foreground">CPF:</span> <span className="font-medium">{formatCpf(patient.cpf)}</span></div>}
                 {patient.date_of_birth && <div><span className="text-muted-foreground">Nascimento:</span> <span className="font-medium">{format(new Date(patient.date_of_birth), "dd/MM/yyyy")}</span></div>}
                 {patient.gender && <div><span className="text-muted-foreground">Gênero:</span> <span className="font-medium">{patient.gender === 'M' ? 'Masculino' : patient.gender === 'F' ? 'Feminino' : 'Outro'}</span></div>}
               </CardContent>

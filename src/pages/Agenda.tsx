@@ -206,8 +206,9 @@ export default function Agenda() {
           />
         ) : (
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
+            <div className="overflow-x-auto">
             {/* Day Headers */}
-            <div className="grid border-b border-border" style={{ gridTemplateColumns: `60px repeat(${days.length}, 1fr)` }}>
+            <div className="grid border-b border-border" style={{ gridTemplateColumns: `60px repeat(${days.length}, minmax(80px, 1fr))` }}>
               <div className="p-2 border-r border-border" />
               {days.map((day) => (
                 <div
@@ -244,7 +245,7 @@ export default function Agenda() {
                 <div
                   key={hour}
                   className="grid border-b border-border last:border-b-0"
-                  style={{ gridTemplateColumns: `60px repeat(${days.length}, 1fr)` }}
+                  style={{ gridTemplateColumns: `60px repeat(${days.length}, minmax(80px, 1fr))` }}
                 >
                   <div className="p-2 text-xs text-muted-foreground text-right pr-3 border-r border-border h-[60px] flex items-start justify-end pt-1">
                     {`${hour}:00`}
@@ -330,6 +331,7 @@ export default function Agenda() {
                 </div>
               ))}
             </div>
+            </div>{/* overflow-x-auto */}
           </div>
         )}
 

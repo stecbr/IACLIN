@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, UserPlus, Phone, Mail, LayoutGrid, List, FolderHeart } from 'lucide-react';
+import { formatCpf, formatPhone } from '@/lib/cpf';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -233,7 +234,7 @@ export default function Patients() {
                         <FinancialDot status={financialMap?.get(patient.id)?.status} />
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{patient.phone ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{patient.phone ? formatPhone(patient.phone) : '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{patient.email ?? '—'}</TableCell>
                     <TableCell>
                       {patient.insurance_provider ? (
@@ -293,7 +294,7 @@ export default function Patients() {
                       {patient.phone && (
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Phone className="h-3 w-3" />
-                          {patient.phone}
+                          {formatPhone(patient.phone)}
                         </span>
                       )}
                       {patient.email && (
@@ -303,7 +304,7 @@ export default function Patients() {
                         </span>
                       )}
                       {patient.cpf && (
-                        <span className="text-xs text-muted-foreground">CPF: {patient.cpf}</span>
+                        <span className="text-xs text-muted-foreground">CPF: {formatCpf(patient.cpf)}</span>
                       )}
                     </div>
                   </div>

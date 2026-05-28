@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen, Briefcase, Brain } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen, Briefcase, Brain, Bot } from 'lucide-react';
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -59,6 +59,7 @@ export function MobileBottomNav() {
         { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen },
         { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
         { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+        { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot },
         { title: 'Configurações', url: '/settings', icon: Settings },
       ];
 
