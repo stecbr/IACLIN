@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import SubscriptionSection from '@/components/settings/SubscriptionSection';
 
 export default function OperatorSettings() {
   const { operatorId } = useAuth();
@@ -60,6 +61,8 @@ export default function OperatorSettings() {
         </div>
         <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button></div>
       </Card>
+
+      {operatorId && <SubscriptionSection entityType="operator" entityId={operatorId} />}
     </div>
   );
 }
