@@ -23,7 +23,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
-import { CommandInput } from '@/components/ui/command';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -220,7 +220,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
           <div className="flex-1 px-4">
             <div className="max-w-[720px] mx-auto">
-              <CommandInput placeholder="Buscar na operadora..." className="w-full" />
+              <Input placeholder="Buscar na operadora..." className="w-full h-9" />
             </div>
           </div>
 
