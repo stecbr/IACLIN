@@ -32,14 +32,22 @@ function silent<T>(p: Promise<T>): Promise<T | null> {
 // ---------- Builders de payload (a partir do Supabase) ----------
 
 async function buildConfigSnapshot(clinicId: string) {
-  const [clinicRes, procRes, plansRes, roomsRes, membersRes, handoffRes] = await Promise.all([
+  const [clinicRes, procRes, plansRes, roomsRes, membersRes, handoffRes, credRes] = await Promise.all([
     supabase.from('clinics').select('name, business_hours').eq('id', clinicId).maybeSingle(),
     supabase.from('procedures').select('id, name, default_duration, category').eq('is_active', true),
-    supabase.from('insurance_plans').select('id, name, ans_code').eq('clinic_id', clinicId).eq('is_active', true),
+    supabase.from('insurance_plans').select('id, name, ans_code, operator_id').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_members').select('user_id, role, specialty').eq('clinic_id', clinicId),
     supabase.from('ai_secretary_handoff').select('enabled, trigger_keywords, handoff_message, target_phone').eq('clinic_id', clinicId).maybeSingle(),
+    // Credenciamentos APROVADOS da clínica → operadoras realmente vinculadas
+    supabase.from('operator_credentialings').select('operator_id').eq('clinic_id', clinicId).eq('status', 'approved'),
   ]);
+
+  // Conjunto de operadoras com credenciamento aprovado. A IA só pode confirmar
+  // um convênio se houver vínculo real (credenciamento) com a operadora dele.
+  const credentialedOperators = new Set(
+    (credRes.data ?? []).map((c: any) => c.operator_id).filter(Boolean),
+  );
 
   const memberRows = (membersRes.data ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
   const userIds = memberRows.map((m) => m.user_id);
@@ -75,11 +83,16 @@ async function buildConfigSnapshot(clinicId: string) {
       duration_min: p.default_duration ?? 30,
       category: p.category,
     })),
-    insurance_plans: (plansRes.data ?? []).map((ip) => ({
-      id: ip.id,
-      name: ip.name,
-      code: ip.ans_code ?? null,
-    })),
+    // Só envia planos com credenciamento aprovado na operadora correspondente.
+    // Plano sem operator_id ou sem credenciamento NÃO vai pra IA — assim ela
+    // nunca confirma um convênio que a clínica não atende de fato.
+    insurance_plans: (plansRes.data ?? [])
+      .filter((ip: any) => ip.operator_id && credentialedOperators.has(ip.operator_id))
+      .map((ip) => ({
+        id: ip.id,
+        name: ip.name,
+        code: ip.ans_code ?? null,
+      })),
     rooms: (roomsRes.data ?? []).map((r) => ({ id: r.id, name: r.name })),
     doctors,
     handoff,
