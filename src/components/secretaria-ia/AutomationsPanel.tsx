@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2 } from 'lucide-react';
+import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Send } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ interface AutomationRecord {
   message: string;
   trigger_keywords?: string;
   target_phone?: string;
+  return_after_days?: number;
 }
 
 const AUTOMATION_DEFS: Array<{
@@ -89,6 +90,7 @@ function normalize(payload: unknown): AutomationRecord[] {
     message: a.message_template ?? a.message ?? a.template ?? '',
     trigger_keywords: a.trigger_keywords ?? '',
     target_phone: a.target_phone ?? '',
+    return_after_days: a.return_after_days ?? 180,
   }));
 }
 
@@ -170,23 +172,41 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
   const [message, setMessage] = useState<string>(record?.message ?? '');
   const [triggerKeywords, setTriggerKeywords] = useState<string>(record?.trigger_keywords ?? '');
   const [targetPhone, setTargetPhone] = useState<string>(record?.target_phone ?? '');
+  const [returnDays, setReturnDays] = useState<string>(String((record as any)?.return_after_days ?? 180));
+  const [testPhone, setTestPhone] = useState<string>('');
   const isEscalate = def.type === 'escalate';
+  const isReturn = def.type === 'return';
 
   useEffect(() => {
     setActive(record?.active ?? false);
     setMessage(record?.message ?? '');
     setTriggerKeywords(record?.trigger_keywords ?? '');
     setTargetPhone(record?.target_phone ?? '');
+    setReturnDays(String((record as any)?.return_after_days ?? 180));
   }, [record?.id, record?.active, record?.message, record?.trigger_keywords, record?.target_phone]);
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      if (!testPhone.trim()) throw new Error('Informe um número para testar');
+      return aiBackend.testAutomation(clinicId, {
+        message_template: message,
+        phone: testPhone.trim(),
+        type: def.type,
+      });
+    },
+    onSuccess: () => toast.success('Mensagem de teste enviada'),
+    onError: (e: any) => toast.error(e?.message ?? 'Erro ao enviar teste'),
+  });
 
   const dirty = useMemo(
     () =>
       (record?.active ?? false) !== active ||
       (record?.message ?? '') !== message ||
+      (isReturn && String((record as any)?.return_after_days ?? 180) !== returnDays) ||
       (isEscalate &&
         ((record?.trigger_keywords ?? '') !== triggerKeywords ||
           (record?.target_phone ?? '') !== targetPhone)),
-    [record, active, message, triggerKeywords, targetPhone, isEscalate],
+    [record, active, message, triggerKeywords, targetPhone, returnDays, isEscalate, isReturn],
   );
 
   const saveMutation = useMutation({
@@ -195,6 +215,9 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
       if (isEscalate) {
         payload.trigger_keywords = triggerKeywords;
         payload.target_phone = targetPhone;
+      }
+      if (isReturn) {
+        payload.return_after_days = Number(returnDays) || 180;
       }
       if (record?.id) {
         return aiBackend.updateAutomation(clinicId, record.id, payload);
@@ -278,6 +301,48 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
             </div>
           </>
         )}
+
+        {isReturn && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Enviar após quantos dias da última consulta?</Label>
+            <input
+              type="number"
+              min={1}
+              value={returnDays}
+              onChange={(e) => setReturnDays(e.target.value)}
+              placeholder="180"
+              disabled={!active}
+              className="flex h-9 w-28 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Ex: 180 dias = lembrete de retorno a cada 6 meses.
+            </p>
+          </div>
+        )}
+
+        {/* Testar envio */}
+        <div className="space-y-1.5 rounded-lg bg-muted/40 p-2.5">
+          <Label className="text-[11px] text-muted-foreground">Testar com seu número</Label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              placeholder="5592999990000"
+              className="flex h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 shrink-0"
+              onClick={() => testMutation.mutate()}
+              disabled={testMutation.isPending || !message.trim() || !testPhone.trim()}
+            >
+              {testMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Testar
+            </Button>
+          </div>
+        </div>
 
         <div className="mt-auto flex justify-end">
           <Button
