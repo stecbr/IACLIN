@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +34,12 @@ const sections = [
 ];
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState('clinic');
+  const [searchParams] = useSearchParams();
+  // Permite abrir direto numa seção via ?section=insurance (usado pelos cards da IA)
+  const initialSection = sections.some((s) => s.id === searchParams.get('section'))
+    ? (searchParams.get('section') as string)
+    : 'clinic';
+  const [activeSection, setActiveSection] = useState(initialSection);
   const { user, currentClinicId, clinicRole } = useAuth();
   const [needsSpecialty, setNeedsSpecialty] = useState(false);
 
