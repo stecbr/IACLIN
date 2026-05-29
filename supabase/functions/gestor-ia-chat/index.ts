@@ -32,8 +32,15 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
   const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
   const in7days = new Date(now.getTime() + 7 * 86400000).toISOString();
   const since30 = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+  const since60 = new Date(now.getTime() - 60 * 86400000).toISOString().slice(0, 10);
+  // Janela para análise de no-show / produção: últimos 30 dias de consultas
+  const apptSince30 = new Date(now.getTime() - 30 * 86400000).toISOString();
+  // Inativos: sem consulta há mais de 180 dias
+  const inactiveCutoff = new Date(now.getTime() - 180 * 86400000).toISOString();
+  const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [clinicQ, membersQ, plansQ, proceduresQ, todayApsQ, weekApsQ, patientsCountQ, finQ] = await Promise.all([
+  const [clinicQ, membersQ, plansQ, proceduresQ, todayApsQ, weekApsQ, patientsCountQ, finQ,
+         finPrevQ, recentApsQ, inactiveQ, birthdaysQ] = await Promise.all([
     admin.from("clinics").select("name, address, city, state, phone, email, category").eq("id", clinicId).maybeSingle(),
     admin.from("clinic_members").select("user_id, role, specialty, registration_number").eq("clinic_id", clinicId),
     admin.from("insurance_plans").select("name, type, is_active").eq("clinic_id", clinicId).eq("is_active", true),
@@ -42,6 +49,14 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
     admin.from("appointments").select("start_time, status, dentist_id").eq("clinic_id", clinicId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled").order("start_time").limit(50),
     admin.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
     admin.from("financial_transactions").select("type, amount, status, paid_date").eq("clinic_id", clinicId).gte("due_date", since30),
+    // Faturamento do mês anterior (30-60 dias atrás) para comparativo
+    admin.from("financial_transactions").select("type, amount, status").eq("clinic_id", clinicId).gte("due_date", since60).lt("due_date", since30),
+    // Consultas dos últimos 30 dias para taxa de no-show e procedimentos mais feitos
+    admin.from("appointments").select("status, presence_status, procedures(name)").eq("clinic_id", clinicId).gte("start_time", apptSince30).lt("start_time", startToday),
+    // Pacientes com consulta nos últimos 180 dias (para calcular inativos = total - ativos)
+    admin.from("appointments").select("patient_id").eq("clinic_id", clinicId).gte("start_time", inactiveCutoff).not("patient_id", "is", null),
+    // Aniversariantes do dia
+    admin.from("patients").select("full_name, date_of_birth").eq("clinic_id", clinicId).not("date_of_birth", "is", null).limit(500),
   ]);
 
   const clinic = clinicQ.data as any;
@@ -60,6 +75,35 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
   const fin = finQ.data ?? [];
   const entradas = fin.filter((f: any) => f.type === "income" && f.status === "paid").reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
   const saidas = fin.filter((f: any) => f.type === "expense" && f.status === "paid").reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+  const aReceber = fin.filter((f: any) => f.type === "income" && f.status === "pending").reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+
+  // Comparativo com mês anterior
+  const finPrev = finPrevQ.data ?? [];
+  const entradasPrev = finPrev.filter((f: any) => f.type === "income" && f.status === "paid").reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+  const varReceita = entradasPrev > 0 ? ((entradas - entradasPrev) / entradasPrev) * 100 : null;
+
+  // Taxa de no-show e procedimentos mais feitos (últimos 30d)
+  const recentAps = recentApsQ.data ?? [];
+  const totalRecent = recentAps.length;
+  const noShows = recentAps.filter((a: any) => a.presence_status === "no_show" || a.status === "no_show").length;
+  const noShowRate = totalRecent > 0 ? (noShows / totalRecent) * 100 : 0;
+  const procCount = new Map<string, number>();
+  for (const a of recentAps as any[]) {
+    const name = a.procedures?.name;
+    if (name) procCount.set(name, (procCount.get(name) ?? 0) + 1);
+  }
+  const topProcs = [...procCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  // Aniversariantes de hoje
+  const birthdays = (birthdaysQ.data ?? []).filter((p: any) => {
+    if (!p.date_of_birth) return false;
+    return String(p.date_of_birth).slice(5, 10) === todayMMDD;
+  });
+
+  // Inativos = total de pacientes − pacientes com consulta nos últimos 180d
+  const activePatientIds = new Set((inactiveQ.data ?? []).map((a: any) => a.patient_id).filter(Boolean));
+  const totalPatients = patientsCountQ.count ?? 0;
+  const inactiveCount = Math.max(0, totalPatients - activePatientIds.size);
 
   const lines: string[] = [];
   lines.push(`# Clínica`);
@@ -90,11 +134,30 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
 
   lines.push(`\n# Pacientes`);
   lines.push(`- Total cadastrados: ${patientsCountQ.count ?? 0}`);
+  lines.push(`- Inativos (sem consulta há +180 dias): ${inactiveCount}`);
+
+  lines.push(`\n# Desempenho de consultas (últimos 30 dias)`);
+  lines.push(`- Total realizadas: ${totalRecent}`);
+  lines.push(`- Faltas (no-show): ${noShows} (${noShowRate.toFixed(1)}% de taxa de falta)`);
+  if (topProcs.length > 0) {
+    lines.push(`- Procedimentos mais feitos:`);
+    for (const [name, count] of topProcs) lines.push(`  • ${name}: ${count}x`);
+  }
+
+  if (birthdays.length > 0) {
+    lines.push(`\n# Aniversariantes de hoje (${birthdays.length})`);
+    for (const b of birthdays.slice(0, 10) as any[]) lines.push(`- ${b.full_name}`);
+  }
 
   lines.push(`\n# Financeiro (últimos 30 dias)`);
   lines.push(`- Entradas: ${fmtMoney(entradas)}`);
   lines.push(`- Saídas: ${fmtMoney(saidas)}`);
   lines.push(`- Saldo: ${fmtMoney(entradas - saidas)}`);
+  lines.push(`- A receber (pendente): ${fmtMoney(aReceber)}`);
+  if (varReceita !== null) {
+    const sinal = varReceita >= 0 ? "+" : "";
+    lines.push(`- Variação de receita vs. mês anterior: ${sinal}${varReceita.toFixed(1)}% (mês anterior: ${fmtMoney(entradasPrev)})`);
+  }
 
   return { clinicName: clinic?.name ?? "sua clínica", contextText: lines.join("\n") };
 }
@@ -196,6 +259,13 @@ AÇÕES NO SISTEMA (muito importante):
 
 IMAGENS:
 - Quando o usuário pedir imagem/cartaz/post/logo/ilustração, chame "generate_image" com prompt detalhado em inglês.
+
+USO DOS DADOS:
+- Você tem acesso a métricas reais da clínica (no-show, inativos, aniversariantes, comparativo de faturamento, procedimentos mais feitos). Use-os para dar respostas concretas e proativas.
+- Se a taxa de no-show estiver alta (>15%), pode sugerir ativar lembretes na Secretária IA.
+- Se houver muitos pacientes inativos, pode sugerir uma campanha de retorno.
+- Se houver aniversariantes hoje, pode mencioná-los se for relevante.
+- Sempre cite números reais dos dados, nunca invente valores.
 
 --- DADOS DA CLÍNICA ---
 ${contextText}

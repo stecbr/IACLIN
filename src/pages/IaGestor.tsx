@@ -5,10 +5,11 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, Plus, Trash2, Send, Loader2, MessageSquare, Download, Image as ImageIcon, Calendar, Users, DollarSign, FileText, Settings as SettingsIcon, Sparkles, MapPin, Clock, Edit, ArrowRight, Folder, FolderPlus, MoreHorizontal, ChevronRight, FolderInput, Pencil, Check, X } from 'lucide-react';
+import { Brain, Plus, Trash2, Send, Loader2, MessageSquare, Download, Image as ImageIcon, Calendar, Users, DollarSign, FileText, Settings as SettingsIcon, Sparkles, MapPin, Clock, Edit, ArrowRight, Folder, FolderPlus, MoreHorizontal, ChevronRight, FolderInput, Pencil, Check, X, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
@@ -211,6 +212,7 @@ function Sidebar({
   threads, folders, activeId, onNew, onNewFolder, onSelect,
   onRenameThread, onDeleteThread, onMoveThread,
   onRenameFolder, onDeleteFolder, onSetFolderColor, onAddThreadInFolder,
+  variant = 'desktop',
 }: {
   threads: ThreadRow[]; folders: FolderRow[]; activeId?: string;
   onNew: () => void; onNewFolder: () => void; onSelect: (id: string) => void;
@@ -221,11 +223,15 @@ function Sidebar({
   onDeleteFolder: (id: string) => void;
   onSetFolderColor: (id: string, color: string) => void;
   onAddThreadInFolder: (folderId: string) => void;
+  variant?: 'desktop' | 'sheet';
 }) {
   const ungrouped = threads.filter((t) => !t.folder_id);
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r border-border bg-muted/20 h-full">
+    <aside className={cn(
+      'flex w-full flex-col bg-muted/20 h-full',
+      variant === 'desktop' ? 'hidden md:flex md:w-64 border-r border-border' : 'w-full',
+    )}>
       <div className="p-3 border-b border-border space-y-2">
         <Button onClick={onNew} className="w-full justify-start gap-2" variant="default">
           <Plus className="h-4 w-4" /> Nova conversa
@@ -375,7 +381,7 @@ function MessagePart({ part }: { part: any }) {
   return null;
 }
 
-function ChatView({ threadId, clinicId, initialMessages }: { threadId: string; clinicId: string; initialMessages: UIMessage[] }) {
+function ChatView({ threadId, clinicId, initialMessages, onOpenMenu }: { threadId: string; clinicId: string; initialMessages: UIMessage[]; onOpenMenu?: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -426,6 +432,15 @@ function ChatView({ threadId, clinicId, initialMessages }: { threadId: string; c
 
   return (
     <div className="flex-1 flex flex-col h-full min-w-0">
+      {/* Topbar mobile: abre a lista de conversas */}
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onOpenMenu} aria-label="Conversas">
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <Brain className="h-4 w-4 text-primary" /> IA Gestor
+        </span>
+      </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.length === 0 && (
@@ -512,6 +527,7 @@ function ChatView({ threadId, clinicId, initialMessages }: { threadId: string; c
 export default function IaGestor() {
   const { threadId } = useParams<{ threadId?: string }>();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, currentClinicId } = useAuth();
   const qc = useQueryClient();
 
@@ -667,25 +683,42 @@ export default function IaGestor() {
     );
   }
 
+  const sidebarProps = {
+    threads,
+    folders,
+    activeId: threadId,
+    onNew: () => { setMobileMenuOpen(false); handleNew(); },
+    onNewFolder: handleNewFolder,
+    onSelect: (id: string) => { setMobileMenuOpen(false); navigate(`/ia-gestor/${id}`); },
+    onRenameThread: handleRenameThread,
+    onDeleteThread: handleDelete,
+    onMoveThread: handleMoveThread,
+    onRenameFolder: handleRenameFolder,
+    onDeleteFolder: handleDeleteFolder,
+    onSetFolderColor: handleSetFolderColor,
+    onAddThreadInFolder: handleAddThreadInFolder,
+  };
+
   return (
     <div className="flex flex-1 min-h-0 rounded-lg overflow-hidden border border-border bg-background">
-      <Sidebar
-        threads={threads}
-        folders={folders}
-        activeId={threadId}
-        onNew={handleNew}
-        onNewFolder={handleNewFolder}
-        onSelect={(id) => navigate(`/ia-gestor/${id}`)}
-        onRenameThread={handleRenameThread}
-        onDeleteThread={handleDelete}
-        onMoveThread={handleMoveThread}
-        onRenameFolder={handleRenameFolder}
-        onDeleteFolder={handleDeleteFolder}
-        onSetFolderColor={handleSetFolderColor}
-        onAddThreadInFolder={handleAddThreadInFolder}
-      />
+      {/* Sidebar desktop */}
+      <Sidebar {...sidebarProps} variant="desktop" />
+
+      {/* Sidebar mobile dentro de um Sheet */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
+          <Sidebar {...sidebarProps} variant="sheet" />
+        </SheetContent>
+      </Sheet>
+
       {threadId && !msgsLoading ? (
-        <ChatView key={threadId} threadId={threadId} clinicId={currentClinicId} initialMessages={initialMessages} />
+        <ChatView
+          key={threadId}
+          threadId={threadId}
+          clinicId={currentClinicId}
+          initialMessages={initialMessages}
+          onOpenMenu={() => setMobileMenuOpen(true)}
+        />
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
