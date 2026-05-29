@@ -400,11 +400,8 @@ export default function SecretariaIA() {
 
   const connectMutation = useMutation({
     mutationFn: async () => {
-      // Antes de abrir um novo QR, zera qualquer histórico antigo da clínica.
-      // Assim, ao escanear outro número, só entram conversas geradas depois da nova conexão.
-      await aiBackend.clearConversations(currentClinicId!);
-      qc.setQueryData(['ai-conversations', currentClinicId], []);
-      qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
+      // Não apagamos o histórico ao conectar — conversas anteriores (inclusive
+      // as em atendimento humano) devem ser preservadas. Limpeza só manual.
       return aiBackend.connectWhatsApp(currentClinicId!);
     },
     onSuccess: (data) => {
@@ -431,8 +428,8 @@ export default function SecretariaIA() {
             if (s.connected) {
               stopPolling();
               setQrModalOpen(false);
-              qc.setQueryData(['ai-conversations', currentClinicId], []);
-              qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
+              // Re-busca conversas do backend (sem apagar histórico)
+              qc.invalidateQueries({ queryKey: ['ai-conversations', currentClinicId] });
               setShouldAutoAdvanceToTraining(true);
               toast.success('WhatsApp conectado!');
             }
@@ -451,14 +448,8 @@ export default function SecretariaIA() {
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const res = await aiBackend.disconnectWhatsApp(currentClinicId!);
-      // Limpa o histórico de conversas no backend logo após desconectar
-      try {
-        await aiBackend.clearConversations(currentClinicId!);
-      } catch (err) {
-        console.warn('[ai] falha ao limpar conversas após desconectar:', err);
-      }
-      return res;
+      // Preserva o histórico ao desconectar — não apaga conversas automaticamente.
+      return aiBackend.disconnectWhatsApp(currentClinicId!);
     },
     onSuccess: () => {
       qc.setQueryData(['ai-whatsapp-status', currentClinicId], {
@@ -467,9 +458,8 @@ export default function SecretariaIA() {
         instance_name: null,
       });
       qc.invalidateQueries({ queryKey: ['ai-whatsapp-status', currentClinicId] });
-      // limpa as conversas para que o próximo número escaneado comece sem histórico antigo
-      qc.setQueryData(['ai-conversations', currentClinicId], []);
-      qc.removeQueries({ queryKey: ['ai-conversations', currentClinicId] });
+      // Preserva o histórico — apenas re-busca, sem apagar
+      qc.invalidateQueries({ queryKey: ['ai-conversations', currentClinicId] });
       setQrCode(null);
       setShouldAutoAdvanceToTraining(false);
       setStep(1);
