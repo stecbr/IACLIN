@@ -137,6 +137,11 @@ export interface SyncAvailabilityPayload {
 export interface SyncAppointmentItem {
   id: string;
   dentist_id: string;
+  dentist_name?: string | null;
+  patient_id?: string | null;
+  patient_name?: string | null;
+  patient_phone?: string | null;
+  procedure?: string | null;
   start_time: string; // ISO 8601
   end_time: string;   // ISO 8601
   status: string;

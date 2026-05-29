@@ -234,19 +234,42 @@ async function buildAvailabilitySlots(clinicId: string): Promise<SyncAvailabilit
 }
 
 async function buildAppointmentsNext30(clinicId: string): Promise<SyncAppointmentItem[]> {
-  const start = new Date();
+  // Inclui cancelados das últimas 48h para disparar a automação de reagendamento
+  const since = new Date();
+  since.setDate(since.getDate() - 2);
   const end = new Date();
   end.setDate(end.getDate() + 30);
+
   const { data } = await supabase
     .from('appointments')
-    .select('id, dentist_id, start_time, end_time, status')
+    .select('id, dentist_id, patient_id, start_time, end_time, status, patients(full_name, phone), procedures(name)')
     .eq('clinic_id', clinicId)
-    .gte('start_time', start.toISOString())
-    .lte('start_time', end.toISOString())
-    .neq('status', 'cancelled');
-  return ((data ?? []) as SyncAppointmentItem[]).map((a) => ({
+    .gte('start_time', since.toISOString())
+    .lte('start_time', end.toISOString());
+
+  const rows = (data ?? []) as any[];
+
+  // Resolve nome do médico via clinic_members → profiles
+  const dentistIds = [...new Set(rows.map((a) => a.dentist_id).filter(Boolean))];
+  const profileMap = new Map<string, string>();
+  if (dentistIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', dentistIds);
+    for (const p of (profiles ?? []) as Array<{ id: string; full_name: string | null }>) {
+      if (p.full_name) profileMap.set(p.id, p.full_name);
+    }
+  }
+
+  return rows.map((a) => ({
     id: a.id,
     dentist_id: a.dentist_id,
+    dentist_name: a.dentist_id ? profileMap.get(a.dentist_id) ?? null : null,
+    patient_id: a.patient_id ?? null,
+    patient_name: a.patients?.full_name ?? null,
+    patient_phone: a.patients?.phone ?? null,
+    procedure: a.procedures?.name ?? null,
     start_time: a.start_time,
     end_time: a.end_time,
     status: a.status,
