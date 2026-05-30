@@ -113,24 +113,41 @@ export function LiveMessagesPanel({
     refetchInterval: connected ? 5000 : false,
   });
 
+  // Atualiza otimisticamente o status de uma conversa no cache (evita o botão
+  // "piscar" de volta enquanto o refetch de 5s não chega).
+  const setLocalStatus = (phone: string, status: string) => {
+    qc.setQueryData(['ai-conversations', clinicId], (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((c: any) => (c.patient_phone === phone ? { ...c, status } : c));
+    });
+  };
+
   const takeoverMutation = useMutation({
     mutationFn: (phone: string) =>
       aiBackend.takeoverConversation(clinicId, toConvId(clinicId, phone)),
+    onMutate: (phone: string) => setLocalStatus(phone, 'human'),
     onSuccess: () => {
       toast.success('Atendimento assumido — IA em modo silencioso para esta conversa');
       qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
     },
-    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível assumir o atendimento'),
+    onError: (e: any, phone: string) => {
+      setLocalStatus(phone, 'open'); // reverte
+      toast.error(e?.message ?? 'Não foi possível assumir o atendimento');
+    },
   });
 
   const releaseMutation = useMutation({
     mutationFn: (phone: string) =>
       aiBackend.releaseConversation(clinicId, toConvId(clinicId, phone)),
+    onMutate: (phone: string) => setLocalStatus(phone, 'open'),
     onSuccess: () => {
       toast.success('Conversa devolvida para a IA');
       qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
     },
-    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível devolver para a IA'),
+    onError: (e: any, phone: string) => {
+      setLocalStatus(phone, 'human'); // reverte
+      toast.error(e?.message ?? 'Não foi possível devolver para a IA');
+    },
   });
 
   const metrics = useMemo(() => {
