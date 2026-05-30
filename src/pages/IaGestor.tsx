@@ -335,6 +335,16 @@ function MessagePart({ part }: { part: any }) {
                 <Link
                   key={i}
                   to={a.route}
+                  onClick={() => {
+                    // Salva a origem para mostrar a seta "voltar para IA Gestor"
+                    try {
+                      sessionStorage.setItem('iaclin.backNav', JSON.stringify({
+                        to: a.route.split('?')[0],
+                        from: window.location.pathname + window.location.search,
+                        label: 'Voltar para IA Gestor',
+                      }));
+                    } catch {}
+                  }}
                   className="group flex items-start gap-3 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 transition-all px-3 py-2.5 text-left"
                 >
                   <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">

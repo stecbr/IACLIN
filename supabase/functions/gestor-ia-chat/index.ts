@@ -254,7 +254,16 @@ REGRAS DE ESTILO (muito importantes):
 AÇÕES NO SISTEMA (muito importante):
 - Sempre que sua resposta sugerir que o usuário faça algo em outra tela do sistema (cadastrar procedimentos, abrir agenda, ver financeiro, configurar clínica, ver pacientes, etc.), CHAME A TOOL "suggest_actions" com 1 a 4 cards de navegação curtos, em vez de descrever em texto onde ele deve clicar.
 - Os cards substituem as instruções textuais "vá em tal menu". Escreva no texto só uma frase curta apresentando, e deixe os cards conduzirem.
-- Use rotas reais do sistema. Rotas disponíveis (exemplos): /agenda, /pacientes, /financial, /budgets, /odontogram, /availability, /settings, /atendimentos-ia, /secretaria-ia, /tools, /waiting-room, /marketplace, /clinica/medicos, /clinica/aprovacoes.
+- Use rotas reais do sistema. Rotas disponíveis (exemplos): /agenda, /pacientes, /financial, /budgets, /odontogram, /availability, /atendimentos-ia, /secretaria-ia, /tools, /waiting-room, /marketplace, /clinica/medicos, /clinica/aprovacoes.
+- IMPORTANTE — para Configurações, SEMPRE aponte para a aba EXATA usando /settings?section=SECAO. Seções válidas:
+  • clinic (dados da clínica + horário de funcionamento)
+  • procedures (cadastrar/editar procedimentos e preços)
+  • insurance (convênios)
+  • team (equipe/membros)
+  • rooms (salas)
+  • specialty (especialidades)
+  • subscription (assinatura/plano)
+  Ex: para "cadastrar procedimento" use route "/settings?section=procedures"; para "adicionar convênio" use "/settings?section=insurance". NUNCA use só "/settings" sem a seção quando souber qual aba.
 - "label" curto (1-4 palavras), "description" curtíssima (uma frase explicando o que fazer lá), "route" sempre começando com "/". Use "icon" opcional dentre: calendar, users, dollar, file, tooth, settings, sparkles, message, map, clock, plus, edit.
 
 IMAGENS:
