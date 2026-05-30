@@ -441,12 +441,17 @@ function ConversationRow({
     : '';
 
   const status = conversation.status;
-  const isHuman = status === 'human' || status === 'handoff';
+  // 'human' = alguém clicou em Assumir (takeover real). 'handoff' = a IA pediu
+  // atenção (fora do horário / palavra-chave) mas NINGUÉM assumiu ainda.
+  const isHuman = status === 'human';
+  const isHandoff = status === 'handoff';
   const convState = conversation.conversation_state;
   const stateInfo = convState ? STATE_LABELS[convState] : null;
 
   const statusBadge = isHuman ? (
     <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">Humano</Badge>
+  ) : isHandoff ? (
+    <Badge variant="secondary" className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-700">Aguardando</Badge>
   ) : (
     <Badge variant="outline" className="h-4 border-primary/40 px-1.5 text-[10px] text-primary">IA</Badge>
   );
@@ -557,8 +562,9 @@ function ConversationThread({
   onDelete?: (phone: string) => void;
 }) {
   const convId = toConvId(clinicId, conversation.patient_phone);
-  const isHuman =
-    conversation.status === 'human' || conversation.status === 'handoff';
+  // 'human' = takeover real (alguém assumiu). 'handoff' = a IA sinalizou mas
+  // ninguém assumiu — nesse caso ainda mostramos "Assumir", não "Devolver IA".
+  const isHuman = conversation.status === 'human';
   const convState = conversation.conversation_state;
   const stateInfo = convState ? STATE_LABELS[convState] : null;
 
