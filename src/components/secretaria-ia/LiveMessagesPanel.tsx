@@ -91,7 +91,8 @@ async function fetchConversations(clinicId: string): Promise<Conversation[]> {
   });
   if (!res.ok) throw new Error(`Backend IA respondeu ${res.status}`);
   const json = await res.json();
-  return (json?.data ?? []) as Conversation[];
+  const data = json?.data;
+  return (Array.isArray(data) ? data : []) as Conversation[];
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
