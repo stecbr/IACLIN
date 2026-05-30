@@ -576,7 +576,7 @@ function ConversationThread({
     refetchInterval: 5000,
   });
 
-  const messages = data?.data ?? [];
+  const messages = Array.isArray(data?.data) ? data.data : [];
 
   return (
     <div className="flex h-full flex-col">
