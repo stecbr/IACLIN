@@ -14,6 +14,7 @@ import {
   Search,
   X,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -148,6 +149,17 @@ export function LiveMessagesPanel({
       setLocalStatus(phone, 'human'); // reverte
       toast.error(e?.message ?? 'Não foi possível devolver para a IA');
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (phone: string) =>
+      aiBackend.deleteConversation(clinicId, toConvId(clinicId, phone)),
+    onSuccess: () => {
+      toast.success('Conversa excluída');
+      setSelected(null);
+      qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível excluir a conversa'),
   });
 
   const metrics = useMemo(() => {
@@ -358,6 +370,7 @@ export function LiveMessagesPanel({
                       releaseMutation.isPending &&
                       releaseMutation.variables === selected.patient_phone
                     }
+                    onDelete={(phone) => deleteMutation.mutate(phone)}
                   />
                 </div>
               )}
@@ -531,6 +544,7 @@ function ConversationThread({
   onRelease,
   takingOver,
   releasing,
+  onDelete,
 }: {
   clinicId: string;
   conversation: Conversation;
@@ -540,6 +554,7 @@ function ConversationThread({
   onRelease?: () => void;
   takingOver?: boolean;
   releasing?: boolean;
+  onDelete?: (phone: string) => void;
 }) {
   const convId = toConvId(clinicId, conversation.patient_phone);
   const isHuman =
@@ -608,6 +623,21 @@ function ConversationThread({
           >
             <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
           </Button>
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              title="Excluir conversa"
+              onClick={() => {
+                if (confirm('Excluir esta conversa? Todo o histórico dela será apagado. Esta ação não pode ser desfeita.')) {
+                  onDelete(conversation.patient_phone);
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
