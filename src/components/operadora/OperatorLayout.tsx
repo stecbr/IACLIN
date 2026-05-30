@@ -101,7 +101,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
     <div className={`operator-scope ${resolved === 'dark' ? 'dark' : ''} min-h-screen flex w-full bg-background`}>
       <aside className={`hidden ${sidebarOpen ? 'md:flex' : 'md:hidden'} w-72 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen overflow-hidden`}>
         {/* Operator brand block: logo, status badge above name, and description */}
-        <div className="px-5 py-5 border-b border-sidebar-border">
+        <div className="px-5 py-5 border-sidebar-border">
           <div className="flex items-center gap-3 min-w-0">
             {op?.logo_url && (
               <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
