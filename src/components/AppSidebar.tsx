@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
+import { format, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import logoLight from '@/assets/logo-light.png';
@@ -257,6 +258,35 @@ export function AppSidebar() {
     refetchInterval: 30000,
   });
 
+  const { data: todayApts = [] } = useQuery({
+    queryKey: ['sidebar-today-apts', currentClinicId, user?.id, isDentist],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const end   = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      let q = supabase
+        .from('appointments')
+        .select('id, start_time, status, presence_status, patients(id, full_name)')
+        .eq('clinic_id', currentClinicId!)
+        .gte('start_time', start)
+        .lt('start_time', end)
+        .not('status', 'in', '(cancelled)')
+        .order('start_time');
+      if (isDentist && user) q = q.eq('dentist_id', user.id);
+      const { data } = await q;
+      return (data ?? []) as Array<{
+        id: string;
+        start_time: string;
+        status: string;
+        presence_status: string | null;
+        patients: { id: string; full_name: string } | null;
+      }>;
+    },
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+  });
+
   const isActive = (url: string) => {
     if (url === '/') return location.pathname === '/';
     return location.pathname.startsWith(url);
@@ -309,6 +339,60 @@ export function AppSidebar() {
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
+
+  const STATUS_DOT: Record<string, string> = {
+    completed:  'bg-blue-500',
+    confirmed:  'bg-green-500',
+    scheduled:  'bg-muted-foreground/40',
+    no_show:    'bg-amber-500',
+    in_service: 'bg-emerald-500',
+    arrived:    'bg-amber-400 animate-pulse',
+  };
+
+  const TodayPatientsList = () => {
+    if (collapsed) return null;
+    if (todayApts.length === 0) {
+      return (
+        <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+          Nenhuma consulta hoje
+        </div>
+      );
+    }
+    const visible = todayApts.slice(0, 8);
+    const rest    = todayApts.length - visible.length;
+    return (
+      <div className="space-y-0.5 pb-1">
+        {visible.map((apt) => {
+          const time    = format(parseISO(apt.start_time), 'HH:mm');
+          const name    = apt.patients?.full_name ?? 'Paciente';
+          const pStatus = apt.presence_status ?? apt.status;
+          const dot     = STATUS_DOT[pStatus] ?? STATUS_DOT[apt.status] ?? 'bg-muted-foreground/40';
+          return (
+            <button
+              key={apt.id}
+              type="button"
+              className="flex items-center gap-2.5 w-full px-3 py-1.5 rounded-lg hover:bg-sidebar-accent/60 transition-colors text-left"
+              onClick={() => navigate(`/patients/${apt.patients?.id}`)}
+              title={`${time} — ${name}`}
+            >
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${dot}`} />
+              <span className="text-[11px] text-muted-foreground font-mono w-9 flex-shrink-0">{time}</span>
+              <span className="text-xs text-sidebar-foreground truncate flex-1">{name}</span>
+            </button>
+          );
+        })}
+        {rest > 0 && (
+          <button
+            type="button"
+            className="w-full text-center text-[11px] text-muted-foreground hover:text-foreground py-1 transition-colors"
+            onClick={() => navigate('/pacientes-do-dia')}
+          >
+            +{rest} mais — ver todos
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const prontuarioItem = (
     <SidebarMenuItem key="prontuario">
@@ -492,6 +576,13 @@ export function AppSidebar() {
                   </SidebarMenu>
                 </NavSection>
               )}
+
+              {/* PACIENTES DO DIA */}
+              {!collapsed && (
+                <NavSection id="pacientes-dia" label={`Pacientes do Dia${todayApts.length > 0 ? ` (${todayApts.length})` : ''}`} collapsed={collapsed} defaultOpen={false}>
+                  <TodayPatientsList />
+                </NavSection>
+              )}
             </>
           );
         })() : (
@@ -543,6 +634,12 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
                 </SidebarMenu>
+              </NavSection>
+            )}
+
+            {!collapsed && currentClinicId && (
+              <NavSection id="pacientes-dia" label={`Pacientes do Dia${todayApts.length > 0 ? ` (${todayApts.length})` : ''}`} collapsed={collapsed} defaultOpen={false}>
+                <TodayPatientsList />
               </NavSection>
             )}
 
