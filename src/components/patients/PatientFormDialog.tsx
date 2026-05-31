@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -21,14 +21,16 @@ interface PatientFormDialogProps {
   onSuccess: () => void;
   patient?: any;
   clinicId?: string | null;
+  initialName?: string;
+  onPatientCreated?: (id: string, name: string) => void;
 }
 
-export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clinicId }: PatientFormDialogProps) {
+export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clinicId, initialName, onPatientCreated }: PatientFormDialogProps) {
   const isEdit = !!patient;
   const { user, isPersonalMode } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    full_name: patient?.full_name ?? '',
+    full_name: patient?.full_name ?? initialName ?? '',
     cpf: patient?.cpf ?? '',
     phone: patient?.phone ?? '',
     email: patient?.email ?? '',
@@ -42,6 +44,27 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
     insurance_number: patient?.insurance_number ?? '',
     notes: patient?.notes ?? '',
   });
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        full_name: patient?.full_name ?? initialName ?? '',
+        cpf: patient?.cpf ?? '',
+        phone: patient?.phone ?? '',
+        email: patient?.email ?? '',
+        date_of_birth: patient?.date_of_birth ?? '',
+        gender: patient?.gender ?? '',
+        address: patient?.address ?? '',
+        city: patient?.city ?? '',
+        state: patient?.state ?? '',
+        zip_code: patient?.zip_code ?? '',
+        insurance_provider: patient?.insurance_provider ?? '',
+        insurance_number: patient?.insurance_number ?? '',
+        notes: patient?.notes ?? '',
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const { data: insurancePlans = [] } = useQuery({
     queryKey: ['insurance-plans-select', clinicId],
@@ -102,6 +125,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
         if (error) throw error;
         toast.success(isPersonalMode ? 'Paciente pessoal cadastrado!' : 'Paciente cadastrado!');
         if (clinicId && inserted?.id) syncOnePatient(inserted.id, clinicId);
+        if (inserted?.id) onPatientCreated?.(inserted.id, form.full_name);
       }
 
       onSuccess();
