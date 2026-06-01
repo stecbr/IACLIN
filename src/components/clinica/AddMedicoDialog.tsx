@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getClinicTerms } from '@/lib/clinicTerms';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { Copy, Mail, KeyRound, Check } from 'lucide-react';
@@ -23,7 +24,8 @@ interface Props {
 }
 
 export function AddMedicoDialog({ open, onOpenChange }: Props) {
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, clinicCategory } = useAuth();
+  const terms = getClinicTerms(clinicCategory);
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', registration: '', specialty: '' });
@@ -103,9 +105,9 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adicionar médico</DialogTitle>
+          <DialogTitle>{terms.addMember}</DialogTitle>
           <DialogDescription>
-            Convide um médico por e-mail ou compartilhe o código da clínica.
+            Convide um {terms.teamMember.toLowerCase()} por e-mail ou compartilhe o código da clínica.
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +134,7 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
               <form onSubmit={handleInvite} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="med-name">Nome completo</Label>
-                  <Input id="med-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Dr. João Silva" required autoFocus />
+                  <Input id="med-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={terms.namePlaceholder} required autoFocus />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="med-email">E-mail</Label>
@@ -171,7 +173,7 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
               <p className="text-xs text-muted-foreground">Código permanente da clínica</p>
               <code className="block text-2xl font-mono font-semibold tracking-widest">{code ?? '—'}</code>
               <p className="text-xs text-muted-foreground">
-                Compartilhe com seus médicos. Eles informam este código ao se cadastrar e ficam vinculados automaticamente.
+                Compartilhe com seus {terms.teamMembers.toLowerCase()}. Eles informam este código ao se cadastrar e ficam vinculados automaticamente.
               </p>
             </div>
             <Button onClick={copyCode} disabled={!code} className="w-full gap-2">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Camera } from 'lucide-react';
 
 interface PatientFormDialogProps {
   open: boolean;
@@ -29,6 +31,8 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
   const isEdit = !!patient;
   const { user, isPersonalMode } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     full_name: patient?.full_name ?? initialName ?? '',
     cpf: patient?.cpf ?? '',
@@ -43,6 +47,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
     insurance_provider: patient?.insurance_provider ?? '',
     insurance_number: patient?.insurance_number ?? '',
     notes: patient?.notes ?? '',
+    photo_url: patient?.photo_url ?? '',
   });
 
   useEffect(() => {
@@ -61,6 +66,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
         insurance_provider: patient?.insurance_provider ?? '',
         insurance_number: patient?.insurance_number ?? '',
         notes: patient?.notes ?? '',
+        photo_url: patient?.photo_url ?? '',
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,6 +90,27 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `patients/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('patient-files')
+        .upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from('patient-files').getPublicUrl(path);
+      update('photo_url', publicUrl);
+      toast.success('Foto enviada!');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim()) {
@@ -106,6 +133,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
         insurance_provider: form.insurance_provider || null,
         insurance_number: form.insurance_number || null,
         notes: form.notes || null,
+        photo_url: form.photo_url || null,
       };
 
       if (isEdit) {
@@ -144,6 +172,51 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, clin
           <DialogTitle>{isEdit ? 'Editar Paciente' : 'Novo Paciente'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Foto do paciente */}
+          <div className="flex items-center gap-4">
+            <div
+              className="relative group cursor-pointer flex-shrink-0"
+              onClick={() => photoInputRef.current?.click()}
+            >
+              <Avatar className="h-20 w-20 border-2 border-border">
+                {form.photo_url && <AvatarImage src={form.photo_url} alt="Foto" className="object-cover" />}
+                <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+                  {form.full_name ? form.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : '?'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="h-5 w-5 text-white" />
+              </div>
+              {uploadingPhoto && (
+                <div className="absolute inset-0 rounded-full bg-background/80 flex items-center justify-center">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium">Foto do Paciente</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Clique para adicionar ou alterar</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 gap-2"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+              >
+                <Camera className="h-3.5 w-3.5" />
+                {form.photo_url ? 'Alterar foto' : 'Adicionar foto'}
+              </Button>
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-2">
               <Label>Nome completo *</Label>

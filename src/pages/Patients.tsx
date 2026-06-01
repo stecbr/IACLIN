@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -224,6 +224,7 @@ export default function Patients() {
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <Avatar className="h-8 w-8">
+                            {(patient as any).photo_url && <AvatarImage src={(patient as any).photo_url} alt={patient.full_name} className="object-cover" />}
                             <AvatarFallback className={`bg-gradient-to-br ${getGradient(patient.full_name)} text-white text-xs font-medium`}>
                               {getInitials(patient.full_name)}
                             </AvatarFallback>
@@ -277,6 +278,7 @@ export default function Patients() {
               <Card className="p-4 shadow-card hover:shadow-card-hover transition-all border-border/50 cursor-pointer">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-10 w-10">
+                    {(patient as any).photo_url && <AvatarImage src={(patient as any).photo_url} alt={patient.full_name} className="object-cover" />}
                     <AvatarFallback className={`bg-gradient-to-br ${getGradient(patient.full_name)} text-white text-sm font-medium`}>
                       {getInitials(patient.full_name)}
                     </AvatarFallback>

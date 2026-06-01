@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import TeamSection from '@/components/settings/TeamSection';
@@ -138,7 +139,7 @@ function ClinicSection() {
   });
 
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', address: '', city: '', state: '', cnpj: '', zip_code: '',
+    name: '', phone: '', email: '', address: '', city: '', state: '', cnpj: '', zip_code: '', category: '',
   });
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
@@ -148,6 +149,7 @@ function ClinicSection() {
     setForm({
       name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
       address: clinic.address ?? '', city: clinic.city ?? '', state: clinic.state ?? '', cnpj: clinic.cnpj ?? '', zip_code: clinic.zip_code ?? '',
+      category: (clinic as any).category ?? '',
     });
     setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
     setInitialized(true);
@@ -213,7 +215,7 @@ function ClinicSection() {
     }
     setSaving(true);
     try {
-      const payload = { ...form, business_hours: businessHours as any };
+      const payload = { ...form, category: form.category || null, business_hours: businessHours as any };
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload).eq('id', clinic.id);
         if (error) throw error;
@@ -335,6 +337,27 @@ function ClinicSection() {
             <div className="space-y-2">
               <Label>Nome da Clínica</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Clínica Sorriso" />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo / Categoria <span className="text-destructive">*</span></Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo da clínica" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="odonto">🦷 Odontologia (Dentistas / CRO)</SelectItem>
+                  <SelectItem value="medico">🩺 Medicina (Médicos / CRM)</SelectItem>
+                  <SelectItem value="estetica">✨ Estética</SelectItem>
+                  <SelectItem value="outro">📋 Outro</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.category && (
+                <p className="text-[11px] text-muted-foreground">
+                  O sistema usará terminologia de{' '}
+                  <strong>{form.category === 'odonto' ? 'Odontologia' : form.category === 'medico' ? 'Medicina' : form.category === 'estetica' ? 'Estética' : 'área geral'}</strong>{' '}
+                  em todo o sistema.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>CNPJ</Label>

@@ -51,6 +51,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
+import { getClinicTerms } from '@/lib/clinicTerms';
 import {
   Tooltip,
   TooltipContent,
@@ -526,7 +527,7 @@ export function AppSidebar() {
               <NavSection id="gestao" label="Gestão da Clínica" collapsed={collapsed}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'Visão Geral',   url: '/clinica',         icon: Building2 })}
-                  {renderNavItem({ title: 'Equipe Médica', url: '/clinica/medicos', icon: Stethoscope })}
+                  {renderNavItem({ title: getClinicTerms(clinicCategory).team, url: '/clinica/medicos', icon: Stethoscope })}
                 </SidebarMenu>
               </NavSection>
 
@@ -648,7 +649,7 @@ export function AppSidebar() {
               <NavSection id="gestao" label="Gestão da Clínica" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'Visão Geral', url: '/clinica',        icon: Building2 })}
-                  {renderNavItem({ title: 'Médicos',     url: '/clinica/medicos', icon: Stethoscope })}
+                  {renderNavItem({ title: getClinicTerms(clinicCategory).teamMembers, url: '/clinica/medicos', icon: Stethoscope })}
                   {faturamentoItem}
                 </SidebarMenu>
               </NavSection>

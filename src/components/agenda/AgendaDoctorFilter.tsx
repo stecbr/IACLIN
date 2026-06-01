@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
+import { getClinicTerms } from '@/lib/clinicTerms';
 
 export type DoctorFilterValue =
   | { kind: 'all' }
@@ -53,7 +54,8 @@ export function persistDoctorFilter(value: DoctorFilterValue) {
 }
 
 export function AgendaDoctorFilter({ value, onChange, allowCompare = true, onDoctorsLoaded }: Props) {
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, clinicCategory } = useAuth();
+  const terms = getClinicTerms(clinicCategory);
 
   const { data: doctors = EMPTY_DOCTORS } = useQuery({
     queryKey: ['clinic-doctors', currentClinicId],
@@ -89,10 +91,10 @@ export function AgendaDoctorFilter({ value, onChange, allowCompare = true, onDoc
 
   const triggerLabel =
     value.kind === 'all'
-      ? 'Todos os médicos'
+      ? terms.filterAll
       : value.kind === 'compare'
       ? 'Comparar lado a lado'
-      : selectedDoctor?.full_name ?? 'Médico';
+      : selectedDoctor?.full_name ?? terms.teamMember;
 
   const handleSelect = (next: DoctorFilterValue) => {
     persistDoctorFilter(next);
@@ -124,7 +126,7 @@ export function AgendaDoctorFilter({ value, onChange, allowCompare = true, onDoc
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleSelect({ kind: 'all' })} className="gap-2 cursor-pointer">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="flex-1 text-sm">Todos os médicos</span>
+          <span className="flex-1 text-sm">{terms.filterAll}</span>
           {value.kind === 'all' && <Check className="h-4 w-4 text-primary" />}
         </DropdownMenuItem>
         {doctors.length > 0 && <DropdownMenuSeparator />}

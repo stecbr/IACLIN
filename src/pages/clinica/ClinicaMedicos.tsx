@@ -15,6 +15,7 @@ import { EditDoctorSpecialtiesDialog } from '@/components/clinica/EditDoctorSpec
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
+import { getClinicTerms } from '@/lib/clinicTerms';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -39,7 +40,8 @@ interface MemberRow {
 }
 
 export default function ClinicaMedicos() {
-  const { currentClinicId, user } = useAuth();
+  const { currentClinicId, user, clinicCategory } = useAuth();
+  const terms = getClinicTerms(clinicCategory);
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [unlinkTarget, setUnlinkTarget] = useState<MemberRow | null>(null);
@@ -133,9 +135,9 @@ export default function ClinicaMedicos() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Médicos" description="Gestão de profissionais vinculados à clínica">
+      <PageHeader title={terms.team} description="Gestão de profissionais vinculados à clínica">
         <Button onClick={() => setAddOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Adicionar médico
+          <Plus className="h-4 w-4" /> {terms.addMember}
         </Button>
       </PageHeader>
 
@@ -152,10 +154,10 @@ export default function ClinicaMedicos() {
               <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
                 <Stethoscope className="h-6 w-6" />
               </div>
-              <p className="text-sm font-medium">Nenhum médico cadastrado</p>
+              <p className="text-sm font-medium">{terms.noMembers}</p>
               <p className="text-xs text-muted-foreground mt-1 mb-4">Adicione o primeiro profissional à sua clínica.</p>
               <Button onClick={() => setAddOpen(true)} size="sm" className="gap-2">
-                <Plus className="h-4 w-4" /> Adicionar médico
+                <Plus className="h-4 w-4" /> {terms.addMember}
               </Button>
             </div>
           ) : (
@@ -163,7 +165,7 @@ export default function ClinicaMedicos() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>CRM / CRO</TableHead>
+                  <TableHead>{terms.registration}</TableHead>
                   <TableHead>Especialidade</TableHead>
                   <TableHead>Função</TableHead>
                   <TableHead className="text-right">Ações</TableHead>

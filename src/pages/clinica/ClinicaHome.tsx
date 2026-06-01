@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import { Stethoscope, Users, Calendar, DollarSign, TrendingUp, Activity } from 'lucide-react';
+import { getClinicTerms } from '@/lib/clinicTerms';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
@@ -35,7 +36,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function ClinicaHome() {
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, clinicCategory } = useAuth();
+  const terms = getClinicTerms(clinicCategory);
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
@@ -148,7 +150,7 @@ export default function ClinicaHome() {
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const kpis = [
-    { label: 'Médicos', value: stats?.doctors ?? 0, icon: Stethoscope, color: 'text-primary', bg: 'bg-primary/10', to: '/clinica/medicos' },
+    { label: terms.teamMembers, value: stats?.doctors ?? 0, icon: Stethoscope, color: 'text-primary', bg: 'bg-primary/10', to: '/clinica/medicos' },
     { label: 'Pacientes', value: stats?.patients ?? 0, icon: Users, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', to: '/patients' },
     { label: 'Consultas no mês', value: stats?.appointments ?? 0, icon: Calendar, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10', to: '/agenda' },
     { label: 'Receita do mês', value: stats?.revenue ?? 0, icon: DollarSign, color: 'text-warning', bg: 'bg-warning/10', to: '/financial', isCurrency: true },

@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Copy, Check, KeyRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getClinicTerms } from '@/lib/clinicTerms';
 import { toast } from 'sonner';
 
 export function ClinicInviteCodeCard() {
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, clinicCategory } = useAuth();
+  const terms = getClinicTerms(clinicCategory);
   const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -36,7 +38,7 @@ export function ClinicInviteCodeCard() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">Código da clínica</p>
-          <p className="text-xs text-muted-foreground">Compartilhe com seus médicos para que entrem na equipe</p>
+          <p className="text-xs text-muted-foreground">{terms.inviteMessage}</p>
         </div>
         <code className="px-3 py-1.5 rounded-md bg-background border font-mono text-sm font-semibold tracking-wider">
           {code}

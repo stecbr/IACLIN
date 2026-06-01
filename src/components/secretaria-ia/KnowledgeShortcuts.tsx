@@ -1,4 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { getClinicTerms } from '@/lib/clinicTerms';
 import { useQuery } from '@tanstack/react-query';
 import { Clock, ShieldCheck, Stethoscope, CalendarRange, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -15,6 +17,8 @@ const WEEKDAYS: (keyof BusinessHours)[] = ['mon','tue','wed','thu','fri','sat','
 
 export function KnowledgeShortcuts({ clinicId }: Props) {
   const location = useLocation();
+  const { clinicCategory } = useAuth();
+  const terms = getClinicTerms(clinicCategory);
   const { data, isLoading } = useQuery({
     queryKey: ['ai-knowledge-shortcuts', clinicId],
     queryFn: async () => {
@@ -68,7 +72,7 @@ export function KnowledgeShortcuts({ clinicId }: Props) {
       icon: Stethoscope,
       title: 'Profissionais',
       to: '/clinica/medicos',
-      action: 'Abrir Equipe Médica',
+      action: terms.aiShortcutTeam,
       summary: isLoading
         ? null
         : data?.memberCount
