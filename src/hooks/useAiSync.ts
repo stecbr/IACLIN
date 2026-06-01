@@ -33,7 +33,7 @@ function silent<T>(p: Promise<T>): Promise<T | null> {
 
 async function buildConfigSnapshot(clinicId: string) {
   const [clinicRes, procRes, plansRes, roomsRes, membersRes, handoffRes, credRes] = await Promise.all([
-    supabase.from('clinics').select('name, business_hours').eq('id', clinicId).maybeSingle(),
+    supabase.from('clinics').select('name, business_hours, address, city, state, zip_code').eq('id', clinicId).maybeSingle(),
     supabase.from('procedures').select('id, name, default_duration, category').eq('is_active', true),
     supabase.from('insurance_plans').select('id, name, ans_code, operator_id').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId).eq('is_active', true),
@@ -73,9 +73,15 @@ async function buildConfigSnapshot(clinicId: string) {
       }
     : null;
 
+  const c = clinicRes.data as any;
+  const fullAddress = c
+    ? [c.address, c.city, c.state, c.zip_code].filter(Boolean).join(', ') || null
+    : null;
+
   return {
     clinic_id: clinicId,
-    name: (clinicRes.data as any)?.name ?? null,
+    name: c?.name ?? null,
+    address: fullAddress,
     business_hours: (clinicRes.data?.business_hours as Record<string, unknown> | null) ?? null,
     procedures: (procRes.data ?? []).map((p) => ({
       id: p.id,
