@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Send } from 'lucide-react';
+import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Send, Cake, Star } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,9 @@ type AutomationType =
   | 'confirmation'
   | 'return'
   | 'reschedule'
-  | 'escalate';
+  | 'escalate'
+  | 'birthday'
+  | 'nps';
 
 interface AutomationRecord {
   id?: string;
@@ -74,6 +76,20 @@ const AUTOMATION_DEFS: Array<{
     description: 'Enviado quando a IA não consegue resolver',
     icon: UserCog,
     placeholder: 'Vou te transferir para um de nossos atendentes. Aguarde só um momento.',
+  },
+  {
+    type: 'birthday',
+    title: 'Feliz aniversário',
+    description: 'Enviado no dia do aniversário do paciente (de manhã)',
+    icon: Cake,
+    placeholder: 'Olá {patient_name}, a equipe da {clinic_name} deseja um feliz aniversário! 🎉',
+  },
+  {
+    type: 'nps',
+    title: 'Pesquisa de satisfação (NPS)',
+    description: 'Enviado algumas horas após a consulta realizada',
+    icon: Star,
+    placeholder: 'Olá {patient_name}, como foi seu atendimento hoje? De 0 a 10, o quanto você recomendaria a {clinic_name}?',
   },
 ];
 
