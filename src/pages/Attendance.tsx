@@ -21,6 +21,7 @@ import { HypothesesEditor, type Hypothesis } from '@/components/attendance/Hypot
 import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
 import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
+import { ConsultationPaymentDialog } from '@/components/attendance/ConsultationPaymentDialog';
 import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
 import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
 import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
@@ -56,6 +57,8 @@ export default function Attendance() {
   const [clinicalRecordId, setClinicalRecordId] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [createdTransactionId, setCreatedTransactionId] = useState<string | null>(null);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -132,6 +135,39 @@ export default function Attendance() {
   });
   const showOdontogram = clinicCategory === 'odonto';
   const showOdontogramTab = showOdontogram && tabKeys.includes('odontogram');
+
+  // Payment account for PIX display on payment dialog
+  const { data: paymentAccount } = useQuery({
+    queryKey: ['payment-account-attendance', currentClinicId, user?.id],
+    queryFn: async () => {
+      const entityType = currentClinicId ? 'clinic' : 'doctor';
+      const entityId   = currentClinicId ?? user?.id;
+      if (!entityId) return null;
+      const { data } = await (supabase as any)
+        .from('payment_accounts')
+        .select('pix_key, pix_key_type, bank_name, account, account_holder')
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .maybeSingle();
+      return data ?? null;
+    },
+    enabled: !!user,
+  });
+
+  // Insurance plans for the clinic (for payment dialog)
+  const { data: insurancePlans = [] } = useQuery({
+    queryKey: ['insurance-plans-payment', currentClinicId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('insurance_plans')
+        .select('id, name')
+        .eq('clinic_id', currentClinicId!)
+        .eq('is_active', true)
+        .order('name');
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: !!currentClinicId,
+  });
 
   // Populate form with existing record
   useEffect(() => {
@@ -385,25 +421,37 @@ export default function Attendance() {
 
       // Create financial transaction
       const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
+      let newTransactionId: string | null = null;
       if (totalAmount > 0) {
-        await supabase.from('financial_transactions').insert({
-          patient_id: appointment.patient_id,
-          appointment_id: appointment.id,
-          dentist_id: user.id,
-          clinic_id: currentClinicId ?? null,
-          type: 'income',
-          category: 'consultation',
-          description: `Atendimento - ${(appointment as any).patients?.full_name}`,
-          amount: totalAmount,
-          due_date: format(new Date(), 'yyyy-MM-dd'),
-          status: 'pending',
-        });
+        const { data: txData } = await supabase
+          .from('financial_transactions')
+          .insert({
+            patient_id: appointment.patient_id,
+            appointment_id: appointment.id,
+            dentist_id: user.id,
+            clinic_id: currentClinicId ?? null,
+            type: 'income',
+            category: 'consultation',
+            description: `Atendimento - ${(appointment as any).patients?.full_name}`,
+            amount: totalAmount,
+            due_date: format(new Date(), 'yyyy-MM-dd'),
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+        newTransactionId = txData?.id ?? null;
       }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
-      setShowSummary(true);
       setFinishedNavigatePending(true);
+
+      if (totalAmount > 0 && newTransactionId) {
+        setCreatedTransactionId(newTransactionId);
+        setShowPaymentDialog(true);
+      } else {
+        setShowSummary(true);
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -729,6 +777,21 @@ export default function Attendance() {
         )}
       </Tabs>
 
+      <ConsultationPaymentDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        transactionId={createdTransactionId}
+        amount={procedures.reduce((s, p) => s + p.price, 0)}
+        patientName={(appointment as any).patients?.full_name ?? 'Paciente'}
+        patientInsuranceProvider={(appointment as any).patients?.insurance_provider ?? null}
+        paymentAccount={paymentAccount}
+        insurancePlans={insurancePlans}
+        onComplete={() => {
+          setShowPaymentDialog(false);
+          setShowSummary(true);
+          queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+        }}
+      />
       <AttendanceSummaryModal
         appointmentId={appointment.id}
         open={showSummary}

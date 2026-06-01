@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, CalendarOff } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, CalendarOff, Wallet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
 import SubscriptionSection from '@/components/settings/SubscriptionSection';
 import HolidaysSection from '@/components/settings/HolidaysSection';
+import PaymentAccountSection from '@/components/settings/PaymentAccountSection';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { aiBackend } from '@/lib/aiBackend';
 
@@ -32,6 +33,7 @@ const sections = [
   { id: 'insurance', label: 'Convênios', icon: Shield },
   { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
   { id: 'holidays', label: 'Feriados', icon: CalendarOff },
+  { id: 'payments', label: 'Recebimentos', icon: Wallet },
   { id: 'subscription', label: 'Assinatura', icon: Sparkles },
 ];
 
@@ -108,6 +110,7 @@ export default function SettingsPage() {
           {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'procedures' && <ProceduresCrudSection />}
           {activeSection === 'holidays' && <HolidaysSection />}
+          {activeSection === 'payments' && <PaymentAccountSection />}
           {activeSection === 'subscription' && currentClinicId && (
             <SubscriptionSection entityType="clinic" entityId={currentClinicId} />
           )}
