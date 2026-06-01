@@ -100,6 +100,7 @@ const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categor
   { title: 'Pacientes do Dia',  url: '/pacientes-do-dia',   icon: CalendarDays,   categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Pacientes',         url: '/patients',            icon: Users,          categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Aprovações',        url: '/clinica/aprovacoes',  icon: ClipboardCheck, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
+  { title: 'Credenciamentos',   url: '/clinica/credenciamentos', icon: Building2,  categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
   { title: 'Odontograma',       url: '/odontogram',          icon: FileHeart,      categories: ['odonto'],      allowedRoles: ['admin', 'dentist'] },
   { title: 'Ferramentas Clínicas', url: '/ferramentas',      icon: Briefcase,      categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Financeiro',        url: '/financial',           icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },

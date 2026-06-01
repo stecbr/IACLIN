@@ -40,6 +40,7 @@ import PatientsOfDay from "./pages/PatientsOfDay";
 import ClinicaHome from "./pages/clinica/ClinicaHome";
 import ClinicaMedicos from "./pages/clinica/ClinicaMedicos";
 import ClinicaAprovacoes from "./pages/clinica/ClinicaAprovacoes";
+import ClinicaCredentialings from "./pages/clinica/ClinicaCredentialings";
 import ToolsHomeUnified from "./pages/ToolsHomeUnified";
 import { PatientLayout } from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
@@ -243,6 +244,7 @@ const AppRoutes = () => (
     <Route path="/clinica" element={<ProtectedRoute><ClinicaHome /></ProtectedRoute>} />
     <Route path="/clinica/medicos" element={<ProtectedRoute><ClinicaMedicos /></ProtectedRoute>} />
     <Route path="/clinica/aprovacoes" element={<ProtectedRoute><ClinicaAprovacoes /></ProtectedRoute>} />
+    <Route path="/clinica/credenciamentos" element={<ProtectedRoute><ClinicaCredentialings /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/mapa-clinico" element={<ProtectedRoute><ClinicalMapPage /></ProtectedRoute>} />
     <Route path="/ferramentas" element={<ProtectedRoute><ToolsHomeUnified /></ProtectedRoute>} />

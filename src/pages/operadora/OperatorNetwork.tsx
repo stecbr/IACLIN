@@ -4,85 +4,149 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 import { Search } from 'lucide-react';
 
 interface Row {
   id: string;
-  professional_user_id: string;
   clinic_id: string;
-  clinic_member_id: string;
   status: string;
-  full_name?: string | null;
-  specialty?: string | null;
-  registration_number?: string | null;
+  requested_at?: string;
+  updated_at?: string;
   clinic_name?: string | null;
+  clinic_cnpj?: string | null;
   clinic_city?: string | null;
+  doctors?: Array<{ name: string; specialty: string | null; registration_number: string | null }>;
 }
 
 export default function OperatorNetwork() {
-  const { operatorId } = useAuth();
+  const { operatorId, user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [revoking, setRevoking] = useState<Row | null>(null);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!operatorId) return;
+    setLoading(true);
+    const { data: creds } = await supabase
+      .from('operator_credentialings')
+      .select('id, clinic_id, status, requested_at, updated_at')
+      .eq('operator_id', operatorId)
+      .order('requested_at', { ascending: false });
+    const all = (creds ?? []) as Row[];
+
+    // Keep only the latest credentialing per clinic for this operator.
+    const latestMap = new Map<string, Row>();
+    for (const row of all) {
+      const key = row.clinic_id;
+      const prev = latestMap.get(key);
+      if (!prev) {
+        latestMap.set(key, row);
+        continue;
+      }
+      const prevTs = new Date(prev.requested_at ?? prev.updated_at ?? 0).getTime();
+      const currTs = new Date(row.requested_at ?? row.updated_at ?? 0).getTime();
+      if (currTs >= prevTs) latestMap.set(key, row);
+    }
+    const list = Array.from(latestMap.values()).filter((r) => r.status === 'approved');
+
+    if (list.length === 0) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    const clinicIds = [...new Set(list.map((r) => r.clinic_id))];
+    const [{ data: clinics }, { data: clinicMembers }, { data: profiles }] = await Promise.all([
+      supabase.from('clinics').select('id, name, city, cnpj').in('id', clinicIds),
+      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role').in('clinic_id', clinicIds).eq('role', 'dentist'),
+      supabase.from('profiles').select('id, full_name'),
+    ]);
+
+    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
+    const doctorsByClinic = new Map<string, Array<{ name: string; specialty: string | null; registration_number: string | null }>>();
+    (clinicMembers ?? []).forEach((m: any) => {
+      const arr = doctorsByClinic.get(m.clinic_id) ?? [];
+      arr.push({
+        name: profileMap.get(m.user_id)?.full_name ?? '—',
+        specialty: m.specialty ?? null,
+        registration_number: m.registration_number ?? null,
+      });
+      doctorsByClinic.set(m.clinic_id, arr);
+    });
+
+    const merged: Row[] = list.map((r) => ({
+      ...r,
+      clinic_name: clinicMap.get(r.clinic_id)?.name ?? '—',
+      clinic_cnpj: clinicMap.get(r.clinic_id)?.cnpj ?? null,
+      clinic_city: clinicMap.get(r.clinic_id)?.city ?? null,
+      doctors: doctorsByClinic.get(r.clinic_id) ?? [],
+    }));
+    setRows(merged);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (!operatorId) return;
-    (async () => {
-      const { data: creds } = await supabase
-        .from('operator_credentialings')
-        .select('id, professional_user_id, clinic_id, clinic_member_id, status')
-        .eq('operator_id', operatorId)
-        .eq('status', 'approved');
-      const list = (creds ?? []) as Row[];
-      if (list.length === 0) {
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-      const userIds = [...new Set(list.map((r) => r.professional_user_id))];
-      const memberIds = [...new Set(list.map((r) => r.clinic_member_id))];
-      const clinicIds = [...new Set(list.map((r) => r.clinic_id))];
-      const [{ data: profiles }, { data: members }, { data: clinics }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').in('id', userIds),
-        supabase.from('clinic_members').select('id, specialty, registration_number').in('id', memberIds),
-        supabase.from('clinics').select('id, name, city').in('id', clinicIds),
-      ]);
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-      const memberMap = new Map((members ?? []).map((m) => [m.id, m]));
-      const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
-      const merged: Row[] = list.map((r) => ({
-        ...r,
-        full_name: profileMap.get(r.professional_user_id)?.full_name ?? '—',
-        specialty: memberMap.get(r.clinic_member_id)?.specialty ?? null,
-        registration_number: memberMap.get(r.clinic_member_id)?.registration_number ?? null,
-        clinic_name: clinicMap.get(r.clinic_id)?.name ?? '—',
-        clinic_city: clinicMap.get(r.clinic_id)?.city ?? null,
-      }));
-      setRows(merged);
-      setLoading(false);
-    })();
+    load();
   }, [operatorId]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((r) =>
-      [r.full_name, r.specialty, r.clinic_name, r.clinic_city, r.registration_number]
+      [
+        r.clinic_name,
+        r.clinic_city,
+        r.clinic_cnpj,
+        ...(r.doctors ?? []).flatMap((d) => [d.name, d.specialty, d.registration_number]),
+      ]
         .filter(Boolean)
         .some((s) => String(s).toLowerCase().includes(term))
     );
   }, [rows, q]);
 
+  const revokeCredentialing = async () => {
+    if (!revoking || !operatorId) return;
+    setBusyId(revoking.id);
+    const { error } = await supabase
+      .from('operator_credentialings')
+      .update({
+        status: 'revoked',
+        decided_at: new Date().toISOString(),
+        decided_by: user?.id ?? null,
+        rejection_reason: revokeReason || 'Revogado pela operadora (rede credenciada)',
+      } as any)
+      .eq('operator_id', operatorId)
+      .eq('clinic_id', revoking.clinic_id)
+      .eq('status', 'approved');
+
+    setBusyId(null);
+    if (error) {
+      toast.error('Erro ao revogar credenciamento: ' + error.message);
+      return;
+    }
+    toast.success('Credenciamento cancelado na rede');
+    setRevoking(null);
+    setRevokeReason('');
+    load();
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Rede credenciada</h1>
-        <p className="text-sm text-muted-foreground">Profissionais ativos na sua rede</p>
+        <p className="text-sm text-muted-foreground">Clínicas credenciadas e médicos vinculados</p>
       </div>
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por nome, especialidade, cidade..."
+          placeholder="Buscar por clínica, médico, especialidade, cidade..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="pl-9"
@@ -93,30 +157,46 @@ export default function OperatorNetwork() {
           <div className="p-8 text-center text-muted-foreground text-sm">Carregando...</div>
         ) : filtered.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground text-sm">
-            Nenhum profissional credenciado ainda.
+            Nenhuma clínica credenciada ainda.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40">
                 <tr className="text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Profissional</th>
-                  <th className="px-4 py-3 font-medium">Especialidade</th>
-                  <th className="px-4 py-3 font-medium">Registro</th>
                   <th className="px-4 py-3 font-medium">Clínica</th>
+                  <th className="px-4 py-3 font-medium">CNPJ</th>
+                  <th className="px-4 py-3 font-medium">Médicos vinculados</th>
                   <th className="px-4 py-3 font-medium">Cidade</th>
+                  <th className="px-4 py-3 font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{r.full_name}</td>
+                    <td className="px-4 py-3 font-medium">{r.clinic_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.clinic_cnpj ?? '—'}</td>
                     <td className="px-4 py-3">
-                      {r.specialty ? <Badge variant="secondary">{r.specialty}</Badge> : '—'}
+                      {r.doctors && r.doctors.length > 0 ? (
+                        <div className="space-y-1">
+                          {r.doctors.slice(0, 3).map((d, i) => (
+                            <div key={`${d.name}-${i}`} className="text-xs">
+                              <span className="font-medium">{d.name}</span>
+                              {d.specialty ? <span className="text-muted-foreground"> · {d.specialty}</span> : null}
+                            </div>
+                          ))}
+                          {r.doctors.length > 3 ? <div className="text-xs text-muted-foreground">+{r.doctors.length - 3} médico(s)</div> : null}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Sem médicos vinculados</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.registration_number ?? '—'}</td>
-                    <td className="px-4 py-3">{r.clinic_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.clinic_city ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <Button size="sm" variant="destructive" onClick={() => setRevoking(r)}>
+                        Cancelar credenciamento
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -124,6 +204,26 @@ export default function OperatorNetwork() {
           </div>
         )}
       </Card>
+
+      <Dialog open={!!revoking} onOpenChange={(o) => !o && setRevoking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar credenciamento da rede</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={revokeReason}
+            onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder="Motivo (opcional)"
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRevoking(null)}>Voltar</Button>
+            <Button variant="destructive" onClick={revokeCredentialing} disabled={busyId === revoking?.id}>
+              Confirmar cancelamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
