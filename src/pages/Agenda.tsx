@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog';
 import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDialog';
@@ -22,6 +22,7 @@ import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { AgendaCompareView } from '@/components/agenda/AgendaCompareView';
 import { WaitingTimer } from '@/components/waiting-room/WaitingTimer';
 import { syncAgendaAppointments } from '@/hooks/useAiSync';
+import { generateAgendaDayPdf } from '@/lib/generateAgendaDayPdf';
 
 type View = 'day' | 'week' | 'month';
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -97,6 +98,31 @@ export default function Agenda() {
     },
   });
 
+  const { data: holidays = [] } = useQuery({
+    queryKey: ['clinic-holidays', currentClinicId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('clinic_holidays')
+        .select('date, name')
+        .eq('clinic_id', currentClinicId!);
+      return (data ?? []) as { date: string; name: string }[];
+    },
+    enabled: !!currentClinicId,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const getHoliday = (day: Date) => {
+    const ds = format(day, 'yyyy-MM-dd');
+    return holidays.find((h) => h.date === ds) ?? null;
+  };
+
+  const handlePrint = () => {
+    const dayApts = view === 'day'
+      ? appointments
+      : appointments.filter((a: any) => isSameDay(parseISO(a.start_time), currentDate));
+    generateAgendaDayPdf(view === 'day' ? currentDate : currentDate, dayApts, currentClinicId);
+  };
+
   useEffect(() => {
     if (gridRef.current && view !== 'month') {
       const now = new Date();
@@ -146,6 +172,10 @@ export default function Agenda() {
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
         <PageHeader title={isMineOnly ? 'Minha Agenda' : 'Agenda'}>
+          <Button variant="outline" onClick={handlePrint} className="gap-2">
+            <Printer className="h-4 w-4" />
+            Imprimir
+          </Button>
           <Button onClick={() => { setSelectedSlot(null); setShowForm(true); }} className="gap-2">
             <Plus className="h-4 w-4" />
             Nova Consulta
@@ -211,7 +241,7 @@ export default function Agenda() {
           </p>
         )}
         {view === 'month' ? (
-          <MonthView days={days} appointments={appointments} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} onAppointmentClick={(apt) => setSelectedAppointment(apt)} />
+          <MonthView days={days} appointments={appointments} holidays={holidays} onDayClick={(d) => { setCurrentDate(d); setView('day'); }} onAppointmentClick={(apt) => setSelectedAppointment(apt)} />
         ) : useCompareView ? (
           <AgendaCompareView
             days={days}
@@ -228,21 +258,35 @@ export default function Agenda() {
             {/* Day Headers */}
             <div className="grid border-b border-border" style={{ gridTemplateColumns: `60px repeat(${days.length}, minmax(80px, 1fr))` }}>
               <div className="p-2 border-r border-border" />
-              {days.map((day) => (
-                <div
-                  key={day.toISOString()}
-                  className={`p-3 text-center border-r border-border last:border-r-0 ${isToday(day) ? 'bg-primary/5' : ''}`}
-                >
-                  <p className="text-xs text-muted-foreground capitalize">{format(day, 'EEE', { locale: ptBR })}</p>
-                  <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mt-0.5 ${
-                    isToday(day) ? 'bg-primary text-primary-foreground font-bold' : ''
-                  }`}>
-                    <span className={`text-lg font-semibold ${isToday(day) ? '' : 'text-foreground'}`}>
-                      {format(day, 'dd')}
-                    </span>
+              {days.map((day) => {
+                const holiday = getHoliday(day);
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`p-3 text-center border-r border-border last:border-r-0 ${
+                      isToday(day) ? 'bg-primary/5' : holiday ? 'bg-amber-500/10' : ''
+                    }`}
+                  >
+                    <p className={`text-xs capitalize ${holiday ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
+                      {format(day, 'EEE', { locale: ptBR })}
+                    </p>
+                    <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mt-0.5 ${
+                      isToday(day) ? 'bg-primary text-primary-foreground font-bold' : ''
+                    }`}>
+                      <span className={`text-lg font-semibold ${
+                        isToday(day) ? '' : holiday ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'
+                      }`}>
+                        {format(day, 'dd')}
+                      </span>
+                    </div>
+                    {holiday && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5 leading-tight truncate px-1" title={holiday.name}>
+                        {holiday.name}
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Time Grid */}
@@ -272,10 +316,11 @@ export default function Agenda() {
                     const dayApts = getAptsForDay(day).filter(
                       (a: any) => new Date(a.start_time).getHours() === hour
                     );
+                    const isHoliday = !!getHoliday(day);
                     return (
                       <div
                         key={day.toISOString() + hour}
-                        className="min-h-[60px] p-1 border-r border-border last:border-r-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                        className={`min-h-[60px] p-1 border-r border-border last:border-r-0 hover:bg-muted/30 cursor-pointer transition-colors ${isHoliday ? 'bg-amber-500/5' : ''}`}
                         onClick={() => handleSlotClick(day, hour)}
                       >
                         {dayApts.map((apt: any) => {
@@ -372,7 +417,7 @@ export default function Agenda() {
   );
 }
 
-function MonthView({ days, appointments, onDayClick, onAppointmentClick }: { days: Date[]; appointments: any[]; onDayClick: (d: Date) => void; onAppointmentClick: (apt: any) => void }) {
+function MonthView({ days, appointments, holidays, onDayClick, onAppointmentClick }: { days: Date[]; appointments: any[]; holidays: { date: string; name: string }[]; onDayClick: (d: Date) => void; onAppointmentClick: (apt: any) => void }) {
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const firstDay = days[0];
   const startPad = (firstDay.getDay() + 6) % 7;
@@ -392,21 +437,29 @@ function MonthView({ days, appointments, onDayClick, onAppointmentClick }: { day
         {paddedDays.map((day, i) => {
           if (!day) return <div key={i} className="min-h-[80px] border-b border-r border-border bg-muted/10" />;
           const dayApts = appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
+          const holiday = holidays.find((h) => h.date === format(day, 'yyyy-MM-dd')) ?? null;
           return (
             <div
               key={i}
               className={`min-h-[80px] p-1.5 border-b border-r border-border cursor-pointer hover:bg-muted/30 transition-colors ${
-                isToday(day) ? 'bg-primary/5' : ''
+                isToday(day) ? 'bg-primary/5' : holiday ? 'bg-amber-500/10' : ''
               }`}
               onClick={() => onDayClick(day)}
             >
-              <div className={`inline-flex items-center justify-center w-6 h-6 rounded-full mb-1 ${
+              <div className={`inline-flex items-center justify-center w-6 h-6 rounded-full mb-0.5 ${
                 isToday(day) ? 'bg-primary text-primary-foreground' : ''
               }`}>
-                <span className={`text-xs font-medium ${isToday(day) ? '' : 'text-foreground'}`}>
+                <span className={`text-xs font-medium ${
+                  isToday(day) ? '' : holiday ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'
+                }`}>
                   {format(day, 'd')}
                 </span>
               </div>
+              {holiday && (
+                <p className="text-[9px] text-amber-600 dark:text-amber-400 font-medium leading-tight truncate mb-0.5" title={holiday.name}>
+                  {holiday.name}
+                </p>
+              )}
               {dayApts.slice(0, 3).map((apt: any) => (
                 <div
                   key={apt.id}

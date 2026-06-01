@@ -14,6 +14,7 @@ import {
   Search,
   X,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -90,7 +91,8 @@ async function fetchConversations(clinicId: string): Promise<Conversation[]> {
   });
   if (!res.ok) throw new Error(`Backend IA respondeu ${res.status}`);
   const json = await res.json();
-  return (json?.data ?? []) as Conversation[];
+  const data = json?.data;
+  return (Array.isArray(data) ? data : []) as Conversation[];
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
@@ -113,24 +115,52 @@ export function LiveMessagesPanel({
     refetchInterval: connected ? 5000 : false,
   });
 
+  // Atualiza otimisticamente o status de uma conversa no cache (evita o botão
+  // "piscar" de volta enquanto o refetch de 5s não chega).
+  const setLocalStatus = (phone: string, status: string) => {
+    qc.setQueryData(['ai-conversations', clinicId], (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((c: any) => (c.patient_phone === phone ? { ...c, status } : c));
+    });
+  };
+
   const takeoverMutation = useMutation({
     mutationFn: (phone: string) =>
       aiBackend.takeoverConversation(clinicId, toConvId(clinicId, phone)),
+    onMutate: (phone: string) => setLocalStatus(phone, 'human'),
     onSuccess: () => {
       toast.success('Atendimento assumido — IA em modo silencioso para esta conversa');
       qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
     },
-    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível assumir o atendimento'),
+    onError: (e: any, phone: string) => {
+      setLocalStatus(phone, 'open'); // reverte
+      toast.error(e?.message ?? 'Não foi possível assumir o atendimento');
+    },
   });
 
   const releaseMutation = useMutation({
     mutationFn: (phone: string) =>
       aiBackend.releaseConversation(clinicId, toConvId(clinicId, phone)),
+    onMutate: (phone: string) => setLocalStatus(phone, 'open'),
     onSuccess: () => {
       toast.success('Conversa devolvida para a IA');
       qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
     },
-    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível devolver para a IA'),
+    onError: (e: any, phone: string) => {
+      setLocalStatus(phone, 'human'); // reverte
+      toast.error(e?.message ?? 'Não foi possível devolver para a IA');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (phone: string) =>
+      aiBackend.deleteConversation(clinicId, toConvId(clinicId, phone)),
+    onSuccess: () => {
+      toast.success('Conversa excluída');
+      setSelected(null);
+      qc.invalidateQueries({ queryKey: ['ai-conversations', clinicId] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível excluir a conversa'),
   });
 
   const metrics = useMemo(() => {
@@ -341,6 +371,7 @@ export function LiveMessagesPanel({
                       releaseMutation.isPending &&
                       releaseMutation.variables === selected.patient_phone
                     }
+                    onDelete={(phone) => deleteMutation.mutate(phone)}
                   />
                 </div>
               )}
@@ -411,12 +442,17 @@ function ConversationRow({
     : '';
 
   const status = conversation.status;
-  const isHuman = status === 'human' || status === 'handoff';
+  // 'human' = alguém clicou em Assumir (takeover real). 'handoff' = a IA pediu
+  // atenção (fora do horário / palavra-chave) mas NINGUÉM assumiu ainda.
+  const isHuman = status === 'human';
+  const isHandoff = status === 'handoff';
   const convState = conversation.conversation_state;
   const stateInfo = convState ? STATE_LABELS[convState] : null;
 
   const statusBadge = isHuman ? (
     <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">Humano</Badge>
+  ) : isHandoff ? (
+    <Badge variant="secondary" className="h-4 bg-amber-100 px-1.5 text-[10px] text-amber-700">Aguardando</Badge>
   ) : (
     <Badge variant="outline" className="h-4 border-primary/40 px-1.5 text-[10px] text-primary">IA</Badge>
   );
@@ -514,6 +550,7 @@ function ConversationThread({
   onRelease,
   takingOver,
   releasing,
+  onDelete,
 }: {
   clinicId: string;
   conversation: Conversation;
@@ -523,10 +560,12 @@ function ConversationThread({
   onRelease?: () => void;
   takingOver?: boolean;
   releasing?: boolean;
+  onDelete?: (phone: string) => void;
 }) {
   const convId = toConvId(clinicId, conversation.patient_phone);
-  const isHuman =
-    conversation.status === 'human' || conversation.status === 'handoff';
+  // 'human' = takeover real (alguém assumiu). 'handoff' = a IA sinalizou mas
+  // ninguém assumiu — nesse caso ainda mostramos "Assumir", não "Devolver IA".
+  const isHuman = conversation.status === 'human';
   const convState = conversation.conversation_state;
   const stateInfo = convState ? STATE_LABELS[convState] : null;
 
@@ -537,7 +576,7 @@ function ConversationThread({
     refetchInterval: 5000,
   });
 
-  const messages = data?.data ?? [];
+  const messages = Array.isArray(data?.data) ? data.data : [];
 
   return (
     <div className="flex h-full flex-col">
@@ -591,6 +630,21 @@ function ConversationThread({
           >
             <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
           </Button>
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              title="Excluir conversa"
+              onClick={() => {
+                if (confirm('Excluir esta conversa? Todo o histórico dela será apagado. Esta ação não pode ser desfeita.')) {
+                  onDelete(conversation.patient_phone);
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>

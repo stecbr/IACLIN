@@ -382,6 +382,13 @@ export const aiBackend = {
       `/api/clinics/${clinicId}/conversations`,
       { method: 'DELETE' },
     ),
+
+  /** Exclui UMA conversa (mensagens + estado + takeover daquele telefone) */
+  deleteConversation: (clinicId: string, conversationId: string) =>
+    request<{ ok: boolean; removed_messages: number }>(
+      `/api/clinics/${clinicId}/conversations/${conversationId}`,
+      { method: 'DELETE' },
+    ),
 };
 
 // ============================================================

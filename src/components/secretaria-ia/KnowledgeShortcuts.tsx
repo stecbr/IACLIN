@@ -45,8 +45,8 @@ export function KnowledgeShortcuts({ clinicId }: Props) {
     {
       icon: Clock,
       title: 'Horário de funcionamento',
-      to: '/settings',
-      action: 'Abrir Configurações',
+      to: '/settings?section=clinic',
+      action: 'Abrir horários',
       summary: isLoading
         ? null
         : data?.openDays
@@ -56,8 +56,8 @@ export function KnowledgeShortcuts({ clinicId }: Props) {
     {
       icon: ShieldCheck,
       title: 'Convênios',
-      to: '/settings',
-      action: 'Abrir Configurações',
+      to: '/settings?section=insurance',
+      action: 'Abrir convênios',
       summary: isLoading
         ? null
         : data?.activePlans
