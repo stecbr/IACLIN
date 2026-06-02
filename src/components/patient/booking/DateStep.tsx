@@ -42,32 +42,44 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }:
       const weekday = date.getDay();
 
       // Find members with this specialty
-      const { data: members } = await supabase
-        .from('clinic_members')
-        .select('id, user_id, clinic_id')
-        .filter('specialty', 'eq', specialty.id)
-        .in('role', ['dentist', 'admin']);
+      // Fallback: also check profiles.specialty for admins who may not have specialty in clinic_members
+      const [{ data: directMembers }, { data: profileMatches }] = await Promise.all([
+        supabase
+          .from('clinic_members')
+          .select('id, user_id, clinic_id')
+          .eq('specialty', specialty.id)
+          .in('role', ['dentist', 'admin']),
+        supabase
+          .from('profiles')
+          .select('id')
+          .eq('specialty', specialty.id),
+      ]);
 
-      if (!members || members.length === 0) {
+      const profileUserIds = (profileMatches ?? []).map((p: any) => p.id);
+      const { data: profileMembers } = profileUserIds.length > 0
+        ? await supabase
+            .from('clinic_members')
+            .select('id, user_id, clinic_id')
+            .in('user_id', profileUserIds)
+            .in('role', ['dentist', 'admin'])
+        : { data: [] as any[] };
+
+      // Merge and deduplicate
+      const seen = new Set<string>();
+      const members = [...(directMembers ?? []), ...(profileMembers ?? [])].filter((m: any) => {
+        const k = `${m.user_id}|${m.clinic_id}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+
+      if (members.length === 0) {
         if (!cancelled) { setPreview({ clinics: 0, pros: 0 }); setLoadingPreview(false); }
         return;
       }
 
       const userIds = [...new Set(members.map((m: any) => m.user_id))];
-      let clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
-
-      // Apply city/state filter by fetching only matching clinics
-      if (filters?.city || filters?.state) {
-        let clinicQ = supabase.from('clinics').select('id').in('id', clinicIds);
-        if (filters?.city)  clinicQ = clinicQ.ilike('city', `%${filters.city}%`);
-        if (filters?.state) clinicQ = clinicQ.eq('state', filters.state);
-        const { data: filteredClinics } = await clinicQ;
-        clinicIds = (filteredClinics ?? []).map((c: any) => c.id);
-        if (clinicIds.length === 0) {
-          if (!cancelled) { setPreview({ clinics: 0, pros: 0 }); setLoadingPreview(false); }
-          return;
-        }
-      }
+      const clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
 
       // Filter by insurance plan when selected
       const wantsInsurance = !!filters?.insurancePlanId;

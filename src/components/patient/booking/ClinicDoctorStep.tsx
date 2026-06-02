@@ -91,13 +91,34 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
       const weekday = date.getDay();
 
       // 1. Fetch all members with this specialty
-      const { data: members } = await supabase
-        .from('clinic_members')
-        .select('id, clinic_id, user_id, role, specialty, is_owner')
-        .filter('specialty', 'eq', specialty.id)
-        .in('role', ['dentist', 'admin']);
+      // Fallback: also check profiles.specialty for admins without specialty in clinic_members
+      const [{ data: directMembers }, { data: profileMatches }] = await Promise.all([
+        supabase
+          .from('clinic_members')
+          .select('id, clinic_id, user_id, role, specialty, is_owner')
+          .eq('specialty', specialty.id)
+          .in('role', ['dentist', 'admin']),
+        supabase.from('profiles').select('id').eq('specialty', specialty.id),
+      ]);
 
-      if (!members || members.length === 0) {
+      const profileUserIds = (profileMatches ?? []).map((p: any) => p.id);
+      const { data: profileMembers } = profileUserIds.length > 0
+        ? await supabase
+            .from('clinic_members')
+            .select('id, clinic_id, user_id, role, specialty, is_owner')
+            .in('user_id', profileUserIds)
+            .in('role', ['dentist', 'admin'])
+        : { data: [] as any[] };
+
+      const seenM = new Set<string>();
+      const members = [...(directMembers ?? []), ...(profileMembers ?? [])].filter((m: any) => {
+        const k = `${m.user_id}|${m.clinic_id}`;
+        if (seenM.has(k)) return false;
+        seenM.add(k);
+        return true;
+      });
+
+      if (members.length === 0) {
         if (!cancelled) { setClinics([]); setLoading(false); }
         return;
       }
@@ -135,9 +156,8 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
         const k = `${t.user_id}|${t.clinic_id}`;
         const m = memberByKey.get(k);
         if (!m) continue;
-        // Owner → only particular days; vinculado → only plano days
-        const expected = m.is_owner ? 'particular' : 'plano';
-        if (t.mode !== expected) continue;
+        // Se convênio selecionado → só mode plano; senão aceita qualquer modo
+        if (insurancePlanId && t.mode !== 'plano') continue;
         if (
           blockedKeys.has(`${t.user_id}|${t.clinic_id}`) ||
           blockedKeys.has(`${t.user_id}|`)
