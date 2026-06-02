@@ -46,19 +46,15 @@ export default function Marketplace() {
       const clinicIds = [...new Set(members.map((m) => m.clinic_id))];
 
       const today = startOfDay(new Date());
-      const endRange = addDays(today, 30);
-      const todayKey = toLocalDateStr(today);
-      const endKey = toLocalDateStr(endRange);
 
-      const [{ data: profiles }, { data: clinics }, { data: avails }, { data: appointments }] = await Promise.all([
+      const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
         supabase.from("clinics").select("id, name, city, state, phone, address, zip_code").in("id", clinicIds),
         supabase
-          .from("professional_availability")
-          .select("user_id, clinic_id, work_date, start_time, end_time")
+          .from("professional_schedule_template")
+          .select("user_id, clinic_id, weekday, start_time, end_time, is_active")
           .in("user_id", userIds)
-          .gte("work_date", todayKey)
-          .lte("work_date", endKey),
+          .eq("is_active", true),
         supabase
           .from("appointments")
           .select("dentist_id, start_time, end_time, status")
@@ -71,12 +67,17 @@ export default function Marketplace() {
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
       const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
 
-      // Group availability by user|clinic
+      // Derive upcoming dates (next 30 days) from the weekly template
       const availMap = new Map<string, { date: string; start: string; end: string }[]>();
-      for (const a of (avails ?? []) as any[]) {
-        const k = `${a.user_id}|${a.clinic_id}`;
+      for (const t of (templates ?? []) as any[]) {
+        const k = `${t.user_id}|${t.clinic_id}`;
         const arr = availMap.get(k) ?? [];
-        arr.push({ date: a.work_date, start: a.start_time, end: a.end_time });
+        for (let i = 0; i < 30; i++) {
+          const d = addDays(today, i);
+          if (d.getDay() === t.weekday) {
+            arr.push({ date: toLocalDateStr(d), start: t.start_time, end: t.end_time });
+          }
+        }
         availMap.set(k, arr);
       }
 
