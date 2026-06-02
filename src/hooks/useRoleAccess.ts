@@ -18,6 +18,7 @@ const routePermissions: RouteAccess[] = [
   { path: '/patients', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/clinica', allowedRoles: ['admin'] },
   { path: '/clinica/medicos', allowedRoles: ['admin'] },
+  { path: '/clinica/credenciamentos', allowedRoles: ['admin'] },
   { path: '/clinica/aprovacoes', allowedRoles: ['admin', 'secretary'] },
   { path: '/odontogram', allowedRoles: ['admin', 'dentist'] },
   { path: '/ferramentas', allowedRoles: ['admin', 'dentist'] },
@@ -48,9 +49,11 @@ export function useRoleAccess() {
 
   // Dev simulation wins over everything when set
   // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
+  const normalizedClinicRole = clinicRole === 'owner' ? 'admin' : clinicRole;
+
   const effectiveRole: AppRole = simulatedRole
     ? (simulatedRole as AppRole)
-    : (isPatient ? 'patient' : (clinicRole ?? 'admin'));
+    : (isPatient ? 'patient' : ((normalizedClinicRole as AppRole) ?? 'admin'));
 
   const canAccess = (path: string): boolean => {
     const rule = routePermissions.find((r) => {

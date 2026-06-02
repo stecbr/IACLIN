@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
-import { User, Stethoscope, Network, KeyRound, Palette, Save, AlertCircle, Plus, Star, Trash2, BadgeCheck } from 'lucide-react';
+import { User, Stethoscope, Network, KeyRound, Palette, Save, AlertCircle, Plus, Star, Trash2, BadgeCheck, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '@/components/ThemeProvider';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
@@ -66,12 +66,18 @@ export default function Profile() {
 }
 
 function ProfileInfoSection() {
-  const { user, profile, currentClinicId, clinics } = useAuth();
+  const { user, profile, currentClinicId, roles } = useAuth();
   const queryClient = useQueryClient();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const userTypeMeta = String((user?.user_metadata as Record<string, unknown> | undefined)?.user_type ?? '');
+  const isProfessionalProfile = roles.includes('dentist') || userTypeMeta.startsWith('profissional');
 
   // Fetch clinic_member row for current clinic (only for registration_number)
   const { data: member } = useQuery({
@@ -121,42 +127,119 @@ function ProfileInfoSection() {
     if (profileFull) {
       setFullName(profileFull.full_name ?? '');
       setPhone(profileFull.phone ?? '');
+      setAvatarUrl(profileFull.avatar_url ?? null);
     }
   }, [profileFull]);
 
   useEffect(() => {
-    if (member) {
-      setRegistrationNumber(member.registration_number ?? '');
+    const metaRegistration = String((user?.user_metadata as Record<string, unknown> | undefined)?.registration_number ?? '').trim();
+    setRegistrationNumber(member?.registration_number ?? metaRegistration);
+  }, [member, user?.user_metadata]);
+
+  useEffect(() => {
+    const metaSpecialty = String((user?.user_metadata as Record<string, unknown> | undefined)?.specialty ?? '').trim();
+    setSelectedSpecialty(primarySpecialty ?? metaSpecialty);
+  }, [primarySpecialty, user?.user_metadata]);
+
+  const uploadAvatar = async (file: File) => {
+    if (!user) return;
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `profiles/${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+      setAvatarUrl(data.publicUrl);
+      toast.success('Foto de perfil carregada. Clique em salvar para confirmar.');
+    } catch (e: any) {
+      toast.error(e.message ?? 'Erro ao enviar foto');
+    } finally {
+      setUploadingAvatar(false);
     }
-  }, [member]);
+  };
 
   const saveProfile = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('no user');
-      const regError = validateRegistrationForSpecialty(registrationNumber, primarySpecialty);
+      if (!fullName.trim()) throw new Error('Informe seu nome completo');
+      if (!phone.trim()) throw new Error('Informe seu telefone');
+
+      if (isProfessionalProfile) {
+        if (!avatarUrl?.trim()) throw new Error('Adicione sua foto de perfil');
+        if (!selectedSpecialty.trim()) throw new Error('Selecione sua especialidade');
+        if (!registrationNumber.trim()) {
+          const fallbackLabel = selectedSpecialty ? getFamilyConfig(selectedSpecialty).registrationLabel : 'registro profissional';
+          throw new Error(`Informe seu ${fallbackLabel}`);
+        }
+      }
+
+      const regError = validateRegistrationForSpecialty(registrationNumber, selectedSpecialty || null);
       if (regError) throw new Error(regError);
+
       const { error: pErr } = await supabase.from('profiles')
-        .update({ full_name: fullName, phone })
+        .update({ full_name: fullName.trim(), phone: phone.trim(), avatar_url: avatarUrl })
         .eq('id', user.id);
       if (pErr) throw pErr;
+
+      if (isProfessionalProfile && selectedSpecialty.trim()) {
+        const { data: existingSpecialty, error: findErr } = await supabase
+          .from('professional_specialties' as any)
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('specialty', selectedSpecialty)
+          .maybeSingle();
+        if (findErr) throw findErr;
+
+        const { error: clearPrimaryErr } = await supabase
+          .from('professional_specialties' as any)
+          .update({ is_primary: false })
+          .eq('user_id', user.id);
+        if (clearPrimaryErr) throw clearPrimaryErr;
+
+        if (existingSpecialty?.id) {
+          const { error: setPrimaryErr } = await supabase
+            .from('professional_specialties' as any)
+            .update({ is_primary: true })
+            .eq('id', existingSpecialty.id);
+          if (setPrimaryErr) throw setPrimaryErr;
+        } else {
+          const { error: insertSpecErr } = await supabase
+            .from('professional_specialties' as any)
+            .insert({ user_id: user.id, specialty: selectedSpecialty, is_primary: true });
+          if (insertSpecErr) throw insertSpecErr;
+        }
+      }
+
       if (member) {
         const { error: mErr } = await supabase.from('clinic_members')
-          .update({ registration_number: registrationNumber || null })
+          .update({ registration_number: registrationNumber.trim() || null, specialty: selectedSpecialty.trim() || null })
           .eq('id', member.id);
         if (mErr) throw mErr;
+      }
+
+      if (isProfessionalProfile) {
+        const { error: authErr } = await supabase.auth.updateUser({
+          data: {
+            specialty: selectedSpecialty.trim() || null,
+            registration_number: registrationNumber.trim() || null,
+          },
+        });
+        if (authErr) throw authErr;
       }
     },
     onSuccess: () => {
       toast.success('Perfil atualizado');
       queryClient.invalidateQueries({ queryKey: ['my-profile-full'] });
       queryClient.invalidateQueries({ queryKey: ['my-clinic-member'] });
+      queryClient.invalidateQueries({ queryKey: ['my-personal-specialties'] });
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
   });
 
   const initials = (fullName || profile?.full_name || user?.email || 'U')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  const familyConfig = getFamilyConfig(primarySpecialty);
+  const familyConfig = getFamilyConfig(selectedSpecialty || primarySpecialty);
   const regLabel = familyConfig.registrationLabel;
 
   return (
@@ -168,12 +251,29 @@ function ProfileInfoSection() {
       <CardContent className="space-y-4">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 ring-2 ring-primary/20">
+            <AvatarImage src={avatarUrl ?? undefined} />
             <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-lg font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground space-y-2">
             <p>{user?.email}</p>
+            {isProfessionalProfile && (
+              <label className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md border border-input cursor-pointer hover:bg-muted transition">
+                <Upload className="h-3.5 w-3.5" />
+                {uploadingAvatar ? 'Enviando foto...' : 'Enviar foto de perfil'}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  disabled={uploadingAvatar}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void uploadAvatar(file);
+                  }}
+                />
+              </label>
+            )}
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -186,23 +286,33 @@ function ProfileInfoSection() {
             <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
           </div>
         </div>
-        {member && (
-          <div>
-            <Label htmlFor="reg">{regLabel}</Label>
-            <Input
-              id="reg"
-              value={registrationNumber}
-              onChange={(e) => setRegistrationNumber(e.target.value)}
-              placeholder={`Digite seu ${regLabel}`}
-              className={!member?.registration_number ? 'border-amber-500/60 focus-visible:ring-amber-500/40' : undefined}
-            />
-            {!member?.registration_number && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                <AlertCircle className="h-3 w-3" />
-                Complete seu {regLabel} para emitir receitas e atestados.
-              </p>
-            )}
-          </div>
+        {isProfessionalProfile && (
+          <>
+            <div>
+              <Label htmlFor="specialty">Especialidade principal</Label>
+              <SpecialtySelect
+                value={selectedSpecialty}
+                onChange={setSelectedSpecialty}
+                placeholder="Selecione sua especialidade"
+              />
+            </div>
+            <div>
+              <Label htmlFor="reg">{regLabel}</Label>
+              <Input
+                id="reg"
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+                placeholder={`Digite seu ${regLabel}`}
+                className={!registrationNumber ? 'border-amber-500/60 focus-visible:ring-amber-500/40' : undefined}
+              />
+              {!registrationNumber && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-3 w-3" />
+                  Complete seu {regLabel} para finalizar vínculos com clínicas.
+                </p>
+              )}
+            </div>
+          </>
         )}
         <div className="flex justify-end">
           <Button onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending} className="gap-2">

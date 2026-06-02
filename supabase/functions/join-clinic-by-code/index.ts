@@ -58,12 +58,57 @@ Deno.serve(async (req) => {
         ? registration_number.trim()
         : metaRegistration;
 
+    // Profile completeness gate for joining by code.
+    // Required: full_name, phone, avatar_url, specialty and registration.
+    const [{ data: profile }, { data: existingMember }, { data: personalSpecialty }] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("full_name, phone, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle(),
+      admin
+        .from("clinic_members")
+        .select("specialty, registration_number")
+        .eq("user_id", user.id)
+        .not("registration_number", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("professional_specialties")
+        .select("specialty")
+        .eq("user_id", user.id)
+        .eq("is_primary", true)
+        .maybeSingle(),
+    ]);
+
+    const resolvedSpecialty = finalSpecialty ?? (existingMember as any)?.specialty ?? (personalSpecialty as any)?.specialty ?? null;
+    const resolvedRegistration = finalRegistration ?? (existingMember as any)?.registration_number ?? null;
+
+    const missing: string[] = [];
+    if (!(profile as any)?.full_name?.trim?.()) missing.push("nome completo");
+    if (!(profile as any)?.phone?.trim?.()) missing.push("telefone");
+    if (!(profile as any)?.avatar_url?.trim?.()) missing.push("foto de perfil");
+    if (!resolvedSpecialty) missing.push("especialidade");
+    if (!resolvedRegistration) missing.push("registro profissional");
+
+    if (missing.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: `Complete seu perfil antes de entrar na clínica. Faltando: ${missing.join(", ")}.`,
+          missing_fields: missing,
+          code: "PROFILE_INCOMPLETE",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { error: memErr } = await admin.from("clinic_members").insert({
       clinic_id: clinic.id,
       user_id: user.id,
       role: "dentist",
-      specialty: finalSpecialty,
-      registration_number: finalRegistration,
+      specialty: resolvedSpecialty,
+      registration_number: resolvedRegistration,
       is_owner: false,
     });
     if (memErr && !memErr.message.includes("duplicate")) {
@@ -71,10 +116,10 @@ Deno.serve(async (req) => {
     }
 
     // If membership already existed but had no specialty/registration, backfill it.
-    if (memErr && memErr.message.includes("duplicate") && (finalSpecialty || finalRegistration)) {
+    if (memErr && memErr.message.includes("duplicate") && (resolvedSpecialty || resolvedRegistration)) {
       const updates: Record<string, string> = {};
-      if (finalSpecialty) updates.specialty = finalSpecialty;
-      if (finalRegistration) updates.registration_number = finalRegistration;
+      if (resolvedSpecialty) updates.specialty = resolvedSpecialty;
+      if (resolvedRegistration) updates.registration_number = resolvedRegistration;
       // Only fill in nulls, don't overwrite existing values.
       const { data: existing } = await admin
         .from("clinic_members")

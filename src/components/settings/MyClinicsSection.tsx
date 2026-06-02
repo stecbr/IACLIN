@@ -35,6 +35,10 @@ export default function MyClinicsSection() {
         body: { code: normalized },
       });
       if (error || (data && data.error)) {
+        if (data?.code === 'PROFILE_INCOMPLETE') {
+          toast.error(data.error || 'Complete seu perfil (nome, telefone, foto, especialidade e registro) antes de entrar na clínica.');
+          return;
+        }
         toast(data?.error || error?.message || 'Não foi possível vincular.');
         return;
       }

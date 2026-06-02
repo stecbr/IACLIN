@@ -97,46 +97,59 @@ export default function MyCredentialingSection() {
   const load = async () => {
     if (!user || !currentClinicId) return;
     setLoading(true);
-    const [{ data: member }, { data: profile }, { data: clinic }, { data: profSpecialties }] = await Promise.all([
-      supabase
-        .from('clinic_members')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('clinic_id', currentClinicId)
-        .maybeSingle(),
-      supabase.from('profiles').select('full_name, phone').eq('id', user.id).maybeSingle(),
-      supabase.from('clinics').select('name, cnpj, address, city, state, zip_code, responsible_name, business_hours, logo_url').eq('id', currentClinicId).maybeSingle(),
-    ]);
+    try {
+      const [{ data: member }, { data: profile }, { data: clinic }] = await Promise.all([
+        supabase
+          .from('clinic_members')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('clinic_id', currentClinicId)
+          .maybeSingle(),
+        supabase.from('profiles').select('full_name, phone').eq('id', user.id).maybeSingle(),
+        supabase.from('clinics').select('name, cnpj, address, city, state, zip_code, responsible_name, business_hours, logo_url').eq('id', currentClinicId).maybeSingle(),
+      ]);
 
-    const mId = (member as any)?.id ?? null;
-    setMemberId(mId);
+      const mId = (member as any)?.id ?? null;
+      setMemberId(mId);
 
-    setFullName((profile as any)?.full_name ?? '');
-    setProfessionalPhone((profile as any)?.phone ?? '');
+      setFullName((profile as any)?.full_name ?? '');
+      setProfessionalPhone((profile as any)?.phone ?? '');
 
-    setClinicName((clinic as any)?.name ?? '');
-    setClinicCnpj((clinic as any)?.cnpj ?? '');
-    setClinicAddress((clinic as any)?.address ?? '');
-    setClinicCity((clinic as any)?.city ?? '');
-    setClinicState((clinic as any)?.state ?? '');
-    setClinicZip((clinic as any)?.zip_code ?? '');
-    setClinicResponsible((clinic as any)?.responsible_name ?? '');
-    setBusinessHours(JSON.stringify((clinic as any)?.business_hours ?? {}, null, 2));
+      setClinicName((clinic as any)?.name ?? '');
+      setClinicCnpj((clinic as any)?.cnpj ?? '');
+      setClinicAddress((clinic as any)?.address ?? '');
+      setClinicCity((clinic as any)?.city ?? '');
+      setClinicState((clinic as any)?.state ?? '');
+      setClinicZip((clinic as any)?.zip_code ?? '');
+      setClinicResponsible((clinic as any)?.responsible_name ?? '');
+      setBusinessHours(JSON.stringify((clinic as any)?.business_hours ?? {}, null, 2));
 
-    const [{ data: ops }, { data: cds }, { data: procData }] = await Promise.all([
-      supabase.from('insurance_operators').select('id, name, ans_code, type, brand_color, logo_url, created_at').eq('is_active', true).order('name'),
-      currentClinicId
-        ? supabase
-            .from('operator_credentialings')
-            .select('id, operator_id, status, rejection_reason, notes, requested_at, updated_at')
-            .eq('clinic_id', currentClinicId)
-        : Promise.resolve({ data: [] } as any),
-      supabase.from('procedures').select('id, name, specialty_category').eq('is_active', true).order('name'),
-    ]);
-    setOperators((ops as any) ?? []);
-    setCreds((cds as any) ?? []);
-    setProcedures((procData as any) ?? []);
-    setLoading(false);
+      const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
+        supabase.from('insurance_operators').select('id, name, ans_code, type, brand_color, logo_url, created_at').eq('is_active', true).order('name'),
+        currentClinicId
+          ? supabase
+              .from('operator_credentialings')
+              .select('id, operator_id, status, rejection_reason, notes, requested_at, updated_at')
+              .eq('clinic_id', currentClinicId)
+          : Promise.resolve({ data: [], error: null } as any),
+        supabase.from('procedures').select('id, name, specialty_category').eq('is_active', true).order('name'),
+      ]);
+
+      if (opsError || cdsError || procError) {
+        throw new Error(opsError?.message || cdsError?.message || procError?.message || 'Falha ao carregar dados de credenciamento');
+      }
+
+      setOperators((ops as any) ?? []);
+      setCreds((cds as any) ?? []);
+      setProcedures((procData as any) ?? []);
+    } catch (e: any) {
+      setOperators([]);
+      setCreds([]);
+      setProcedures([]);
+      toast.error(`Erro ao carregar credenciamentos: ${e?.message ?? 'erro desconhecido'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id, currentClinicId]);
@@ -295,8 +308,8 @@ export default function MyCredentialingSection() {
       .eq('clinic_id', currentClinicId);
     setBusyOp(null);
     if (error) return toast.error('Erro: ' + error.message);
+    await load();
     toast.success(`Credenciamento com ${opName} cancelado`);
-    load();
   };
 
   if (!currentClinicId) {

@@ -51,7 +51,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getMapForSpecialty } from '@/components/clinical-map/mapRegistry';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
-import { getClinicTerms } from '@/lib/clinicTerms';
 import {
   Tooltip,
   TooltipContent,
@@ -291,7 +290,8 @@ export function AppSidebar() {
 
   const isActive = (url: string) => {
     if (url === '/') return location.pathname === '/';
-    return location.pathname.startsWith(url);
+    if (location.pathname === url) return true;
+    return location.pathname.startsWith(`${url}/`);
   };
 
   const initials = profile?.full_name
@@ -302,20 +302,24 @@ export function AppSidebar() {
   const renderNavItem = (
     item: { title: string; url: string; icon: typeof LayoutDashboard; beta?: boolean },
     badge?: number,
-  ) => (
+    exactActive = false,
+  ) => {
+    const itemIsActive = exactActive ? location.pathname === item.url : isActive(item.url);
+
+    return (
     <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+      <SidebarMenuButton asChild isActive={itemIsActive} tooltip={item.title}>
         <NavLink
           to={item.url}
           end={item.url === '/'}
           className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
-            isActive(item.url)
+            itemIsActive
               ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]'
               : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
           }`}
           activeClassName=""
         >
-          <item.icon className={`h-4 w-4 flex-shrink-0 transition-colors ${isActive(item.url) ? 'text-primary' : ''}`} />
+          <item.icon className={`h-4 w-4 flex-shrink-0 transition-colors ${itemIsActive ? 'text-primary' : ''}`} />
           {!collapsed && (
             <>
               <span className="flex-1">{item.title}</span>
@@ -340,7 +344,8 @@ export function AppSidebar() {
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
+    );
+  };
 
   const STATUS_DOT: Record<string, string> = {
     completed:  'bg-blue-500',
@@ -458,7 +463,7 @@ export function AppSidebar() {
         {/* Perfil do usuário */}
         {!collapsed ? (
           <div
-            className="flex items-center gap-3 mt-3 p-2.5 rounded-xl bg-sidebar-accent/20 border border-sidebar-border/40 cursor-pointer hover:bg-sidebar-accent/30 transition-colors"
+            className="flex items-center gap-3 mt-3 p-2 rounded-xl bg-sidebar-accent/20 border border-sidebar-border cursor-pointer hover:bg-sidebar-accent/30 transition-colors"
             onClick={() => navigate('/perfil')}
             title="Meu perfil"
           >
@@ -514,6 +519,7 @@ export function AppSidebar() {
         {/* ── Admin com clínica ativa ── */}
         {isAdmin && currentClinicId ? (() => {
           const byUrl = (url: string) => finalClinicNav.find((i) => i.url === url);
+          const credentialingsItem = byUrl('/clinica/credenciamentos');
 
           const attendanceExtra = [byUrl('/pacientes-do-dia'), byUrl('/clinica/aprovacoes')].filter(Boolean) as typeof finalClinicNav;
           const attendance      = [...filteredOperationNav, ...attendanceExtra];
@@ -526,8 +532,9 @@ export function AppSidebar() {
               {/* GESTÃO DA CLÍNICA */}
               <NavSection id="gestao" label="Gestão da Clínica" collapsed={collapsed}>
                 <SidebarMenu>
-                  {renderNavItem({ title: 'Visão Geral',   url: '/clinica',         icon: Building2 })}
-                  {renderNavItem({ title: getClinicTerms(clinicCategory).team, url: '/clinica/medicos', icon: Stethoscope })}
+                  {renderNavItem({ title: 'Visão Geral',   url: '/clinica',         icon: Building2 }, undefined, true)}
+                  {renderNavItem({ title: 'Equipe Médica', url: '/clinica/medicos', icon: Stethoscope }, undefined, true)}
+                  {credentialingsItem && renderNavItem(credentialingsItem, undefined, true)}
                 </SidebarMenu>
               </NavSection>
 
@@ -648,8 +655,8 @@ export function AppSidebar() {
             {!isDentist && effectiveRole !== 'patient' && (
               <NavSection id="gestao" label="Gestão da Clínica" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
-                  {renderNavItem({ title: 'Visão Geral', url: '/clinica',        icon: Building2 })}
-                  {renderNavItem({ title: getClinicTerms(clinicCategory).teamMembers, url: '/clinica/medicos', icon: Stethoscope })}
+                  {renderNavItem({ title: 'Visão Geral', url: '/clinica',        icon: Building2 }, undefined, true)}
+                  {renderNavItem({ title: 'Médicos',     url: '/clinica/medicos', icon: Stethoscope }, undefined, true)}
                   {faturamentoItem}
                 </SidebarMenu>
               </NavSection>
