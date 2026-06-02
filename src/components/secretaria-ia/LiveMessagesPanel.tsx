@@ -111,8 +111,12 @@ export function LiveMessagesPanel({
   const { data: conversations = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['ai-conversations', clinicId],
     queryFn: () => fetchConversations(clinicId),
-    enabled: !!clinicId && isAiBackendConfigured() && connected,
-    refetchInterval: connected ? 5000 : false,
+    // Mantém a busca ativa mesmo se o status do WhatsApp oscilar (não congela
+    // o painel por uma piscada de "desconectado"). As conversas existem
+    // independente do status momentâneo da conexão.
+    enabled: !!clinicId && isAiBackendConfigured(),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true, // continua atualizando com a aba em 2º plano
   });
 
   // Atualiza otimisticamente o status de uma conversa no cache (evita o botão
@@ -574,6 +578,7 @@ function ConversationThread({
     queryFn: () => aiBackend.getConversationMessages(clinicId, convId),
     enabled: !!convId && isAiBackendConfigured(),
     refetchInterval: 5000,
+    refetchIntervalInBackground: true,
   });
 
   const messages = Array.isArray(data?.data) ? data.data : [];
