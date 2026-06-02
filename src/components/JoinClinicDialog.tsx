@@ -64,8 +64,8 @@ export function JoinClinicDialog({ open, onOpenChange }: JoinClinicDialogProps) 
         const metaSpecialty = typeof metadata.specialty === 'string' ? metadata.specialty.trim() : '';
         const metaRegistration = typeof metadata.registration_number === 'string' ? metadata.registration_number.trim() : '';
 
-        const resolvedSpecialty = (specialties as any)?.[0]?.specialty ?? (memberWithReg as any)?.specialty ?? metaSpecialty || null;
-        const resolvedRegistration = (memberWithReg as any)?.registration_number ?? metaRegistration || null;
+        const resolvedSpecialty = ((specialties as any)?.[0]?.specialty ?? (memberWithReg as any)?.specialty ?? metaSpecialty) || null;
+        const resolvedRegistration = ((memberWithReg as any)?.registration_number ?? metaRegistration) || null;
 
         const missing: string[] = [];
         if (!(profile as any)?.full_name?.trim?.()) missing.push('nome completo');
