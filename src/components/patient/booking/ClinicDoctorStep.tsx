@@ -98,10 +98,13 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
           .select('id, clinic_id, user_id, role, specialty, is_owner')
           .eq('specialty', specialty.id)
           .in('role', ['dentist', 'admin']),
-        supabase.from('profiles').select('id').eq('specialty', specialty.id),
+        supabase
+          .from('professional_specialties' as any)
+          .select('user_id')
+          .eq('specialty', specialty.id),
       ]);
 
-      const profileUserIds = (profileMatches ?? []).map((p: any) => p.id);
+      const profileUserIds = (profileMatches ?? []).map((p: any) => p.user_id);
       const { data: profileMembers } = profileUserIds.length > 0
         ? await supabase
             .from('clinic_members')

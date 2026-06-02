@@ -50,12 +50,12 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }:
           .eq('specialty', specialty.id)
           .in('role', ['dentist', 'admin']),
         supabase
-          .from('profiles')
-          .select('id')
+          .from('professional_specialties' as any)
+          .select('user_id')
           .eq('specialty', specialty.id),
       ]);
 
-      const profileUserIds = (profileMatches ?? []).map((p: any) => p.id);
+      const profileUserIds = (profileMatches ?? []).map((p: any) => p.user_id);
       const { data: profileMembers } = profileUserIds.length > 0
         ? await supabase
             .from('clinic_members')
