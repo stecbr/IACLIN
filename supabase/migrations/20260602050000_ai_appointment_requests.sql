@@ -42,13 +42,13 @@ CREATE POLICY "clinic_members_select_ai_appt_req"
     )
   );
 
--- Admin/owner/secretary podem decidir (aprovar/rejeitar = update)
+-- Admin/secretary podem decidir (aprovar/rejeitar = update)
 CREATE POLICY "clinic_staff_update_ai_appt_req"
   ON public.ai_appointment_requests FOR UPDATE
   USING (
     clinic_id IN (
       SELECT clinic_id FROM public.clinic_members
-      WHERE user_id = auth.uid() AND role IN ('admin', 'owner', 'secretary')
+      WHERE user_id = auth.uid() AND role IN ('admin', 'secretary')
     )
   );
 
