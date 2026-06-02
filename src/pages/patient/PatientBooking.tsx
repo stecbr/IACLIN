@@ -185,6 +185,7 @@ export default function PatientBooking() {
             <DateStep
               specialty={specialty}
               selectedDate={date}
+              filters={filters}
               onSelect={(d) => {
                 setDate(d);
                 setStep(3);

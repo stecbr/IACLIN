@@ -13,6 +13,7 @@ interface DateStepProps {
   selectedDate: Date | null;
   onSelect: (d: Date) => void;
   onBack: () => void;
+  filters?: { city?: string | null; state?: string | null; insurancePlanId?: string | null };
 }
 
 // removed: dayKey (now using professional_availability)
@@ -24,7 +25,7 @@ function toLocalDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStepProps) {
+export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }: DateStepProps) {
   const [date, setDate] = useState<Date | undefined>(selectedDate ?? undefined);
   const [preview, setPreview] = useState<{ clinics: number; pros: number } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -40,11 +41,10 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
       const dateKey = toLocalDateStr(date);
       const weekday = date.getDay();
 
-      // Find members with this specialty (admins are typically clinic owners
-      // working solo — we include them so they can be booked at their own clinic).
+      // Find members with this specialty
       const { data: members } = await supabase
         .from('clinic_members')
-        .select('id, user_id, clinic_id, is_owner')
+        .select('id, user_id, clinic_id')
         .filter('specialty', 'eq', specialty.id)
         .in('role', ['dentist', 'admin']);
 
@@ -54,16 +54,35 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
       }
 
       const userIds = [...new Set(members.map((m: any) => m.user_id))];
-      const clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
+      let clinicIds = [...new Set(members.map((m: any) => m.clinic_id))];
+
+      // Apply city/state filter by fetching only matching clinics
+      if (filters?.city || filters?.state) {
+        let clinicQ = supabase.from('clinics').select('id').in('id', clinicIds);
+        if (filters?.city)  clinicQ = clinicQ.ilike('city', `%${filters.city}%`);
+        if (filters?.state) clinicQ = clinicQ.eq('state', filters.state);
+        const { data: filteredClinics } = await clinicQ;
+        clinicIds = (filteredClinics ?? []).map((c: any) => c.id);
+        if (clinicIds.length === 0) {
+          if (!cancelled) { setPreview({ clinics: 0, pros: 0 }); setLoadingPreview(false); }
+          return;
+        }
+      }
+
+      // Filter by insurance plan when selected
+      const wantsInsurance = !!filters?.insurancePlanId;
+
+      let tplQ = supabase
+        .from('professional_schedule_template' as any)
+        .select('user_id, clinic_id, mode, is_active')
+        .in('user_id', userIds)
+        .in('clinic_id', clinicIds)
+        .eq('weekday', weekday)
+        .eq('is_active', true);
+      if (wantsInsurance) tplQ = tplQ.eq('mode', 'plano');
 
       const [{ data: tpls }, { data: blocks }] = await Promise.all([
-        supabase
-          .from('professional_schedule_template' as any)
-          .select('user_id, clinic_id, mode, is_active')
-          .in('user_id', userIds)
-          .in('clinic_id', clinicIds)
-          .eq('weekday', weekday)
-          .eq('is_active', true),
+        tplQ,
         supabase
           .from('professional_blocked_dates')
           .select('user_id, clinic_id, blocked_date')
@@ -82,11 +101,7 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
           (m) => m.user_id === t.user_id && m.clinic_id === t.clinic_id,
         );
         if (!matched) continue;
-        // Owner of the clinic: only "particular" days are bookable by patients.
-        // Member (vinculado): only "plano" days.
-        const expected = matched.is_owner ? 'particular' : 'plano';
-        if (t.mode !== expected) continue;
-        // Skip if the user blocked this date (globally or for that clinic).
+        // Skip blocked dates
         if (
           blockedKeys.has(`${t.user_id}|${t.clinic_id}`) ||
           blockedKeys.has(`${t.user_id}|`)
@@ -103,7 +118,7 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack }: DateStep
     return () => {
       cancelled = true;
     };
-  }, [date, specialty]);
+  }, [date, specialty, filters]);
 
   const handleSelect = (d: Date | undefined) => {
     if (!d) return;
