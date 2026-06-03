@@ -217,7 +217,7 @@ function ClinicSection() {
     try {
       const payload = { ...form, category: form.category || null, business_hours: businessHours as any };
       if (clinic) {
-        const { error } = await supabase.from('clinics').update(payload).eq('id', clinic.id);
+        const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
         if (error) throw error;
         // Atualiza imediatamente o backend da Secretária IA com o novo horário.
         try {
@@ -265,7 +265,7 @@ function ClinicSection() {
           if (import.meta.env.DEV) console.warn('[ai-sync] syncConfig falhou:', syncErr);
         }
       } else {
-        const { error } = await supabase.from('clinics').insert({ ...payload, owner_id: user.id });
+        const { error } = await supabase.from('clinics').insert({ ...payload, owner_id: user.id } as any);
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
       }

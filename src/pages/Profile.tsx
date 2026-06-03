@@ -197,11 +197,11 @@ function ProfileInfoSection() {
           .eq('user_id', user.id);
         if (clearPrimaryErr) throw clearPrimaryErr;
 
-        if (existingSpecialty?.id) {
+        if ((existingSpecialty as any)?.id) {
           const { error: setPrimaryErr } = await supabase
             .from('professional_specialties' as any)
             .update({ is_primary: true })
-            .eq('id', existingSpecialty.id);
+            .eq('id', (existingSpecialty as any).id);
           if (setPrimaryErr) throw setPrimaryErr;
         } else {
           const { error: insertSpecErr } = await supabase
