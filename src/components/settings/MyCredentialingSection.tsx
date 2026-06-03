@@ -239,16 +239,16 @@ export default function MyCredentialingSection() {
           photos: clinicPhotos,
           business_hours: businessHours.trim(),
         },
-        contact: {
+        contact: ({
           responsible_name: fullName.trim(),
           phone: professionalPhone.trim(),
           email: user.email ?? '',
-        },
+        }) as any,
         requested_procedures: selectedProcedureList.map((p) => ({ id: p.id, name: p.name })),
         terms: {
           accepted_at: new Date().toISOString(),
         },
-      };
+      } as any;
 
       const existing = byOp.get(openFor.id);
       let error: any = null;

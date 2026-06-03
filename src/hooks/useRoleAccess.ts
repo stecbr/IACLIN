@@ -49,7 +49,7 @@ export function useRoleAccess() {
 
   // Dev simulation wins over everything when set
   // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
-  const normalizedClinicRole = clinicRole === 'owner' ? 'admin' : clinicRole;
+  const normalizedClinicRole = (clinicRole as string) === 'owner' ? 'admin' : clinicRole;
 
   const effectiveRole: AppRole = simulatedRole
     ? (simulatedRole as AppRole)
