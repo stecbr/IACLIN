@@ -14,6 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_appointment_requests: {
+        Row: {
+          appointment_id: string | null
+          clinic_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          external_ref: string | null
+          id: string
+          notes: string | null
+          patient_id: string | null
+          patient_name: string | null
+          patient_phone: string
+          procedure: string | null
+          rejection_reason: string | null
+          requested_at: string
+          source: string
+          specialty: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          clinic_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          external_ref?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string | null
+          patient_name?: string | null
+          patient_phone: string
+          procedure?: string | null
+          rejection_reason?: string | null
+          requested_at: string
+          source?: string
+          specialty?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          clinic_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          external_ref?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string | null
+          patient_name?: string | null
+          patient_phone?: string
+          procedure?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          source?: string
+          specialty?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_appointment_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_appointment_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_appointment_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_secretary_config: {
         Row: {
           ai_tenant_id: string | null
