@@ -1,18 +1,27 @@
-## Exclusão pontual: clínica "Bumbum duro"
+## Problema
 
-**Alvo**
-- Clínica: `Bumbum duro` (id `4158c8ae-98ac-4f84-b1b8-715066b4a356`)
-- Dono: `pl8209297@gmail.com` (id `cbf16d78-2141-4086-927d-fd8564a1353f`)
-- Membro: `jose@gmail.com` (id `bfea9bdb-e633-4d52-93d6-54774997aaf2`)
-- Nenhum paciente, agendamento, financeiro ou assinatura vinculados.
+A área `/paciente` fica em loop de recarregamento e o fluxo de agendamento não mostra profissionais como antes. Investigando, encontrei a causa raiz comum aos dois sintomas.
 
-**Passos (uma única migration de DELETE pontual)**
-1. Apagar dados dependentes da clínica em todas as tabelas com `clinic_id = 4158c8ae...`: `clinic_members`, `clinic_rooms`, `clinic_invites`, `ai_tenants`, `ai_secretary_config`, `ai_secretary_handoff`, `ia_gestor_threads`, `ia_gestor_folders`, `whatsapp_instances`, `whatsapp_messages`, `professional_schedule_template`, `professional_availability`, `professional_blocked_dates`, `insurance_plans`, `operator_credentialings`, `prescription_templates`, `notifications`, `patient_chart_shares`, `clinical_map_entries`, `clinical_records`, `anamneses`, `consultation_recordings`, `appointment_requests`, `financial_transactions`, `appointments`, `patients`.
-2. `DELETE FROM platform_subscriptions WHERE entity_type='clinic' AND entity_id=…` (defensivo).
-3. `DELETE FROM clinics WHERE id=…`.
-4. `DELETE FROM user_roles WHERE user_id IN (dono, jose)`.
-5. `DELETE FROM auth.users WHERE id IN (dono, jose)` — remove definitivamente as duas contas de login.
+### Causa raiz: race condition no guard de rota
 
-Tudo roda dentro de uma migration única, transacional. Como não há pacientes/agenda/financeiro, a operação é rápida e sem efeito colateral em outras clínicas (confirmei que nenhum dos dois usuários pertence a outra clínica).
+Em `src/App.tsx`, o `PatientProtectedRoute` só espera `loading` (sessão restaurada), mas **não espera** `clinicsLoaded` (que sinaliza que `roles` já foram buscadas no `AuthContext`). Sequência do bug:
 
-**Sem mudanças de código** — é apenas limpeza de dados via migration SQL.
+1. `getSession()` resolve → `loading = false`, mas `roles = []` ainda.
+2. `PatientProtectedRoute` avalia `isPatient = false` → redireciona para `/`.
+3. `HomeRoute` → `ProtectedRoute` espera `clinicsLoaded`, conclui que o usuário é `patient` → redireciona de volta para `/paciente`.
+4. Loop, com o spinner piscando e a página remontando — o que também **reseta o estado** do fluxo de agendamento (specialty/date/selection voltam a zero, dando a impressão de que "não dá mais para agendar como antes").
+
+Os outros guards (`ProtectedRoute`, `OperatorProtectedRoute`, `SuperAdminProtectedRoute`, `OnboardingRoute`) já fazem `loading || (user && !clinicsLoaded)`. Só o `PatientProtectedRoute` ficou de fora.
+
+## Mudanças
+
+### 1. `src/App.tsx` — `PatientProtectedRoute`
+- Trocar `if (loading)` por `if (loading || (user && !clinicsLoaded))`, igual aos demais guards. Isso garante que `roles` estejam carregadas antes de decidir `isPatient`, eliminando o redirect-loop.
+- Pegar `clinicsLoaded` do `useAuth()`.
+
+### 2. Validação pós-fix
+- Abrir `/paciente` logado como paciente → não deve mais piscar/recarregar; `PatientHome` renderiza.
+- Abrir `/paciente/agendar` → escolher especialidade → data → confirmar que a lista de profissionais aparece (dados no banco confirmados: há templates ativos para quarta, particular e plano).
+- Conferir console/network para garantir que não há mais navegação repetida entre `/` e `/paciente`.
+
+Escopo mínimo, apenas frontend, sem mexer em backend, RLS ou no fluxo de agendamento em si.
