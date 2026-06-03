@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { AI_BACKEND_URL, isAiBackendConfigured } from '@/lib/aiBackend';
+import { FlowSteps } from './FlowSteps';
 
 interface Conversation {
   patient_phone: string;
@@ -102,6 +103,8 @@ export function OverviewMetrics({ clinicId, backendConfigured, onNavigate }: Pro
           disabled={!enabled}
         />
       </div>
+
+      <FlowSteps />
 
       <Card className="rounded-xl shadow-sm overflow-hidden">
         <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-3">
