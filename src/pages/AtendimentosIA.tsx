@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { LiveMessagesPanel } from '@/components/secretaria-ia/LiveMessagesPanel';
 import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
+import { AiAppointmentRequestsPanel } from '@/components/secretaria-ia/AiAppointmentRequestsPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -33,6 +34,8 @@ export default function AtendimentosIA() {
         </Button>
         {showHandoff && <HandoffPanel />}
       </div>
+
+      {currentClinicId && <AiAppointmentRequestsPanel />}
 
       {currentClinicId ? (
         <LiveMessagesPanel clinicId={currentClinicId} showMetrics allowTakeover />
