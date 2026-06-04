@@ -54,30 +54,15 @@ export function MobileBottomNav() {
 
   const allMoreItems = isDentist
     ? [
-        { title: 'Minha Agenda', url: '/minha-agenda', icon: Calendar },
-        { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
-        { title: 'Pacientes do Dia', url: '/pacientes-do-dia', icon: CalendarDays },
-        { title: 'Abrir prontuário', url: '/prontuarios', icon: FolderHeart },
         { title: 'Ferramentas', url: '/ferramentas', icon: isPsi ? Brain : Briefcase },
         ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
         ...(isPsi ? [] : [{ title: 'Orçamentos', url: '/budgets', icon: ClipboardList }]),
-        { title: 'IA Gestor', url: '/ia-gestor', icon: Sparkles },
-        { title: 'Meu Perfil', url: '/perfil', icon: User },
       ]
     : [
-        { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
         { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen },
-        { title: 'Pacientes do Dia', url: '/pacientes-do-dia', icon: CalendarDays },
-        { title: 'Abrir prontuário', url: '/prontuarios', icon: FolderHeart },
         { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
-        { title: 'Ferramentas Clínicas', url: '/ferramentas', icon: Briefcase },
         { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
-        { title: 'Aprovações', url: '/clinica/aprovacoes', icon: ClipboardCheck },
-        { title: 'Credenciamentos', url: '/clinica/credenciamentos', icon: Building2 },
         { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot },
-        { title: 'Atendimentos IA', url: '/atendimentos-ia', icon: Sparkles },
-        { title: 'IA Gestor', url: '/ia-gestor', icon: Sparkles },
-        { title: 'Meu Perfil', url: '/perfil', icon: User },
         { title: 'Configurações', url: '/settings', icon: Settings },
       ];
 
