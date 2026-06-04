@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
+import { bestForeground } from '@/components/settings/PremiumColorPicker';
 
 export type CustomThemeKey =
   | 'background'
@@ -65,7 +66,7 @@ const VAR_MAP: Record<CustomThemeKey, string[]> = {
   primary: ['--primary', '--ring', '--sidebar-primary'],
   primaryForeground: ['--primary-foreground', '--sidebar-primary-foreground'],
   card: ['--card', '--popover', '--sidebar-background'],
-  accent: ['--accent', '--accent-foreground', '--secondary'],
+  accent: ['--accent', '--secondary'],
   border: ['--border', '--input', '--sidebar-border'],
 };
 
@@ -82,6 +83,34 @@ function applyTheme(theme: CustomTheme) {
       vars.forEach((v) => root.style.removeProperty(v));
     }
   });
+  // Derived contrast foregrounds — keep button/badge text legible on hover
+  const accentHex = theme.colors.accent;
+  if (accentHex) {
+    const fgHsl = hexToHsl(bestForeground(accentHex));
+    if (fgHsl) {
+      root.style.setProperty('--accent-foreground', fgHsl);
+      root.style.setProperty('--secondary-foreground', fgHsl);
+    }
+  } else {
+    root.style.removeProperty('--accent-foreground');
+    root.style.removeProperty('--secondary-foreground');
+  }
+  const cardHex = theme.colors.card;
+  if (cardHex && !theme.colors.foreground) {
+    const fgHsl = hexToHsl(bestForeground(cardHex));
+    if (fgHsl) {
+      root.style.setProperty('--card-foreground', fgHsl);
+      root.style.setProperty('--popover-foreground', fgHsl);
+    }
+  }
+  const primaryHex = theme.colors.primary;
+  if (primaryHex && !theme.colors.primaryForeground) {
+    const fgHsl = hexToHsl(bestForeground(primaryHex));
+    if (fgHsl) {
+      root.style.setProperty('--primary-foreground', fgHsl);
+      root.style.setProperty('--sidebar-primary-foreground', fgHsl);
+    }
+  }
   // Radius
   if (theme.radius != null) {
     root.style.setProperty('--radius', `${theme.radius}px`);
@@ -97,6 +126,7 @@ function applyTheme(theme: CustomTheme) {
 function clearTheme() {
   const root = document.documentElement;
   Object.values(VAR_MAP).flat().forEach((v) => root.style.removeProperty(v));
+  ['--accent-foreground', '--secondary-foreground'].forEach((v) => root.style.removeProperty(v));
   root.style.removeProperty('--radius');
   root.style.removeProperty('--shadow-card');
   root.style.removeProperty('--shadow-card-hover');
