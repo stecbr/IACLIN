@@ -8,6 +8,7 @@ import { useCustomTheme, CustomThemeKey, CustomTheme } from '@/components/Custom
 import { RotateCcw, Palette, Sparkles, Wand2 } from 'lucide-react';
 import { PremiumColorPicker, bestForeground, shadeRamp } from './PremiumColorPicker';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const COLOR_FIELDS: {
   key: CustomThemeKey;
@@ -75,6 +76,11 @@ const PRESETS: { name: string; theme: Partial<CustomTheme> }[] = [
 export function ThemeCustomizer() {
   const { customTheme, setColor, setShadowIntensity, setRadius, applyPreset, resetCustom, hasCustom } = useCustomTheme();
   const [autoContrast, setAutoContrast] = useState(true);
+  const { profile, user } = useAuth();
+  const displayName =
+    profile?.full_name?.trim() ||
+    (user?.email ? user.email.split('@')[0] : '') ||
+    'você';
 
   const handleColorChange = (key: CustomThemeKey, hex: string) => {
     setColor(key, hex);
@@ -87,6 +93,8 @@ export function ThemeCustomizer() {
   };
 
   const primary = customTheme.colors.primary ?? '#1f74e0';
+  const accent = customTheme.colors.accent ?? '#eef2f7';
+  const accentFg = bestForeground(accent);
   const ramp = shadeRamp(primary);
 
   const renderGroup = (group: 'surface' | 'brand' | 'detail', title: string) => (
@@ -231,7 +239,7 @@ export function ThemeCustomizer() {
           <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-card space-y-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <p className="font-semibold text-foreground">Olá, seu nome</p>
+                <p className="font-semibold text-foreground">Olá, {displayName}</p>
                 <p className="text-sm text-muted-foreground">Assim ficará a interface.</p>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -241,7 +249,12 @@ export function ThemeCustomizer() {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-accent p-3 text-xs text-accent-foreground">Destaque</div>
+              <div
+                className="rounded-lg p-3 text-xs"
+                style={{ background: accent, color: accentFg }}
+              >
+                Destaque
+              </div>
               <div className="rounded-lg border border-border p-3 text-xs">Borda</div>
               <div className="rounded-lg p-3 text-xs text-primary-foreground" style={{ background: primary }}>Primária</div>
             </div>
