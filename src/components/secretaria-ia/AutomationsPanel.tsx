@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Send, Cake, Star } from 'lucide-react';
+import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Send, Cake, Star, AlertTriangle } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   clinicId: string | null;
@@ -110,6 +111,13 @@ function normalize(payload: unknown): AutomationRecord[] {
   }));
 }
 
+// Cobertura dos dados que cada automação precisa para conseguir disparar.
+interface PatientDataCoverage {
+  total: number;
+  missingPhone: number;
+  missingBirthDate: number;
+}
+
 export function AutomationsPanel({ clinicId }: Props) {
   const qc = useQueryClient();
   const enabled = !!clinicId && isAiBackendConfigured();
@@ -118,6 +126,34 @@ export function AutomationsPanel({ clinicId }: Props) {
     queryKey: ['ai-automations', clinicId],
     queryFn: async () => normalize(await aiBackend.listAutomations(clinicId as string)),
     enabled,
+  });
+
+  // Conta pacientes ativos sem telefone / sem data de nascimento, para avisar
+  // quando uma automação não conseguirá atingir parte (ou todos) os pacientes.
+  const { data: coverage } = useQuery<PatientDataCoverage>({
+    queryKey: ['ai-automations-coverage', clinicId],
+    enabled: !!clinicId,
+    queryFn: async () => {
+      const base = () =>
+        supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId as string)
+          .eq('is_active', true);
+
+      const [{ count: total }, { count: withPhone }, { count: withBirth }] = await Promise.all([
+        base(),
+        base().not('phone', 'is', null).neq('phone', ''),
+        base().not('date_of_birth', 'is', null),
+      ]);
+
+      const t = total ?? 0;
+      return {
+        total: t,
+        missingPhone: t - (withPhone ?? 0),
+        missingBirthDate: t - (withBirth ?? 0),
+      };
+    },
   });
 
   if (!enabled) {
@@ -165,6 +201,7 @@ export function AutomationsPanel({ clinicId }: Props) {
                 def={def}
                 record={existing}
                 clinicId={clinicId as string}
+                coverage={coverage}
                 onSaved={() => qc.invalidateQueries({ queryKey: ['ai-automations', clinicId] })}
               />
             );
@@ -179,10 +216,23 @@ interface CardProps {
   def: (typeof AUTOMATION_DEFS)[number];
   record?: AutomationRecord;
   clinicId: string;
+  coverage?: PatientDataCoverage;
   onSaved: () => void;
 }
 
-function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
+// Quais dados do cadastro de paciente cada automação precisa para disparar.
+// 'escalate' é reativa (responde a palavras-chave), não depende de cadastro.
+const AUTOMATION_DATA_REQUIREMENTS: Record<AutomationType, Array<'phone' | 'birthDate'>> = {
+  appointment_reminder: ['phone'],
+  confirmation: ['phone'],
+  return: ['phone'],
+  reschedule: ['phone'],
+  escalate: [],
+  birthday: ['phone', 'birthDate'],
+  nps: ['phone'],
+};
+
+function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps) {
   const Icon = def.icon;
   const [active, setActive] = useState<boolean>(record?.active ?? false);
   const [message, setMessage] = useState<string>(record?.message ?? '');
@@ -192,6 +242,30 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
   const [testPhone, setTestPhone] = useState<string>('');
   const isEscalate = def.type === 'escalate';
   const isReturn = def.type === 'return';
+
+  // Avisos de dados faltando: só relevantes quando a automação está ativa e há
+  // pacientes cadastrados. Mostra quantos ficarão de fora por falta de dado.
+  const dataWarnings = useMemo(() => {
+    if (!active || !coverage || coverage.total === 0) return [] as string[];
+    const reqs = AUTOMATION_DATA_REQUIREMENTS[def.type];
+    const warnings: string[] = [];
+    const plural = (n: number) => (n === 1 ? 'paciente' : 'pacientes');
+    if (reqs.includes('phone') && coverage.missingPhone > 0) {
+      warnings.push(
+        coverage.missingPhone === coverage.total
+          ? 'Nenhum paciente tem telefone cadastrado — esta automação não enviará para ninguém.'
+          : `${coverage.missingPhone} ${plural(coverage.missingPhone)} sem telefone não receberão.`,
+      );
+    }
+    if (reqs.includes('birthDate') && coverage.missingBirthDate > 0) {
+      warnings.push(
+        coverage.missingBirthDate === coverage.total
+          ? 'Nenhum paciente tem data de nascimento cadastrada — ninguém receberá o aniversário.'
+          : `${coverage.missingBirthDate} ${plural(coverage.missingBirthDate)} sem data de nascimento não receberão.`,
+      );
+    }
+    return warnings;
+  }, [active, coverage, def.type]);
 
   useEffect(() => {
     setActive(record?.active ?? false);
@@ -272,6 +346,17 @@ function AutomationCard({ def, record, clinicId, onSaved }: CardProps) {
           </div>
           <Switch checked={active} onCheckedChange={setActive} />
         </div>
+
+        {dataWarnings.length > 0 && (
+          <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-[11px] text-warning">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+            <div className="space-y-0.5">
+              {dataWarnings.map((w, i) => (
+                <p key={i} className="leading-snug">{w}</p>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label className="text-xs">Mensagem</Label>

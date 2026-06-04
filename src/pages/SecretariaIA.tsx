@@ -185,14 +185,26 @@ const EMPTY_SECTIONS: SectionsState = {
 // Reconstrói o objeto de seções a partir de um prompt salvo. Usa os
 // cabeçalhos (SAUDAÇÃO:, OBJETIVO: ...) como delimitadores. Se o prompt
 // não seguir esse formato, joga tudo em "objetivo" como texto livre.
-function parsePromptToSections(raw: string): SectionsState {
+// Tenta identificar qual personalidade um corpo de texto representa,
+// comparando com o conteúdo dos templates conhecidos (ignorando o heading).
+function matchPersonality(body: string): string {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const target = norm(body);
+  if (!target) return '';
+  const found = PERSONALITY_OPTIONS.find(
+    (o) => norm(o.template.replace(/^\s*PERSONALIDADE:\s*/i, '')) === target,
+  );
+  return found?.value ?? '';
+}
+
+function parsePromptToSections(raw: string): { sections: SectionsState; personality: string } {
   const result: SectionsState = { ...EMPTY_SECTIONS };
-  if (!raw || !raw.trim()) return result;
+  if (!raw || !raw.trim()) return { sections: result, personality: '' };
 
   // Migração: remove blocos legados (HORÁRIOS / URGÊNCIAS) que agora
   // vêm direto do sistema. Tudo até a próxima seção conhecida ou fim do texto.
   raw = raw.replace(
-    /(HORÁRIOS DE ATENDIMENTO|URGÊNCIAS):[\s\S]*?(?=\n(?:SAUDAÇÃO|OBJETIVO|REGRAS|RESTRIÇÕES|EXEMPLOS DE RESPOSTA):|$)/g,
+    /(HORÁRIOS DE ATENDIMENTO|URGÊNCIAS):[\s\S]*?(?=\n(?:SAUDAÇÃO|OBJETIVO|REGRAS|RESTRIÇÕES|PERSONALIDADE|EXEMPLOS DE RESPOSTA):|$)/g,
     '',
   );
 
@@ -205,13 +217,18 @@ function parsePromptToSections(raw: string): SectionsState {
     exemplos: 'EXEMPLOS DE RESPOSTA',
   };
 
-  const headings = Object.entries(headingByKey) as [PromptSectionKey, string][];
+  // PERSONALIDADE não é uma seção editável (vem do dropdown), mas precisa
+  // ser reconhecida como delimitador para não vazar para dentro de outra seção.
+  const headings = [
+    ...(Object.entries(headingByKey) as [PromptSectionKey, string][]),
+    ['__personalidade__' as const, 'PERSONALIDADE'] as const,
+  ];
   const pattern = new RegExp(
     `(${headings.map(([, h]) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}):`,
     'g'
   );
 
-  const matches: { key: PromptSectionKey; start: number; end: number }[] = [];
+  const matches: { key: string; start: number; end: number }[] = [];
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(raw)) !== null) {
     const found = headings.find(([, h]) => h === m![1]);
@@ -222,16 +239,21 @@ function parsePromptToSections(raw: string): SectionsState {
 
   if (matches.length === 0) {
     result.objetivo = raw.trim();
-    return result;
+    return { sections: result, personality: '' };
   }
 
+  let personality = '';
   for (let i = 0; i < matches.length; i++) {
     const cur = matches[i];
     const next = matches[i + 1];
     const body = raw.slice(cur.end, next ? next.start : raw.length).trim();
-    result[cur.key] = body;
+    if (cur.key === '__personalidade__') {
+      personality = matchPersonality(body);
+    } else {
+      result[cur.key as PromptSectionKey] = body;
+    }
   }
-  return result;
+  return { sections: result, personality };
 }
 
 function buildPromptFromSections(sections: SectionsState): string {
@@ -271,6 +293,7 @@ export default function SecretariaIA() {
   const [savedPrompt, setSavedPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [personality, setPersonality] = useState<string>('');
+  const [savedPersonality, setSavedPersonality] = useState<string>('');
   const [sections, setSections] = useState<SectionsState>(EMPTY_SECTIONS);
   const [savedSections, setSavedSections] = useState<SectionsState>(EMPTY_SECTIONS);
 
@@ -280,9 +303,11 @@ export default function SecretariaIA() {
       setPrompt(p);
       setSavedPrompt(p);
       setEnabled(config.enabled);
-      const parsed = parsePromptToSections(p);
+      const { sections: parsed, personality: parsedPersonality } = parsePromptToSections(p);
       setSections(parsed);
       setSavedSections(parsed);
+      setPersonality(parsedPersonality);
+      setSavedPersonality(parsedPersonality);
     }
   }, [config]);
 
@@ -302,7 +327,7 @@ export default function SecretariaIA() {
 
   const isDirty =
     JSON.stringify(sections) !== JSON.stringify(savedSections) ||
-    builtPrompt !== savedPrompt;
+    personality !== savedPersonality;
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
@@ -339,6 +364,7 @@ export default function SecretariaIA() {
       setSavedPrompt(vars.custom_prompt);
       setPrompt(vars.custom_prompt);
       setSavedSections(sections);
+      setSavedPersonality(personality);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config'] });
       // Sincroniza com o backend externo da Secretária IA — fire-and-forget
       // Phase 1.0: só dispara para clínica (backend externo ainda não conhece tenants profissionais).
