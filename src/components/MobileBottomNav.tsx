@@ -1,5 +1,9 @@
 import { useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList, User, DoorOpen, Briefcase, Brain, Bot } from 'lucide-react';
+import {
+  LayoutDashboard, Calendar, Users, DollarSign, MoreHorizontal, ClipboardList,
+  User, DoorOpen, Briefcase, Brain, Bot, CalendarClock, CalendarDays,
+  ClipboardCheck, Building2, FolderHeart, Sparkles,
+} from 'lucide-react';
 import { useState } from 'react';
 import { FileHeart, Settings } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -50,15 +54,30 @@ export function MobileBottomNav() {
 
   const allMoreItems = isDentist
     ? [
+        { title: 'Minha Agenda', url: '/minha-agenda', icon: Calendar },
+        { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
+        { title: 'Pacientes do Dia', url: '/pacientes-do-dia', icon: CalendarDays },
+        { title: 'Abrir prontuário', url: '/prontuarios', icon: FolderHeart },
         { title: 'Ferramentas', url: '/ferramentas', icon: isPsi ? Brain : Briefcase },
         ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
         ...(isPsi ? [] : [{ title: 'Orçamentos', url: '/budgets', icon: ClipboardList }]),
+        { title: 'IA Gestor', url: '/ia-gestor', icon: Sparkles },
+        { title: 'Meu Perfil', url: '/perfil', icon: User },
       ]
     : [
+        { title: 'Disponibilidade', url: '/disponibilidade', icon: CalendarClock },
         { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen },
+        { title: 'Pacientes do Dia', url: '/pacientes-do-dia', icon: CalendarDays },
+        { title: 'Abrir prontuário', url: '/prontuarios', icon: FolderHeart },
         { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
+        { title: 'Ferramentas Clínicas', url: '/ferramentas', icon: Briefcase },
         { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
+        { title: 'Aprovações', url: '/clinica/aprovacoes', icon: ClipboardCheck },
+        { title: 'Credenciamentos', url: '/clinica/credenciamentos', icon: Building2 },
         { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot },
+        { title: 'Atendimentos IA', url: '/atendimentos-ia', icon: Sparkles },
+        { title: 'IA Gestor', url: '/ia-gestor', icon: Sparkles },
+        { title: 'Meu Perfil', url: '/perfil', icon: User },
         { title: 'Configurações', url: '/settings', icon: Settings },
       ];
 
@@ -79,7 +98,7 @@ export function MobileBottomNav() {
       {/* More menu overlay */}
       {showMore && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setShowMore(false)}>
-          <div className="fixed bottom-[72px] left-4 right-4 bg-popover border border-border rounded-xl shadow-lg p-2 animate-in" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed bottom-[72px] left-4 right-4 max-h-[70vh] overflow-y-auto bg-popover border border-border rounded-xl shadow-lg p-2 animate-in" onClick={(e) => e.stopPropagation()}>
             {moreItems.map((item) => (
               <Link
                 key={item.url}
