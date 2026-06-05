@@ -2,13 +2,12 @@ import { Badge } from "@/components/ui/badge";
 import { Info } from "lucide-react";
 
 const SPECIALTIES = [
+  "Dentista",
   "Clínico Geral",
-  "Ortodontia",
-  "Implantodontia",
-  "Endodontia",
-  "Periodontia",
-  "Prótese",
-  "Cirurgia",
+  "Cardiologia",
+  "Dermatologia",
+  "Pediatria",
+  "Ginecologia",
   "Estética",
 ];
 

@@ -835,8 +835,11 @@ export type Database = {
       clinics: {
         Row: {
           address: string | null
+          address_complement: string | null
+          address_number: string | null
           business_hours: Json | null
           category: Database["public"]["Enums"]["clinic_category"]
+          category_label: string | null
           city: string | null
           cnpj: string | null
           created_at: string
@@ -847,6 +850,7 @@ export type Database = {
           legal_name: string | null
           logo_url: string | null
           name: string
+          neighborhood: string | null
           owner_id: string | null
           phone: string | null
           responsible_name: string | null
@@ -856,8 +860,11 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
           business_hours?: Json | null
           category?: Database["public"]["Enums"]["clinic_category"]
+          category_label?: string | null
           city?: string | null
           cnpj?: string | null
           created_at?: string
@@ -868,6 +875,7 @@ export type Database = {
           legal_name?: string | null
           logo_url?: string | null
           name: string
+          neighborhood?: string | null
           owner_id?: string | null
           phone?: string | null
           responsible_name?: string | null
@@ -877,8 +885,11 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
           business_hours?: Json | null
           category?: Database["public"]["Enums"]["clinic_category"]
+          category_label?: string | null
           city?: string | null
           cnpj?: string | null
           created_at?: string
@@ -889,6 +900,7 @@ export type Database = {
           legal_name?: string | null
           logo_url?: string | null
           name?: string
+          neighborhood?: string | null
           owner_id?: string | null
           phone?: string | null
           responsible_name?: string | null
@@ -1830,6 +1842,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_accounts: {
+        Row: {
+          account: string | null
+          account_digit: string | null
+          account_holder: string | null
+          account_holder_doc: string | null
+          account_type: string | null
+          agency: string | null
+          agency_digit: string | null
+          bank_code: string | null
+          bank_name: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          is_active: boolean
+          pix_key: string | null
+          pix_key_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          account?: string | null
+          account_digit?: string | null
+          account_holder?: string | null
+          account_holder_doc?: string | null
+          account_type?: string | null
+          agency?: string | null
+          agency_digit?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          is_active?: boolean
+          pix_key?: string | null
+          pix_key_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account?: string | null
+          account_digit?: string | null
+          account_holder?: string | null
+          account_holder_doc?: string | null
+          account_type?: string | null
+          agency?: string | null
+          agency_digit?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          is_active?: boolean
+          pix_key?: string | null
+          pix_key_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       platform_coupons: {
         Row: {

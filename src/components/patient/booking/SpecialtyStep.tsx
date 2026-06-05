@@ -27,21 +27,15 @@ export const SPECIALTIES: Specialty[] = [
   // Popular shortcuts
   { id: 'clinico-geral', name: 'Clínico Geral', icon: Stethoscope, category: 'medico', popular: true },
   { id: 'dentista', name: 'Dentista', icon: Smile, category: 'odonto', popular: true },
-  { id: 'limpeza-dental', name: 'Limpeza Dental', icon: Sparkles, category: 'odonto' },
-  { id: 'renovacao-receitas', name: 'Renovação de Receitas', icon: Pill, category: 'medico' },
-  { id: 'avaliacao', name: 'Avaliação', icon: FileText, category: 'medico' },
 
   // A
   { id: 'acupuntura', name: 'Acupuntura', icon: Sparkle, category: 'medico' },
   { id: 'alergologia', name: 'Alergologia', icon: Wind, category: 'medico' },
   { id: 'anestesiologia', name: 'Anestesiologia', icon: Syringe, category: 'medico' },
   { id: 'angiologia', name: 'Angiologia / Cirurgia Vascular', icon: Activity, category: 'medico' },
-  { id: 'avaliacao-bariatrica', name: 'Avaliação Bariátrica', icon: Scale, category: 'medico' },
-  { id: 'avaliacao-risco-cirurgico', name: 'Avaliação de Risco Cirúrgico', icon: ClipboardCheck, category: 'medico' },
 
   // C
   { id: 'cardiologia', name: 'Cardiologia', icon: Heart, category: 'medico', popular: true },
-  { id: 'cirurgia-bucomaxilofacial', name: 'Cirurgia Bucomaxilofacial', icon: Scissors, category: 'odonto' },
   { id: 'cirurgia-cardiaca', name: 'Cirurgia Cardíaca / Hemodinâmica', icon: Heart, category: 'medico' },
   { id: 'cirurgia-cardiovascular', name: 'Cirurgia Cardiovascular', icon: Heart, category: 'medico' },
   { id: 'cirurgia-mao', name: 'Cirurgia da Mão', icon: Hand, category: 'medico' },
@@ -55,9 +49,6 @@ export const SPECIALTIES: Specialty[] = [
 
   // D
   { id: 'dermatologia', name: 'Dermatologia Clínica e Cirúrgica', icon: Hand, category: 'medico', popular: true },
-  { id: 'dor-cabeca', name: 'Dor de Cabeça (Cefaleia)', icon: Brain, category: 'medico' },
-  { id: 'dor-costas', name: 'Dor nas Costas (Lombalgia)', icon: PersonStanding, category: 'medico' },
-  { id: 'dor-estomago', name: 'Dor no Estômago (Refluxo)', icon: Flame, category: 'medico' },
 
   // E
   { id: 'endocrinologia', name: 'Endocrinologia / Metabologia', icon: Droplet, category: 'medico' },
