@@ -30,8 +30,7 @@ import { SYSTEM_URL, SIGNUP_URL } from "@/config/landing";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin } from "lucide-react";
-import { DoctorCard, type DoctorData } from "@/components/marketplace/DoctorCard";
-import { LandingNetworkMap } from "@/components/landing/LandingNetworkMap";
+import { MarketplaceSection } from "@/components/landing/MarketplaceSection";
 import { addDays, format } from "date-fns";
 import logoLight from "@/assets/logo-light.png";
 import landingDashboard from "@/assets/landing-dashboard.png";
@@ -412,87 +411,7 @@ const PREVIEW_DOCTORS: DoctorData[] = [
 ];
 
 function MarketplacePreview() {
-  return (
-    <section id="marketplace" className="container py-20">
-      <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-          Rede Médica
-        </p>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-          Sua clínica encontrada por novos pacientes.
-        </h2>
-        <p className="mt-4 text-muted-foreground">
-          Profissionais do Iaclin ganham um perfil público com agenda em tempo real — pacientes
-          buscam por especialidade, cidade e horário, e agendam em poucos cliques.
-        </p>
-      </motion.div>
-
-      <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mx-auto mt-10 max-w-3xl">
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2 shadow-card">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <Input
-            placeholder="Nome do profissional ou procedimento"
-            className="h-9 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-            readOnly
-          />
-          <div className="mx-2 hidden h-6 w-px bg-border sm:block" />
-          <MapPin className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
-          <Input
-            placeholder="Cidade"
-            className="hidden h-9 max-w-[160px] border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 sm:block"
-            readOnly
-          />
-          <Button asChild size="sm" className="ml-auto shrink-0">
-            <a href="/marketplace">Buscar</a>
-          </Button>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          {PREVIEW_SPECIALTIES.map((s, i) => (
-            <Badge
-              key={s}
-              variant={i === 0 ? "default" : "outline"}
-              className="cursor-default rounded-full px-3 py-1 text-xs"
-            >
-              {s}
-            </Badge>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Mapa da rede */}
-      <motion.div
-        {...fadeUp}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="mx-auto mt-10 max-w-5xl"
-      >
-        <LandingNetworkMap />
-      </motion.div>
-
-      <div className="mx-auto mt-10 grid max-w-5xl gap-5 lg:grid-cols-2">
-        {PREVIEW_DOCTORS.map((d, i) => (
-          <motion.div
-            key={d.userId}
-            initial={{ opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.45, delay: i * 0.08 }}
-            className="transition-transform duration-300 hover:-translate-y-1"
-          >
-            <DoctorCard doctor={d} />
-          </motion.div>
-        ))}
-      </div>
-
-      <motion.div {...fadeUp} className="mt-10 flex justify-center">
-        <Button asChild size="lg" variant="outline" className="shadow-card">
-          <a href="/marketplace">
-            Explorar Rede Médica
-            <ArrowRight className="h-4 w-4" />
-          </a>
-        </Button>
-      </motion.div>
-    </section>
-  );
+  return <MarketplaceSection />;
 }
 
 function FinalCTA() {
