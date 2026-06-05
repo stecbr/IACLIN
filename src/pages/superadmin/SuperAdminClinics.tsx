@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Building2, Pencil, Search } from 'lucide-react';
+import { Building2, Pencil, Search, ArrowLeft, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,8 +48,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   outro:      'Outro',
 };
 
+const CAT_COLORS: Record<string, string> = {
+  odonto: '#3b82f6', medico: '#8b5cf6', estetica: '#ec4899', outro: '#64748b',
+};
+
 // ----------------------------------------------------------------
 export default function SuperAdminClinics() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const categoryParam = searchParams.get('categoria') ?? '';
+
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState<SubStatus | 'all' | 'none'>('all');
   const [editTarget,   setEditTarget]   = useState<PlatformClinic | null>(null);
@@ -70,22 +80,56 @@ export default function SuperAdminClinics() {
       filterStatus === 'all' ||
       (filterStatus === 'none' ? !c.subscription : c.subscription?.status === (filterStatus as SubStatus));
 
-    return matchSearch && matchStatus;
+    const matchCategory =
+      !categoryParam || (c.category ?? 'outro') === categoryParam;
+
+    return matchSearch && matchStatus && matchCategory;
   });
 
   const formatBrl = (cents: number) =>
     (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  const activeCatLabel = categoryParam ? (CATEGORY_LABELS[categoryParam] ?? categoryParam) : '';
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-blue-500" />
-          Clínicas
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {clinics.length} clínica{clinics.length !== 1 ? 's' : ''} cadastrada{clinics.length !== 1 ? 's' : ''} na plataforma
+      <div className="flex flex-col gap-2">
+        {categoryParam && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start -ml-2 gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={() => navigate('/superadmin')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar para o Dashboard
+          </Button>
+        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-blue-500" />
+            Clínicas
+          </h1>
+          {categoryParam && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium text-white"
+              style={{ backgroundColor: CAT_COLORS[categoryParam] ?? '#64748b' }}
+            >
+              {activeCatLabel}
+              <button
+                onClick={() => setSearchParams({})}
+                className="ml-0.5 rounded-full hover:opacity-70 transition-opacity"
+                aria-label="Remover filtro"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} de {clinics.length} clínica{clinics.length !== 1 ? 's' : ''}
+          {categoryParam ? ` em ${activeCatLabel}` : ' cadastradas na plataforma'}
         </p>
       </div>
 

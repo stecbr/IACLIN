@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { fetchAdminData } from '@/hooks/usePlatformAdminData';
 import {
   Building2, Stethoscope, Users,
@@ -87,7 +88,7 @@ function buildCategoryData(clinics: PlatformClinic[]) {
     counts[k] = (counts[k] ?? 0) + 1;
   });
   return Object.entries(counts)
-    .map(([cat, total]) => ({ cat: CAT_LABEL[cat] ?? cat, total, fill: (COLORS as any)[cat] ?? COLORS.outro }))
+    .map(([key, total]) => ({ key, cat: CAT_LABEL[key] ?? key, total, fill: (COLORS as any)[key] ?? COLORS.outro }))
     .filter((d) => d.total > 0);
 }
 
@@ -138,6 +139,8 @@ function DonutLabel({ viewBox, total }: any) {
 }
 
 export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
+
   const { data: stats, isLoading: loadingStats } = useQuery({
     queryKey: ['platform-stats'],
     queryFn: () => fetchAdminData<PlatformStats>('stats'),
@@ -296,7 +299,7 @@ export default function SuperAdminDashboard() {
         <Card className="lg:col-span-2 shadow-md border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Clínicas por Tipo</CardTitle>
-            <CardDescription>Distribuição entre categorias de clínica</CardDescription>
+            <CardDescription>Clique em uma barra para ver as clínicas daquele tipo</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingClinics ? (
@@ -305,7 +308,17 @@ export default function SuperAdminDashboard() {
               <div className="h-52 flex items-center justify-center text-sm text-muted-foreground">Sem dados</div>
             ) : (
               <ResponsiveContainer width="100%" height={210}>
-                <BarChart data={categoryData} margin={{ top: 8, right: 12, left: -20, bottom: 0 }} barSize={36}>
+                <BarChart
+                  data={categoryData}
+                  margin={{ top: 8, right: 12, left: -20, bottom: 0 }}
+                  barSize={36}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(e) => {
+                    if (e?.activePayload?.[0]?.payload?.key) {
+                      navigate(`/superadmin/clinicas?categoria=${e.activePayload[0].payload.key}`);
+                    }
+                  }}
+                >
                   <defs>
                     {categoryData.map((d, i) => (
                       <linearGradient key={i} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
