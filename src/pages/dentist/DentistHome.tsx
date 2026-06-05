@@ -2,12 +2,15 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, ClipboardList, Clock, ArrowRight, Stethoscope, Eye, FolderHeart, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
+import {
+  Calendar, Users, ClipboardList, Clock, ArrowRight, Eye, FolderHeart,
+  DollarSign, Wallet, CheckCircle2, TrendingUp,
+} from 'lucide-react';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
-import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
@@ -16,6 +19,10 @@ import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummar
 import { SoloModeBanner } from '@/components/dashboard/SoloModeBanner';
 import { specialtyLabel } from '@/components/SpecialtySelect';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -24,6 +31,31 @@ function getGreeting() {
   return 'Boa noite';
 }
 
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border bg-popover/95 backdrop-blur-sm shadow-xl px-4 py-3 text-sm">
+      {label && <p className="font-semibold text-foreground mb-1">{label}</p>}
+      {payload.map((e: any, i: number) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: e.stroke ?? e.fill }} />
+          <span className="text-muted-foreground">{e.name}:</span>
+          <span className="font-medium">{e.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: '#6366f1', confirmed: '#10b981', completed: '#3b82f6',
+  in_progress: '#f59e0b', no_show: '#ef4444', cancelled: '#94a3b8',
+};
+const STATUS_LABELS: Record<string, string> = {
+  scheduled: 'Agendada', confirmed: 'Confirmada', completed: 'Concluída',
+  in_progress: 'Em atend.', no_show: 'Faltou', cancelled: 'Cancelada',
+};
+
 export default function DentistHome() {
   const { user, profile, currentClinicId } = useAuth();
   const [summaryAptId, setSummaryAptId] = useState<string | null>(null);
@@ -31,7 +63,6 @@ export default function DentistHome() {
   const navigate = useNavigate();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Doutor(a)';
 
-  // Doctor's specialty family — drives terminology in this dashboard
   const { data: memberSpecialty } = useQuery({
     queryKey: ['dentist-home-specialty', user?.id, currentClinicId],
     enabled: !!user?.id && !!currentClinicId,
@@ -52,7 +83,6 @@ export default function DentistHome() {
   const monthStart = startOfMonth(now).toISOString();
   const monthEnd = endOfMonth(now).toISOString();
 
-  // Is the logged-in dentist the owner of the currently selected clinic?
   const { data: isClinicOwner = false } = useQuery({
     queryKey: ['dentist-is-clinic-owner', user?.id, currentClinicId],
     enabled: !!user?.id && !!currentClinicId,
@@ -63,7 +93,6 @@ export default function DentistHome() {
     },
   });
 
-  // Today's appointments (mine)
   const { data: todayApts = [] } = useQuery({
     queryKey: ['dentist-today', user?.id, currentClinicId],
     queryFn: async () => {
@@ -71,8 +100,7 @@ export default function DentistHome() {
       let q = supabase.from('appointments')
         .select('*, patients(full_name), procedures(name, color)')
         .gte('start_time', todayStart).lt('start_time', todayEnd)
-        .eq('dentist_id', user.id)
-        .order('start_time');
+        .eq('dentist_id', user.id).order('start_time');
       if (currentClinicId) q = q.eq('clinic_id', currentClinicId);
       const { data } = await q;
       return data ?? [];
@@ -80,7 +108,6 @@ export default function DentistHome() {
     enabled: !!user,
   });
 
-  // Month KPIs
   const { data: monthApts = [] } = useQuery({
     queryKey: ['dentist-month', user?.id, currentClinicId],
     queryFn: async () => {
@@ -89,6 +116,24 @@ export default function DentistHome() {
         .select('id, status, patient_id')
         .gte('start_time', monthStart).lte('start_time', monthEnd)
         .eq('dentist_id', user.id);
+      if (currentClinicId) q = q.eq('clinic_id', currentClinicId);
+      const { data } = await q;
+      return data ?? [];
+    },
+    enabled: !!user,
+  });
+
+  // 6-month trend data
+  const { data: sixMonthApts = [] } = useQuery({
+    queryKey: ['dentist-6m', user?.id, currentClinicId],
+    queryFn: async () => {
+      if (!user) return [];
+      const sixAgo = startOfMonth(subMonths(now, 5));
+      let q = supabase.from('appointments')
+        .select('start_time, status')
+        .eq('dentist_id', user.id)
+        .gte('start_time', sixAgo.toISOString())
+        .lte('start_time', endOfMonth(now).toISOString());
       if (currentClinicId) q = q.eq('clinic_id', currentClinicId);
       const { data } = await q;
       return data ?? [];
@@ -110,57 +155,42 @@ export default function DentistHome() {
     [todayApts]
   );
 
-  // Financial KPIs — only when the dentist owns the current clinic
   const { data: financialMonth } = useQuery({
     queryKey: ['dentist-financial-month', user?.id, currentClinicId, monthStart, monthEnd],
     enabled: !!user?.id && !!currentClinicId && isClinicOwner,
     queryFn: async () => {
       const { data } = await supabase.from('financial_transactions')
         .select('amount, status, type, due_date, paid_date')
-        .eq('clinic_id', currentClinicId!)
-        .eq('dentist_id', user!.id)
-        .eq('type', 'income');
+        .eq('clinic_id', currentClinicId!).eq('dentist_id', user!.id).eq('type', 'income');
       const rows = (data ?? []) as any[];
-      const monthStartDate = startOfMonth(now);
-      const monthEndDate = endOfMonth(now);
-      const inMonth = (d?: string | null) => {
-        if (!d) return false;
-        const dt = parseISO(d);
-        return dt >= monthStartDate && dt <= monthEndDate;
+      const ms = startOfMonth(now), me = endOfMonth(now);
+      const inMonth = (d?: string | null) => { if (!d) return false; const dt = parseISO(d); return dt >= ms && dt <= me; };
+      return {
+        received: rows.filter(r => r.status === 'paid' && inMonth(r.paid_date ?? r.due_date)).reduce((s, r) => s + Number(r.amount ?? 0), 0),
+        toReceive: rows.filter(r => r.status === 'pending').reduce((s, r) => s + Number(r.amount ?? 0), 0),
       };
-      const received = rows
-        .filter(r => r.status === 'paid' && inMonth(r.paid_date ?? r.due_date))
-        .reduce((s, r) => s + Number(r.amount ?? 0), 0);
-      const toReceive = rows
-        .filter(r => r.status === 'pending')
-        .reduce((s, r) => s + Number(r.amount ?? 0), 0);
-      return { received, toReceive };
     },
   });
 
-  // Open treatment plans (mine)
   const { data: openPlans = 0 } = useQuery({
     queryKey: ['dentist-open-plans', user?.id],
     queryFn: async () => {
       if (!user) return 0;
       const { count } = await supabase.from('treatment_plans')
-        .select('id', { count: 'exact', head: true })
-        .eq('dentist_id', user.id)
+        .select('id', { count: 'exact', head: true }).eq('dentist_id', user.id)
         .in('status', ['pending', 'negotiating']);
       return count ?? 0;
     },
     enabled: !!user,
   });
 
-  // Upcoming next 5
   const { data: upcoming = [] } = useQuery({
     queryKey: ['dentist-upcoming', user?.id, currentClinicId],
     queryFn: async () => {
       if (!user) return [];
       let q = supabase.from('appointments')
         .select('*, patients(full_name), procedures(name, color)')
-        .gte('start_time', now.toISOString())
-        .eq('dentist_id', user.id)
+        .gte('start_time', now.toISOString()).eq('dentist_id', user.id)
         .order('start_time').limit(5);
       if (currentClinicId) q = q.eq('clinic_id', currentClinicId);
       const { data } = await q;
@@ -169,9 +199,30 @@ export default function DentistHome() {
     enabled: !!user,
   });
 
-  const statusLabels: Record<string, string> = {
-    scheduled: 'Agendada', confirmed: 'Confirmada', completed: 'Concluída', no_show: 'Faltou', cancelled: 'Cancelada',
-  };
+  // Chart data
+  const sixMonthData = useMemo(() => {
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = subMonths(now, 5 - i);
+      return { label: format(d, 'MMM/yy', { locale: ptBR }), total: 0, concluidas: 0 };
+    });
+    (sixMonthApts as any[]).forEach((a) => {
+      const lbl = format(parseISO(a.start_time), 'MMM/yy', { locale: ptBR });
+      const entry = months.find(m => m.label === lbl);
+      if (entry) { entry.total++; if (a.status === 'completed') entry.concluidas++; }
+    });
+    return months;
+  }, [sixMonthApts]);
+
+  const statusChartData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (monthApts as any[]).forEach((a) => { counts[a.status] = (counts[a.status] ?? 0) + 1; });
+    return Object.entries(counts)
+      .map(([s, v]) => ({ name: STATUS_LABELS[s] ?? s, value: v, fill: STATUS_COLORS[s] ?? '#94a3b8' }))
+      .filter(d => d.value > 0);
+  }, [monthApts]);
+
+  const completionRate = kpis.total > 0 ? Math.round((kpis.completed / kpis.total) * 100) : 0;
+
   const statusColors: Record<string, string> = {
     scheduled: 'bg-primary/10 text-primary',
     confirmed: 'bg-success/10 text-success',
@@ -179,23 +230,25 @@ export default function DentistHome() {
     no_show: 'bg-destructive/10 text-destructive',
     cancelled: 'bg-muted text-muted-foreground',
   };
+  const statusLabels: Record<string, string> = {
+    scheduled: 'Agendada', confirmed: 'Confirmada', completed: 'Concluída',
+    no_show: 'Faltou', cancelled: 'Cancelada',
+  };
 
   const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   const baseKpis = [
-    { title: `${apptCapPlural} Hoje`, value: todayApts.length, desc: 'na sua agenda', icon: Calendar, color: 'text-primary', bg: 'bg-primary/10' },
-    { title: 'Sessões de Hoje', value: completedToday, desc: `de ${todayApts.length} agendadas`, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { title: `${apptCapPlural} no Mês`, value: kpis.completed, desc: `de ${kpis.total} agendados`, icon: family.icon, color: 'text-success', bg: 'bg-success/10' },
-    { title: 'Pacientes Únicos', value: kpis.uniquePatients, desc: 'atendidos este mês', icon: Users, color: 'text-warning', bg: 'bg-warning/10' },
-    { title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { title: `${apptCapPlural} Hoje`, value: todayApts.length, desc: 'na sua agenda', icon: Calendar, gradient: 'bg-gradient-to-br from-indigo-500 to-indigo-700' },
+    { title: 'Sessões de Hoje', value: completedToday, desc: `de ${todayApts.length} agendadas`, icon: CheckCircle2, gradient: 'bg-gradient-to-br from-emerald-500 to-emerald-700', click: () => setSessionsOpen(true) },
+    { title: `${apptCapPlural} no Mês`, value: kpis.completed, desc: `de ${kpis.total} agendados`, icon: family.icon, gradient: 'bg-gradient-to-br from-blue-500 to-blue-700' },
+    { title: 'Pacientes Únicos', value: kpis.uniquePatients, desc: 'atendidos este mês', icon: Users, gradient: 'bg-gradient-to-br from-violet-500 to-violet-700' },
+    { title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, gradient: 'bg-gradient-to-br from-amber-500 to-amber-600' },
   ] as any[];
 
-  const ownerKpis = isClinicOwner
-    ? [
-        { title: 'Faturado no Mês', value: financialMonth?.received ?? 0, desc: 'recebido este mês', icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-500/10', currency: true },
-        { title: 'A Receber', value: financialMonth?.toReceive ?? 0, desc: 'pendente de pagamento', icon: Wallet, color: 'text-amber-500', bg: 'bg-amber-500/10', currency: true },
-      ]
-    : [];
+  const ownerKpis = isClinicOwner ? [
+    { title: 'Faturado no Mês', value: financialMonth?.received ?? 0, desc: 'recebido este mês', icon: DollarSign, gradient: 'bg-gradient-to-br from-emerald-600 to-teal-700', currency: true },
+    { title: 'A Receber', value: financialMonth?.toReceive ?? 0, desc: 'pendente', icon: Wallet, gradient: 'bg-gradient-to-br from-orange-500 to-orange-700', currency: true },
+  ] : [];
 
   const kpiCards = [...baseKpis, ...ownerKpis];
 
@@ -207,28 +260,29 @@ export default function DentistHome() {
       />
       <SoloModeBanner />
 
-      {/* KPIs */}
-      <div className={`grid gap-4 sm:grid-cols-2 ${isClinicOwner ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-4'}`}>
+      {/* ── KPIs ────────────────────────────────────────────────────── */}
+      <div className={`grid gap-4 sm:grid-cols-2 ${isClinicOwner ? 'lg:grid-cols-3 xl:grid-cols-7' : 'lg:grid-cols-5'}`}>
         {kpiCards.map((kpi, i) => (
           <Card
             key={kpi.title}
-            onClick={kpi.title === 'Sessões de Hoje' ? () => setSessionsOpen(true) : undefined}
-            role={kpi.title === 'Sessões de Hoje' ? 'button' : undefined}
-            tabIndex={kpi.title === 'Sessões de Hoje' ? 0 : undefined}
-            onKeyDown={kpi.title === 'Sessões de Hoje' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSessionsOpen(true); } } : undefined}
-            className={`group relative overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-border/50 hover:-translate-y-0.5 ${kpi.title === 'Sessões de Hoje' ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40' : ''}`}
-            style={{ animationDelay: `${i * 80}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
+            onClick={kpi.click}
+            role={kpi.click ? 'button' : undefined}
+            tabIndex={kpi.click ? 0 : undefined}
+            onKeyDown={kpi.click ? (e: any) => { if (e.key === 'Enter') kpi.click(); } : undefined}
+            className={`relative overflow-hidden border-0 shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${kpi.click ? 'cursor-pointer' : ''}`}
+            style={{ animationDelay: `${i * 60}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
           >
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className={`absolute inset-0 opacity-10 ${kpi.gradient}`} />
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
               <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
-              <div className={`h-9 w-9 rounded-xl ${kpi.bg} flex items-center justify-center`}>
-                <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+              <div className={`rounded-lg p-1.5 ${kpi.gradient}`}>
+                <kpi.icon className="h-4 w-4 text-white" />
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative">
               <AnimatedNumber
                 value={kpi.value}
-                className="text-2xl font-semibold text-foreground"
+                className="text-2xl font-bold tracking-tight"
                 formatter={kpi.currency ? brl : undefined}
               />
               <p className="mt-1 text-xs text-muted-foreground">{kpi.desc}</p>
@@ -237,80 +291,141 @@ export default function DentistHome() {
         ))}
       </div>
 
-      {/* Today's schedule */}
-      <div className="grid gap-6">
-        <Card className="shadow-card border-border/50">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Sua Agenda de Hoje</CardTitle>
-              <Link to="/agenda" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-                Ver agenda <ArrowRight className="h-3 w-3" />
-              </Link>
+      {/* ── Gráficos ────────────────────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Area chart — tendência 6 meses */}
+        <Card className="lg:col-span-2 shadow-md border-border/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-indigo-500" />
+              <CardTitle className="text-base">Tendência de {apptCapPlural}</CardTitle>
             </div>
+            <CardDescription>Últimos 6 meses · total vs concluídas</CardDescription>
           </CardHeader>
           <CardContent>
-            {todayApts.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">{`Nenhuma ${family.appointmentNoun} agendada para hoje`}</p>
-            ) : (
-              <div className="space-y-1">
-                {todayApts.map((apt: any) => (
-                  <div key={apt.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 hover:bg-muted/40 transition-colors group">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-[64px]">
-                      <Clock className="h-3 w-3" />{format(parseISO(apt.start_time), 'HH:mm')}
-                    </div>
-                    <div
-                      className="w-1 h-8 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: apt.procedures?.color ?? 'hsl(var(--primary))' }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
-                    </div>
-                    <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
-                      {statusLabels[apt.status] ?? apt.status}
-                    </Badge>
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="ghost"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1 text-muted-foreground hover:text-primary"
-                      title="Abrir prontuário"
-                    >
-                      <Link to={`/patients/${apt.patient_id}`}>
-                        <FolderHeart className="h-3 w-3" /> Prontuário
-                      </Link>
-                    </Button>
-                    {apt.status === 'completed' ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1"
-                        onClick={() => setSummaryAptId(apt.id)}
-                      >
-                        <Eye className="h-3 w-3" /> Ver resumo
-                      </Button>
-                    ) : (
-                      <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs">
-                        <Link to={`/atendimento/${apt.id}`}>Atender</Link>
-                      </Button>
-                    )}
-                  </div>
-                ))}
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={sixMonthData} margin={{ top: 8, right: 12, left: -22, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="dh-gradTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="dh-gradConc" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip />} />
+                <Area type="monotone" dataKey="total" name="Total" stroke="#6366f1" strokeWidth={2} fill="url(#dh-gradTotal)" dot={false} />
+                <Area type="monotone" dataKey="concluidas" name="Concluídas" stroke="#10b981" strokeWidth={2} fill="url(#dh-gradConc)" dot={false} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Donut — status do mês */}
+        <Card className="shadow-md border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Status do Mês</CardTitle>
+            <CardDescription>
+              {completionRate}% de conclusão · {kpis.total} {apptCapPlural.toLowerCase()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {statusChartData.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+                Sem {apptCapPlural.toLowerCase()} este mês
               </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={statusChartData}
+                    cx="50%"
+                    cy="44%"
+                    innerRadius={52}
+                    outerRadius={74}
+                    paddingAngle={3}
+                    dataKey="value"
+                    animationDuration={800}
+                    labelLine={false}
+                  >
+                    {statusChartData.map((e, i) => (
+                      <Cell key={i} fill={e.fill} stroke="transparent" />
+                    ))}
+                    <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle">
+                      <tspan fontSize="22" fontWeight="700" fill="currentColor">{completionRate}%</tspan>
+                    </text>
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                </PieChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Upcoming */}
+      {/* ── Agenda de hoje ──────────────────────────────────────────── */}
+      <Card className="shadow-card border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Sua Agenda de Hoje</CardTitle>
+            <Link to="/agenda" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+              Ver agenda <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {todayApts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">{`Nenhuma ${family.appointmentNoun} agendada para hoje`}</p>
+          ) : (
+            <div className="space-y-1">
+              {(todayApts as any[]).map((apt) => (
+                <div key={apt.id} className="flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 hover:bg-muted/40 transition-colors group">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-[64px]">
+                    <Clock className="h-3 w-3" />{format(parseISO(apt.start_time), 'HH:mm')}
+                  </div>
+                  <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: apt.procedures?.color ?? 'hsl(var(--primary))' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
+                  </div>
+                  <Badge variant="secondary" className={`text-[10px] rounded-full ${statusColors[apt.status] ?? ''}`}>
+                    {statusLabels[apt.status] ?? apt.status}
+                  </Badge>
+                  <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1 text-muted-foreground hover:text-primary" title="Prontuário">
+                    <Link to={`/patients/${apt.patient_id}`}><FolderHeart className="h-3 w-3" /> Prontuário</Link>
+                  </Button>
+                  {apt.status === 'completed' ? (
+                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs gap-1" onClick={() => setSummaryAptId(apt.id)}>
+                      <Eye className="h-3 w-3" /> Ver resumo
+                    </Button>
+                  ) : (
+                    <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity h-7 text-xs">
+                      <Link to={`/atendimento/${apt.id}`}>Atender</Link>
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Próximas consultas ──────────────────────────────────────── */}
       {upcoming.length > 0 && (
         <Card className="shadow-card border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Próximas Consultas</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Próximas {apptCapPlural}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
-              {upcoming.map((apt: any) => (
+              {(upcoming as any[]).map((apt) => (
                 <div
                   key={apt.id}
                   className={`flex items-center gap-3 py-2.5 px-2 rounded-lg border-b border-border/30 last:border-0 ${apt.status === 'completed' ? 'cursor-pointer hover:bg-muted/40 transition-colors' : ''}`}
@@ -321,11 +436,9 @@ export default function DentistHome() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? 'Consulta'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
                   </div>
-                  {apt.status === 'completed' && (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
+                  {apt.status === 'completed' && <Eye className="h-4 w-4 text-muted-foreground" />}
                 </div>
               ))}
             </div>
@@ -341,9 +454,7 @@ export default function DentistHome() {
 
       <Dialog open={sessionsOpen} onOpenChange={setSessionsOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Sessões de hoje</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Sessões de hoje</DialogTitle></DialogHeader>
           {todayApts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje</p>
           ) : (
@@ -357,10 +468,7 @@ export default function DentistHome() {
                   <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-[64px]">
                     <Clock className="h-3 w-3" />{format(parseISO(apt.start_time), 'HH:mm')}
                   </div>
-                  <div
-                    className="w-1 h-8 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: apt.procedures?.color ?? 'hsl(var(--primary))' }}
-                  />
+                  <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: apt.procedures?.color ?? 'hsl(var(--primary))' }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{apt.patients?.full_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{apt.procedures?.name ?? apptCap}</p>
