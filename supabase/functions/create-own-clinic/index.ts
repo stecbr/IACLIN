@@ -42,6 +42,14 @@ Deno.serve(async (req) => {
       cnpj?: string;
       phone?: string;
       responsible_name?: string;
+      category_label?: string | null;
+      address?: string;
+      address_number?: string;
+      address_complement?: string | null;
+      neighborhood?: string | null;
+      city?: string;
+      state?: string;
+      zip_code?: string;
     } = {};
     try {
       body = await req.json();
@@ -108,6 +116,14 @@ Deno.serve(async (req) => {
         owner_id: user.id,
         category,
         email: user.email,
+        category_label: body.category_label ?? null,
+        address: body.address ?? null,
+        address_number: body.address_number ?? null,
+        address_complement: body.address_complement ?? null,
+        neighborhood: body.neighborhood ?? null,
+        city: body.city ?? null,
+        state: body.state ?? null,
+        zip_code: body.zip_code ?? null,
       })
       .select("id, name")
       .single();
