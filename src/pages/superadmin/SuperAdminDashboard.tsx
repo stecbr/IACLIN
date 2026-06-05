@@ -15,6 +15,7 @@ import {
   PieChart, Pie, Cell, Legend, BarChart, Bar,
   RadialBarChart, RadialBar,
 } from 'recharts';
+import { ClinicsMapWidget } from '@/components/superadmin/ClinicsMapWidget';
 
 // ─── Paleta ────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -203,6 +204,11 @@ export default function SuperAdminDashboard() {
         <StatCard title="Em período trial"        value={stats?.trial_subs}     icon={Clock}         gradient="bg-gradient-to-br from-amber-500 to-amber-600"     loading={loadingStats} />
         <StatCard title="Inadimplentes"           value={stats?.overdue_subs}   icon={AlertTriangle} gradient="bg-gradient-to-br from-red-500 to-red-700"         loading={loadingStats} />
       </div>
+
+      {/* ── Mapa geográfico ──────────────────────────────────────────────── */}
+      {!loadingClinics && clinics.length > 0 && (
+        <ClinicsMapWidget clinics={clinics} />
+      )}
 
       {/* ── Gráficos linha 1: Crescimento + Donut ────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
