@@ -10,7 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, Building2, User, QrCode, Landmark, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Save, Building2, User, QrCode, Landmark, AlertCircle, CheckCircle2, ChevronDown, Check } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { BRAZILIAN_BANKS } from '@/lib/brazilianBanks';
 
 type PaymentAccount = {
   id?: string;
@@ -62,6 +65,8 @@ export default function PaymentAccountSection() {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<PaymentAccount>(EMPTY);
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankQuery, setBankQuery] = useState('');
 
   // Entity: if linked to clinic → clinic; if solo → personal doctor
   const entityType = currentClinicId ? 'clinic' : 'doctor';
@@ -116,6 +121,12 @@ export default function PaymentAccountSection() {
 
   const upd = (field: keyof PaymentAccount, val: string) =>
     setForm((p) => ({ ...p, [field]: val }));
+
+  const filteredBanks = BRAZILIAN_BANKS.filter((b) => {
+    if (!bankQuery.trim()) return true;
+    const q = bankQuery.trim().toLowerCase();
+    return b.name.toLowerCase().includes(q) || b.code.includes(q);
+  });
 
   const hasPix  = !!(form.pix_key_type && form.pix_key);
   const hasBank = !!(form.bank_name && form.agency && form.account && form.account_holder);
@@ -267,11 +278,73 @@ export default function PaymentAccountSection() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Banco</Label>
-                  <Input value={form.bank_name} onChange={(e) => upd('bank_name', e.target.value)} placeholder="Ex: Itaú, Bradesco, Nubank..." />
+                  <Popover open={bankOpen} onOpenChange={setBankOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm',
+                          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                        )}
+                      >
+                        <span className={cn('truncate', !form.bank_name && 'text-muted-foreground')}>
+                          {form.bank_name
+                            ? (form.bank_code ? `${form.bank_code} — ${form.bank_name}` : form.bank_name)
+                            : 'Buscar banco...'}
+                        </span>
+                        <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
+                      <div className="p-2 border-b">
+                        <Input
+                          autoFocus
+                          value={bankQuery}
+                          onChange={(e) => setBankQuery(e.target.value)}
+                          placeholder="Buscar por nome ou código..."
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-1">
+                        {filteredBanks.length === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              upd('bank_name', bankQuery.trim());
+                              upd('bank_code', '');
+                              setBankOpen(false);
+                            }}
+                            className="w-full px-2 py-2 text-sm text-left hover:bg-accent rounded-sm"
+                          >
+                            Usar "{bankQuery.trim()}" como banco
+                          </button>
+                        ) : (
+                          filteredBanks.map((b) => (
+                            <button
+                              key={b.code}
+                              type="button"
+                              onClick={() => {
+                                setForm((p) => ({ ...p, bank_name: b.name, bank_code: b.code }));
+                                setBankOpen(false);
+                              }}
+                              className={cn(
+                                'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground',
+                                form.bank_code === b.code && 'bg-accent/60',
+                              )}
+                            >
+                              <span className="font-mono text-xs text-muted-foreground w-10">{b.code}</span>
+                              <span className="flex-1 truncate">{b.name}</span>
+                              {form.bank_code === b.code && <Check className="h-3.5 w-3.5 text-primary" />}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <Label>Código do banco</Label>
-                  <Input value={form.bank_code} onChange={(e) => upd('bank_code', e.target.value)} placeholder="Ex: 341" maxLength={5} />
+                  <Input value={form.bank_code} onChange={(e) => upd('bank_code', e.target.value)} placeholder="Ex: 341" maxLength={5} readOnly={!!form.bank_code && BRAZILIAN_BANKS.some((b) => b.code === form.bank_code)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Agência</Label>
