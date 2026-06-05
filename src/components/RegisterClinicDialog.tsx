@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { getFamilyConfig } from '@/lib/specialtyFamily';
 
 interface RegisterClinicDialogProps {
   open: boolean;
@@ -43,23 +44,40 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: 'outro', label: 'Outra' },
 ];
 
+/** Deriva a categoria de clínica mais adequada a partir da especialidade do usuário */
+function deriveClinicCategory(specialty: string | undefined, existingCategory: string | undefined): string {
+  if (existingCategory && existingCategory !== 'odonto') return existingCategory;
+  if (!specialty) return 'medico';
+  const { family } = getFamilyConfig(specialty);
+  switch (family) {
+    case 'odonto':    return 'odonto';
+    case 'aesthetic': return 'estetica';
+    default:          return 'medico'; // psi, physio, nutrition, podology, medico
+  }
+}
+
 export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialogProps) {
   const { refreshClinics, user, clinicCategory } = useAuth();
 
-  // Detect dentist flow: locks category to odonto
   const userMetaCategory = (user?.user_metadata as any)?.clinic_category as string | undefined;
   const userMetaSpecialty = (user?.user_metadata as any)?.specialty as string | undefined;
+
+  // Apenas dentistas têm a categoria travada em 'odonto'
   const isDentistFlow =
     clinicCategory === 'odonto' ||
     userMetaCategory === 'odonto' ||
-    (userMetaSpecialty && userMetaSpecialty.toLowerCase().includes('dent'));
+    (!!userMetaSpecialty && getFamilyConfig(userMetaSpecialty).family === 'odonto');
+
+  const defaultCategory = isDentistFlow
+    ? 'odonto'
+    : deriveClinicCategory(userMetaSpecialty, userMetaCategory);
 
   const [cnpj, setCnpj] = useState('');
   const [legalName, setLegalName] = useState('');
   const [tradeName, setTradeName] = useState('');
   const [responsibleName, setResponsibleName] = useState('');
   const [phone, setPhone] = useState('');
-  const [category, setCategory] = useState<string>('odonto');
+  const [category, setCategory] = useState<string>(defaultCategory);
   const [categoryLabel, setCategoryLabel] = useState<string>('');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
@@ -80,7 +98,7 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
   useEffect(() => {
     if (!open) {
       setCnpj(''); setLegalName(''); setTradeName(''); setResponsibleName('');
-      setPhone(''); setCategory(isDentistFlow ? 'odonto' : 'odonto');
+      setPhone(''); setCategory(defaultCategory);
       setCategoryLabel(''); setCategoryQuery('');
       setZipCode(''); setAddress(''); setAddressNumber(''); setAddressComplement('');
       setNeighborhood(''); setCity(''); setState('');
