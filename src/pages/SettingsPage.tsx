@@ -122,7 +122,7 @@ export default function SettingsPage() {
 }
 
 function ClinicSection() {
-  const { user } = useAuth();
+  const { user, refreshClinics } = useAuth();
   const { isSolo } = useSoloMode();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
@@ -270,6 +270,7 @@ function ClinicSection() {
         queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
       }
       toast.success('Clínica atualizada!');
+      await refreshClinics();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -345,10 +346,10 @@ function ClinicSection() {
                   <SelectValue placeholder="Selecione o tipo da clínica" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="odonto">🦷 Odontologia (Dentistas / CRO)</SelectItem>
-                  <SelectItem value="medico">🩺 Medicina (Médicos / CRM)</SelectItem>
-                  <SelectItem value="estetica">✨ Estética</SelectItem>
-                  <SelectItem value="outro">📋 Outro</SelectItem>
+                  <SelectItem value="odonto">Odontologia (Dentistas / CRO)</SelectItem>
+                  <SelectItem value="medico">Medicina (Médicos / CRM)</SelectItem>
+                  <SelectItem value="estetica">Estética</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
               {form.category && (
