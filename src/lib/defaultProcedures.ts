@@ -219,21 +219,24 @@ export const ESTETICA_CATEGORIES = new Set([
   'Estética', 'Estética Facial', 'Estética Corporal', 'Harmonização',
 ]);
 
-/** Retorna true se a categoria de um procedimento é compatível com a categoria da clínica */
-export function isProcedureCompatible(procCategory: string, clinicCategory: string): boolean {
-  const cat = procCategory.toLowerCase();
+/**
+ * Retorna true se o procedimento é compatível com a categoria da clínica.
+ * Usa o campo specialty_category estruturado ('odonto','medico','estetica',
+ * 'fisio','nutricao','psi','podologia','outro') para decisão precisa.
+ */
+export function isProcedureCompatible(specialtyCategory: string, clinicCategory: string): boolean {
+  const sc = (specialtyCategory ?? 'outro').toLowerCase();
   if (clinicCategory === 'odonto') {
-    return !ESTETICA_CATEGORIES.has(procCategory) &&
-           !['Cardiologia','Neurologia','Ortopedia','Pediatria','Ginecologia',
-             'Clínico Geral','Psicologia','Fisioterapia','Nutrição'].some(
-               c => cat.includes(c.toLowerCase())
-             );
+    // Clínica odonto exibe apenas procedimentos odonto (e genéricos)
+    return sc === 'odonto' || sc === 'outro';
   }
   if (clinicCategory === 'medico') {
-    return !ODONTO_CATEGORIES.has(procCategory) && !ESTETICA_CATEGORIES.has(procCategory);
+    // Clínica médica exibe tudo exceto odonto e estética
+    return sc !== 'odonto' && sc !== 'estetica';
   }
   if (clinicCategory === 'estetica') {
-    return !ODONTO_CATEGORIES.has(procCategory);
+    // Clínica estética exibe tudo exceto odonto
+    return sc !== 'odonto';
   }
-  return true; // 'outro' - mostra tudo
+  return true; // 'outro' — mostra tudo
 }

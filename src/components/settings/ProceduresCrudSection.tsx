@@ -64,8 +64,8 @@ export default function ProceduresCrudSection() {
 
   // ── Camada A: separar compatíveis vs outros ────────────────────────────────
   const category = clinicCategory ?? 'medico';
-  const compatible   = procedures.filter((p) => isProcedureCompatible(p.category, category));
-  const incompatible = procedures.filter((p) => !isProcedureCompatible(p.category, category));
+  const compatible   = procedures.filter((p) => isProcedureCompatible(p.specialty_category ?? 'outro', category));
+  const incompatible = procedures.filter((p) => !isProcedureCompatible(p.specialty_category ?? 'outro', category));
 
   const compatibleCats   = [...new Set(compatible.map((p) => p.category))];
   const incompatibleCats = [...new Set(incompatible.map((p) => p.category))];
@@ -178,6 +178,7 @@ export default function ProceduresCrudSection() {
           onOpenChange={setDialogOpen}
           procedure={editingProc}
           specialty={userSpecialty}
+          clinicSpecialtyCategory={category}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['procedures-settings'] });
             queryClient.invalidateQueries({ queryKey: ['procedures-list'] });
@@ -188,11 +189,12 @@ export default function ProceduresCrudSection() {
   );
 }
 
-function ProcedureDialog({ open, onOpenChange, procedure, specialty, onSuccess }: {
+function ProcedureDialog({ open, onOpenChange, procedure, specialty, clinicSpecialtyCategory, onSuccess }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   procedure: any;
   specialty?: string;
+  clinicSpecialtyCategory?: string;
   onSuccess: () => void;
 }) {
   const isEdit = !!procedure;
@@ -239,7 +241,10 @@ function ProcedureDialog({ open, onOpenChange, procedure, specialty, onSuccess }
         const { error } = await supabase.from('procedures').update(payload).eq('id', procedure.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('procedures').insert(payload);
+        const { error } = await supabase.from('procedures').insert({
+          ...payload,
+          specialty_category: clinicSpecialtyCategory ?? 'medico',
+        });
         if (error) throw error;
       }
       toast.success(isEdit ? 'Procedimento atualizado!' : 'Procedimento cadastrado!');

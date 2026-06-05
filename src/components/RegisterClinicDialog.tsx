@@ -57,14 +57,14 @@ function deriveClinicCategory(specialty: string | undefined, existingCategory: s
 }
 
 export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialogProps) {
-  const { refreshClinics, user, clinicCategory } = useAuth();
+  const { refreshClinics, user } = useAuth();
 
   const userMetaCategory = (user?.user_metadata as any)?.clinic_category as string | undefined;
   const userMetaSpecialty = (user?.user_metadata as any)?.specialty as string | undefined;
 
   // Apenas dentistas têm a categoria travada em 'odonto'
+  // Não usa clinicCategory — essa é a clínica ativa, não a que está sendo cadastrada
   const isDentistFlow =
-    clinicCategory === 'odonto' ||
     userMetaCategory === 'odonto' ||
     (!!userMetaSpecialty && getFamilyConfig(userMetaSpecialty).family === 'odonto');
 
