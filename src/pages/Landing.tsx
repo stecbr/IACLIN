@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin } from "lucide-react";
 import { DoctorCard, type DoctorData } from "@/components/marketplace/DoctorCard";
+import { LandingNetworkMap } from "@/components/landing/LandingNetworkMap";
 import { addDays, format } from "date-fns";
 import logoLight from "@/assets/logo-light.png";
 import landingDashboard from "@/assets/landing-dashboard.png";
@@ -456,6 +457,15 @@ function MarketplacePreview() {
             </Badge>
           ))}
         </div>
+      </motion.div>
+
+      {/* Mapa da rede */}
+      <motion.div
+        {...fadeUp}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="mx-auto mt-10 max-w-5xl"
+      >
+        <LandingNetworkMap />
       </motion.div>
 
       <div className="mx-auto mt-10 grid max-w-5xl gap-5 lg:grid-cols-2">
