@@ -3,28 +3,49 @@ import { Card } from '@/components/ui/card';
 import { getConditionMeta } from './mapRegistry';
 import type { ClinicalMapProps } from './types';
 
+// Permanent dentition (FDI)
 const UPPER_RIGHT = [18, 17, 16, 15, 14, 13, 12, 11];
-const UPPER_LEFT = [21, 22, 23, 24, 25, 26, 27, 28];
-const LOWER_LEFT = [31, 32, 33, 34, 35, 36, 37, 38];
+const UPPER_LEFT  = [21, 22, 23, 24, 25, 26, 27, 28];
+const LOWER_LEFT  = [31, 32, 33, 34, 35, 36, 37, 38];
 const LOWER_RIGHT = [48, 47, 46, 45, 44, 43, 42, 41];
+
+// Deciduous dentition (FDI)
+const DEC_UPPER_RIGHT = [55, 54, 53, 52, 51];
+const DEC_UPPER_LEFT  = [61, 62, 63, 64, 65];
+const DEC_LOWER_LEFT  = [71, 72, 73, 74, 75];
+const DEC_LOWER_RIGHT = [85, 84, 83, 82, 81];
+
+const PERM_MOLARS    = [16, 17, 18, 26, 27, 28, 36, 37, 38, 46, 47, 48];
+const PERM_PREMOLARS = [14, 15, 24, 25, 34, 35, 44, 45];
+const PERM_CANINES   = [13, 23, 33, 43];
+const DEC_MOLARS     = [54, 55, 64, 65, 74, 75, 84, 85];
+const DEC_CANINES    = [53, 63, 73, 83];
+
+function classifyTooth(n: number) {
+  const isDeciduous = n >= 50;
+  const isUpper     = isDeciduous ? (n >= 51 && n <= 65) : n < 30;
+  const isMolar     = isDeciduous ? DEC_MOLARS.includes(n)    : PERM_MOLARS.includes(n);
+  const isPremolar  = isDeciduous ? false                      : PERM_PREMOLARS.includes(n);
+  const isCanine    = isDeciduous ? DEC_CANINES.includes(n)   : PERM_CANINES.includes(n);
+  return { isUpper, isMolar, isPremolar, isCanine };
+}
 
 function ToothSVG({
   number,
   condition,
+  count,
   onClick,
   isSelected,
 }: {
   number: number;
   condition?: string;
+  count: number;
   onClick: () => void;
   isSelected: boolean;
 }) {
   const meta = condition ? getConditionMeta('tooth', condition) : null;
   const fill = meta?.color ?? '#E5E7EB';
-  const isUpper = number < 30;
-  const isMolar = [16, 17, 18, 26, 27, 28, 36, 37, 38, 46, 47, 48].includes(number);
-  const isPremolar = [14, 15, 24, 25, 34, 35, 44, 45].includes(number);
-  const isCanine = [13, 23, 33, 43].includes(number);
+  const { isUpper, isMolar, isPremolar, isCanine } = classifyTooth(number);
 
   const w = 40;
   const h = 64;
@@ -60,67 +81,105 @@ function ToothSVG({
           }`}
           onClick={onClick}
         >
-          {isUpper && <span className="text-[10px] text-muted-foreground font-medium">{number}</span>}
-          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-            <path d={paths.roots} fill="none" stroke={condition === 'missing' ? '#D1D5DB' : '#E8D5A3'} strokeWidth={2} strokeLinecap="round" opacity={0.7} />
-            <path
-              d={paths.crown}
-              fill={fill}
-              stroke={isSelected ? 'hsl(var(--primary))' : '#D1D5DB'}
-              strokeWidth={isSelected ? 2.5 : 1.2}
-              className="group-hover:stroke-primary transition-colors"
-            />
-            {condition === 'missing' && (
-              <>
-                <line x1={10} y1={isUpper ? 6 : 28} x2={30} y2={isUpper ? 36 : 58} stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
-                <line x1={30} y1={isUpper ? 6 : 28} x2={10} y2={isUpper ? 36 : 58} stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
-              </>
+          {isUpper && <span className={`text-[10px] font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>{number}</span>}
+          <div className="relative">
+            <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+              <path d={paths.roots} fill="none" stroke={condition === 'missing' ? '#D1D5DB' : '#E8D5A3'} strokeWidth={2} strokeLinecap="round" opacity={0.7} />
+              <path
+                d={paths.crown}
+                fill={fill}
+                stroke={isSelected ? 'hsl(var(--primary))' : '#D1D5DB'}
+                strokeWidth={isSelected ? 2.5 : 1.2}
+                className="group-hover:stroke-primary transition-colors"
+              />
+              {condition === 'missing' && (
+                <>
+                  <line x1={10} y1={isUpper ? 6 : 28} x2={30} y2={isUpper ? 36 : 58} stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
+                  <line x1={30} y1={isUpper ? 6 : 28} x2={10} y2={isUpper ? 36 : 58} stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
+                </>
+              )}
+            </svg>
+            {count > 1 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center leading-none z-10">
+                {count}
+              </span>
             )}
-          </svg>
-          {!isUpper && <span className="text-[10px] text-muted-foreground font-medium">{number}</span>}
+          </div>
+          {!isUpper && <span className={`text-[10px] font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>{number}</span>}
         </div>
       </TooltipTrigger>
       <TooltipContent side={isUpper ? 'top' : 'bottom'} className="text-xs">
         <p className="font-medium">Dente {number}</p>
         {meta && <p className="text-muted-foreground">{meta.label}</p>}
+        {count > 1 && <p className="text-amber-600 font-medium">{count} procedimentos</p>}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-export function ToothMap({ entries, onRegionClick, selectedRegion }: ClinicalMapProps) {
-  // Build conditions map from latest entry per tooth
+type ToothMapProps = ClinicalMapProps & { mode?: 'permanent' | 'deciduous' };
+
+export function ToothMap({ entries, onRegionClick, selectedRegion, mode = 'permanent' }: ToothMapProps) {
+  // Build primary condition + count per tooth
   const toothConditions: Record<number, string> = {};
+  const toothCounts: Record<number, number> = {};
+
   entries.forEach((e) => {
     const match = e.region_code.match(/^tooth-(\d+)/);
     if (match) {
       const num = parseInt(match[1], 10);
       if (!toothConditions[num]) toothConditions[num] = e.condition;
+      toothCounts[num] = (toothCounts[num] ?? 0) + 1;
     }
   });
 
   const selectedTooth = selectedRegion?.match(/^tooth-(\d+)/)?.[1];
 
+  const renderRow = (numbers: number[], alignEnd: boolean) => (
+    <div className={`flex ${alignEnd ? 'items-end' : 'items-start'} gap-0.5 md:gap-1 flex-wrap justify-center`}>
+      {numbers.map((n) => (
+        <ToothSVG
+          key={n}
+          number={n}
+          condition={toothConditions[n]}
+          count={toothCounts[n] ?? 0}
+          onClick={() => onRegionClick(`tooth-${n}`)}
+          isSelected={selectedTooth === String(n)}
+        />
+      ))}
+    </div>
+  );
+
+  const isPermanent = mode === 'permanent';
+
   return (
     <Card className="shadow-card border-border/50 p-4 md:p-6 overflow-x-auto">
       <div className="flex flex-col items-center gap-4 md:gap-6 min-w-[320px]">
+        {/* Upper row */}
         <div className="flex items-end gap-0.5 md:gap-1 flex-wrap justify-center">
-          {UPPER_RIGHT.map((n) => (
-            <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
+          {(isPermanent ? UPPER_RIGHT : DEC_UPPER_RIGHT).map((n) => (
+            <ToothSVG key={n} number={n} condition={toothConditions[n]} count={toothCounts[n] ?? 0}
+              onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
           ))}
-          <div className="w-2 md:w-4" />
-          {UPPER_LEFT.map((n) => (
-            <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
+          <div className="w-2 md:w-4 self-stretch border-r border-dashed border-border/60" />
+          {(isPermanent ? UPPER_LEFT : DEC_UPPER_LEFT).map((n) => (
+            <ToothSVG key={n} number={n} condition={toothConditions[n]} count={toothCounts[n] ?? 0}
+              onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
           ))}
         </div>
+
         <div className="w-full border-t border-dashed border-border" />
+
+        {/* Lower row */}
         <div className="flex items-start gap-0.5 md:gap-1 flex-wrap justify-center">
-          {LOWER_RIGHT.map((n) => (
-            <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
+          {(isPermanent ? LOWER_RIGHT : DEC_LOWER_RIGHT).map((n) => (
+            <ToothSVG key={n} number={n} condition={toothConditions[n]} count={toothCounts[n] ?? 0}
+              onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
           ))}
-          <div className="w-2 md:w-4" />
-          {LOWER_LEFT.map((n) => (
-            <ToothSVG key={n} number={n} condition={toothConditions[n]} onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
+          <div className="w-2 md:w-4 self-stretch border-r border-dashed border-border/60" />
+          {(isPermanent ? LOWER_LEFT : DEC_LOWER_LEFT).map((n) => (
+            <ToothSVG key={n} number={n} condition={toothConditions[n]} count={toothCounts[n] ?? 0}
+              onClick={() => onRegionClick(`tooth-${n}`)} isSelected={selectedTooth === String(n)} />
           ))}
         </div>
       </div>
