@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette, MoreHorizontal, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { PatientTimeline } from '@/components/patients/PatientTimeline';
 import { PatientAnamnese } from '@/components/patients/PatientAnamnese';
 import { PatientDocuments } from '@/components/patients/PatientDocuments';
+import { PatientFiles } from '@/components/patients/PatientFiles';
 import { PatientSpecialtyList } from '@/components/patients/PatientSpecialtyList';
 import { PatientFinancialSummary } from '@/components/patient/PatientFinancialSummary';
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
@@ -306,6 +307,7 @@ export default function PatientDetail() {
               anamnese: <Heart className="h-3.5 w-3.5" />,
               budgets: <ClipboardList className="h-3.5 w-3.5" />,
               documents: <Image className="h-3.5 w-3.5" />,
+              files: <FolderOpen className="h-3.5 w-3.5" />,
               timeline: <Clock className="h-3.5 w-3.5" />,
               sessions: <Brain className="h-3.5 w-3.5" />,
               evolution: <Activity className="h-3.5 w-3.5" />,
@@ -362,6 +364,10 @@ export default function PatientDetail() {
 
         <TabsContent value="documents">
           <PatientDocuments patientId={id!} />
+        </TabsContent>
+
+        <TabsContent value="files">
+          <PatientFiles patientId={id!} />
         </TabsContent>
 
         <TabsContent value="appointments">

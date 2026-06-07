@@ -31,6 +31,7 @@ export type PatientTabKey =
   | 'appointments'
   | 'budgets'
   | 'documents'
+  | 'files'
   | 'financial'
   | 'timeline'
   | 'sessions'
@@ -53,49 +54,49 @@ export interface SpecialtyProfile {
 const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'config'>> = {
   odonto: {
     attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes', 'odontogram'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'financial', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: true,
     showBudgets: true,
   },
   medical: {
     attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'notes'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'financial', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   aesthetic: {
     attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'financial', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: true,
   },
   psi: {
     attendanceTabs: ['overview', 'soap', 'scales', 'mood', 'conduct', 'notes'],
-    patientTabs: ['info', 'anamnese', 'sessions', 'evolution', 'documents', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'sessions', 'evolution', 'documents', 'files', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   nutrition: {
     attendanceTabs: ['overview', 'assessment', 'anthropometry', 'mealplan', 'conduct', 'notes'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'mealplans', 'evolution', 'documents', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'mealplans', 'evolution', 'documents', 'files', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   physio: {
     attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'notes'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'evolution', 'documents', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'evolution', 'documents', 'files', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   podology: {
     attendanceTabs: ['overview', 'assessment', 'diagnosis', 'conduct', 'procedures', 'notes'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'financial', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   generic: {
     attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'financial', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: true,
   },
@@ -130,6 +131,7 @@ export const PATIENT_TAB_LABELS: Record<PatientTabKey, string> = {
   appointments: 'Consultas',
   budgets: 'Orçamentos',
   documents: 'Imagens',
+  files: 'Arquivos',
   financial: 'Financeiro',
   timeline: 'Timeline',
   sessions: 'Sessões',
