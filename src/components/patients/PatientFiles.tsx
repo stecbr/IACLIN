@@ -145,7 +145,8 @@ export function PatientFiles({ patientId }: Props) {
     try {
       for (const file of Array.from(fileList)) {
         const ext = file.name.split('.').pop();
-        const path = `${patientId}/private/${user.id}/${ctx}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        // Use flat path (same pattern as PatientDocuments) — public URL access requires this
+        const path = `${patientId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
         const { error: uploadError } = await supabase.storage.from('patient-files').upload(path, file);
         if (uploadError) throw uploadError;
