@@ -10,6 +10,7 @@ import { type SpecialtyFamily, getSpecialtyFamily, getFamilyConfig, type FamilyC
  * registration label, tools route) lives in specialtyFamily.ts.
  */
 export type AttendanceTabKey =
+  | 'overview'
   | 'assessment'
   | 'vitals'
   | 'diagnosis'
@@ -51,49 +52,49 @@ export interface SpecialtyProfile {
 
 const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'config'>> = {
   odonto: {
-    attendanceTabs: ['assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes', 'odontogram'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes', 'odontogram'],
     patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'financial', 'timeline'],
     showToothProcedures: true,
     showBudgets: true,
   },
   medical: {
-    attendanceTabs: ['assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'notes'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   aesthetic: {
-    attendanceTabs: ['assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: true,
   },
   psi: {
-    attendanceTabs: ['soap', 'scales', 'mood', 'conduct', 'notes'],
+    attendanceTabs: ['overview', 'soap', 'scales', 'mood', 'conduct', 'notes'],
     patientTabs: ['info', 'anamnese', 'sessions', 'evolution', 'documents', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   nutrition: {
-    attendanceTabs: ['assessment', 'anthropometry', 'mealplan', 'conduct', 'notes'],
+    attendanceTabs: ['overview', 'assessment', 'anthropometry', 'mealplan', 'conduct', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'mealplans', 'evolution', 'documents', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   physio: {
-    attendanceTabs: ['assessment', 'vitals', 'diagnosis', 'conduct', 'notes'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'evolution', 'documents', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   podology: {
-    attendanceTabs: ['assessment', 'diagnosis', 'conduct', 'procedures', 'notes'],
+    attendanceTabs: ['overview', 'assessment', 'diagnosis', 'conduct', 'procedures', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
   },
   generic: {
-    attendanceTabs: ['assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: true,
@@ -107,6 +108,7 @@ export function getSpecialtyProfile(specialty: string | null | undefined): Speci
 }
 
 export const ATTENDANCE_TAB_LABELS: Record<AttendanceTabKey, string> = {
+  overview: 'Visão Geral',
   assessment: 'Avaliação',
   vitals: 'Sinais Vitais',
   diagnosis: 'Diagnóstico',

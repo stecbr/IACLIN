@@ -33,6 +33,7 @@ import { computeElapsedSeconds, endSession, getSession, startSession } from '@/l
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
+import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 
 interface ProcedureRow {
   tempId: string;
@@ -89,7 +90,7 @@ export default function Attendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('*, patients(id, full_name, phone, date_of_birth, insurance_provider), procedures(name, color, default_price)')
+        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider), procedures(name, color, default_price)')
         .eq('id', appointmentId!)
         .single();
       if (error) throw error;
@@ -569,6 +570,12 @@ export default function Attendance() {
             return <TabsTrigger key={key} value={key}>{label}{suffix}</TabsTrigger>;
           })}
         </TabsList>
+
+        {tabKeys.includes('overview') && (
+          <TabsContent value="overview">
+            <PatientOverviewTab patient={(appointment as any).patients ?? {}} />
+          </TabsContent>
+        )}
 
         {tabKeys.includes('soap') && (
           <TabsContent value="soap"><SoapSessionForm value={soap} onChange={setSoap} /></TabsContent>
