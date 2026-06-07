@@ -24,6 +24,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
+import { ClinicHealthPanel } from '@/components/finance/ClinicHealthPanel';
+import { CommissionsPanel } from '@/components/finance/CommissionsPanel';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
@@ -33,7 +35,7 @@ import {
 import { ChevronDown } from 'lucide-react';
 
 export default function Financial() {
-  const { user, currentClinicId, isPersonalMode, clinics } = useAuth();
+  const { user, currentClinicId, isPersonalMode, clinics, isClinicOwner } = useAuth();
   const queryClient = useQueryClient();
   const { effectiveRole } = useRoleAccess();
   const { isSolo } = useSoloMode();
@@ -223,6 +225,12 @@ export default function Financial() {
         <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
+          {isClinicOwner && currentClinicId && (
+            <TabsTrigger value="clinic-health">Saúde da Clínica</TabsTrigger>
+          )}
+          {isClinicOwner && currentClinicId && (
+            <TabsTrigger value="commissions">Comissões</TabsTrigger>
+          )}
           {canApprove && currentClinicId && awaitingApproval.length > 0 && (
             <TabsTrigger value="approvals">
               Aprovações
@@ -431,6 +439,25 @@ export default function Financial() {
             </Card>
           )}
         </TabsContent>
+
+        {isClinicOwner && currentClinicId && (
+          <TabsContent value="clinic-health" className="space-y-4">
+            <ClinicHealthPanel
+              clinicId={currentClinicId}
+              transactions={approvedTx}
+              period={period}
+            />
+          </TabsContent>
+        )}
+
+        {isClinicOwner && currentClinicId && (
+          <TabsContent value="commissions" className="space-y-4">
+            <CommissionsPanel
+              clinicId={currentClinicId}
+              transactions={approvedTx}
+            />
+          </TabsContent>
+        )}
 
         {importedTxs.length > 0 && (
           <TabsContent value="review" className="space-y-4">
