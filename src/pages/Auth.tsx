@@ -67,6 +67,11 @@ export default function Auth() {
   const [phone, setPhone] = useState('');
   const [insuranceProvider, setInsuranceProvider] = useState('');
   const [insuranceNumber, setInsuranceNumber] = useState('');
+  // Patient extended fields
+  const [patientDateOfBirth, setPatientDateOfBirth] = useState('');
+  const [patientGender, setPatientGender] = useState('');
+  const [patientRg, setPatientRg] = useState('');
+  const [patientProfession, setPatientProfession] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [profSubType, setProfSubType] = useState<ProfessionalSubType>(null);
@@ -317,6 +322,10 @@ export default function Auth() {
               ...(userType === 'cliente' && {
                 cpf: unmaskCpf(cpf),
                 phone,
+                date_of_birth: patientDateOfBirth || null,
+                gender: patientGender || null,
+                rg: patientRg || null,
+                profession: patientProfession || null,
                 insurance_provider: insuranceProvider || null,
                 insurance_number: insuranceNumber || null,
               }),
@@ -733,12 +742,53 @@ export default function Auth() {
                       />
                     </motion.div>
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.14 }}>
-                      <Label htmlFor="phone">Telefone</Label>
+                      <Label htmlFor="phone">Celular</Label>
                       <Input
                         id="phone" value={phone} onChange={(e) => setPhone(e.target.value)}
                         placeholder="(11) 99999-9999" className="h-10" inputMode="tel"
                       />
                     </motion.div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.15 }}>
+                        <Label htmlFor="patient-dob">Data de nascimento</Label>
+                        <Input
+                          id="patient-dob" type="date" value={patientDateOfBirth}
+                          onChange={(e) => setPatientDateOfBirth(e.target.value)} className="h-10"
+                        />
+                      </motion.div>
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.155 }}>
+                        <Label htmlFor="patient-gender">Gênero</Label>
+                        <select
+                          id="patient-gender"
+                          value={patientGender}
+                          onChange={(e) => setPatientGender(e.target.value)}
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="M">Masculino</option>
+                          <option value="F">Feminino</option>
+                          <option value="O">Outro</option>
+                        </select>
+                      </motion.div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.16 }}>
+                        <Label htmlFor="patient-rg">RG <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                        <Input
+                          id="patient-rg" value={patientRg}
+                          onChange={(e) => setPatientRg(e.target.value)}
+                          placeholder="00.000.000-0" className="h-10"
+                        />
+                      </motion.div>
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.165 }}>
+                        <Label htmlFor="patient-profession">Profissão <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                        <Input
+                          id="patient-profession" value={patientProfession}
+                          onChange={(e) => setPatientProfession(e.target.value)}
+                          placeholder="Ex: Professor" className="h-10"
+                        />
+                      </motion.div>
+                    </div>
                   </>
                 )}
 
