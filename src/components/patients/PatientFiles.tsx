@@ -15,6 +15,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Folder,
   FolderOpen,
   Upload,
@@ -50,6 +54,9 @@ export function PatientFiles({ patientId }: Props) {
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<
+    { type: 'file'; item: FileRow } | { type: 'folder'; item: FolderRow } | null
+  >(null);
 
   // root = files not in any folder; otherwise the folder id
   const ctx = currentFolder ? currentFolder.id : 'root';
@@ -299,7 +306,7 @@ export function PatientFiles({ patientId }: Props) {
                       <Button
                         variant="ghost" size="icon"
                         className="h-7 w-7 text-white"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteFile(file); }}
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'file', item: file }); }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -344,7 +351,7 @@ export function PatientFiles({ patientId }: Props) {
                       <Button
                         variant="ghost" size="icon"
                         className="h-7 w-7 text-destructive"
-                        onClick={() => handleDeleteFile(file)}
+                        onClick={() => setDeleteTarget({ type: 'file', item: file })}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -376,7 +383,7 @@ export function PatientFiles({ patientId }: Props) {
                 <Button
                   variant="ghost" size="icon"
                   className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder); }}
+                  onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'folder', item: folder }); }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -385,6 +392,42 @@ export function PatientFiles({ patientId }: Props) {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTarget?.type === 'folder' ? 'Excluir pasta?' : 'Excluir arquivo?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.type === 'folder' ? (
+                <>
+                  A pasta <span className="font-medium">"{deleteTarget.item.name}"</span> e todos os arquivos dentro dela serão excluídos permanentemente. Esta ação não pode ser desfeita.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">"{deleteTarget?.item.name}"</span> será excluído permanentemente. Esta ação não pode ser desfeita.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (!deleteTarget) return;
+                if (deleteTarget.type === 'folder') handleDeleteFolder(deleteTarget.item as FolderRow);
+                else handleDeleteFile(deleteTarget.item as FileRow);
+                setDeleteTarget(null);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create Folder Dialog */}
       <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>

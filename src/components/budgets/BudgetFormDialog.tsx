@@ -193,7 +193,10 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
     }));
   };
 
-  const totalCost = items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+  const totalCost = items.reduce((sum, item) => {
+    const v = parseFloat(item.price);
+    return sum + (isNaN(v) || v < 0 ? 0 : v);
+  }, 0);
 
   const createPlan = useMutation({
     mutationFn: async () => {

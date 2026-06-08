@@ -103,6 +103,12 @@ export function TransactionDialog({
       return;
     }
 
+    const parsedAmount = parseFloat(form.amount);
+    if (!form.amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error('Informe um valor maior que zero');
+      return;
+    }
+
     // Patient is required when the transaction is locked to a patient or
     // when the user picked a patient. Otherwise it's optional.
     const patientId = form.patient_id || null;
@@ -116,7 +122,7 @@ export function TransactionDialog({
         type: form.type,
         category: form.category,
         description: form.description || null,
-        amount: parseFloat(form.amount),
+        amount: parsedAmount,
         due_date: form.due_date,
         status: needsApproval ? 'pending' : form.status,
         payment_method: form.payment_method || null,
