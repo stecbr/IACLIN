@@ -8,6 +8,9 @@ export interface PatientAccount {
   full_name: string;
   phone: string | null;
   date_of_birth: string | null;
+  gender: string | null;
+  rg: string | null;
+  profession: string | null;
   insurance_provider: string | null;
   insurance_number: string | null;
 }
