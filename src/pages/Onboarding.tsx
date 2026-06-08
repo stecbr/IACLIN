@@ -162,9 +162,24 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     if (!user) return;
+
+    // Validate business hours before saving
+    for (const { key, label } of WEEKDAYS) {
+      const day = businessHours[key];
+      if (day.enabled && day.close <= day.open) {
+        toast.error(`Horário inválido em ${label}: o fechamento deve ser após a abertura`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const clinicId = createdClinicId;
+
+      // Save default consultation duration for this professional
+      await (supabase as any)
+        .from('professional_settings')
+        .upsert({ user_id: user.id, default_slot_duration: consultDuration }, { onConflict: 'user_id' });
 
       // 1. Salva horários e cidade/estado no Supabase
       if (clinicId) {

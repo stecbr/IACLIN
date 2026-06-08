@@ -184,7 +184,7 @@ export function PatientFormDialog({
         }));
       }
     } catch {
-      // silent fail — CEP not found
+      toast.error('Não foi possível buscar o CEP. Verifique o número e tente novamente.');
     } finally {
       setFetchingCep(false);
     }

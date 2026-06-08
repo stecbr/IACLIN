@@ -82,6 +82,7 @@ export default function Agenda() {
       restrictToSelf ? user?.id : doctorFilter.kind === 'one' ? doctorFilter.doctorId : 'all',
     ],
     queryFn: async () => {
+      if (!currentClinicId && !isPersonalMode) return [];
       let query = supabase
         .from('appointments')
         .select('*, patients(full_name), procedures(name, color)')

@@ -72,6 +72,7 @@ export default function ClinicaAprovacoes() {
   const rejected = requests.filter((r) => r.status === 'rejected');
 
   const approve = async (req: AppointmentRequest, newStart?: string, newEnd?: string) => {
+    if (actingId) return;
     setActingId(req.id);
     try {
       const { data, error } = await supabase.functions.invoke('approve-appointment-request', {
@@ -93,7 +94,7 @@ export default function ClinicaAprovacoes() {
   };
 
   const reject = async () => {
-    if (!rejectReq) return;
+    if (!rejectReq || actingId) return;
     setActingId(rejectReq.id);
     try {
       const { data, error } = await supabase.functions.invoke('reject-appointment-request', {

@@ -126,8 +126,10 @@ export default function Patients() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Reset page when filters change
+  // Reset page when any filter changes
   const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
+  const handleInsuranceFilter = (v: string) => { setInsuranceFilter(v); setPage(1); };
 
   const getInitials = (name: string) =>
     name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -155,7 +157,7 @@ export default function Patients() {
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={handleStatusFilter}>
           <SelectTrigger className="w-[140px]">
             <span className="text-muted-foreground text-xs mr-1">Status:</span>
             <SelectValue />
@@ -166,7 +168,7 @@ export default function Patients() {
             <SelectItem value="inactive">Inativos</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={insuranceFilter} onValueChange={setInsuranceFilter}>
+        <Select value={insuranceFilter} onValueChange={handleInsuranceFilter}>
           <SelectTrigger className="w-[160px]">
             <span className="text-muted-foreground text-xs mr-1">Convênio:</span>
             <SelectValue />

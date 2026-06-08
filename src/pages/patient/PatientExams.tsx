@@ -272,7 +272,7 @@ function PrescriptionCard({ rx }: { rx: PrescriptionFromRecord }) {
         items: rx.items.map((it) => ({
           medication: [it.medication, it.concentration].filter(Boolean).join(' ') || 'Medicamento',
           dosage: it.dosage ?? '',
-          frequency: it.dosage ?? '',
+          frequency: '',
           duration: it.duration ?? '',
           instructions: [it.route, it.instructions].filter(Boolean).join(' · ') || undefined,
         })) as any,

@@ -523,7 +523,7 @@ export default function Attendance() {
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
-          <Button onClick={handleFinish} disabled={finishing} className="gap-2">
+          <Button onClick={handleFinish} disabled={finishing || saving} className="gap-2">
             <CheckCircle className="h-4 w-4" />
             {finishing ? 'Finalizando...' : 'Finalizar Atendimento'}
           </Button>

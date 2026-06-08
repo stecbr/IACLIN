@@ -101,7 +101,7 @@ export async function generatePrescriptionPdf(data: PrescriptionPdfData) {
     ${items.map((it, i) => `
       <div class="item">
         <div><span class="item-num">${i + 1}</span><span class="item-med">${it.medication}</span></div>
-        <div class="item-detail">${it.dosage} — ${it.frequency} — por ${it.duration}</div>
+        <div class="item-detail">${[it.dosage, it.frequency, it.duration ? `por ${it.duration}` : ''].filter(s => s && s.trim()).join(' — ')}</div>
         ${it.instructions ? `<div class="item-instr">${it.instructions}</div>` : ''}
       </div>`).join('')}
   </div>

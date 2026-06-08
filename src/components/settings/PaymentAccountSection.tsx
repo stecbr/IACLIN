@@ -133,6 +133,23 @@ export default function PaymentAccountSection() {
 
   const handleSave = async () => {
     if (!entityId) return;
+
+    // Validate PIX key format when type is CPF or CNPJ
+    if (form.pix_key_type === 'cpf' && form.pix_key) {
+      const digits = form.pix_key.replace(/\D/g, '');
+      if (digits.length !== 11) {
+        toast.error('CPF da chave PIX deve ter 11 dígitos');
+        return;
+      }
+    }
+    if (form.pix_key_type === 'cnpj' && form.pix_key) {
+      const digits = form.pix_key.replace(/\D/g, '');
+      if (digits.length !== 14) {
+        toast.error('CNPJ da chave PIX deve ter 14 dígitos');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {
