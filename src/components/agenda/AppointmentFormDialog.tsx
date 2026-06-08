@@ -185,11 +185,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     const startDt = buildLocalDateTime(date, startTime);
     const endDt = new Date(startDt.getTime() + duration * 60000);
 
-    if (replaceExistingId) {
-      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', replaceExistingId);
-    }
-
-    // Re-check after potential cancellation (doctor overlap should still block)
+    // Check conflicts BEFORE cancelling to avoid leaving orphaned data if it fails
     const conflict = await checkAppointmentConflicts({
       supabase,
       patientId,
@@ -201,6 +197,10 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     if (!conflict.ok) {
       toast.error(conflict.message ?? 'Conflito de agendamento.');
       return false;
+    }
+
+    if (replaceExistingId) {
+      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', replaceExistingId);
     }
 
     const { error } = await supabase.from('appointments').insert({

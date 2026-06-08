@@ -276,8 +276,8 @@ export default function Attendance() {
     setProcedures((prev) => prev.filter((p) => p.tempId !== tempId));
   };
 
-  const handleSave = async () => {
-    if (!appointment || !user) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!appointment || !user) return false;
     setSaving(true);
     try {
       let recordId = clinicalRecordId;
@@ -384,8 +384,10 @@ export default function Attendance() {
       }
 
       toast.success('Atendimento salvo!');
+      return true;
     } catch (err: any) {
       toast.error(err.message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -409,22 +411,34 @@ export default function Attendance() {
     }
     setFinishing(true);
     try {
-      await handleSave();
+      const saved = await handleSave();
+      if (!saved) {
+        setFinishing(false);
+        return;
+      }
 
       // Update clinical record status
       if (clinicalRecordId) {
-        await supabase.from('clinical_records').update({ status: 'completed' }).eq('id', clinicalRecordId);
+        const { error: recError } = await supabase
+          .from('clinical_records')
+          .update({ status: 'completed' })
+          .eq('id', clinicalRecordId);
+        if (recError) throw recError;
       }
 
       // Mark appointment as completed
-      await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointment.id);
+      const { error: aptError } = await supabase
+        .from('appointments')
+        .update({ status: 'completed' })
+        .eq('id', appointment.id);
+      if (aptError) throw aptError;
       endSession(appointment.id);
 
       // Create financial transaction
       const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
       let newTransactionId: string | null = null;
       if (totalAmount > 0) {
-        const { data: txData } = await supabase
+        const { data: txData, error: txError } = await supabase
           .from('financial_transactions')
           .insert({
             patient_id: appointment.patient_id,
@@ -440,6 +454,7 @@ export default function Attendance() {
           })
           .select('id')
           .single();
+        if (txError) throw txError;
         newTransactionId = txData?.id ?? null;
       }
 

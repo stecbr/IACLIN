@@ -251,6 +251,13 @@ export default function Auth() {
         if (error) throw error;
         toast.success('Login realizado com sucesso!');
       } else {
+        // Validate common name field for patient and professional signups
+        if ((userType === 'cliente' || userType === 'profissional') && !fullName.trim()) {
+          toast.error('Informe seu nome completo');
+          setSubmitting(false);
+          return;
+        }
+
         // Validate patient-specific fields
         if (userType === 'cliente') {
           if (!isValidCpf(cpf)) {
