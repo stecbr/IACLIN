@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PageHeader } from '@/components/PageHeader';
@@ -498,6 +498,9 @@ export default function Financial() {
 // ---- Approvals List ----
 function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
   const { user } = useAuth();
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
 
   const approve = async (tx: any) => {
     const { error } = await supabase
@@ -512,19 +515,28 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
     else { toast.success('Cobrança aprovada'); onComplete(); }
   };
 
-  const reject = async (tx: any) => {
-    const reason = window.prompt('Motivo da recusa (opcional):') ?? '';
+  const openReject = (tx: any) => {
+    setRejectTarget(tx);
+    setRejectReason('');
+  };
+
+  const confirmReject = async () => {
+    if (!rejectTarget) return;
+    setRejecting(true);
     const { error } = await supabase
       .from('financial_transactions')
       .update({
         approval_status: 'rejected',
         approval_decided_by: user?.id ?? null,
         approval_decided_at: new Date().toISOString(),
-        approval_rejection_reason: reason || null,
+        approval_rejection_reason: rejectReason.trim() || null,
       })
-      .eq('id', tx.id);
-    if (error) toast.error(error.message);
-    else { toast.success('Cobrança recusada'); onComplete(); }
+      .eq('id', rejectTarget.id);
+    setRejecting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Cobrança recusada');
+    setRejectTarget(null);
+    onComplete();
   };
 
   if (transactions.length === 0) {
@@ -532,37 +544,64 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">
-        Cobranças criadas por dentistas aguardando sua aprovação.
-      </p>
-      {transactions.map((tx) => (
-        <Card key={tx.id} className="p-4 border-border/50">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {tx.description ?? tx.category}
-              </p>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                <span>{format(parseISO(tx.due_date), 'dd/MM/yyyy')}</span>
-                {tx.patients?.full_name && <span>· {tx.patients.full_name}</span>}
+    <>
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">
+          Cobranças criadas por dentistas aguardando sua aprovação.
+        </p>
+        {transactions.map((tx) => (
+          <Card key={tx.id} className="p-4 border-border/50">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {tx.description ?? tx.category}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                  <span>{format(parseISO(tx.due_date), 'dd/MM/yyyy')}</span>
+                  {tx.patients?.full_name && <span>· {tx.patients.full_name}</span>}
+                </div>
+              </div>
+              <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
+              </span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => openReject(tx)}>
+                  <XCircle className="h-4 w-4 mr-1" /> Recusar
+                </Button>
+                <Button size="sm" onClick={() => approve(tx)}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+                </Button>
               </div>
             </div>
-            <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-              {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2).replace('.', ',')}
-            </span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => reject(tx)}>
-                <XCircle className="h-4 w-4 mr-1" /> Recusar
-              </Button>
-              <Button size="sm" onClick={() => approve(tx)}>
-                <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
-              </Button>
-            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Recusar cobrança</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="reject-reason">Motivo da recusa (opcional)</Label>
+            <Textarea
+              id="reject-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Descreva o motivo..."
+              rows={3}
+            />
           </div>
-        </Card>
-      ))}
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={rejecting}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmReject} disabled={rejecting}>
+              {rejecting && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent inline-block" />}
+              Recusar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

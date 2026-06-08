@@ -45,6 +45,10 @@ export function PatientDocuments({ patientId }: Props) {
 
     try {
       for (const file of Array.from(files)) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error(`"${file.name}" excede o limite de 20 MB`);
+          continue;
+        }
         const ext = file.name.split('.').pop();
         const path = `${patientId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 

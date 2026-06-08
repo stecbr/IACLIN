@@ -158,6 +158,7 @@ export default function PatientExams() {
       if (error) throw error;
       window.open(data.signedUrl, '_blank');
     } catch {
+      toast.error('Não foi possível gerar o link seguro. Abrindo o arquivo diretamente.');
       window.open(doc.file_url, '_blank');
     }
   };

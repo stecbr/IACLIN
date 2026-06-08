@@ -158,6 +158,15 @@ function ClinicSection() {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !clinic) return;
+    const ALLOWED_LOGO = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    if (!ALLOWED_LOGO.includes(file.type)) {
+      toast.error('Apenas imagens JPG, PNG, WebP ou SVG são permitidas');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('O logo deve ter no máximo 2 MB');
+      return;
+    }
     setUploadingLogo(true);
     try {
       const ext = file.name.split('.').pop();

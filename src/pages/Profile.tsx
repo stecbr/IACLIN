@@ -143,6 +143,15 @@ function ProfileInfoSection() {
 
   const uploadAvatar = async (file: File) => {
     if (!user) return;
+    const ALLOWED_AVATAR = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!ALLOWED_AVATAR.includes(file.type)) {
+      toast.error('Apenas imagens JPG, PNG, WebP ou GIF são permitidas');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('A foto deve ter no máximo 5 MB');
+      return;
+    }
     setUploadingAvatar(true);
     try {
       const ext = file.name.split('.').pop() || 'jpg';

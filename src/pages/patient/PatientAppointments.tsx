@@ -21,6 +21,7 @@ export default function PatientAppointments() {
   const [selected, setSelected] = useState<AppointmentRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const loadRequests = async () => {
     if (!user) return;
@@ -49,10 +50,12 @@ export default function PatientAppointments() {
   }, [user?.id]);
 
   const cancelRequest = async (id: string) => {
+    setCancellingId(id);
     const { error } = await supabase
       .from('appointment_requests')
       .update({ status: 'cancelled' })
       .eq('id', id);
+    setCancellingId(null);
     if (error) {
       toast.error('Falha ao cancelar pedido');
       return;
@@ -124,8 +127,8 @@ export default function PatientAppointments() {
                       <p className="text-xs text-rose-600 mt-1">Motivo: {r.rejection_reason}</p>
                     )}
                     {r.status === 'pending' && (
-                      <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs text-muted-foreground" onClick={() => cancelRequest(r.id)}>
-                        Cancelar pedido
+                      <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs text-muted-foreground" disabled={cancellingId === r.id} onClick={() => cancelRequest(r.id)}>
+                        {cancellingId === r.id ? 'Cancelando…' : 'Cancelar pedido'}
                       </Button>
                     )}
                   </div>

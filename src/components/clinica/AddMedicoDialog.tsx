@@ -42,7 +42,8 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (!open || !currentClinicId) return;
-    supabase.from('clinics').select('invite_code').eq('id', currentClinicId).maybeSingle().then(({ data }) => {
+    supabase.from('clinics').select('invite_code').eq('id', currentClinicId).maybeSingle().then(({ data, error }) => {
+      if (error) { toast.error('Não foi possível carregar o código da clínica'); return; }
       setCode((data as any)?.invite_code ?? null);
     });
   }, [open, currentClinicId]);

@@ -62,7 +62,7 @@ export default function WaitingRoom() {
   }, [doctors]);
 
   // Today's appointments
-  const { data: appointments = [], refetch, isLoading } = useQuery({
+  const { data: appointments = [], refetch, isLoading, isError } = useQuery({
     queryKey: ['waiting-room', currentClinicId, todayStart, doctorFilter],
     queryFn: async () => {
       if (!currentClinicId) return [];
@@ -153,6 +153,15 @@ export default function WaitingRoom() {
       setBusyId(null);
     }
   };
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+        <p className="text-sm text-destructive font-medium">Não foi possível carregar a sala de espera.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar novamente</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

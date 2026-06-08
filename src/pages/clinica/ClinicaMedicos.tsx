@@ -61,10 +61,11 @@ export default function ClinicaMedicos() {
 
       const userIds = (rows ?? []).map((r) => r.user_id);
       if (userIds.length === 0) return [];
-      const { data: profiles } = await supabase
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
         .in('id', userIds);
+      if (profilesError) throw profilesError;
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
       const memberIds = (rows ?? []).map((r) => r.id);

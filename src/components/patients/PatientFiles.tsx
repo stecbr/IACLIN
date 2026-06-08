@@ -151,6 +151,10 @@ export function PatientFiles({ patientId }: Props) {
     setUploading(true);
     try {
       for (const file of Array.from(fileList)) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error(`"${file.name}" excede o limite de 20 MB`);
+          continue;
+        }
         const ext = file.name.split('.').pop();
         // Use flat path (same pattern as PatientDocuments) — public URL access requires this
         const path = `${patientId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;

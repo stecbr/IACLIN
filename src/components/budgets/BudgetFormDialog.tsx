@@ -226,7 +226,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
         treatment_plan_id: plan.id,
         procedure_id: item.procedure_id || null,
         custom_procedure_name: item.procedure_id ? null : item.custom_name.trim(),
-        tooth_number: item.tooth_number ? parseInt(item.tooth_number) : null,
+        tooth_number: item.tooth_number ? parseInt(item.tooth_number, 10) : null,
         price: parseFloat(item.price),
         notes: item.notes.trim() || null,
       }));
