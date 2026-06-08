@@ -21,6 +21,8 @@ export default function Marketplace() {
   const mapRef = useRef<MarketplaceMapHandle>(null);
   const [doctors, setDoctors] = useState<DoctorData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [fetchKey, setFetchKey] = useState(0);
   const [searchName, setSearchName] = useState("");
   const [searchCity, setSearchCity] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
@@ -31,6 +33,8 @@ export default function Marketplace() {
   useEffect(() => {
     async function fetchDoctors() {
       setLoading(true);
+      setFetchError(false);
+      try {
       const { data: members } = await supabase
         .from("clinic_members")
         .select("user_id, clinic_id, role, specialty")
@@ -38,7 +42,6 @@ export default function Marketplace() {
 
       if (!members || members.length === 0) {
         setDoctors([]);
-        setLoading(false);
         return;
       }
 
@@ -121,11 +124,16 @@ export default function Marketplace() {
       });
 
       setDoctors(unique);
-      setLoading(false);
+      } catch {
+        setFetchError(true);
+        setDoctors([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
     fetchDoctors();
-  }, []);
+  }, [fetchKey]);
 
   const handleToggleSpecialty = useCallback((spec: string) => {
     setSelectedSpecialties((prev) =>
@@ -258,6 +266,14 @@ export default function Marketplace() {
               {loading ? (
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : fetchError ? (
+                <div className="py-20 text-center space-y-3">
+                  <p className="text-base font-medium text-foreground">Não foi possível carregar os profissionais.</p>
+                  <p className="text-sm text-muted-foreground">Verifique sua conexão e tente novamente.</p>
+                  <Button variant="outline" size="sm" onClick={() => setFetchKey((k) => k + 1)}>
+                    Tentar novamente
+                  </Button>
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="py-20 text-center text-muted-foreground">

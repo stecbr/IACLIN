@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { BookingConfirmation } from "@/components/marketplace/BookingConfirmation";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 export default function MarketplaceBooking() {
@@ -16,6 +17,7 @@ export default function MarketplaceBooking() {
   const time = searchParams.get("time");
 
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [dentistName, setDentistName] = useState("");
   const [dentistAvatar, setDentistAvatar] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState("");
@@ -29,18 +31,23 @@ export default function MarketplaceBooking() {
     }
 
     async function fetchData() {
-      const [{ data: profile }, { data: clinic }, { data: plans }] = await Promise.all([
-        supabase.from("profiles").select("full_name, avatar_url").eq("id", dentistId!).single(),
-        supabase.from("clinics").select("name, city").eq("id", clinicId!).single(),
-        supabase.from("insurance_plans").select("id, name").eq("clinic_id", clinicId!).eq("is_active", true),
-      ]);
+      try {
+        const [{ data: profile }, { data: clinic }, { data: plans }] = await Promise.all([
+          supabase.from("profiles").select("full_name, avatar_url").eq("id", dentistId!).single(),
+          supabase.from("clinics").select("name, city").eq("id", clinicId!).single(),
+          supabase.from("insurance_plans").select("id, name").eq("clinic_id", clinicId!).eq("is_active", true),
+        ]);
 
-      setDentistName(profile?.full_name ?? "Profissional");
-      setDentistAvatar(profile?.avatar_url ?? null);
-      setClinicName(clinic?.name ?? "Clínica");
-      setClinicCity(clinic?.city ?? null);
-      setInsurancePlans(plans ?? []);
-      setLoading(false);
+        setDentistName(profile?.full_name ?? "Profissional");
+        setDentistAvatar(profile?.avatar_url ?? null);
+        setClinicName(clinic?.name ?? "Clínica");
+        setClinicCity(clinic?.city ?? null);
+        setInsurancePlans(plans ?? []);
+      } catch {
+        setFetchError(true);
+      } finally {
+        setLoading(false);
+      }
     }
 
     fetchData();
@@ -58,6 +65,16 @@ export default function MarketplaceBooking() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background text-center px-4">
+        <p className="text-base font-medium">Não foi possível carregar os dados do agendamento.</p>
+        <p className="text-sm text-muted-foreground">Verifique sua conexão e tente novamente.</p>
+        <Button variant="outline" onClick={() => navigate('/marketplace')}>Voltar ao Marketplace</Button>
       </div>
     );
   }

@@ -200,7 +200,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     }
 
     if (replaceExistingId) {
-      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', replaceExistingId);
+      const { error: cancelErr } = await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', replaceExistingId);
+      if (cancelErr) throw cancelErr;
     }
 
     const { error } = await supabase.from('appointments').insert({
@@ -231,7 +232,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       if (!returnConflict.ok) {
         toast.warning(`Consulta agendada, mas o retorno não foi criado: ${returnConflict.message}`);
       } else {
-        await supabase.from('appointments').insert({
+        const { error: returnErr } = await supabase.from('appointments').insert({
           patient_id: patientId,
           dentist_id: user.id,
           procedure_id: procedureId || null,
@@ -242,7 +243,11 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           room_id: roomId || null,
           clinic_id: currentClinicId ?? null,
         });
-        toast.success(`Consulta agendada + retorno em ${returnDays} dias!`);
+        if (returnErr) {
+          toast.warning(`Consulta agendada, mas houve erro ao criar o retorno: ${returnErr.message}`);
+        } else {
+          toast.success(`Consulta agendada + retorno em ${returnDays} dias!`);
+        }
         return true;
       }
     }
