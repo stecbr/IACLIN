@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Loader2, LogOut, User, KeyRound, Palette, Share2,
-  AlertCircle, MapPin, Shield, Camera, X, Save,
+  AlertCircle, MapPin, Shield, Camera, Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -72,15 +71,6 @@ export default function PatientSettings() {
 
 /* ─────────────────────────── helpers ─────────────────────────── */
 
-const REFERRAL_SOURCES = [
-  'Busca no Google', 'Redes sociais', 'Indicação de amigo ou familiar',
-  'Indicação de profissional', 'Plano de saúde', 'Outdoor / Anúncio', 'Outro',
-];
-
-const PREDEFINED_CATEGORIES = [
-  'VIP', 'Convênio', 'Particular', 'Criança', 'Idoso',
-  'Gestante', 'Risco', 'Recall', 'Inativo',
-];
 
 const BR_STATES = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO',
@@ -127,12 +117,11 @@ function ProfileSection() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetchingCep, setFetchingCep] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
 
   const [form, setForm] = useState({
     full_name: '', phone: '', landline: '', date_of_birth: '', gender: '',
-    is_foreign: false, cpf: '', rg: '', profession: '', referral_source: '',
-    notes: '', photo_url: '', categories: [] as string[], sms_reminders: true,
+    is_foreign: false, cpf: '', rg: '', profession: '',
+    notes: '', photo_url: '', sms_reminders: true,
     emergency_contact_name: '', emergency_contact_phone: '',
     zip_code: '', address: '', address_complement: '', neighborhood: '', city: '', state: '',
     guardian_name: '', guardian_cpf: '', guardian_date_of_birth: '',
@@ -162,10 +151,8 @@ function ProfileSection() {
       cpf: account.cpf ?? '',
       rg: account.rg ?? p.rg ?? '',
       profession: account.profession ?? p.profession ?? '',
-      referral_source: p.referral_source ?? '',
       notes: p.notes ?? '',
       photo_url: p.photo_url ?? '',
-      categories: p.categories ?? [],
       sms_reminders: p.sms_reminders ?? true,
       emergency_contact_name: p.emergency_contact_name ?? '',
       emergency_contact_phone: p.emergency_contact_phone ?? '',
@@ -188,20 +175,6 @@ function ProfileSection() {
   const set = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const toggleCategory = (cat: string) =>
-    setForm((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(cat)
-        ? prev.categories.filter((c) => c !== cat)
-        : [...prev.categories, cat],
-    }));
-
-  const addCustomCategory = () => {
-    const cat = newCategory.trim();
-    if (!cat || form.categories.includes(cat)) { setNewCategory(''); return; }
-    setForm((prev) => ({ ...prev, categories: [...prev.categories, cat] }));
-    setNewCategory('');
-  };
 
   const handleCepBlur = async () => {
     const clean = form.zip_code.replace(/\D/g, '');
@@ -267,9 +240,7 @@ function ProfileSection() {
       is_foreign: form.is_foreign,
       rg: form.rg || null,
       profession: form.profession || null,
-      referral_source: form.referral_source || null,
       notes: form.notes || null,
-      categories: form.categories.length > 0 ? form.categories : null,
       sms_reminders: form.sms_reminders,
       zip_code: form.zip_code || null,
       address: form.address || null,
@@ -380,17 +351,6 @@ function ProfileSection() {
               <Label>Telefone fixo</Label>
               <PhoneInput value={form.landline} onChange={(v) => set('landline', v)} placeholder="(11) 3333-4444" />
             </div>
-            <div className="space-y-1.5">
-              <Label>Como conheceu a clínica</Label>
-              <Select value={form.referral_source} onValueChange={(v) => set('referral_source', v)}>
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                <SelectContent>
-                  {REFERRAL_SOURCES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -448,40 +408,6 @@ function ProfileSection() {
               placeholder="Adicione observações sobre você"
               rows={3}
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Categorias</Label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {PREDEFINED_CATEGORIES.map((cat) => (
-                <Badge
-                  key={cat}
-                  variant={form.categories.includes(cat) ? 'default' : 'outline'}
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleCategory(cat)}
-                >
-                  {cat}
-                </Badge>
-              ))}
-            </div>
-            {form.categories.filter((c) => !PREDEFINED_CATEGORIES.includes(c)).map((cat) => (
-              <Badge key={cat} variant="secondary" className="gap-1 mr-1 mb-1">
-                {cat}
-                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => toggleCategory(cat)} />
-              </Badge>
-            ))}
-            <div className="flex gap-2 mt-1">
-              <Input
-                placeholder="Nova categoria…"
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); } }}
-                className="h-8 text-xs"
-              />
-              <Button type="button" size="sm" variant="outline" onClick={addCustomCategory} className="h-8 px-3 text-xs">
-                Adicionar
-              </Button>
-            </div>
           </div>
 
           {/* Emergency Contact */}
