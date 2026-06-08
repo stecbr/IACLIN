@@ -772,11 +772,11 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
 function ReviewImportedTransactions({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [approvingAll, setApprovingAll] = useState(false);
 
   const approveTransaction = async (tx: any) => {
     if (!user) return;
     try {
-      // Insert into financial_transactions
       await supabase.from('financial_transactions').insert({
         type: tx.type,
         category: tx.category || 'imported',
@@ -787,7 +787,6 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
         paid_date: tx.transaction_date,
         dentist_id: user.id,
       });
-      // Mark as approved
       await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       toast.success('Transação aprovada!');
       onComplete();
@@ -808,8 +807,32 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
   };
 
   const approveAll = async () => {
+    setApprovingAll(true);
+    let failed = 0;
     for (const tx of transactions) {
-      await approveTransaction(tx);
+      try {
+        await supabase.from('financial_transactions').insert({
+          type: tx.type,
+          category: tx.category || 'imported',
+          description: tx.description,
+          amount: tx.amount,
+          due_date: tx.transaction_date,
+          status: 'paid',
+          paid_date: tx.transaction_date,
+          dentist_id: user?.id,
+        });
+        await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
+      } catch {
+        failed++;
+      }
+    }
+    setApprovingAll(false);
+    if (failed > 0) toast.error(`${failed} transação(ões) falharam ao aprovar`);
+    const succeeded = transactions.length - failed;
+    if (succeeded > 0) {
+      toast.success(`${succeeded} transação(ões) aprovadas`);
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      onComplete();
     }
   };
 
@@ -817,9 +840,9 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{transactions.length} transações aguardando revisão</p>
-        <Button size="sm" onClick={approveAll} className="gap-2">
+        <Button size="sm" onClick={approveAll} disabled={approvingAll} className="gap-2">
           <CheckCircle2 className="h-4 w-4" />
-          Aprovar Todas
+          {approvingAll ? 'Aprovando…' : 'Aprovar Todas'}
         </Button>
       </div>
       <div className="space-y-2">

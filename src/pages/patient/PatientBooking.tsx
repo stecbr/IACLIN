@@ -112,7 +112,8 @@ export default function PatientBooking() {
       }
 
       if (error) {
-        throw new Error(parsedError?.error ?? (error as any).message ?? 'Erro ao agendar');
+        const rawMsg = parsedError?.error ?? (error as any).message;
+        throw new Error(rawMsg && rawMsg !== 'undefined' ? rawMsg : 'Erro ao agendar');
       }
       if (payload?.error) throw new Error(payload.error);
 

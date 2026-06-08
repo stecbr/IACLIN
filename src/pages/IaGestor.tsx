@@ -434,8 +434,12 @@ function ChatView({ threadId, clinicId, initialMessages, onOpenMenu }: { threadI
 
     // Auto-update thread title with first user message
     if (messages.length === 0) {
-      await supabase.from('ia_gestor_threads').update({ title: text.slice(0, 60) }).eq('id', threadId);
-      qc.invalidateQueries({ queryKey: ['ia-threads'] });
+      try {
+        const { error: titleErr } = await supabase.from('ia_gestor_threads').update({ title: text.slice(0, 60) }).eq('id', threadId);
+        if (!titleErr) qc.invalidateQueries({ queryKey: ['ia-threads'] });
+      } catch {
+        // Non-blocking — title update failure does not prevent message send
+      }
     }
     sendMessage({ text });
   };

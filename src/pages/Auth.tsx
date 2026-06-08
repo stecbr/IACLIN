@@ -226,6 +226,9 @@ export default function Auth() {
             toast.success('Você foi vinculado à clínica!');
               navigate(returnUrl ?? '/', { replace: true });
           }
+        })
+        .catch((err: any) => {
+          toast.error(err?.message ?? 'Erro ao aceitar convite. Tente novamente.');
         });
       return (
         <div className="flex min-h-screen items-center justify-center bg-background">

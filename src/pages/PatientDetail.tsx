@@ -50,6 +50,7 @@ export default function PatientDetail() {
   const [shareOpen, setShareOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [txDialogOpen, setTxDialogOpen] = useState(false);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
   const { data: personalization } = usePatientPersonalization(id);
@@ -513,13 +514,16 @@ export default function PatientDetail() {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={markingPaidId === tx.id}
                             className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900/60 dark:hover:bg-emerald-900/20"
                             onClick={async () => {
+                              setMarkingPaidId(tx.id);
                               const today = format(new Date(), 'yyyy-MM-dd');
                               const { error } = await supabase
                                 .from('financial_transactions')
                                 .update({ status: 'paid', paid_date: today })
                                 .eq('id', tx.id);
+                              setMarkingPaidId(null);
                               if (error) {
                                 toast.error('Erro ao marcar como pago', { description: error.message });
                               } else {
@@ -529,7 +533,7 @@ export default function PatientDetail() {
                               }
                             }}
                           >
-                            Marcar como pago
+                            {markingPaidId === tx.id ? 'Salvando…' : 'Marcar como pago'}
                           </Button>
                         )}
                       </div>

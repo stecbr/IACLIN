@@ -176,6 +176,10 @@ export default function Onboarding() {
     try {
       const clinicId = createdClinicId;
 
+      if (!clinicId) {
+        throw new Error('Clínica não criada. Volte ao passo 2 e tente novamente.');
+      }
+
       // Save default consultation duration for this professional
       await (supabase as any)
         .from('professional_settings')

@@ -330,8 +330,10 @@ export default function Attendance() {
         if (error) throw error;
 
         // Delete old procedures + requests and re-insert
-        await supabase.from('clinical_record_procedures').delete().eq('clinical_record_id', recordId);
-        await supabase.from('clinical_record_requests').delete().eq('clinical_record_id', recordId);
+        const { error: delProcErr } = await supabase.from('clinical_record_procedures').delete().eq('clinical_record_id', recordId);
+        if (delProcErr) throw delProcErr;
+        const { error: delReqErr } = await supabase.from('clinical_record_requests').delete().eq('clinical_record_id', recordId);
+        if (delReqErr) throw delReqErr;
       } else {
         // Create new
         const { data, error } = await supabase
