@@ -14,11 +14,14 @@ function getSystemTheme(): 'light' | 'dark' {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-/** Routes that must always render in light mode regardless of user preference. */
-export const ALWAYS_LIGHT_PATHS = ['/', '/auth'];
+/** Routes that must always render in light mode regardless of user preference.
+ *  Note: '/' is only forced light for unauthenticated users (Landing page).
+ *  That case is handled reactively in PublicRouteTheme (inside the Router).
+ *  Here we only cover /auth for the initial-load anti-flash. */
+const ALWAYS_LIGHT_PATHS_STATIC = ['/auth'];
 
 export function isAlwaysLightPath(pathname?: string) {
-  return ALWAYS_LIGHT_PATHS.includes(pathname ?? window.location.pathname);
+  return ALWAYS_LIGHT_PATHS_STATIC.includes(pathname ?? window.location.pathname);
 }
 
 function applyClass(resolved: 'light' | 'dark') {

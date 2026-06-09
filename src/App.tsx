@@ -198,13 +198,18 @@ function HomeRoute() {
 function PublicRouteTheme() {
   const location = useLocation();
   const { resolved } = useTheme();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    const forced = isAlwaysLightPath(location.pathname);
+    if (loading) return; // wait for auth to resolve before applying theme
+    // /auth is always light; / is only light when not logged in (Landing page)
+    const forced =
+      location.pathname === '/auth' ||
+      (location.pathname === '/' && !user);
     const cls = forced ? 'light' : resolved;
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(cls);
-  }, [location.pathname, resolved]);
+  }, [location.pathname, resolved, user, loading]);
 
   return null;
 }
