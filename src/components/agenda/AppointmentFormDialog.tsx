@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { format, setHours, setMinutes, addDays, startOfDay, endOfDay } from 'date-fns';
+import { format, setHours, setMinutes, addDays, startOfDay, endOfDay, differenceInYears, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -32,7 +32,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Command, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
-import { Clock, Search, CalendarPlus, MessageCircle, Armchair, ChevronsUpDown, Check, UserPlus } from 'lucide-react';
+import { Clock, Search, CalendarPlus, MessageCircle, Armchair, ChevronsUpDown, Check, UserPlus, Info, ExternalLink } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { checkAppointmentConflicts } from '@/lib/appointmentConflicts';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 
@@ -59,6 +60,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [patientId, setPatientId] = useState('');
   const [patientComboOpen, setPatientComboOpen] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
+  const [patientPreviewOpen, setPatientPreviewOpen] = useState(false);
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [procedureId, setProcedureId] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -93,7 +95,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const { data: patients = [] } = useQuery({
     queryKey: ['patients-list', currentClinicId],
     queryFn: async () => {
-      let query = supabase.from('patients').select('id, full_name').eq('is_active', true).order('full_name');
+      let query = supabase.from('patients').select('id, full_name, photo_url, cpf, rg, insurance_number, insurance_provider, date_of_birth, phone').eq('is_active', true).order('full_name');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       const { data, error } = await query;
       if (error) throw error;
@@ -168,11 +170,22 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
   const filteredPatients = useMemo(() => {
     if (!patientSearch) return patients;
-    const q = patientSearch.toLowerCase();
-    return patients.filter(p => p.full_name.toLowerCase().includes(q));
+    const q = patientSearch.toLowerCase().replace(/[.\-\/\s]/g, '');
+    return patients.filter(p => {
+      if (p.full_name.toLowerCase().includes(patientSearch.toLowerCase())) return true;
+      const norm = (v: string | null) => (v ?? '').replace(/[.\-\/\s]/g, '');
+      if (q && norm(p.cpf).includes(q)) return true;
+      if (q && norm(p.rg).includes(q)) return true;
+      if (q && norm(p.insurance_number).includes(q)) return true;
+      return false;
+    });
   }, [patients, patientSearch]);
 
-  const selectedPatientName = patients.find(p => p.id === patientId)?.full_name ?? '';
+  const selectedPatient = patients.find(p => p.id === patientId) ?? null;
+  const selectedPatientName = selectedPatient?.full_name ?? '';
+
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   const resetForm = () => {
     setPatientId(''); setProcedureId(''); setNotes(''); setLabel('');
@@ -322,78 +335,183 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Paciente *</Label>
-            <Popover
-              open={patientComboOpen}
-              onOpenChange={(o) => { setPatientComboOpen(o); if (!o) setPatientSearch(''); }}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  role="combobox"
-                  aria-expanded={patientComboOpen}
-                  className={cn(
-                    'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                    !patientId && 'text-muted-foreground'
-                  )}
-                >
-                  <span className="truncate">{selectedPatientName || 'Selecione o paciente'}</span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }} align="start" sideOffset={4}>
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder="Buscar paciente..."
-                    value={patientSearch}
-                    onValueChange={setPatientSearch}
-                  />
-                  <CommandList>
-                    {filteredPatients.length === 0 ? (
-                      <div className="flex flex-col items-center gap-2 py-4 text-center px-2">
-                        <p className="text-sm text-muted-foreground">Nenhum paciente encontrado.</p>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => { setPatientComboOpen(false); setShowNewPatient(true); }}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          Cadastrar {patientSearch ? `"${patientSearch}"` : 'novo paciente'}
-                        </button>
+            <div className="flex gap-1.5">
+              <Popover
+                open={patientComboOpen}
+                onOpenChange={(o) => { setPatientComboOpen(o); if (!o) setPatientSearch(''); }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    role="combobox"
+                    aria-expanded={patientComboOpen}
+                    className={cn(
+                      'flex h-10 flex-1 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                      !patientId && 'text-muted-foreground'
+                    )}
+                  >
+                    {selectedPatient ? (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-5 w-5 flex-shrink-0">
+                          <AvatarImage src={selectedPatient.photo_url ?? undefined} className="object-cover" />
+                          <AvatarFallback className="text-[9px] bg-primary/10 text-primary">{getInitials(selectedPatient.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{selectedPatient.full_name}</span>
                       </div>
                     ) : (
-                      <>
-                        <CommandGroup>
-                          {filteredPatients.map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.id}
-                              onSelect={() => {
-                                setPatientId(p.id);
-                                setPatientSearch('');
-                                setPatientComboOpen(false);
-                              }}
-                            >
-                              <Check className={cn('mr-2 h-4 w-4', patientId === p.id ? 'opacity-100' : 'opacity-0')} />
-                              {p.full_name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                        <div className="border-t p-1">
+                      <span className="truncate">Selecione o paciente</span>
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[340px]" align="start" sideOffset={4}>
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Nome, CPF, RG ou carteirinha..."
+                      value={patientSearch}
+                      onValueChange={setPatientSearch}
+                    />
+                    <CommandList>
+                      {filteredPatients.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-4 text-center px-2">
+                          <p className="text-sm text-muted-foreground">Nenhum paciente encontrado.</p>
                           <button
                             type="button"
-                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
                             onClick={() => { setPatientComboOpen(false); setShowNewPatient(true); }}
                           >
                             <UserPlus className="h-4 w-4" />
-                            Cadastrar novo paciente
+                            Cadastrar {patientSearch ? `"${patientSearch}"` : 'novo paciente'}
                           </button>
                         </div>
-                      </>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                      ) : (
+                        <>
+                          <CommandGroup>
+                            {filteredPatients.map((p) => (
+                              <CommandItem
+                                key={p.id}
+                                value={p.id}
+                                onSelect={() => {
+                                  setPatientId(p.id);
+                                  setPatientSearch('');
+                                  setPatientComboOpen(false);
+                                }}
+                              >
+                                <div className="flex items-center gap-2.5 w-full">
+                                  <Avatar className="h-7 w-7 flex-shrink-0">
+                                    <AvatarImage src={p.photo_url ?? undefined} className="object-cover" />
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">{getInitials(p.full_name)}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm truncate">{p.full_name}</p>
+                                    {(p.cpf || p.insurance_number) && (
+                                      <p className="text-[11px] text-muted-foreground truncate">
+                                        {p.cpf ? `CPF: ${p.cpf}` : ''}
+                                        {p.cpf && p.insurance_number ? ' · ' : ''}
+                                        {p.insurance_number ? `Carteirinha: ${p.insurance_number}` : ''}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Check className={cn('h-4 w-4 flex-shrink-0', patientId === p.id ? 'opacity-100' : 'opacity-0')} />
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                          <div className="border-t p-1">
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => { setPatientComboOpen(false); setShowNewPatient(true); }}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                              Cadastrar novo paciente
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              {/* Botão ampliar dados do paciente */}
+              {selectedPatient && (
+                <Popover open={patientPreviewOpen} onOpenChange={setPatientPreviewOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      title="Ver dados do paciente"
+                      className="h-10 w-10 flex-shrink-0 inline-flex items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-0" align="end" sideOffset={4}>
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-12 w-12 flex-shrink-0">
+                          <AvatarImage src={selectedPatient.photo_url ?? undefined} className="object-cover" />
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">{getInitials(selectedPatient.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm leading-tight">{selectedPatient.full_name}</p>
+                          {selectedPatient.date_of_birth && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {differenceInYears(new Date(), parseISO(selectedPatient.date_of_birth))} anos
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {(selectedPatient.cpf || selectedPatient.rg || selectedPatient.insurance_number || selectedPatient.insurance_provider || selectedPatient.phone) && (
+                        <div className="space-y-1.5 rounded-lg bg-muted/40 p-3 text-xs">
+                          {selectedPatient.cpf && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">CPF</span>
+                              <span className="font-mono font-medium">{selectedPatient.cpf}</span>
+                            </div>
+                          )}
+                          {selectedPatient.rg && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">RG</span>
+                              <span className="font-mono font-medium">{selectedPatient.rg}</span>
+                            </div>
+                          )}
+                          {selectedPatient.insurance_number && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">Carteirinha</span>
+                              <span className="font-mono font-medium">{selectedPatient.insurance_number}</span>
+                            </div>
+                          )}
+                          {selectedPatient.insurance_provider && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">Plano</span>
+                              <span className="font-medium">{selectedPatient.insurance_provider}</span>
+                            </div>
+                          )}
+                          {selectedPatient.phone && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">Telefone</span>
+                              <span className="font-medium">{selectedPatient.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="border-t px-4 py-2.5">
+                      <a
+                        href={`/patients/${selectedPatient.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Ver prontuário completo
+                      </a>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -602,10 +720,10 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           setPatientId(id);
           queryClient.setQueryData(
             ['patients-list', currentClinicId],
-            (old: { id: string; full_name: string }[] | undefined) => {
+            (old: any[] | undefined) => {
               const list = old ?? [];
-              if (list.some(p => p.id === id)) return list;
-              return [...list, { id, full_name: name }].sort((a, b) => a.full_name.localeCompare(b.full_name));
+              if (list.some((p: any) => p.id === id)) return list;
+              return [...list, { id, full_name: name, photo_url: null, cpf: null, rg: null, insurance_number: null, insurance_provider: null, date_of_birth: null, phone: null }].sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
             }
           );
         }}
