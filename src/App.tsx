@@ -6,8 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RecordingProvider } from "@/contexts/RecordingContext";
 import { GlobalRecordingBar } from "@/components/attendance/recording/GlobalRecordingBar";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeProvider, useTheme, isAlwaysLightPath } from "@/components/ThemeProvider";
 import { CustomThemeProvider } from "@/components/CustomThemeProvider";
+import { useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import Auth from "./pages/Auth";
@@ -193,6 +194,21 @@ function HomeRoute() {
   return <ProtectedRoute><Index /></ProtectedRoute>;
 }
 
+/** Forces light mode on landing and login pages; restores user preference elsewhere. */
+function PublicRouteTheme() {
+  const location = useLocation();
+  const { resolved } = useTheme();
+
+  useEffect(() => {
+    const forced = isAlwaysLightPath(location.pathname);
+    const cls = forced ? 'light' : resolved;
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(cls);
+  }, [location.pathname, resolved]);
+
+  return null;
+}
+
 const AppRoutes = () => (
   <Routes>
     {/* ── Área exclusiva do Super Admin da Plataforma ── */}
@@ -279,6 +295,7 @@ const App = () => (
           <AuthProvider>
             <CustomThemeProvider>
               <RecordingProvider>
+                <PublicRouteTheme />
                 <AppRoutes />
                 <GlobalRecordingBar />
               </RecordingProvider>
