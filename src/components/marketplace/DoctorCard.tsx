@@ -124,8 +124,8 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
     <Card className="overflow-hidden transition-shadow hover:shadow-md">
       <CardContent className="p-4">
         <div className="flex gap-4">
-          <Avatar className="h-16 w-16 shrink-0">
-            <AvatarImage src={doctor.avatarUrl ?? undefined} alt={doctor.fullName} />
+          <Avatar className="h-16 w-16 shrink-0 ring-2 ring-primary/20 ring-offset-1">
+            <AvatarImage src={doctor.avatarUrl ?? undefined} alt={doctor.fullName} className="object-cover" />
             <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
               {initials}
             </AvatarFallback>

@@ -234,8 +234,8 @@ export function BookingConfirmation({
           <Card className="sticky top-24">
             <CardContent className="p-4 space-y-4">
               <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={dentistAvatar ?? undefined} />
+                <Avatar className="h-12 w-12 ring-2 ring-primary/20 ring-offset-1">
+                  <AvatarImage src={dentistAvatar ?? undefined} className="object-cover" />
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {initials}
                   </AvatarFallback>
