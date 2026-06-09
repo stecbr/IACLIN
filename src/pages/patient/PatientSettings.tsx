@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Loader2, LogOut, User, KeyRound, Palette, Share2,
-  AlertCircle, MapPin, Shield, Camera, Save,
+  AlertCircle, MapPin, Shield, Camera, Save, CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -540,63 +543,105 @@ function ProfileSection() {
 /* ─────────────────────────── Security Section ─────────────────────────── */
 
 function SecuritySection() {
+  const { user } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+
   const changePassword = useMutation({
     mutationFn: async () => {
-      if (!newPassword || newPassword.length < 6) throw new Error('Senha deve ter ao menos 6 caracteres');
+      if (!currentPassword) throw new Error('Informe a senha atual');
+      if (!newPassword || newPassword.length < 6) throw new Error('A nova senha deve ter ao menos 6 caracteres');
       if (newPassword !== confirmPassword) throw new Error('As senhas não coincidem');
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user?.email ?? '',
+        password: currentPassword,
+      });
+      if (authErr) throw new Error('Senha atual incorreta');
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Senha alterada com sucesso');
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setShowSuccess(true);
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao alterar senha'),
   });
 
   return (
-    <Card className="shadow-card border-border/50">
-      <CardHeader>
-        <CardTitle className="text-base">Alterar senha</CardTitle>
-        <CardDescription>Defina uma nova senha de acesso à sua conta.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="newPwd">Nova senha</Label>
-          <Input
-            id="newPwd"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Mínimo 6 caracteres"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirmPwd">Confirmar nova senha</Label>
-          <Input
-            id="confirmPwd"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Repita a nova senha"
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            onClick={() => changePassword.mutate()}
-            disabled={!newPassword || !confirmPassword || changePassword.isPending}
-            className="gap-2"
-          >
-            {changePassword.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Alterar senha
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      <Card className="shadow-card border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base">Segurança</CardTitle>
+          <CardDescription>Altere sua senha de acesso à plataforma.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="currentPwd">Senha atual</Label>
+            <Input
+              id="currentPwd"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Digite sua senha atual"
+              autoComplete="current-password"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="newPwd">Nova senha</Label>
+            <Input
+              id="newPwd"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPwd">Confirmar nova senha</Label>
+            <Input
+              id="confirmPwd"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Repita a nova senha"
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => changePassword.mutate()}
+              disabled={!currentPassword || !newPassword || !confirmPassword || changePassword.isPending}
+              className="gap-2"
+            >
+              {changePassword.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Alterar senha
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+        <DialogContent className="sm:max-w-sm text-center">
+          <DialogHeader className="items-center gap-2">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+            </div>
+            <DialogTitle>Senha alterada com sucesso!</DialogTitle>
+            <DialogDescription>
+              Na próxima vez que acessar a plataforma, use sua nova senha para fazer login.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="justify-center">
+            <Button onClick={() => setShowSuccess(false)} className="w-full">Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
