@@ -5,8 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Check, FileText, X } from 'lucide-react';
+import { Check, FileText, Eye, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Req {
@@ -25,6 +26,17 @@ interface Req {
   requested_by_name?: string | null;
   specialty?: string | null;
   clinic_name?: string | null;
+}
+
+interface ClinicProfessional {
+  user_id: string;
+  full_name: string;
+  role: string;
+  specialty: string | null;
+  registration_number: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  specialties: string[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -49,6 +61,9 @@ export default function OperatorRequests() {
   const [reason, setReason] = useState('');
   const [revokeReason, setRevokeReason] = useState('');
   const [detailReq, setDetailReq] = useState<Req | null>(null);
+  const [detailProfessionals, setDetailProfessionals] = useState<ClinicProfessional[]>([]);
+  const [loadingDetailProfessionals, setLoadingDetailProfessionals] = useState(false);
+  const [selectedProfessional, setSelectedProfessional] = useState<ClinicProfessional | null>(null);
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
 
   const load = async () => {
@@ -151,6 +166,111 @@ export default function OperatorRequests() {
     }
   };
 
+  useEffect(() => {
+    const loadClinicProfessionals = async () => {
+      if (!detailReq?.clinic_id) {
+        setDetailProfessionals([]);
+        return;
+      }
+
+      setLoadingDetailProfessionals(true);
+      try {
+        const { data: members } = await supabase
+          .from('clinic_members')
+          .select('user_id, role, specialty, registration_number')
+          .eq('clinic_id', detailReq.clinic_id)
+          .in('role', ['admin', 'dentist']);
+
+        const rows = (members ?? []) as Array<{
+          user_id: string;
+          role: string;
+          specialty: string | null;
+          registration_number: string | null;
+        }>;
+
+        if (rows.length === 0) {
+          setDetailProfessionals([]);
+          return;
+        }
+
+        const ids = [...new Set(rows.map((m) => m.user_id))];
+        const [{ data: profiles }, { data: profSpecs }] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, phone')
+            .in('id', ids),
+          supabase
+            .from('professional_specialties' as any)
+            .select('user_id, specialty')
+            .in('user_id', ids),
+        ]);
+
+        const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+        const specsMap = new Map<string, string[]>();
+        (profSpecs ?? []).forEach((s: any) => {
+          const prev = specsMap.get(s.user_id) ?? [];
+          specsMap.set(s.user_id, [...prev, s.specialty]);
+        });
+
+        setDetailProfessionals(
+          rows
+            .map((m) => ({
+              user_id: m.user_id,
+              full_name: pmap.get(m.user_id)?.full_name ?? '—',
+              role: m.role,
+              specialty: m.specialty,
+              registration_number: m.registration_number,
+              avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
+              phone: pmap.get(m.user_id)?.phone ?? null,
+              specialties: specsMap.get(m.user_id) ?? (m.specialty ? [m.specialty] : []),
+            }))
+            .sort((a, b) => a.full_name.localeCompare(b.full_name)),
+        );
+      } finally {
+        setLoadingDetailProfessionals(false);
+      }
+    };
+
+    loadClinicProfessionals();
+  }, [detailReq?.clinic_id]);
+
+  const formatBusinessHours = (value: unknown): string[] => {
+    const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const dayLabels: Record<string, string> = {
+      mon: 'Segunda',
+      tue: 'Terça',
+      wed: 'Quarta',
+      thu: 'Quinta',
+      fri: 'Sexta',
+      sat: 'Sábado',
+      sun: 'Domingo',
+    };
+
+    let parsed: any = value;
+    if (typeof value === 'string') {
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        return [value];
+      }
+    }
+
+    if (!parsed || typeof parsed !== 'object') return ['—'];
+
+    const lines = dayOrder
+      .map((k) => {
+        const d = parsed?.[k];
+        if (!d || typeof d !== 'object') return null;
+        if (d.enabled === false) return `${dayLabels[k]}: Fechado`;
+        const open = d.open ?? '--:--';
+        const close = d.close ?? '--:--';
+        return `${dayLabels[k]}: ${open} às ${close}`;
+      })
+      .filter(Boolean) as string[];
+
+    return lines.length > 0 ? lines : ['—'];
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -196,7 +316,7 @@ export default function OperatorRequests() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button size="sm" variant="ghost" onClick={() => setDetailReq(r)}>
-                  <FileText className="h-4 w-4 mr-1" /> Dossiê
+                  <FileText className="h-4 w-4 mr-1" /> Ver dados da clínica
                 </Button>
                 <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{STATUS_LABELS[r.status] ?? r.status}</Badge>
                 {(r.status === 'approved' || r.status === 'pending') && (
@@ -238,35 +358,42 @@ export default function OperatorRequests() {
 
       <Dialog open={!!detailReq} onOpenChange={(o) => !o && setDetailReq(null)}>
         <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Dossiê de credenciamento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Dados da clínica para credenciamento</DialogTitle></DialogHeader>
           {detailReq && (() => {
             const data = parseNotes(detailReq.notes);
             const d = data?.dossier ?? null;
             const professional = data?.professional ?? null;
             const clinic = data?.clinic ?? null;
+            const contact = data?.contact ?? null;
             const procs = data?.requested_procedures ?? [];
+            const clinicAddress = [clinic?.address, clinic?.city, clinic?.state]
+              .filter(Boolean)
+              .join(' · ');
+            const businessHoursLines = formatBusinessHours(clinic?.business_hours ?? d?.clinic_hours);
+
             return (
               <div className="space-y-4 text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><span className="text-xs text-muted-foreground">Nome</span><div>{professional?.full_name ?? d?.full_name ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">CPF</span><div>{professional?.cpf ?? d?.cpf ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">RG</span><div>{professional?.rg ?? d?.rg ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Estado civil</span><div>{professional?.marital_status ?? d?.marital_status ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Registro profissional</span><div>{professional?.registration_number ?? d?.professional_register ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Especialidades</span><div>{Array.isArray(professional?.specialties) ? professional.specialties.join(', ') : (professional?.specialties ?? d?.specialties ?? '—')}</div></div>
+                  <div><span className="text-xs text-muted-foreground">Nome da clínica</span><div>{clinic?.name ?? detailReq.clinic_name ?? '—'}</div></div>
+                  <div><span className="text-xs text-muted-foreground">CNPJ</span><div>{clinic?.cnpj ?? '—'}</div></div>
+                  <div><span className="text-xs text-muted-foreground">Responsável da clínica</span><div>{clinic?.responsible_name ?? contact?.responsible_name ?? '—'}</div></div>
+                  <div><span className="text-xs text-muted-foreground">Telefone</span><div>{contact?.phone ?? '—'}</div></div>
+                  <div><span className="text-xs text-muted-foreground">E-mail</span><div>{contact?.email ?? '—'}</div></div>
+                  <div><span className="text-xs text-muted-foreground">CEP</span><div>{clinic?.zip_code ?? '—'}</div></div>
                 </div>
 
                 <div>
-                  <span className="text-xs text-muted-foreground">Formação</span>
-                  <div>{professional?.formation ?? d?.education ?? '—'}</div>
+                  <span className="text-xs text-muted-foreground">Endereço completo</span>
+                  <div>{clinicAddress || '—'}</div>
                 </div>
+
                 <div>
-                  <span className="text-xs text-muted-foreground">Endereço da clínica</span>
-                  <div>{clinic?.address ?? d?.clinic_address ?? '—'}</div>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Horários</span>
-                  <div>{clinic?.business_hours ?? d?.clinic_hours ?? '—'}</div>
+                  <span className="text-xs text-muted-foreground">Horários de atendimento</span>
+                  <div className="space-y-1 mt-1">
+                    {businessHoursLines.map((line, i) => (
+                      <div key={`${line}-${i}`} className="text-sm">{line}</div>
+                    ))}
+                  </div>
                 </div>
 
                 {((professional?.photo_url || d?.professional_photo_url) || (Array.isArray(clinic?.photos) && clinic.photos.length > 0) || (Array.isArray(d?.clinic_photo_urls) && d.clinic_photo_urls.length > 0)) && (
@@ -302,9 +429,104 @@ export default function OperatorRequests() {
                     <div>{d?.notes ?? clinic?.notes}</div>
                   </div>
                 )}
+
+                <div>
+                  <span className="text-xs text-muted-foreground">Profissionais desta clínica</span>
+                  {loadingDetailProfessionals ? (
+                    <div className="mt-1">Carregando...</div>
+                  ) : detailProfessionals.length === 0 ? (
+                    <div className="mt-1">—</div>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {detailProfessionals.map((prof) => (
+                        <div key={prof.user_id} className="rounded-md border border-border/60 p-2 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={prof.avatar_url ?? undefined} />
+                              <AvatarFallback>
+                                {(prof.full_name || 'U')
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .join('')
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{prof.full_name}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {prof.role === 'admin' ? 'Administrador' : 'Profissional'}
+                                {prof.specialty ? ` · ${prof.specialty}` : ''}
+                                {prof.registration_number ? ` · ${prof.registration_number}` : ''}
+                              </div>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedProfessional(prof)}>
+                            <Eye className="h-4 w-4 mr-1" /> Ver perfil
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedProfessional} onOpenChange={(o) => !o && setSelectedProfessional(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Perfil completo do profissional</DialogTitle>
+          </DialogHeader>
+          {selectedProfessional && (
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-14 w-14">
+                  <AvatarImage src={selectedProfessional.avatar_url ?? undefined} />
+                  <AvatarFallback>
+                    {(selectedProfessional.full_name || 'U')
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-semibold">{selectedProfessional.full_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {selectedProfessional.role === 'admin' ? 'Administrador' : 'Profissional'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <span className="text-xs text-muted-foreground">Telefone</span>
+                  <div>{selectedProfessional.phone ?? '—'}</div>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Registro profissional</span>
+                  <div>{selectedProfessional.registration_number ?? '—'}</div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-muted-foreground">Especialidades</span>
+                {selectedProfessional.specialties.length === 0 ? (
+                  <div>—</div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedProfessional.specialties.map((s) => (
+                      <Badge key={s} variant="secondary">{s}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
