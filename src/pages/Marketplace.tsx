@@ -37,7 +37,7 @@ export default function Marketplace() {
       try {
       const { data: members } = await supabase
         .from("clinic_members")
-        .select("user_id, clinic_id, role, specialty, profiles:user_id(id, full_name, avatar_url)")
+        .select("user_id, clinic_id, role, specialty")
         .in("role", ["dentist", "admin"]);
 
       if (!members || members.length === 0) {
@@ -50,7 +50,8 @@ export default function Marketplace() {
 
       const today = startOfDay(new Date());
 
-      const [{ data: clinics }, { data: templates }, { data: appointments }] = await Promise.all([
+      const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
         supabase.from("clinics").select("id, name, city, state, phone, address, zip_code").in("id", clinicIds),
         supabase
           .from("professional_schedule_template")
@@ -66,6 +67,7 @@ export default function Marketplace() {
           .neq("status", "cancelled"),
       ]);
 
+      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
       const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
 
       // Derive upcoming dates (next 30 days) from the weekly template
@@ -85,7 +87,7 @@ export default function Marketplace() {
       const doctorList: DoctorData[] = members
         .filter((m) => availMap.has(`${m.user_id}|${m.clinic_id}`))
         .map((m: any) => {
-          const profile = m.profiles as { id: string; full_name: string | null; avatar_url: string | null } | null;
+          const profile = profileMap.get(m.user_id);
           const clinic = clinicMap.get(m.clinic_id);
           const appts = (appointments ?? []).filter((a) => a.dentist_id === m.user_id);
           const shifts = (availMap.get(`${m.user_id}|${m.clinic_id}`) ?? []).sort((a, b) => {
