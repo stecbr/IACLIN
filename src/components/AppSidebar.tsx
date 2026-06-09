@@ -300,8 +300,8 @@ export function AppSidebar() {
   const initials = profile?.full_name
     ?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() ?? 'U';
 
-  const { label: displayRole, isOdonto, roleKey } = useProfessionalLabel();
-  const colorKey = roleKey === 'dentist' && isOdonto ? 'dentist-odonto' : roleKey;
+  const { label: displayRole, isOdonto: isOdontoPro, roleKey } = useProfessionalLabel();
+  const colorKey = roleKey === 'dentist' && isOdontoPro ? 'dentist-odonto' : roleKey;
   const roleColor = ROLE_COLOR[colorKey] ?? ROLE_COLOR['admin'];
 
   const renderNavItem = (
