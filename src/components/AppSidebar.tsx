@@ -33,7 +33,7 @@ import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { useState } from 'react';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
@@ -473,6 +473,7 @@ export function AppSidebar() {
             title="Meu perfil"
           >
             <Avatar className={`h-8 w-8 flex-shrink-0 ring-2 ring-offset-1 ring-offset-sidebar ${roleColor.ring}`}>
+              <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? ''} className="object-cover" />
               <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                 {initials}
               </AvatarFallback>
@@ -496,6 +497,7 @@ export function AppSidebar() {
             title={profile?.full_name ?? 'Meu perfil'}
           >
             <Avatar className={`h-7 w-7 ring-2 ring-offset-1 ring-offset-sidebar ${roleColor.ring}`}>
+              <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? ''} className="object-cover" />
               <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
                 {initials}
               </AvatarFallback>
