@@ -264,7 +264,8 @@ function ProfileSection() {
       supabase.from('profiles').update({ full_name: form.full_name.trim(), phone: form.phone || null }).eq('id', user.id),
     ];
     if (patientIds.length > 0) {
-      ops.push(supabase.from('patients').update(patientPatch).in('id', patientIds));
+      // Write only to the record the user is currently viewing (patientIds[0])
+      ops.push(supabase.from('patients').update(patientPatch).eq('id', patientIds[0]));
     }
 
     const results = await Promise.all(ops);
@@ -540,15 +541,18 @@ function ProfileSection() {
 
 function SecuritySection() {
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const changePassword = useMutation({
     mutationFn: async () => {
       if (!newPassword || newPassword.length < 6) throw new Error('Senha deve ter ao menos 6 caracteres');
+      if (newPassword !== confirmPassword) throw new Error('As senhas não coincidem');
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Senha alterada com sucesso');
       setNewPassword('');
+      setConfirmPassword('');
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao alterar senha'),
   });
@@ -570,11 +574,21 @@ function SecuritySection() {
             placeholder="Mínimo 6 caracteres"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirmPwd">Confirmar nova senha</Label>
+          <Input
+            id="confirmPwd"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Repita a nova senha"
+          />
+        </div>
         <div className="flex justify-end">
           <Button
             variant="outline"
             onClick={() => changePassword.mutate()}
-            disabled={!newPassword || changePassword.isPending}
+            disabled={!newPassword || !confirmPassword || changePassword.isPending}
             className="gap-2"
           >
             {changePassword.isPending && <Loader2 className="h-4 w-4 animate-spin" />}

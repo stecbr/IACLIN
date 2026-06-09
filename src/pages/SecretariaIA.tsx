@@ -369,25 +369,19 @@ export default function SecretariaIA() {
       // Sincroniza com o backend externo da Secretária IA — fire-and-forget
       // Phase 1.0: só dispara para clínica (backend externo ainda não conhece tenants profissionais).
       if (!isProfessional && currentClinicId && isAiBackendConfigured()) {
-        console.log('[ai-sync] updateAiConfig vai disparar', { currentClinicId, isConfigured: isAiBackendConfigured(), custom_prompt: vars.custom_prompt?.slice(0, 50) });
-        // Raw fetch para logar status HTTP + body exatamente como o backend devolve
         const url = `${AI_BACKEND_URL}/api/data/ai_secretary_config/config-${currentClinicId}`;
         const body = JSON.stringify({ custom_prompt: vars.custom_prompt, enabled: vars.enabled });
-        console.log('[ai-sync] PATCH →', url, body);
         fetch(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'bypass-tunnel-reminder': 'true' },
           body,
         })
           .then(async (res) => {
-            const text = await res.text().catch(() => '');
-            console.log('[ai-sync] PATCH ←', res.status, res.statusText, text.slice(0, 500));
             if (!res.ok) {
               toast.error(`Backend IA respondeu ${res.status} ao salvar config`);
             }
           })
-          .catch((err) => {
-            console.error('[ai-sync] PATCH falhou (network/timeout):', err);
+          .catch(() => {
             toast.error('Não consegui falar com o backend da IA (timeout/rede)');
           });
       }

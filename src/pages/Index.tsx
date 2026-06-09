@@ -308,6 +308,7 @@ function AdminHome() {
   const statusLabels: Record<string, string> = {
     scheduled: "Agendada",
     confirmed: "Confirmada",
+    in_progress: "Em atendimento",
     completed: "Concluída",
     no_show: "Faltou",
     cancelled: "Cancelada",
@@ -315,6 +316,7 @@ function AdminHome() {
   const statusColors: Record<string, string> = {
     scheduled: "bg-primary/10 text-primary",
     confirmed: "bg-success/10 text-success",
+    in_progress: "bg-amber-500/10 text-amber-600",
     completed: "bg-success/10 text-success",
     no_show: "bg-destructive/10 text-destructive",
     cancelled: "bg-muted text-muted-foreground",

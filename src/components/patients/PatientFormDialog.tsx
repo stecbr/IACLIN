@@ -40,6 +40,22 @@ const REFERRAL_SOURCES = [
   'Outro',
 ];
 
+function isValidCPF(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
+  let check1 = 11 - (sum % 11);
+  if (check1 >= 10) check1 = 0;
+  if (check1 !== parseInt(digits[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
+  let check2 = 11 - (sum % 11);
+  if (check2 >= 10) check2 = 0;
+  return check2 === parseInt(digits[10]);
+}
+
 const PREDEFINED_CATEGORIES = [
   'VIP', 'Convênio', 'Particular', 'Criança', 'Idoso',
   'Gestante', 'Risco', 'Recall', 'Inativo',
@@ -214,6 +230,10 @@ export function PatientFormDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim()) { toast.error('Nome é obrigatório'); return; }
+    if (form.cpf && !form.is_foreign && !isValidCPF(form.cpf)) {
+      toast.error('CPF inválido. Verifique os dígitos informados.');
+      return;
+    }
     setLoading(true);
     try {
       const payload: any = {

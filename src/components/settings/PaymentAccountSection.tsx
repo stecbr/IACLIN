@@ -134,18 +134,30 @@ export default function PaymentAccountSection() {
   const handleSave = async () => {
     if (!entityId) return;
 
-    // Validate PIX key format when type is CPF or CNPJ
-    if (form.pix_key_type === 'cpf' && form.pix_key) {
+    // Validate PIX key format
+    if (form.pix_key_type && form.pix_key) {
       const digits = form.pix_key.replace(/\D/g, '');
-      if (digits.length !== 11) {
+      if (form.pix_key_type === 'cpf' && digits.length !== 11) {
         toast.error('CPF da chave PIX deve ter 11 dígitos');
         return;
       }
-    }
-    if (form.pix_key_type === 'cnpj' && form.pix_key) {
-      const digits = form.pix_key.replace(/\D/g, '');
-      if (digits.length !== 14) {
+      if (form.pix_key_type === 'cnpj' && digits.length !== 14) {
         toast.error('CNPJ da chave PIX deve ter 14 dígitos');
+        return;
+      }
+      if (form.pix_key_type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.pix_key.trim())) {
+        toast.error('E-mail da chave PIX inválido');
+        return;
+      }
+      if (form.pix_key_type === 'phone') {
+        const phoneDigits = form.pix_key.replace(/\D/g, '');
+        if (phoneDigits.length < 10 || phoneDigits.length > 13) {
+          toast.error('Celular da chave PIX inválido (formato esperado: +55 11 99999-9999)');
+          return;
+        }
+      }
+      if (form.pix_key_type === 'random' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(form.pix_key.trim())) {
+        toast.error('Chave aleatória PIX inválida (deve ser um UUID no formato xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)');
         return;
       }
     }

@@ -321,19 +321,25 @@ export default function Attendance() {
       const elapsed = computeElapsedSeconds(getSession());
       if (elapsed > 0) recordPayload.procedure_duration_seconds = elapsed;
 
+      // Capture existing IDs before any writes (for safe replace on update)
+      let oldProcIds: string[] = [];
+      let oldReqIds: string[] = [];
+
       if (recordId) {
-        // Update existing
+        // Update existing record
         const { error } = await supabase
           .from('clinical_records')
           .update(recordPayload)
           .eq('id', recordId);
         if (error) throw error;
 
-        // Delete old procedures + requests and re-insert
-        const { error: delProcErr } = await supabase.from('clinical_record_procedures').delete().eq('clinical_record_id', recordId);
-        if (delProcErr) throw delProcErr;
-        const { error: delReqErr } = await supabase.from('clinical_record_requests').delete().eq('clinical_record_id', recordId);
-        if (delReqErr) throw delReqErr;
+        // Capture old procedure/request IDs so we can delete them AFTER inserting new ones
+        const [{ data: oldProcs }, { data: oldReqs }] = await Promise.all([
+          supabase.from('clinical_record_procedures').select('id').eq('clinical_record_id', recordId),
+          supabase.from('clinical_record_requests').select('id').eq('clinical_record_id', recordId),
+        ]);
+        oldProcIds = (oldProcs ?? []).map((p: any) => p.id);
+        oldReqIds = (oldReqs ?? []).map((r: any) => r.id);
       } else {
         // Create new
         const { data, error } = await supabase
@@ -353,7 +359,7 @@ export default function Attendance() {
         setClinicalRecordId(recordId);
       }
 
-      // Insert procedures
+      // Insert new procedures FIRST (safe: old ones still exist if this fails)
       const validProcs = procedures.filter((p) => p.procedure_id);
       if (validProcs.length > 0 && recordId) {
         const { error: procError } = await supabase.from('clinical_record_procedures').insert(
@@ -369,7 +375,7 @@ export default function Attendance() {
         if (procError) throw procError;
       }
 
-      // Insert requests
+      // Insert new requests FIRST
       const validRequests = requests.filter((r) => {
         const v = Object.values(r.payload).join('').trim();
         return v.length > 0;
@@ -383,6 +389,16 @@ export default function Attendance() {
           }))
         );
         if (reqError) throw reqError;
+      }
+
+      // Only now delete old records (new ones are already saved)
+      if (oldProcIds.length > 0) {
+        const { error: delProcErr } = await supabase.from('clinical_record_procedures').delete().in('id', oldProcIds);
+        if (delProcErr) throw delProcErr;
+      }
+      if (oldReqIds.length > 0) {
+        const { error: delReqErr } = await supabase.from('clinical_record_requests').delete().in('id', oldReqIds);
+        if (delReqErr) throw delReqErr;
       }
 
       toast.success('Atendimento salvo!');

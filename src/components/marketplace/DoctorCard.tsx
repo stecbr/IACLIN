@@ -44,7 +44,8 @@ function generateSlotsForDate(
   const dayShifts = shifts.filter((s) => s.date === dateKey);
   if (dayShifts.length === 0) return [];
 
-  const now = new Date();
+  // Use Brasília time to correctly skip past slots for Brazilian users
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const slots: string[] = [];
 
   for (const sh of dayShifts) {

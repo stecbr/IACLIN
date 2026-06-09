@@ -581,6 +581,10 @@ export default function IaGestor() {
 
   // Bootstrap: choose or create thread (só roda 1 vez quando entra na rota /ia-gestor sem threadId)
   const bootstrappedRef = useRef(false);
+  // Reset bootstrap flag when clinic context changes so new clinic gets its own thread
+  useEffect(() => {
+    bootstrappedRef.current = false;
+  }, [currentClinicId]);
   useEffect(() => {
     if (bootstrappedRef.current) return;
     if (!user?.id || threadsLoading) return;

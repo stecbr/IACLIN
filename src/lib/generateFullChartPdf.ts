@@ -233,6 +233,7 @@ export async function openFullChartPdf(data: FullChartData) {
 
 /** Loads all chart data for a patient using the authenticated client (clinic members). */
 export async function fetchFullChartData(patientId: string): Promise<FullChartData> {
+  try {
   const [
     { data: patient },
     { data: anamnese },
@@ -277,4 +278,7 @@ export async function fetchFullChartData(patientId: string): Promise<FullChartDa
     map_entries: mapEntries ?? [],
     documents: documents ?? [],
   };
+  } catch (err: any) {
+    throw new Error(`Erro ao carregar dados do prontuário: ${err?.message ?? 'tente novamente'}`);
+  }
 }

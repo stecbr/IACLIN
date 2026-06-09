@@ -99,6 +99,7 @@ export default function ClinicaMedicos() {
         .select('id, email, full_name, specialty, token, status, expires_at, created_at')
         .eq('clinic_id', currentClinicId!)
         .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];

@@ -208,6 +208,10 @@ function ClinicSection() {
 
   const handleSave = async () => {
     if (!user) return;
+    if (!form.name.trim()) {
+      toast.error('O nome da clínica é obrigatório');
+      return;
+    }
     // Valida horários: close deve ser > open. "00:00" como fechamento é um erro comum
     // (campo vazio interpretado como meia-noite) que deixa o dia sempre fechado.
     const DAY_LABELS_PT: Record<string, string> = {

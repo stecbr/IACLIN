@@ -453,15 +453,18 @@ function SpecialtiesSection() {
 
 function SecuritySection() {
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const changePassword = useMutation({
     mutationFn: async () => {
       if (!newPassword || newPassword.length < 6) throw new Error('Senha deve ter ao menos 6 caracteres');
+      if (newPassword !== confirmPassword) throw new Error('As senhas não coincidem');
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Senha alterada');
       setNewPassword('');
+      setConfirmPassword('');
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao alterar senha'),
   });
@@ -476,8 +479,12 @@ function SecuritySection() {
           <Label htmlFor="newPwd">Nova senha</Label>
           <Input id="newPwd" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
         </div>
+        <div>
+          <Label htmlFor="confirmPwd">Confirmar nova senha</Label>
+          <Input id="confirmPwd" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repita a nova senha" />
+        </div>
         <div className="flex justify-end">
-          <Button variant="outline" onClick={() => changePassword.mutate()} disabled={!newPassword || changePassword.isPending}>
+          <Button variant="outline" onClick={() => changePassword.mutate()} disabled={!newPassword || !confirmPassword || changePassword.isPending}>
             Alterar senha
           </Button>
         </div>
