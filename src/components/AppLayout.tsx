@@ -16,6 +16,7 @@ import logoDark from '@/assets/logo-dark.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiSync } from '@/hooks/useAiSync';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
 import { useClinicBranding } from '@/hooks/useClinicBranding';
 
 const breadcrumbMap: Record<string, string> = {
@@ -32,17 +33,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinicRole, clinicCategory } = useAuth();
+  const { currentClinicId, isPersonalMode, clinicRole } = useAuth();
   const { effectiveRole } = useRoleAccess();
+  const { label: professionalLabel, isOdonto } = useProfessionalLabel();
 
-  const dentistLabel = clinicCategory === 'medico' ? 'Médico' : 'Dentista';
+  const dentistChip = isOdonto
+    ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30'
+    : 'bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-500/30';
+
   const HEADER_ROLE_CONFIG: Record<string, { label: string; chip: string; Icon: typeof User }> = {
-    admin:     { label: 'Admin',        chip: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-violet-500/30',   Icon: Shield },
-    dentist:   { label: dentistLabel,   chip: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-500/30',           Icon: Stethoscope },
-    secretary: { label: 'Secretária',   chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/30',           Icon: ClipboardList },
-    owner:     { label: 'Admin',        chip: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',   Icon: Shield },
-    operator:  { label: 'Operadora',    chip: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 ring-orange-500/30',   Icon: BuildingIcon },
-    patient:   { label: 'Paciente',     chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', Icon: UserCircle },
+    admin:     { label: 'Admin',           chip: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-violet-500/30',    Icon: Shield },
+    dentist:   { label: professionalLabel, chip: dentistChip,                                                                   Icon: Stethoscope },
+    secretary: { label: 'Secretária',      chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/30',            Icon: ClipboardList },
+    owner:     { label: 'Admin',           chip: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',    Icon: Shield },
+    operator:  { label: 'Operadora',       chip: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 ring-orange-500/30',    Icon: BuildingIcon },
+    patient:   { label: 'Paciente',        chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', Icon: UserCircle },
   };
   const activeRoleKey = clinicRole ?? effectiveRole ?? '';
   const roleConfig = HEADER_ROLE_CONFIG[activeRoleKey] ?? HEADER_ROLE_CONFIG['admin'];

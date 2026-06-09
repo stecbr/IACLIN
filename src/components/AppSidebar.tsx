@@ -37,6 +37,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { useState } from 'react';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
+import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
 
 import {
   AlertDialog,
@@ -74,22 +75,15 @@ import {
 type Role = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'outro'];
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: 'Admin',
-  dentist: 'Médico',
-  secretary: 'Secretária',
-  owner: 'Proprietário',
-  operator: 'Operadora',
-  patient: 'Paciente',
-};
 
 const ROLE_COLOR: Record<string, { ring: string; badge: string; dot: string }> = {
-  admin:     { ring: 'ring-violet-500',   badge: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 ring-violet-500/30',   dot: 'bg-violet-500' },
-  dentist:   { ring: 'ring-blue-500',     badge: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-blue-500/30',           dot: 'bg-blue-500' },
-  secretary: { ring: 'ring-teal-500',     badge: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 ring-teal-500/30',           dot: 'bg-teal-500' },
-  owner:     { ring: 'ring-indigo-500',   badge: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',   dot: 'bg-indigo-500' },
-  operator:  { ring: 'ring-orange-500',   badge: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 ring-orange-500/30',   dot: 'bg-orange-500' },
-  patient:   { ring: 'ring-emerald-500',  badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', dot: 'bg-emerald-500' },
+  admin:          { ring: 'ring-violet-500',  badge: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 ring-violet-500/30',    dot: 'bg-violet-500' },
+  dentist:        { ring: 'ring-blue-500',    badge: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-blue-500/30',             dot: 'bg-blue-500' },
+  'dentist-odonto': { ring: 'ring-cyan-500',  badge: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30',             dot: 'bg-cyan-500' },
+  secretary:      { ring: 'ring-teal-500',    badge: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 ring-teal-500/30',             dot: 'bg-teal-500' },
+  owner:          { ring: 'ring-indigo-500',  badge: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',    dot: 'bg-indigo-500' },
+  operator:       { ring: 'ring-orange-500',  badge: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 ring-orange-500/30',    dot: 'bg-orange-500' },
+  patient:        { ring: 'ring-emerald-500', badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', dot: 'bg-emerald-500' },
 };
 
 // ─── Nav definitions ─────────────────────────────────────────────────────────
@@ -306,12 +300,9 @@ export function AppSidebar() {
   const initials = profile?.full_name
     ?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() ?? 'U';
 
-  const roleKey = clinicRole ?? effectiveRole ?? '';
-  const dentistLabel = clinicCategory === 'medico' ? 'Médico' : 'Dentista';
-  const displayRole = roleKey === 'dentist'
-    ? dentistLabel
-    : (ROLE_LABEL[roleKey] ?? '');
-  const roleColor = ROLE_COLOR[roleKey] ?? ROLE_COLOR['admin'];
+  const { label: displayRole, isOdonto, roleKey } = useProfessionalLabel();
+  const colorKey = roleKey === 'dentist' && isOdonto ? 'dentist-odonto' : roleKey;
+  const roleColor = ROLE_COLOR[colorKey] ?? ROLE_COLOR['admin'];
 
   const renderNavItem = (
     item: { title: string; url: string; icon: typeof LayoutDashboard; beta?: boolean },
