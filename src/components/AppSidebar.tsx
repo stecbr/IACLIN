@@ -306,8 +306,11 @@ export function AppSidebar() {
   const initials = profile?.full_name
     ?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() ?? 'U';
 
-  const displayRole = ROLE_LABEL[clinicRole ?? effectiveRole ?? ''] ?? ROLE_LABEL[effectiveRole ?? ''] ?? '';
   const roleKey = clinicRole ?? effectiveRole ?? '';
+  const dentistLabel = clinicCategory === 'medico' ? 'Médico' : 'Dentista';
+  const displayRole = roleKey === 'dentist'
+    ? dentistLabel
+    : (ROLE_LABEL[roleKey] ?? '');
   const roleColor = ROLE_COLOR[roleKey] ?? ROLE_COLOR['admin'];
 
   const renderNavItem = (
