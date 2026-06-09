@@ -111,6 +111,36 @@ export function PatientSidebar() {
             />
           )}
         </div>
+
+        {/* Perfil do paciente */}
+        {!collapsed ? (
+          <div className="flex items-center gap-3 mt-3 p-2 rounded-xl bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors">
+            <Avatar className="h-8 w-8 flex-shrink-0 ring-2 ring-offset-1 ring-offset-sidebar ring-emerald-500">
+              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarFallback className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-sidebar-foreground truncate leading-tight">
+                {profile?.full_name ?? user?.email}
+              </p>
+              <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ring-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30">
+                <span className="h-1.5 w-1.5 rounded-full flex-shrink-0 bg-emerald-500" />
+                Paciente
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-2 mx-auto">
+            <Avatar className="h-7 w-7 ring-2 ring-offset-1 ring-offset-sidebar ring-emerald-500">
+              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarFallback className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="px-2">
@@ -143,45 +173,20 @@ export function PatientSidebar() {
 
       <SidebarFooter className="p-3 border-t border-sidebar-border">
         <TooltipProvider>
-          {!collapsed ? (
-            <div className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-sidebar-accent/40 transition-colors">
-              <Avatar className="h-8 w-8 ring-2 ring-primary/20">
-                <AvatarImage src={profile?.avatar_url ?? undefined} />
-                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-xs font-medium">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {profile?.full_name ?? user?.email}
-                </p>
-                <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={signOut}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Sair</TooltipContent>
-              </Tooltip>
-            </div>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={signOut}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors mx-auto"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Sair</TooltipContent>
-            </Tooltip>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={signOut}
+                className={`flex items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ${
+                  collapsed ? 'justify-center p-2 mx-auto' : 'gap-2 w-full px-3 py-2 text-sm'
+                }`}
+              >
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+                {!collapsed && <span>Sair</span>}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side={collapsed ? 'right' : 'top'}>Sair</TooltipContent>
+          </Tooltip>
         </TooltipProvider>
       </SidebarFooter>
     </Sidebar>
