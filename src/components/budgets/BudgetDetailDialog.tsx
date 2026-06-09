@@ -60,7 +60,7 @@ const statusBadge: Record<string, string> = {
 export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailDialogProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isClinicOwner } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const { isSolo } = useSoloMode();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -86,7 +86,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
       // Approval is special: may auto-generate financial charges
       if (status === 'approved') {
         const canApproveForClinic =
-          isSolo || effectiveRole === 'admin' || effectiveRole === 'secretary';
+          isSolo || isClinicOwner || effectiveRole === 'admin' || effectiveRole === 'secretary';
         if (!canApproveForClinic) {
           throw new Error(
             'Apenas a secretaria ou admin da clínica pode aprovar este orçamento. Mantenha em "Em negociação" e aguarde a aprovação.'
@@ -100,27 +100,34 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
         .eq('id', planId!);
       if (error) throw error;
 
-      if (status === 'approved' && plan && !(plan as any).charges_generated_at) {
+      if (status === 'approved' && plan) {
         const items = (plan as any).treatment_plan_items ?? [];
         if (items.length > 0) {
-          const today = format(new Date(), 'yyyy-MM-dd');
-          const rows = items.map((it: any) => ({
-            type: 'income' as const,
-            category: 'procedure',
-            description: `${it.procedures?.name ?? it.custom_procedure_name ?? 'Procedimento'}${it.tooth_number ? ` (dente ${it.tooth_number})` : ''} — ${plan.title ?? 'Orçamento'}`,
-            amount: Number(it.price) || 0,
-            due_date: today,
-            status: 'pending' as const,
-            clinic_id: (plan as any).clinic_id ?? null,
-            dentist_id: (plan as any).dentist_id ?? user?.id ?? null,
-            patient_id: (plan as any).patient_id ?? null,
-          }));
-          const { error: txErr } = await supabase.from('financial_transactions').insert(rows);
-          if (txErr) throw new Error(`Status atualizado, mas falhou ao gerar cobranças: ${txErr.message}`);
-          await supabase
+          // Atomic check-and-set: only mark charges_generated_at if it was NULL
+          // This prevents duplicate charges on concurrent/rapid clicks
+          const { data: claimed } = await supabase
             .from('treatment_plans')
             .update({ charges_generated_at: new Date().toISOString() })
-            .eq('id', planId!);
+            .eq('id', planId!)
+            .is('charges_generated_at', null)
+            .select('id');
+
+          if (claimed && claimed.length > 0) {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const rows = items.map((it: any) => ({
+              type: 'income' as const,
+              category: 'procedure',
+              description: `${it.procedures?.name ?? it.custom_procedure_name ?? 'Procedimento'}${it.tooth_number ? ` (dente ${it.tooth_number})` : ''} — ${plan.title ?? 'Orçamento'}`,
+              amount: Number(it.price) || 0,
+              due_date: today,
+              status: 'pending' as const,
+              clinic_id: (plan as any).clinic_id ?? null,
+              dentist_id: (plan as any).dentist_id ?? user?.id ?? null,
+              patient_id: (plan as any).patient_id ?? null,
+            }));
+            const { error: txErr } = await supabase.from('financial_transactions').insert(rows);
+            if (txErr) throw new Error(`Status atualizado, mas falhou ao gerar cobranças: ${txErr.message}`);
+          }
         }
       }
     },

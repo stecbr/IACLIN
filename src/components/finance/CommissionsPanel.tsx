@@ -20,7 +20,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Trash2, HelpCircle } from 'lucide-react';
+import { Settings, Trash2, HelpCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CommissionRule {
@@ -138,7 +138,22 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
       const proRules = rules[m.user_id] ?? [];
       let commission = 0;
       proRules.forEach((rule) => {
-        if (rule.type === 'percentage') commission += earned * (rule.value / 100);
+        // Skip rule if it targets a specific specialty that doesn't match this professional
+        if (rule.specialty && m.specialty !== rule.specialty) return;
+
+        // Filter transactions by insurance if the rule specifies one
+        const applicableTx = rule.insurance
+          ? paidByPro.filter(
+              (t) => (t.patients as any)?.insurance_provider === rule.insurance
+            )
+          : paidByPro;
+        const applicableEarned = applicableTx.reduce(
+          (s, t) => s + Number(t.amount),
+          0
+        );
+
+        if (rule.type === 'percentage')
+          commission += applicableEarned * (rule.value / 100);
         else commission += rule.value;
       });
 
@@ -211,6 +226,12 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+        <span>
+          As regras de comissão são salvas apenas neste dispositivo/navegador. Reconfigure se acessar de outro dispositivo.
+        </span>
+      </div>
       {professionals.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
           <p className="text-sm text-muted-foreground">

@@ -37,7 +37,8 @@ export default function ClinicaAprovacoes() {
         .from('appointment_requests')
         .select('*')
         .eq('clinic_id', currentClinicId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
       if (error) throw error;
 
       // Enrich with dentist names

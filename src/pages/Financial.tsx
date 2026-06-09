@@ -76,7 +76,7 @@ export default function Financial() {
     queryFn: async () => {
       let query = supabase
         .from('financial_transactions')
-        .select('*, patients(full_name)')
+        .select('*, patients(full_name, insurance_provider)')
         .gte('due_date', format(period.start, 'yyyy-MM-dd'))
         .lte('due_date', format(period.end, 'yyyy-MM-dd'))
         .order('due_date', { ascending: false });
@@ -129,6 +129,30 @@ export default function Financial() {
     !tx.approval_status || tx.approval_status === 'approved'
   );
 
+  // Dedicated 6-month chart query — always fetches last 6 months by paid_date, independent of periodFilter
+  const chartStart = startOfMonth(subMonths(now, 5));
+  const chartEnd = endOfMonth(now);
+  const { data: chartTxRaw = [] } = useQuery({
+    queryKey: ['financial-chart-6m', format(chartStart, 'yyyy-MM'), currentClinicId, user?.id, isPersonalMode],
+    enabled: !!user,
+    queryFn: async () => {
+      let q = supabase
+        .from('financial_transactions')
+        .select('type, amount, paid_date')
+        .eq('status', 'paid')
+        .gte('paid_date', format(chartStart, 'yyyy-MM-dd'))
+        .lte('paid_date', format(chartEnd, 'yyyy-MM-dd'));
+      if (currentClinicId) {
+        q = q.eq('clinic_id', currentClinicId);
+      } else if (user) {
+        q = q.is('clinic_id', null).eq('dentist_id', user.id);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'paid' | 'pending' | 'overdue' }) => {
       const patch: any = { status };
@@ -159,7 +183,7 @@ export default function Financial() {
   const pendingExpense = approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
-  // Monthly chart data (last 6 months)
+  // Monthly chart data — always last 6 months, grouped by paid_date
   const chartData = useMemo(() => {
     const months: Record<string, { income: number; expense: number }> = {};
     for (let i = 5; i >= 0; i--) {
@@ -167,16 +191,16 @@ export default function Financial() {
       const key = format(m, 'MMM', { locale: ptBR });
       months[key] = { income: 0, expense: 0 };
     }
-    approvedTx.forEach((tx: any) => {
-      if (tx.status !== 'paid') return;
-      const key = format(parseISO(tx.paid_date || tx.due_date), 'MMM', { locale: ptBR });
+    chartTxRaw.forEach((tx: any) => {
+      if (!tx.paid_date) return;
+      const key = format(parseISO(tx.paid_date), 'MMM', { locale: ptBR });
       if (months[key]) {
         if (tx.type === 'income') months[key].income += Number(tx.amount);
         else months[key].expense += Number(tx.amount);
       }
     });
     return Object.entries(months).map(([month, data]) => ({ month, ...data }));
-  }, [approvedTx]);
+  }, [chartTxRaw]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -231,10 +255,12 @@ export default function Financial() {
           {isClinicOwner && currentClinicId && (
             <TabsTrigger value="commissions">Comissões</TabsTrigger>
           )}
-          {canApprove && currentClinicId && awaitingApproval.length > 0 && (
+          {canApprove && currentClinicId && (
             <TabsTrigger value="approvals">
               Aprovações
-              <Badge variant="destructive" className="ml-2 text-[10px] h-5 px-1.5">{awaitingApproval.length}</Badge>
+              {awaitingApproval.length > 0 && (
+                <Badge variant="destructive" className="ml-2 text-[10px] h-5 px-1.5">{awaitingApproval.length}</Badge>
+              )}
             </TabsTrigger>
           )}
           {importedTxs.length > 0 && (
@@ -280,11 +306,11 @@ export default function Financial() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {transactions.filter((t: any) => t.type === 'income' && t.status === 'pending').length === 0 ? (
+                {approvedTx.filter((t: any) => t.type === 'income' && t.status === 'pending').length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">Nenhum valor a receber</p>
                 ) : (
                   <div className="space-y-2">
-                    {transactions.filter((t: any) => t.type === 'income' && t.status === 'pending').slice(0, 5).map((tx: any) => (
+                    {approvedTx.filter((t: any) => t.type === 'income' && t.status === 'pending').slice(0, 5).map((tx: any) => (
                       <div key={tx.id} className="flex justify-between py-1.5 border-b border-border/50 last:border-0 text-sm">
                         <span className="text-foreground truncate">{tx.patients?.full_name ?? tx.description}</span>
                         <span className="font-medium text-success whitespace-nowrap ml-2">{fmt(Number(tx.amount))}</span>
@@ -301,11 +327,11 @@ export default function Financial() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {transactions.filter((t: any) => t.type === 'expense' && t.status === 'pending').length === 0 ? (
+                {approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'pending').length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">Nenhum valor a pagar</p>
                 ) : (
                   <div className="space-y-2">
-                    {transactions.filter((t: any) => t.type === 'expense' && t.status === 'pending').slice(0, 5).map((tx: any) => (
+                    {approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'pending').slice(0, 5).map((tx: any) => (
                       <div key={tx.id} className="flex justify-between py-1.5 border-b border-border/50 last:border-0 text-sm">
                         <span className="text-foreground truncate">{tx.description}</span>
                         <span className="font-medium text-destructive whitespace-nowrap ml-2">{fmt(Number(tx.amount))}</span>
@@ -498,11 +524,14 @@ export default function Financial() {
 // ---- Approvals List ----
 function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
   const { user } = useAuth();
+  const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
 
   const approve = async (tx: any) => {
+    if (approvingIds.has(tx.id)) return;
+    setApprovingIds((prev) => new Set(prev).add(tx.id));
     const { error } = await supabase
       .from('financial_transactions')
       .update({
@@ -511,6 +540,7 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
         approval_decided_at: new Date().toISOString(),
       })
       .eq('id', tx.id);
+    setApprovingIds((prev) => { const s = new Set(prev); s.delete(tx.id); return s; });
     if (error) toast.error(error.message);
     else { toast.success('Cobrança aprovada'); onComplete(); }
   };
@@ -568,8 +598,16 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
                 <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => openReject(tx)}>
                   <XCircle className="h-4 w-4 mr-1" /> Recusar
                 </Button>
-                <Button size="sm" onClick={() => approve(tx)}>
-                  <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+                <Button
+                  size="sm"
+                  onClick={() => approve(tx)}
+                  disabled={approvingIds.has(tx.id)}
+                >
+                  {approvingIds.has(tx.id)
+                    ? <span className="mr-1 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent inline-block" />
+                    : <CheckCircle2 className="h-4 w-4 mr-1" />
+                  }
+                  Aprovar
                 </Button>
               </div>
             </div>

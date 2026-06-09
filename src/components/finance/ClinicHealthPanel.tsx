@@ -7,13 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  ted: 'TED',
+  pix: 'Pix',
+  credit_card: 'Cartão Crédito',
+  debit_card: 'Cartão Débito',
   cash: 'Dinheiro',
+  bank_transfer: 'Transferência',
+  ted: 'TED',
   credit: 'Crédito',
   debit: 'Débito',
   boleto: 'Boleto',
   check: 'Cheque',
-  pix: 'Pix',
 };
 
 interface Props {
