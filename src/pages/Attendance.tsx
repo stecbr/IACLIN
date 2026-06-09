@@ -83,6 +83,7 @@ export default function Attendance() {
 
   const { profile: specialtyProfile } = useSpecialtyProfile();
   const tabKeys = specialtyProfile.attendanceTabs;
+  const showToothProcedures = specialtyProfile.showToothProcedures;
 
   // Load appointment
   const { data: appointment, isLoading: loadingApt } = useQuery({
@@ -124,18 +125,8 @@ export default function Attendance() {
     enabled: !!appointmentId,
   });
 
-  // Detect clinic category for odontogram tab
-  const { data: clinicCategory } = useQuery({
-    queryKey: ['attendance-clinic-category', currentClinicId],
-    queryFn: async () => {
-      if (!currentClinicId) return null;
-      const { data } = await supabase.from('clinics').select('category').eq('id', currentClinicId).maybeSingle();
-      return data?.category ?? null;
-    },
-    enabled: !!currentClinicId,
-  });
-  const showOdontogram = clinicCategory === 'odonto';
-  const showOdontogramTab = showOdontogram && tabKeys.includes('odontogram');
+  // Odontogram tab shows only when the professional's own specialty profile includes it
+  const showOdontogram = tabKeys.includes('odontogram');
 
   // Payment account for PIX display on payment dialog
   const { data: paymentAccount } = useQuery({
@@ -595,7 +586,7 @@ export default function Attendance() {
       <Tabs defaultValue={tabKeys[0] ?? 'assessment'} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto">
           {tabKeys.map((key) => {
-            if (key === 'odontogram' && !showOdontogramTab) return null;
+            if (key === 'odontogram' && !showOdontogram) return null;
             const label = ATTENDANCE_TAB_LABELS[key];
             const suffix =
               key === 'requests' ? ` (${requests.length})` :
@@ -759,27 +750,31 @@ export default function Attendance() {
                           <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Dente</Label>
-                          <Input
-                            type="number"
-                            value={proc.tooth_number ?? ''}
-                            onChange={(e) => updateProcedure(proc.tempId, 'tooth_number', e.target.value ? Number(e.target.value) : null)}
-                            className="h-9 text-sm"
-                            placeholder="Nº"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Face</Label>
-                          <Input
-                            value={proc.surface}
-                            onChange={(e) => updateProcedure(proc.tempId, 'surface', e.target.value)}
-                            className="h-9 text-sm"
-                            placeholder="M, D, V..."
-                          />
-                        </div>
-                        <div className="col-span-2 md:col-span-1 space-y-1">
+                      <div className={`grid gap-3 ${showToothProcedures ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1'}`}>
+                        {showToothProcedures && (
+                          <>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Dente</Label>
+                              <Input
+                                type="number"
+                                value={proc.tooth_number ?? ''}
+                                onChange={(e) => updateProcedure(proc.tempId, 'tooth_number', e.target.value ? Number(e.target.value) : null)}
+                                className="h-9 text-sm"
+                                placeholder="Nº"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Face</Label>
+                              <Input
+                                value={proc.surface}
+                                onChange={(e) => updateProcedure(proc.tempId, 'surface', e.target.value)}
+                                className="h-9 text-sm"
+                                placeholder="M, D, V..."
+                              />
+                            </div>
+                          </>
+                        )}
+                        <div className={showToothProcedures ? 'col-span-2 md:col-span-1 space-y-1' : 'space-y-1'}>
                           <Label className="text-xs">Obs</Label>
                           <Input
                             value={proc.notes}
