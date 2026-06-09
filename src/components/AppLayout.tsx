@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Moon, User, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, User, ArrowLeft, Stethoscope, Shield, ClipboardList, Building2 as BuildingIcon, UserCircle } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -32,8 +32,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode } = useAuth();
+  const { currentClinicId, isPersonalMode, clinicRole } = useAuth();
   const { effectiveRole } = useRoleAccess();
+
+  const HEADER_ROLE_CONFIG: Record<string, { label: string; chip: string; Icon: typeof User }> = {
+    admin:     { label: 'Admin',      chip: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-violet-500/30',   Icon: Shield },
+    dentist:   { label: 'Médico',     chip: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-blue-500/30',           Icon: Stethoscope },
+    secretary: { label: 'Secretária', chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/30',           Icon: ClipboardList },
+    owner:     { label: 'Admin',      chip: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',   Icon: Shield },
+    operator:  { label: 'Operadora',  chip: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 ring-orange-500/30',   Icon: BuildingIcon },
+    patient:   { label: 'Paciente',   chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', Icon: UserCircle },
+  };
+  const activeRoleKey = clinicRole ?? effectiveRole ?? '';
+  const roleConfig = HEADER_ROLE_CONFIG[activeRoleKey] ?? HEADER_ROLE_CONFIG['admin'];
   const { logoUrl, hideIaclinLogo } = useClinicBranding();
   // Snapshot inicial + polling de agendamentos criados pela IA (fire-and-forget).
   // Só roda para admin (dono/secretária da clínica). Médicos não disparam o sync,
@@ -117,6 +128,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2 py-0.5 text-[11px] font-medium ring-1 ring-amber-500/30">
                   <User className="h-3 w-3" />
                   Modo Pessoal
+                </span>
+              )}
+              {roleConfig && (
+                <span className={`hidden sm:inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${roleConfig.chip}`}>
+                  <roleConfig.Icon className="h-3 w-3" />
+                  {roleConfig.label}
                 </span>
               )}
             </div>
