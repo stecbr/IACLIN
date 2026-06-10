@@ -70,7 +70,7 @@ export function MarketplaceSection() {
 
       const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }] =
         await Promise.all([
-          supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
+          supabase.rpc("get_marketplace_doctor_profiles", { _user_ids: userIds }),
           supabase.from("clinics").select("id, name, city, state, phone, address, zip_code").in("id", clinicIds),
           supabase.from("professional_schedule_template")
             .select("user_id, clinic_id, weekday, start_time, end_time, is_active")
@@ -83,7 +83,7 @@ export function MarketplaceSection() {
             .neq("status", "cancelled"),
         ]);
 
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+      const profileMap = new Map(((profiles ?? []) as any[]).map((p: any) => [p.id, p]));
       const clinicMap  = new Map((clinics  ?? []).map((c) => [c.id, c]));
 
       const availMap = new Map<string, { date: string; start: string; end: string }[]>();
@@ -113,7 +113,7 @@ export function MarketplaceSection() {
           acc.push({
             userId: m.user_id,
             specialty: m.specialty ?? null,
-            fullName: profile?.full_name ?? "Profissional",
+            fullName: profile?.full_name ?? "",
             avatarUrl: profile?.avatar_url ?? null,
             clinicId: m.clinic_id,
             clinicName: clinic?.name ?? "Clínica",
