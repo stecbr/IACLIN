@@ -552,6 +552,14 @@ export default function MyCredentialingSection() {
             </div>
 
             <label className="flex items-start gap-2 rounded-md border border-border p-3">
+              {/* spacer - terms section below */}
+            </label>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
               <Checkbox checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(!!checked)} />
               <span className="text-xs text-muted-foreground">
                 Declaro que os dados e documentos enviados são verdadeiros e autorizo o compartilhamento com a operadora para análise de credenciamento.
