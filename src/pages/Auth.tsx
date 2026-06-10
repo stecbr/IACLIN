@@ -93,6 +93,7 @@ export default function Auth() {
   const [cnpj, setCnpj] = useState('');
   const [responsibleName, setResponsibleName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [operatorType, setOperatorType] = useState('ambos');
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
   const [cnpjFetched, setCnpjFetched] = useState(false);
   const [cnpjHint, setCnpjHint] = useState<string | null>(null);
@@ -311,6 +312,20 @@ export default function Auth() {
           }
         }
 
+        // Validate operator-specific fields
+        if (userType === 'operadora') {
+          if (cnpj.replace(/\D/g, '').length !== 14) {
+            toast.error('CNPJ deve ter 14 dígitos');
+            setSubmitting(false);
+            return;
+          }
+          if (!tradeName.trim() || !legalName.trim() || !responsibleName.trim() || !phone.trim()) {
+            toast.error('Preencha todos os campos obrigatórios');
+            setSubmitting(false);
+            return;
+          }
+        }
+
         const clinicCategory = profSubType === 'dentista' ? 'odonto' : profSubType === 'medico' ? 'medico' : 'outro';
         // Professionals always sign up as members (no clinic auto-created).
         // They can later either register their own clinic or join one via code from the sidebar.
@@ -348,13 +363,13 @@ export default function Auth() {
                 responsible_name: responsibleName.trim(),
               }),
               ...(userType === 'operadora' && {
-                trade_name: fullName.trim() || 'Operadora',
-                legal_name: legalName.trim() || fullName.trim(),
+                trade_name: tradeName.trim(),
+                legal_name: legalName.trim(),
                 cnpj: cnpj.replace(/\D/g, ''),
                 ans_code: registrationNumber.trim() || null,
-                operator_type: 'ambos',
+                operator_type: operatorType || 'ambos',
                 phone: phone.trim(),
-                responsible_name: responsibleName.trim() || fullName.trim(),
+                responsible_name: responsibleName.trim(),
               }),
             },
           },
@@ -431,6 +446,7 @@ export default function Auth() {
 
   const isPatientSignup = userType === 'cliente';
   const isClinicSignup = userType === 'clinica';
+  const isOperatorSignup = userType === 'operadora';
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
@@ -695,12 +711,12 @@ export default function Auth() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                {!isClinicSignup && (
+                {!isClinicSignup && !isOperatorSignup && (
                   <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
                     <Label htmlFor="name">Nome completo</Label>
                     <Input
                       id="name" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                      placeholder={userType === 'profissional' ? 'Dr. João Silva' : userType === 'operadora' ? 'Nome da empresa' : 'Seu nome completo'}
+                      placeholder={userType === 'profissional' ? 'Dr. João Silva' : 'Seu nome completo'}
                       required className="h-10" autoFocus
                     />
                   </motion.div>
@@ -739,6 +755,66 @@ export default function Auth() {
                       <Label htmlFor="clinic-phone">Telefone / WhatsApp</Label>
                       <Input id="clinic-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" required className="h-10" inputMode="tel" />
                     </motion.div>
+                  </>
+                )}
+
+                {isOperatorSignup && (
+                  <>
+                    {/* CNPJ */}
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.08 }}>
+                      <Label htmlFor="op-cnpj">CNPJ</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="op-cnpj" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))}
+                          placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric" autoFocus
+                        />
+                        <Button type="button" variant="outline" size="icon" onClick={() => fetchCnpjData(false)} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
+                          {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : cnpjFetched ? <Check className="h-4 w-4 text-green-600" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      {cnpjHint && <p className="text-[11px] text-muted-foreground">{cnpjHint}</p>}
+                      {cnpjFetched && <p className="text-[11px] text-green-600 dark:text-green-400">Dados preenchidos automaticamente ✓</p>}
+                    </motion.div>
+                    {/* Nome Fantasia */}
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.1 }}>
+                      <Label htmlFor="op-trade">Nome Fantasia <span className="text-destructive">*</span></Label>
+                      <Input id="op-trade" value={tradeName} onChange={(e) => setTradeName(e.target.value)} placeholder="Unimed, Amil, SulAmérica..." required className="h-10" />
+                    </motion.div>
+                    {/* Razão Social */}
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.12 }}>
+                      <Label htmlFor="op-legal">Razão Social <span className="text-destructive">*</span></Label>
+                      <Input id="op-legal" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Unimed do Brasil Coop. Central de Saúde LTDA" required className="h-10" />
+                    </motion.div>
+                    {/* Responsável */}
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.14 }}>
+                      <Label htmlFor="op-responsible">Nome do Responsável <span className="text-destructive">*</span></Label>
+                      <Input id="op-responsible" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Diretor ou gestor responsável" required className="h-10" />
+                    </motion.div>
+                    {/* Telefone */}
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.16 }}>
+                      <Label htmlFor="op-phone">Telefone / WhatsApp <span className="text-destructive">*</span></Label>
+                      <Input id="op-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" required className="h-10" inputMode="tel" />
+                    </motion.div>
+                    {/* Código ANS + Tipo */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.17 }}>
+                        <Label htmlFor="op-ans">Código ANS <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+                        <Input id="op-ans" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="000000" className="h-10" inputMode="numeric" maxLength={6} />
+                      </motion.div>
+                      <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.18 }}>
+                        <Label htmlFor="op-type">Tipo de plano <span className="text-destructive">*</span></Label>
+                        <select
+                          id="op-type"
+                          value={operatorType}
+                          onChange={(e) => setOperatorType(e.target.value)}
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="ambos">Saúde + Odonto</option>
+                          <option value="plano_saude">Plano de Saúde</option>
+                          <option value="odonto">Plano Odonto</option>
+                        </select>
+                      </motion.div>
+                    </div>
                   </>
                 )}
 
@@ -803,8 +879,8 @@ export default function Auth() {
                 )}
 
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.15 }}>
-                  <Label htmlFor="signup-email">{isClinicSignup ? 'E-mail Corporativo' : 'E-mail'}</Label>
-                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : isClinicSignup ? 'contato@clinica.com' : 'joao@clinica.com'} required className="h-10" />
+                  <Label htmlFor="signup-email">{isClinicSignup || isOperatorSignup ? 'E-mail Corporativo' : 'E-mail'}</Label>
+                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : isClinicSignup || isOperatorSignup ? 'contato@operadora.com' : 'joao@clinica.com'} required className="h-10" />
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="signup-password">Senha</Label>
