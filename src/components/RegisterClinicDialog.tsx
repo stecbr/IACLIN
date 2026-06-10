@@ -89,6 +89,27 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
   const [categoryLabel, setCategoryLabel] = useState<string>('');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
+  // Tipo de pessoa
+  const [entityType, setEntityType] = useState<'fisica' | 'juridica' | null>(null);
+  // Pessoa Física
+  const [fullName, setFullName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [rg, setRg] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [inssPis, setInssPis] = useState('');
+  // Documentação adicional (PF e PJ)
+  const [stateRegistration, setStateRegistration] = useState('');
+  const [municipalRegistration, setMunicipalRegistration] = useState('');
+  const [cnes, setCnes] = useState('');
+  const [specialtyCertificate, setSpecialtyCertificate] = useState('');
+  // Banco
+  const [bankName, setBankName] = useState('');
+  const [bankAgency, setBankAgency] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankAccountType, setBankAccountType] = useState<'corrente' | 'poupanca'>('corrente');
+  const [bankHolderDocument, setBankHolderDocument] = useState('');
+  // Anexos (kit credenciamento)
+  const [docFiles, setDocFiles] = useState<Record<string, File[]>>({});
   // Address
   const [zipCode, setZipCode] = useState('');
   const [address, setAddress] = useState('');
@@ -105,6 +126,11 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
 
   useEffect(() => {
     if (!open) {
+      setEntityType(null);
+      setFullName(''); setCpf(''); setRg(''); setBirthDate(''); setInssPis('');
+      setStateRegistration(''); setMunicipalRegistration(''); setCnes(''); setSpecialtyCertificate('');
+      setBankName(''); setBankAgency(''); setBankAccount(''); setBankAccountType('corrente'); setBankHolderDocument('');
+      setDocFiles({});
       setCnpj(''); setLegalName(''); setTradeName(''); setResponsibleName('');
       setPhone(''); setCategory(defaultCategory);
       setCategoryLabel(''); setCategoryQuery('');
