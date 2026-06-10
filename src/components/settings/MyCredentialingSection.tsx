@@ -13,6 +13,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CitySelect } from '@/components/address/CitySelect';
+import { BR_UF_LIST } from '@/lib/brazilCities';
 
 type Operator = {
   id: string;
@@ -577,8 +580,24 @@ export default function MyCredentialingSection() {
                   <div><Label>CNPJ</Label><Input value={clinicCnpj} onChange={(e) => setClinicCnpj(e.target.value)} placeholder="00.000.000/0000-00" /></div>
                 )}
                 <div className="sm:col-span-2"><Label>Endereço completo</Label><Input value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} /></div>
-                <div><Label>Cidade</Label><Input value={clinicCity} onChange={(e) => setClinicCity(e.target.value)} /></div>
-                <div><Label>Estado</Label><Input value={clinicState} onChange={(e) => setClinicState(e.target.value)} /></div>
+                <div>
+                  <Label>Estado</Label>
+                  <Select value={clinicState} onValueChange={(v) => { setClinicState(v); setClinicCity(''); }}>
+                    <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      {BR_UF_LIST.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Cidade</Label>
+                  <CitySelect
+                    uf={clinicState}
+                    value={clinicCity}
+                    onChange={(city, uf) => { setClinicCity(city); if (uf) setClinicState(uf); }}
+                    placeholder={clinicState ? 'Selecione…' : 'UF primeiro'}
+                  />
+                </div>
                 <div><Label>CEP</Label><Input value={clinicZip} onChange={(e) => setClinicZip(e.target.value)} /></div>
                 <div><Label>Responsável</Label><Input value={clinicResponsible} onChange={(e) => setClinicResponsible(e.target.value)} /></div>
               </div>
