@@ -51,7 +51,7 @@ export default function Marketplace() {
       const today = startOfDay(new Date());
 
       const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
+        supabase.rpc("get_marketplace_doctor_profiles", { _user_ids: userIds }),
         supabase.from("clinics").select("id, name, city, state, phone, address, zip_code").in("id", clinicIds),
         supabase
           .from("professional_schedule_template")
@@ -67,7 +67,7 @@ export default function Marketplace() {
           .neq("status", "cancelled"),
       ]);
 
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+      const profileMap = new Map(((profiles ?? []) as any[]).map((p: any) => [p.id, p]));
       const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
 
       // Derive upcoming dates (next 30 days) from the weekly template
@@ -97,7 +97,7 @@ export default function Marketplace() {
           return {
             userId: m.user_id,
             specialty: m.specialty ?? null,
-            fullName: profile?.full_name ?? "Profissional",
+            fullName: profile?.full_name ?? "",
             avatarUrl: profile?.avatar_url ?? null,
             clinicId: m.clinic_id,
             clinicName: clinic?.name ?? "Clínica",
