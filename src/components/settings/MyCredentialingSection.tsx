@@ -552,10 +552,19 @@ export default function MyCredentialingSection() {
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold">Dados da clínica</h4>
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                Dados da clínica
+                <Badge variant="outline" className="gap-1 font-normal">
+                  {entityType === 'fisica' ? <><User className="h-3 w-3" /> Pessoa Física</> : <><Building2 className="h-3 w-3" /> Pessoa Jurídica</>}
+                </Badge>
+              </h4>
               <div className="grid sm:grid-cols-2 gap-3">
                 <div><Label>Nome da clínica</Label><Input value={clinicName} onChange={(e) => setClinicName(e.target.value)} /></div>
-                <div><Label>CNPJ</Label><Input value={clinicCnpj} onChange={(e) => setClinicCnpj(e.target.value)} /></div>
+                {entityType === 'fisica' ? (
+                  <div><Label>CPF</Label><Input value={clinicCpf} onChange={(e) => setClinicCpf(e.target.value)} placeholder="000.000.000-00" /></div>
+                ) : (
+                  <div><Label>CNPJ</Label><Input value={clinicCnpj} onChange={(e) => setClinicCnpj(e.target.value)} placeholder="00.000.000/0000-00" /></div>
+                )}
                 <div className="sm:col-span-2"><Label>Endereço completo</Label><Input value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} /></div>
                 <div><Label>Cidade</Label><Input value={clinicCity} onChange={(e) => setClinicCity(e.target.value)} /></div>
                 <div><Label>Estado</Label><Input value={clinicState} onChange={(e) => setClinicState(e.target.value)} /></div>
@@ -563,23 +572,39 @@ export default function MyCredentialingSection() {
                 <div><Label>Responsável</Label><Input value={clinicResponsible} onChange={(e) => setClinicResponsible(e.target.value)} /></div>
               </div>
               <div>
-                <Label>Horários de atendimento</Label>
-                <Textarea value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} rows={4} placeholder="Descreva seus horários ou mantenha o JSON padrão" />
-              </div>
-              <div>
-                <Label>Fotos da clínica</Label>
-                <div className="mt-1 flex items-center gap-3">
-                  <label className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-input cursor-pointer hover:bg-muted transition">
-                    <FileText className="h-4 w-4" />
-                    {clinicPhotoFiles.length > 0 ? `${clinicPhotoFiles.length} arquivo(s)` : 'Selecionar fotos'}
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => setClinicPhotoFiles(Array.from(e.target.files ?? []))}
-                    />
-                  </label>
+                <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Horários de atendimento</Label>
+                <div className="mt-2 rounded-lg border border-border divide-y divide-border overflow-hidden">
+                  {DAY_LABELS.map(({ key, label }) => {
+                    const day = schedule[key];
+                    return (
+                      <div key={key} className="flex items-center gap-3 px-3 py-2 bg-muted/10">
+                        <div className="w-24 text-sm font-medium">{label}</div>
+                        <Switch
+                          checked={day.enabled}
+                          onCheckedChange={(v) => setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], enabled: !!v } }))}
+                        />
+                        {day.enabled ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              type="time"
+                              value={day.start}
+                              onChange={(e) => setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], start: e.target.value } }))}
+                              className="h-8 w-28"
+                            />
+                            <span className="text-xs text-muted-foreground">às</span>
+                            <Input
+                              type="time"
+                              value={day.end}
+                              onChange={(e) => setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], end: e.target.value } }))}
+                              className="h-8 w-28"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Fechado</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
