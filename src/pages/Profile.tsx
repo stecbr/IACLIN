@@ -12,7 +12,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
-import { User, Stethoscope, Network, KeyRound, Palette, Save, AlertCircle, Plus, Star, Trash2, BadgeCheck, Upload, CheckCircle2 } from 'lucide-react';
+import { User, Stethoscope, Network, KeyRound, Palette, Save, AlertCircle, Plus, Star, Trash2, BadgeCheck, Upload, CheckCircle2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '@/components/ThemeProvider';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
@@ -79,6 +79,16 @@ function ProfileInfoSection() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // Address fields
+  const [zipCode, setZipCode] = useState('');
+  const [address, setAddress] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [addressComplement, setAddressComplement] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [addressState, setAddressState] = useState('');
+  const [fetchingCep, setFetchingCep] = useState(false);
+
   const userTypeMeta = String((user?.user_metadata as Record<string, unknown> | undefined)?.user_type ?? '');
   const isProfessionalProfile = roles.includes('dentist') || userTypeMeta.startsWith('profissional');
 
@@ -120,7 +130,7 @@ function ProfileInfoSection() {
     queryKey: ['my-profile-full', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase.from('profiles').select('full_name, phone, avatar_url').eq('id', user.id).maybeSingle();
+      const { data } = await supabase.from('profiles').select('full_name, phone, avatar_url, zip_code, address, address_number, address_complement, neighborhood, city, state').eq('id', user.id).maybeSingle();
       return data;
     },
     enabled: !!user,
@@ -131,6 +141,13 @@ function ProfileInfoSection() {
       setFullName(profileFull.full_name ?? '');
       setPhone(profileFull.phone ?? '');
       setAvatarUrl(profileFull.avatar_url ?? null);
+      setZipCode((profileFull as any).zip_code ?? '');
+      setAddress((profileFull as any).address ?? '');
+      setAddressNumber((profileFull as any).address_number ?? '');
+      setAddressComplement((profileFull as any).address_complement ?? '');
+      setNeighborhood((profileFull as any).neighborhood ?? '');
+      setCity((profileFull as any).city ?? '');
+      setAddressState((profileFull as any).state ?? '');
     }
   }, [profileFull]);
 
@@ -171,6 +188,26 @@ function ProfileInfoSection() {
     }
   };
 
+  const handleCepLookup = async () => {
+    const digits = zipCode.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setFetchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (data.erro) { toast.error('CEP não encontrado'); return; }
+      if (data.logradouro) setAddress(data.logradouro);
+      if (data.bairro) setNeighborhood(data.bairro);
+      if (data.localidade) setCity(data.localidade);
+      if (data.uf) setAddressState(data.uf);
+      toast.success('Endereço preenchido pelo CEP');
+    } catch {
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setFetchingCep(false);
+    }
+  };
+
   const saveProfile = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('no user');
@@ -190,7 +227,18 @@ function ProfileInfoSection() {
       if (regError) throw new Error(regError);
 
       const { error: pErr } = await supabase.from('profiles')
-        .update({ full_name: fullName.trim(), phone: phone.trim(), avatar_url: avatarUrl })
+        .update({
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          avatar_url: avatarUrl,
+          zip_code: zipCode.trim() || null,
+          address: address.trim() || null,
+          address_number: addressNumber.trim() || null,
+          address_complement: addressComplement.trim() || null,
+          neighborhood: neighborhood.trim() || null,
+          city: city.trim() || null,
+          state: addressState.trim() || null,
+        } as any)
         .eq('id', user.id);
       if (pErr) throw pErr;
 
@@ -298,6 +346,67 @@ function ProfileInfoSection() {
             <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
           </div>
         </div>
+        {/* ── Endereço ── */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Endereço do consultório</span>
+          </div>
+          {/* CEP */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="zip">CEP</Label>
+              <Input
+                id="zip"
+                value={zipCode}
+                onChange={(e) => setZipCode(e.target.value)}
+                onBlur={handleCepLookup}
+                placeholder="00000-000"
+                inputMode="numeric"
+                maxLength={9}
+              />
+            </div>
+            <div className="flex items-end pb-0.5">
+              <Button type="button" variant="outline" size="icon" className="h-10 w-10" onClick={handleCepLookup} disabled={fetchingCep}>
+                {fetchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          {/* Rua + Número */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <Label htmlFor="addr">Logradouro</Label>
+              <Input id="addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, Avenida..." />
+            </div>
+            <div>
+              <Label htmlFor="num">Número</Label>
+              <Input id="num" value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} placeholder="123" />
+            </div>
+          </div>
+          {/* Complemento + Bairro */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="comp">Complemento <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+              <Input id="comp" value={addressComplement} onChange={(e) => setAddressComplement(e.target.value)} placeholder="Sala 201, Andar 3..." />
+            </div>
+            <div>
+              <Label htmlFor="neigh">Bairro</Label>
+              <Input id="neigh" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Centro" />
+            </div>
+          </div>
+          {/* Cidade + Estado */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <Label htmlFor="city">Cidade</Label>
+              <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="uf">Estado</Label>
+              <Input id="uf" value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="SP" maxLength={2} />
+            </div>
+          </div>
+        </div>
+
         {isProfessionalProfile && (
           <>
             <div>

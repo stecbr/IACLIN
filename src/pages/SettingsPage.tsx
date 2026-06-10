@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, CalendarOff, Wallet } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, CalendarOff, Wallet, Loader2, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -139,21 +139,50 @@ function ClinicSection() {
   });
 
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', address: '', city: '', state: '', cnpj: '', zip_code: '', category: '',
+    name: '', phone: '', email: '', cnpj: '', category: '',
+    zip_code: '', address: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '',
   });
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [fetchingCep, setFetchingCep] = useState(false);
 
   if (clinic && !initialized) {
     setForm({
       name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
-      address: clinic.address ?? '', city: clinic.city ?? '', state: clinic.state ?? '', cnpj: clinic.cnpj ?? '', zip_code: clinic.zip_code ?? '',
-      category: (clinic as any).category ?? '',
+      cnpj: clinic.cnpj ?? '', category: (clinic as any).category ?? '',
+      zip_code: clinic.zip_code ?? '', address: clinic.address ?? '',
+      address_number: (clinic as any).address_number ?? '',
+      address_complement: (clinic as any).address_complement ?? '',
+      neighborhood: (clinic as any).neighborhood ?? '',
+      city: clinic.city ?? '', state: clinic.state ?? '',
     });
     setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
     setInitialized(true);
   }
+
+  const handleCepLookup = async () => {
+    const digits = form.zip_code.replace(/\D/g, '');
+    if (digits.length !== 8) { toast.error('CEP deve ter 8 dígitos'); return; }
+    setFetchingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (data.erro) { toast.error('CEP não encontrado'); return; }
+      setForm((f) => ({
+        ...f,
+        address: data.logradouro ?? f.address,
+        neighborhood: data.bairro ?? f.neighborhood,
+        city: data.localidade ?? f.city,
+        state: data.uf ?? f.state,
+      }));
+      toast.success('Endereço preenchido pelo CEP');
+    } catch {
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setFetchingCep(false);
+    }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,7 +257,14 @@ function ClinicSection() {
     }
     setSaving(true);
     try {
-      const payload = { ...form, category: form.category || null, business_hours: businessHours as any };
+      const payload = {
+        ...form,
+        category: form.category || null,
+        business_hours: businessHours as any,
+        address_number: form.address_number || null,
+        address_complement: form.address_complement || null,
+        neighborhood: form.neighborhood || null,
+      };
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
         if (error) throw error;
@@ -385,21 +421,64 @@ function ClinicSection() {
               <Label>E-mail</Label>
               <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contato@clinica.com" />
             </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Endereço</Label>
-              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Rua..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Cidade</Label>
-              <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" />
-            </div>
-            <div className="space-y-2">
-              <Label>CEP</Label>
-              <Input value={form.zip_code} onChange={(e) => setForm({ ...form, zip_code: e.target.value })} placeholder="00000-000" />
+            {/* ── Endereço ── */}
+            <div className="space-y-3 sm:col-span-2">
+              <div className="flex items-center gap-2 pt-1">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">Endereço</span>
+              </div>
+              {/* CEP com busca automática */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Label>CEP</Label>
+                  <Input
+                    value={form.zip_code}
+                    onChange={(e) => setForm({ ...form, zip_code: e.target.value })}
+                    onBlur={handleCepLookup}
+                    placeholder="00000-000"
+                    inputMode="numeric"
+                    maxLength={9}
+                  />
+                </div>
+                <div className="flex items-end pb-0.5">
+                  <Button type="button" variant="outline" size="icon" className="h-10 w-10" onClick={handleCepLookup} disabled={fetchingCep}>
+                    {fetchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              {/* Rua + Número */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Logradouro</Label>
+                  <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Rua, Avenida, Alameda..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Número</Label>
+                  <Input value={form.address_number} onChange={(e) => setForm({ ...form, address_number: e.target.value })} placeholder="123" />
+                </div>
+              </div>
+              {/* Complemento + Bairro */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Complemento <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+                  <Input value={form.address_complement} onChange={(e) => setForm({ ...form, address_complement: e.target.value })} placeholder="Sala 201, Andar 3..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Bairro</Label>
+                  <Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} placeholder="Centro" />
+                </div>
+              </div>
+              {/* Cidade + Estado */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
+                  <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" maxLength={2} />
+                </div>
+              </div>
             </div>
           </div>
 
