@@ -55,7 +55,13 @@ function toLocalInput(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function AiAppointmentRequestsPanel() {
+interface PanelProps {
+  // compact: usado na Agenda — só aparece quando há pedidos pendentes, sem
+  // título grande nem botão de sincronizar (vira um aviso enxuto).
+  compact?: boolean;
+}
+
+export function AiAppointmentRequestsPanel({ compact = false }: PanelProps = {}) {
   const { currentClinicId } = useAuth();
   const qc = useQueryClient();
   const [approveOpen, setApproveOpen] = useState(false);
@@ -199,30 +205,42 @@ export function AiAppointmentRequestsPanel() {
 
   const requests = requestsQuery.data ?? [];
 
+  // Modo compacto (Agenda): só renderiza se houver pedidos pendentes — funciona
+  // como um aviso. Quando vazio, não ocupa espaço.
+  if (compact && !requestsQuery.isLoading && requests.length === 0) {
+    return null;
+  }
+
   return (
     <>
-      <Card className="rounded-xl shadow-sm">
+      <Card className={compact ? 'rounded-xl border-primary/30 bg-primary/5 shadow-sm' : 'rounded-xl shadow-sm'}>
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-lg">Pedidos de Agendamento da IA</CardTitle>
+            <CardTitle className="text-lg">
+              {compact ? `Pedidos de agendamento (${requests.length})` : 'Pedidos de Agendamento da IA'}
+            </CardTitle>
             <CardDescription>
-              Fila de pedidos vindos do WhatsApp aguardando aprovação.
+              {compact
+                ? 'Pedidos do WhatsApp aguardando sua aprovação.'
+                : 'Fila de pedidos vindos do WhatsApp aguardando aprovação.'}
             </CardDescription>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending || !currentClinicId}
-            className="gap-2"
-          >
-            {syncMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Sincronizar agora
-          </Button>
+          {!compact && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending || !currentClinicId}
+              className="gap-2"
+            >
+              {syncMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Sincronizar agora
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {requestsQuery.isLoading ? (

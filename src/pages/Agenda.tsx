@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog';
 import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDialog';
+import { AiAppointmentRequestsPanel } from '@/components/secretaria-ia/AiAppointmentRequestsPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -182,6 +183,10 @@ export default function Agenda() {
             Nova Consulta
           </Button>
         </PageHeader>
+
+        {/* Pedidos de agendamento da IA (WhatsApp) aguardando aprovação —
+            aparecem aqui na Agenda. Só renderiza quando há pendências. */}
+        {!isMineOnly && <AiAppointmentRequestsPanel compact />}
 
         {/* Navigation — linha 1: setas + data */}
         <div className="flex items-center justify-between gap-2">

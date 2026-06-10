@@ -18,7 +18,6 @@ import {
   UserCog,
   Zap,
   Phone,
-  CalendarCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -61,7 +60,6 @@ import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
 import { OverviewMetrics } from '@/components/secretaria-ia/OverviewMetrics';
 import { KnowledgeShortcuts } from '@/components/secretaria-ia/KnowledgeShortcuts';
 import { AutomationsPanel } from '@/components/secretaria-ia/AutomationsPanel';
-import { AiAppointmentRequestsPanel } from '@/components/secretaria-ia/AiAppointmentRequestsPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
@@ -844,11 +842,6 @@ export default function SecretariaIA() {
                 <span className="hidden sm:inline">Automações</span>
                 <span className="sm:hidden">Auto</span>
               </TabsTrigger>
-              <TabsTrigger value="pedidos" className="gap-1.5">
-                <CalendarCheck className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Pedidos de agendamento</span>
-                <span className="sm:hidden">Pedidos</span>
-              </TabsTrigger>
               <TabsTrigger value="transferencia" className="gap-1.5">
                 <UserCog className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Transferência</span>
@@ -1087,10 +1080,6 @@ export default function SecretariaIA() {
               <AutomationsPanel clinicId={currentClinicId ?? null} />
             </TabsContent>
 
-            {/* Pedidos de agendamento criados pela IA — gestor aprova/rejeita */}
-            <TabsContent value="pedidos" className="space-y-4">
-              <AiAppointmentRequestsPanel />
-            </TabsContent>
 
             {/* Transferência para atendente humano */}
             <TabsContent value="transferencia" className="space-y-4">
