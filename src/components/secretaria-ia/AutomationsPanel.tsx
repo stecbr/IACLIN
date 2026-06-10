@@ -34,65 +34,79 @@ interface AutomationRecord {
   trigger_keywords?: string;
   target_phone?: string;
   return_after_days?: number;
+  image_url?: string;
 }
 
+// `defaultMessage` é o texto PRONTO que a clínica recebe já preenchido — ela não
+// precisa escrever nada, só ligar. Pode personalizar depois (botão "Personalizar").
 const AUTOMATION_DEFS: Array<{
   type: AutomationType;
   title: string;
   description: string;
   icon: typeof Bell;
-  placeholder: string;
+  defaultMessage: string;
 }> = [
   {
     type: 'appointment_reminder',
     title: 'Lembrete de consulta',
     description: 'Enviado automaticamente 24h antes da consulta',
     icon: Bell,
-    placeholder: 'Olá {patient_name}, lembrete da sua consulta em {date} às {time}.',
+    defaultMessage: 'Olá {patient_name}, lembrete da sua consulta em {date} às {time}.',
   },
   {
     type: 'confirmation',
     title: 'Confirmação de agendamento',
     description: 'Enviado logo após o agendamento ser criado',
     icon: CheckCircle2,
-    placeholder: 'Olá {patient_name}, sua consulta foi agendada para {date} às {time}.',
+    defaultMessage: 'Olá {patient_name}, sua consulta foi agendada para {date} às {time}.',
   },
   {
     type: 'return',
     title: 'Mensagem de retorno',
     description: 'Enviado X dias após a última consulta',
     icon: RotateCcw,
-    placeholder: 'Olá {patient_name}, já faz um tempo desde sua última visita. Que tal agendar um retorno?',
+    defaultMessage: 'Olá {patient_name}, já faz um tempo desde sua última visita à {clinic_name}. Que tal agendar um retorno?',
   },
   {
     type: 'reschedule',
     title: 'Reagendamento',
     description: 'Enviado quando uma consulta é cancelada',
     icon: CalendarClock,
-    placeholder: 'Olá {patient_name}, sua consulta foi cancelada. Quer reagendar?',
+    defaultMessage: 'Olá {patient_name}, sua consulta foi cancelada. Quer reagendar?',
   },
   {
     type: 'escalate',
     title: 'Escalada para humano',
     description: 'Enviado quando a IA não consegue resolver',
     icon: UserCog,
-    placeholder: 'Vou te transferir para um de nossos atendentes. Aguarde só um momento.',
+    defaultMessage: 'Vou te transferir para um de nossos atendentes. Aguarde só um momento.',
   },
   {
     type: 'birthday',
     title: 'Feliz aniversário',
     description: 'Enviado no dia do aniversário do paciente (de manhã)',
     icon: Cake,
-    placeholder: 'Olá {patient_name}, a equipe da {clinic_name} deseja um feliz aniversário! 🎉',
+    defaultMessage: 'Olá {patient_name}, a equipe da {clinic_name} deseja um feliz aniversário! 🎉',
   },
   {
     type: 'nps',
     title: 'Pesquisa de satisfação (NPS)',
     description: 'Enviado algumas horas após a consulta realizada',
     icon: Star,
-    placeholder: 'Olá {patient_name}, como foi seu atendimento hoje? De 0 a 10, o quanto você recomendaria a {clinic_name}?',
+    defaultMessage: 'Olá {patient_name}, como foi seu atendimento hoje? De 0 a 10, o quanto você recomendaria a {clinic_name}?',
   },
 ];
+
+// Exemplo renderizado p/ a prévia "como o paciente recebe" (sem mostrar {}).
+function renderPreview(message: string, clinicName: string): string {
+  return (message || '')
+    .replace(/\{patient_name\}/g, 'Maria')
+    .replace(/\{date\}/g, '10/06/2026')
+    .replace(/\{time\}/g, '10:00')
+    .replace(/\{doctor\}/g, 'Dr. Carlos')
+    .replace(/\{procedure\}/g, 'Limpeza')
+    .replace(/\{clinic_name\}/g, clinicName || 'sua clínica');
+}
 
 function normalize(payload: unknown): AutomationRecord[] {
   const arr = Array.isArray(payload)
@@ -108,6 +122,7 @@ function normalize(payload: unknown): AutomationRecord[] {
     trigger_keywords: a.trigger_keywords ?? '',
     target_phone: a.target_phone ?? '',
     return_after_days: a.return_after_days ?? 180,
+    image_url: a.image_url ?? a.media_url ?? '',
   }));
 }
 
@@ -171,11 +186,8 @@ export function AutomationsPanel({ clinicId }: Props) {
       <div className="space-y-1">
         <h2 className="text-base font-semibold">Automações de WhatsApp</h2>
         <p className="text-xs text-muted-foreground">
-          Ative as automações que deseja usar e personalize a mensagem enviada ao paciente.
-          Use variáveis como{' '}
-          <code className="rounded bg-muted px-1">{'{patient_name}'}</code>,{' '}
-          <code className="rounded bg-muted px-1">{'{date}'}</code> e{' '}
-          <code className="rounded bg-muted px-1">{'{time}'}</code>.
+          Cada automação já vem com uma mensagem pronta. É só ativar — não precisa escrever nada.
+          Se quiser, clique em <span className="font-medium">Personalizar mensagem</span> para editar.
         </p>
       </div>
 
@@ -234,14 +246,30 @@ const AUTOMATION_DATA_REQUIREMENTS: Record<AutomationType, Array<'phone' | 'birt
 
 function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps) {
   const Icon = def.icon;
+  const isEscalate = def.type === 'escalate';
+  const isReturn = def.type === 'return';
+  const isBirthday = def.type === 'birthday';
+  // Mensagem começa com a versão PRONTA (default) quando ainda não há salva.
+  const initialMessage = record?.message?.trim() ? record.message : def.defaultMessage;
   const [active, setActive] = useState<boolean>(record?.active ?? false);
-  const [message, setMessage] = useState<string>(record?.message ?? '');
+  const [message, setMessage] = useState<string>(initialMessage);
+  const [imageUrl, setImageUrl] = useState<string>(record?.image_url ?? '');
   const [triggerKeywords, setTriggerKeywords] = useState<string>(record?.trigger_keywords ?? '');
   const [targetPhone, setTargetPhone] = useState<string>(record?.target_phone ?? '');
   const [returnDays, setReturnDays] = useState<string>(String((record as any)?.return_after_days ?? 180));
   const [testPhone, setTestPhone] = useState<string>('');
-  const isEscalate = def.type === 'escalate';
-  const isReturn = def.type === 'return';
+  // Editor de texto fica ESCONDIDO por padrão — fluxo comum é só ligar.
+  const [editing, setEditing] = useState<boolean>(false);
+
+  // Nome da clínica para a prévia "como o paciente recebe".
+  const { data: clinicName = '' } = useQuery({
+    queryKey: ['clinic-name', clinicId],
+    enabled: !!clinicId,
+    queryFn: async () => {
+      const { data } = await supabase.from('clinics').select('name').eq('id', clinicId).maybeSingle();
+      return (data as any)?.name ?? '';
+    },
+  });
 
   // Avisos de dados faltando: só relevantes quando a automação está ativa e há
   // pacientes cadastrados. Mostra quantos ficarão de fora por falta de dado.
@@ -269,11 +297,12 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
 
   useEffect(() => {
     setActive(record?.active ?? false);
-    setMessage(record?.message ?? '');
+    setMessage(record?.message?.trim() ? record.message : def.defaultMessage);
+    setImageUrl(record?.image_url ?? '');
     setTriggerKeywords(record?.trigger_keywords ?? '');
     setTargetPhone(record?.target_phone ?? '');
     setReturnDays(String((record as any)?.return_after_days ?? 180));
-  }, [record?.id, record?.active, record?.message, record?.trigger_keywords, record?.target_phone]);
+  }, [record?.id, record?.active, record?.message, record?.image_url, record?.trigger_keywords, record?.target_phone, def.defaultMessage]);
 
   const testMutation = useMutation({
     mutationFn: async () => {
@@ -291,12 +320,13 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
   const dirty = useMemo(
     () =>
       (record?.active ?? false) !== active ||
-      (record?.message ?? '') !== message ||
+      (record?.message?.trim() ? record.message : def.defaultMessage) !== message ||
+      (isBirthday && (record?.image_url ?? '') !== imageUrl) ||
       (isReturn && String((record as any)?.return_after_days ?? 180) !== returnDays) ||
       (isEscalate &&
         ((record?.trigger_keywords ?? '') !== triggerKeywords ||
           (record?.target_phone ?? '') !== targetPhone)),
-    [record, active, message, triggerKeywords, targetPhone, returnDays, isEscalate, isReturn],
+    [record, active, message, imageUrl, triggerKeywords, targetPhone, returnDays, isEscalate, isReturn, isBirthday, def.defaultMessage],
   );
 
   const saveMutation = useMutation({
@@ -308,6 +338,9 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
       }
       if (isReturn) {
         payload.return_after_days = Number(returnDays) || 180;
+      }
+      if (isBirthday) {
+        payload.image_url = imageUrl || null;
       }
       if (record?.id) {
         return aiBackend.updateAutomation(clinicId, record.id, payload);
@@ -358,16 +391,80 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label className="text-xs">Mensagem</Label>
-          <Textarea
-            rows={4}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={def.placeholder}
-            disabled={!active}
-            className="resize-none text-sm"
-          />
+        {/* Mensagem: prévia pronta + edição opcional (escondida por padrão) */}
+        <div className="space-y-2">
+          {/* Prévia "como o paciente recebe" — sem mostrar {} */}
+          <div className={cn('rounded-lg border p-2.5', active ? 'bg-primary/5 border-primary/20' : 'bg-muted/40')}>
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Como o paciente recebe
+            </p>
+            <p className="text-sm leading-snug text-foreground/90">
+              {renderPreview(message, clinicName)}
+            </p>
+          </div>
+
+          {/* Aniversário: anexar imagem (cartão) */}
+          {isBirthday && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Imagem do cartão (opcional)</Label>
+              {imageUrl ? (
+                <div className="flex items-center gap-2">
+                  <img src={imageUrl} alt="Cartão" className="h-14 w-14 rounded-md object-cover border" />
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setImageUrl('')} disabled={!active}>
+                    Remover
+                  </Button>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="Cole a URL da imagem (ex: https://...)"
+                  disabled={!active}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              )}
+              <p className="text-[11px] text-muted-foreground">A imagem é enviada junto com a mensagem de parabéns.</p>
+            </div>
+          )}
+
+          {/* Botão para revelar o editor — fluxo comum nem abre */}
+          {!editing ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={!active}
+              className="text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+            >
+              Personalizar mensagem
+            </button>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Editar mensagem</Label>
+                <button
+                  type="button"
+                  onClick={() => { setMessage(def.defaultMessage); }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  Restaurar padrão
+                </button>
+              </div>
+              <Textarea
+                rows={4}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                disabled={!active}
+                className="resize-none text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Você pode usar: <code className="rounded bg-muted px-1">{'{patient_name}'}</code>{' '}
+                <code className="rounded bg-muted px-1">{'{date}'}</code>{' '}
+                <code className="rounded bg-muted px-1">{'{time}'}</code>{' '}
+                <code className="rounded bg-muted px-1">{'{clinic_name}'}</code> — serão preenchidos automaticamente.
+              </p>
+            </div>
+          )}
         </div>
 
         {isEscalate && (
