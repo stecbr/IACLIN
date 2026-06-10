@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { usePatientData } from '@/hooks/usePatientData';
 import { ShareMyChartDialog } from '@/components/patient/ShareMyChartDialog';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { CitySelect } from '@/components/address/CitySelect';
 
 const sections = [
   { id: 'profile',    label: 'Perfil',      icon: User },
@@ -462,7 +463,15 @@ function ProfileSection() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Cidade</Label>
-              <Input value={form.city} onChange={(e) => set('city', e.target.value)} />
+              <CitySelect
+                uf={form.state}
+                value={form.city}
+                onChange={(city, uf) => {
+                  set('city', city);
+                  if (uf) set('state', uf);
+                }}
+                placeholder={form.state ? 'Selecione…' : 'UF primeiro'}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Estado</Label>
