@@ -21,6 +21,7 @@ import {
   CalendarDays,
   FolderHeart,
   ChevronDown,
+  MessageSquare,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -425,6 +426,25 @@ export function AppSidebar() {
     </SidebarMenuItem>
   );
 
+  const chamadosItem = (
+    <SidebarMenuItem key="chamados">
+      <SidebarMenuButton asChild isActive={isActive('/chamados')} tooltip="Chamados">
+        <NavLink
+          to="/chamados"
+          className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+            isActive('/chamados')
+              ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]'
+              : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
+          }`}
+          activeClassName=""
+        >
+          <MessageSquare className={`h-4 w-4 flex-shrink-0 transition-colors ${isActive('/chamados') ? 'text-primary' : ''}`} />
+          {!collapsed && <span className="flex-1">Chamados</span>}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+
   const faturamentoItem = (
     <SidebarMenuItem key="faturamento">
       <SidebarMenuButton disabled tooltip="Faturamento (em breve)">
@@ -672,6 +692,15 @@ export function AppSidebar() {
               </NavSection>
             )}
           </>
+        )}
+
+        {/* SUPORTE */}
+        {(isDentist || isAdmin) && (
+          <NavSection id="suporte" label="Suporte" collapsed={collapsed} defaultOpen={false}>
+            <SidebarMenu>
+              {chamadosItem}
+            </SidebarMenu>
+          </NavSection>
         )}
 
         {/* Configurações — sempre no fundo */}

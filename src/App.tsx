@@ -60,6 +60,8 @@ import OperatorSettings from "./pages/operadora/OperatorSettings";
 import OperatorAttendances from "./pages/operadora/OperatorAttendances";
 import OperatorBilling from "./pages/operadora/OperatorBilling";
 import OperatorInvites from "./pages/operadora/OperatorInvites";
+import OperatorTickets from "./pages/operadora/OperatorTickets";
+import SupportTickets from "./pages/SupportTickets";
 import { SuperAdminLayout } from "./components/superadmin/SuperAdminLayout";
 import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
@@ -250,9 +252,11 @@ const AppRoutes = () => (
       <Route path="agenda" element={<OperatorAgenda />} />
       <Route path="atendimentos" element={<OperatorAttendances />} />
       <Route path="faturamento" element={<OperatorBilling />} />
+      <Route path="chamados" element={<OperatorTickets />} />
       <Route path="configuracoes" element={<OperatorSettings />} />
     </Route>
     <Route path="/" element={<HomeRoute />} />
+    <Route path="/chamados" element={<ProtectedRoute><SupportTickets /></ProtectedRoute>} />
     <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
     <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
     <Route path="/minha-agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />

@@ -1,0 +1,762 @@
+import { useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Loader2,
+  Plus,
+  Paperclip,
+  Send,
+  ChevronRight,
+  MessageSquareDot,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Ticket {
+  id: string;
+  subject: string;
+  status: 'pending_owner' | 'open' | 'answered' | 'closed';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  clinic_id: string | null;
+  operator_id: string | null;
+  forwarded_by: string | null;
+  forwarded_at: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  support_ticket_attachments: TicketAttachment[];
+}
+
+interface TicketAttachment {
+  id: string;
+  file_url: string;
+  file_name: string;
+  file_type: string | null;
+  file_size: number | null;
+}
+
+interface Operator {
+  id: string;
+  name: string;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_owner: 'Aguardando clínica',
+  open: 'Aguardando operadora',
+  answered: 'Respondido',
+  closed: 'Fechado',
+};
+
+const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+  pending_owner: 'secondary',
+  open: 'default',
+  answered: 'outline',
+  closed: 'destructive',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Baixa',
+  normal: 'Normal',
+  high: 'Alta',
+  urgent: 'Urgente',
+};
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function SupportTickets() {
+  const { user, currentClinicId, isClinicOwner } = useAuth();
+  const qc = useQueryClient();
+
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [tab, setTab] = useState<'mine' | 'clinic'>('mine');
+
+  const { data: myTickets = [], isLoading } = useQuery({
+    queryKey: ['my-tickets', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('created_by', user!.id)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data as Ticket[];
+    },
+  });
+
+  const { data: clinicTickets = [] } = useQuery({
+    queryKey: ['clinic-tickets', currentClinicId],
+    enabled: !!currentClinicId && !!isClinicOwner,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('clinic_id', currentClinicId!)
+        .eq('status', 'pending_owner')
+        .neq('created_by', user!.id)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data as Ticket[];
+    },
+  });
+
+  const { data: operators = [] } = useQuery({
+    queryKey: ['operators-list'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('insurance_operators')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      return (data ?? []) as Operator[];
+    },
+  });
+
+  const displayTickets = tab === 'mine' ? myTickets : clinicTickets;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Chamados</h1>
+          <p className="text-sm text-muted-foreground">
+            Envie dúvidas e solicitações às operadoras de saúde
+          </p>
+        </div>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Chamado
+        </Button>
+      </div>
+
+      {isClinicOwner && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTab('mine')}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'mine'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Meus chamados
+          </button>
+          <button
+            onClick={() => setTab('clinic')}
+            className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'clinic'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Da clínica
+            {clinicTickets.length > 0 && (
+              <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                {clinicTickets.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : displayTickets.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            <MessageSquareDot className="h-10 w-10 text-muted-foreground/30" />
+            <p className="font-medium text-muted-foreground">Nenhum chamado encontrado</p>
+            <p className="text-sm text-muted-foreground">
+              Clique em "Novo Chamado" para iniciar uma conversa com a operadora
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {displayTickets.map((t) => (
+            <button key={t.id} onClick={() => setSelectedTicket(t)} className="w-full text-left">
+              <Card className="hover:shadow-md transition-shadow">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
+                      {t.priority !== 'normal' && (
+                        <Badge variant="outline" className="text-xs">
+                          {PRIORITY_LABELS[t.priority]}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="font-medium truncate">{t.subject}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Atualizado{' '}
+                      {format(parseISO(t.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showCreate && (
+        <CreateTicketDialog
+          operators={operators}
+          currentClinicId={currentClinicId}
+          userId={user!.id}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false);
+            qc.invalidateQueries({ queryKey: ['my-tickets'] });
+          }}
+        />
+      )}
+
+      {selectedTicket && (
+        <TicketDetailDialog
+          ticket={selectedTicket}
+          userId={user!.id}
+          isClinicOwner={isClinicOwner}
+          operators={operators}
+          onClose={() => setSelectedTicket(null)}
+          onUpdated={(updated) => {
+            setSelectedTicket(updated);
+            qc.invalidateQueries({ queryKey: ['my-tickets'] });
+            qc.invalidateQueries({ queryKey: ['clinic-tickets'] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Create Dialog ─────────────────────────────────────────────────────────────
+
+function CreateTicketDialog({
+  operators,
+  currentClinicId,
+  userId,
+  onClose,
+  onCreated,
+}: {
+  operators: Operator[];
+  currentClinicId: string | null;
+  userId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
+  const [operatorId, setOperatorId] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const isSolo = !currentClinicId;
+
+  const handleSubmit = async () => {
+    if (!subject.trim()) { toast.error('Informe o assunto'); return; }
+    if (!body.trim()) { toast.error('Descreva sua solicitação'); return; }
+    if (isSolo && !operatorId) { toast.error('Selecione a operadora'); return; }
+
+    setSaving(true);
+    try {
+      const { data: ticket, error: tErr } = await supabase
+        .from('support_tickets')
+        .insert({
+          subject: subject.trim(),
+          status: isSolo ? 'open' : 'pending_owner',
+          priority,
+          created_by: userId,
+          clinic_id: currentClinicId ?? null,
+          operator_id: isSolo ? operatorId : null,
+        })
+        .select()
+        .single();
+      if (tErr) throw tErr;
+
+      const { data: msg, error: mErr } = await supabase
+        .from('support_ticket_messages')
+        .insert({ ticket_id: ticket.id, sender_id: userId, content: body.trim() })
+        .select()
+        .single();
+      if (mErr) throw mErr;
+
+      for (const file of files) {
+        const path = `tickets/${ticket.id}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file);
+        if (upErr) continue;
+        const { data: urlData } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+        await supabase.from('support_ticket_attachments').insert({
+          message_id: msg.id,
+          file_url: urlData.publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        });
+      }
+
+      toast.success('Chamado aberto com sucesso');
+      onCreated();
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao criar chamado');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Novo Chamado</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Assunto</Label>
+            <Input
+              placeholder="Resumo do chamado"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            />
+          </div>
+
+          <div className={`grid gap-3 ${isSolo ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className="space-y-1.5">
+              <Label>Prioridade</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Baixa</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="urgent">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {isSolo && (
+              <div className="space-y-1.5">
+                <Label>Operadora</Label>
+                <Select value={operatorId} onValueChange={setOperatorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operators.map((op) => (
+                      <SelectItem key={op.id} value={op.id}>
+                        {op.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {!isSolo && (
+            <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+              Este chamado será enviado ao dono da clínica para encaminhar à operadora.
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Descrição</Label>
+            <Textarea
+              placeholder="Descreva sua dúvida ou solicitação em detalhes..."
+              rows={4}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Anexos (opcional)</Label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+              <Paperclip className="h-4 w-4" />
+              <span>
+                {files.length > 0
+                  ? `${files.length} arquivo(s) selecionado(s)`
+                  : 'Clique para selecionar PDFs ou imagens'}
+              </span>
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf"
+                className="sr-only"
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+              />
+            </label>
+            {files.length > 0 && (
+              <div className="space-y-1">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="ml-2 rounded p-0.5 text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Abrir chamado
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Detail Dialog ─────────────────────────────────────────────────────────────
+
+function TicketDetailDialog({
+  ticket,
+  userId,
+  isClinicOwner,
+  operators,
+  onClose,
+  onUpdated,
+}: {
+  ticket: Ticket;
+  userId: string;
+  isClinicOwner: boolean;
+  operators: Operator[];
+  onClose: () => void;
+  onUpdated: (t: Ticket) => void;
+}) {
+  const [reply, setReply] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [sending, setSending] = useState(false);
+  const [forwarding, setForwarding] = useState(false);
+  const [forwardOpId, setForwardOpId] = useState('');
+  const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: messages = [], refetch } = useQuery({
+    queryKey: ['ticket-messages', ticket.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('support_ticket_messages')
+        .select('*, support_ticket_attachments(*)')
+        .eq('ticket_id', ticket.id)
+        .order('created_at');
+      if (error) throw error;
+      return data as TicketMessage[];
+    },
+  });
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const senderIds = [...new Set(messages.map((m) => m.sender_id))];
+    supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', senderIds)
+      .then(({ data }) => {
+        const map = new Map((data ?? []).map((p) => [p.id, p.full_name ?? 'Usuário']));
+        setProfileNames(map);
+      });
+  }, [messages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!reply.trim() && files.length === 0) return;
+    setSending(true);
+    try {
+      const { data: msg, error } = await supabase
+        .from('support_ticket_messages')
+        .insert({
+          ticket_id: ticket.id,
+          sender_id: userId,
+          content: reply.trim() || '(anexo)',
+        })
+        .select()
+        .single();
+      if (error) throw error;
+
+      for (const file of files) {
+        const path = `tickets/${ticket.id}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file);
+        if (upErr) continue;
+        const { data: urlData } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+        await supabase.from('support_ticket_attachments').insert({
+          message_id: msg.id,
+          file_url: urlData.publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        });
+      }
+
+      if (ticket.status === 'answered') {
+        await supabase.from('support_tickets').update({ status: 'open' }).eq('id', ticket.id);
+        onUpdated({ ...ticket, status: 'open' });
+      }
+
+      setReply('');
+      setFiles([]);
+      refetch();
+      toast.success('Mensagem enviada');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao enviar mensagem');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleForward = async () => {
+    if (!forwardOpId) { toast.error('Selecione a operadora'); return; }
+    setForwarding(true);
+    try {
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({
+          operator_id: forwardOpId,
+          status: 'open',
+          forwarded_by: userId,
+          forwarded_at: new Date().toISOString(),
+        })
+        .eq('id', ticket.id);
+      if (error) throw error;
+      toast.success('Chamado encaminhado para a operadora');
+      onUpdated({ ...ticket, status: 'open', operator_id: forwardOpId, forwarded_by: userId });
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao encaminhar');
+    } finally {
+      setForwarding(false);
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    try {
+      await supabase.from('support_tickets').update({ status: 'closed' }).eq('id', ticket.id);
+      onUpdated({ ...ticket, status: 'closed' });
+      toast.success('Chamado encerrado');
+    } catch {
+      toast.error('Erro ao encerrar chamado');
+    }
+  };
+
+  const isClosed = ticket.status === 'closed';
+  const canForward = isClinicOwner && ticket.status === 'pending_owner';
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 p-0">
+        {/* Header */}
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <div className="flex items-start justify-between gap-3 pr-6">
+            <DialogTitle className="text-base leading-tight">{ticket.subject}</DialogTitle>
+            <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
+              {STATUS_LABELS[ticket.status]}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Aberto em{' '}
+            {format(parseISO(ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </p>
+        </DialogHeader>
+
+        {/* Forward panel (clinic owner only) */}
+        {canForward && (
+          <div className="mx-6 mt-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20 p-3 space-y-2">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Encaminhar para operadora
+            </p>
+            <div className="flex gap-2">
+              <Select value={forwardOpId} onValueChange={setForwardOpId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Selecione a operadora" />
+                </SelectTrigger>
+                <SelectContent>
+                  {operators.map((op) => (
+                    <SelectItem key={op.id} value={op.id}>
+                      {op.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={handleForward} disabled={forwarding}>
+                {forwarding && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                Encaminhar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto space-y-3 px-6 py-4 min-h-[180px] max-h-[400px]">
+          {messages.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-8">
+              Nenhuma mensagem ainda.
+            </p>
+          )}
+          {messages.map((msg) => {
+            const isMe = msg.sender_id === userId;
+            const senderName = isMe ? 'Você' : (profileNames.get(msg.sender_id) ?? 'Usuário');
+            return (
+              <div key={msg.id} className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                    {senderName.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div
+                  className={`max-w-[75%] space-y-1 flex flex-col ${
+                    isMe ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  <div
+                    className={`rounded-2xl px-3 py-2 text-sm ${
+                      isMe
+                        ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                        : 'bg-muted rounded-tl-sm'
+                    }`}
+                  >
+                    <p className="text-[10px] font-medium mb-1 opacity-70">{senderName}</p>
+                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  </div>
+                  {msg.support_ticket_attachments?.map((att) => (
+                    <a
+                      key={att.id}
+                      href={att.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                    >
+                      <Paperclip className="h-3 w-3" />
+                      {att.file_name}
+                    </a>
+                  ))}
+                  <span className="text-[10px] text-muted-foreground">
+                    {format(parseISO(msg.created_at), 'HH:mm', { locale: ptBR })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Reply area */}
+        <div className="border-t px-6 py-4 space-y-2">
+          {isClosed ? (
+            <p className="text-center text-sm text-muted-foreground">Este chamado está encerrado.</p>
+          ) : (
+            <>
+              <Textarea
+                placeholder="Escreva uma mensagem... (Enter para enviar, Shift+Enter para nova linha)"
+                rows={2}
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer text-muted-foreground hover:text-primary transition-colors">
+                    <Paperclip className="h-4 w-4" />
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf"
+                      className="sr-only"
+                      onChange={(e) =>
+                        setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])
+                      }
+                    />
+                  </label>
+                  {files.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{files.length} anexo(s)</span>
+                  )}
+                  {ticket.created_by === userId && (
+                    <button
+                      type="button"
+                      onClick={handleCloseTicket}
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      Encerrar chamado
+                    </button>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSend}
+                  disabled={sending || (!reply.trim() && files.length === 0)}
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

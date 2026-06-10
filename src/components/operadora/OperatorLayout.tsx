@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   Wallet,
   ShieldCheck,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
@@ -56,6 +57,12 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/operadora/atendimentos', label: 'Confirmações', icon: ClipboardCheck },
       { to: '/operadora/faturamento', label: 'Faturamento', icon: Wallet },
+    ],
+  },
+  {
+    label: 'Suporte',
+    items: [
+      { to: '/operadora/chamados', label: 'Chamados', icon: MessageSquare },
     ],
   },
   {
