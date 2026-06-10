@@ -551,7 +551,15 @@ export function PatientFormDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Cidade</Label>
-              <Input value={form.city} onChange={(e) => update('city', e.target.value)} />
+              <CitySelect
+                uf={form.state}
+                value={form.city}
+                onChange={(city, uf) => {
+                  update('city', city);
+                  if (uf) update('state', uf);
+                }}
+                placeholder={form.state ? 'Selecione…' : 'UF primeiro'}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Estado</Label>
