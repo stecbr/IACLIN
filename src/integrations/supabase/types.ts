@@ -407,6 +407,44 @@ export type Database = {
           },
         ]
       }
+      clinic_documents: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          doc_type: string
+          file_name: string | null
+          file_path: string
+          id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          doc_type: string
+          file_name?: string | null
+          file_path: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          doc_type?: string
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_documents_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_invites: {
         Row: {
           accepted_at: string | null
@@ -837,24 +875,38 @@ export type Database = {
           address: string | null
           address_complement: string | null
           address_number: string | null
+          bank_account: string | null
+          bank_account_type: string | null
+          bank_agency: string | null
+          bank_holder_document: string | null
+          bank_name: string | null
+          birth_date: string | null
           business_hours: Json | null
           category: Database["public"]["Enums"]["clinic_category"]
           category_label: string | null
           city: string | null
+          cnes: string | null
           cnpj: string | null
+          cpf: string | null
           created_at: string
           email: string | null
+          entity_type: string
           hide_iaclin_logo: boolean
           id: string
+          inss_pis: string | null
           invite_code: string | null
           legal_name: string | null
           logo_url: string | null
+          municipal_registration: string | null
           name: string
           neighborhood: string | null
           owner_id: string | null
           phone: string | null
           responsible_name: string | null
+          rg: string | null
+          specialty_certificate: string | null
           state: string | null
+          state_registration: string | null
           updated_at: string
           zip_code: string | null
         }
@@ -862,24 +914,38 @@ export type Database = {
           address?: string | null
           address_complement?: string | null
           address_number?: string | null
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_holder_document?: string | null
+          bank_name?: string | null
+          birth_date?: string | null
           business_hours?: Json | null
           category?: Database["public"]["Enums"]["clinic_category"]
           category_label?: string | null
           city?: string | null
+          cnes?: string | null
           cnpj?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
+          entity_type?: string
           hide_iaclin_logo?: boolean
           id?: string
+          inss_pis?: string | null
           invite_code?: string | null
           legal_name?: string | null
           logo_url?: string | null
+          municipal_registration?: string | null
           name: string
           neighborhood?: string | null
           owner_id?: string | null
           phone?: string | null
           responsible_name?: string | null
+          rg?: string | null
+          specialty_certificate?: string | null
           state?: string | null
+          state_registration?: string | null
           updated_at?: string
           zip_code?: string | null
         }
@@ -887,24 +953,38 @@ export type Database = {
           address?: string | null
           address_complement?: string | null
           address_number?: string | null
+          bank_account?: string | null
+          bank_account_type?: string | null
+          bank_agency?: string | null
+          bank_holder_document?: string | null
+          bank_name?: string | null
+          birth_date?: string | null
           business_hours?: Json | null
           category?: Database["public"]["Enums"]["clinic_category"]
           category_label?: string | null
           city?: string | null
+          cnes?: string | null
           cnpj?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
+          entity_type?: string
           hide_iaclin_logo?: boolean
           id?: string
+          inss_pis?: string | null
           invite_code?: string | null
           legal_name?: string | null
           logo_url?: string | null
+          municipal_registration?: string | null
           name?: string
           neighborhood?: string | null
           owner_id?: string | null
           phone?: string | null
           responsible_name?: string | null
+          rg?: string | null
+          specialty_certificate?: string | null
           state?: string | null
+          state_registration?: string | null
           updated_at?: string
           zip_code?: string | null
         }
