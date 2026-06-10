@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Send, MessageCircle } from 'lucide-react';
+import { Search, Send, MessageCircle, X, Mail, Phone, MapPin } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { geocodeAddress } from '@/lib/geocode';
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -18,6 +21,11 @@ type ClinicSearchRow = {
   state: string | null;
   phone: string | null;
   email: string | null;
+  logo_url: string | null;
+  address: string | null;
+  address_number: string | null;
+  neighborhood: string | null;
+  zip_code: string | null;
   professionals_count: number;
   professionals: Array<{
     user_id: string;
@@ -73,7 +81,7 @@ export default function OperatorProfessionals() {
         const [{ data: clinics }, { data: profiles }, { data: specs }] = await Promise.all([
           supabase
             .from('clinics')
-            .select('id, name, city, state, cnpj, phone, email, category')
+            .select('id, name, city, state, cnpj, phone, email, category, logo_url, address, address_number, neighborhood, zip_code')
             .in('id', clinicIds),
           supabase
             .from('profiles')
@@ -126,6 +134,11 @@ export default function OperatorProfessionals() {
             state: clinic.state ?? null,
             phone: clinic.phone ?? null,
             email: clinic.email ?? null,
+            logo_url: clinic.logo_url ?? null,
+            address: clinic.address ?? null,
+            address_number: clinic.address_number ?? null,
+            neighborhood: clinic.neighborhood ?? null,
+            zip_code: clinic.zip_code ?? null,
             professionals_count: professionals.length,
             professionals,
             specialties: allSpecs,
