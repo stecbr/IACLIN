@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Loader2, Search, Check, MapPin, User as UserIcon } from 'lucide-react';
+import { Building2, Loader2, Search, Check, MapPin, User as UserIcon, FileText, Landmark, Upload, X, ArrowLeft } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,14 @@ function formatCnpj(value: string) {
     .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/\.(\d{3})(\d)/, '.$1/$2')
     .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+function formatCpf(value: string) {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
 function formatCep(value: string) {
