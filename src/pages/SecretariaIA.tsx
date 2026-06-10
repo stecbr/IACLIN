@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -268,6 +269,61 @@ function buildPromptFromSections(sections: SectionsState): string {
     .join('\n\n');
 }
 
+// ─── Ajustes rápidos (toggles práticos → texto no prompt) ──────────────────────
+type ToneOption = 'formal' | 'acolhedor' | 'descontraido';
+type LengthOption = 'curta' | 'media';
+interface QuickSettings {
+  tone: ToneOption;
+  length: LengthOption;
+  emojis: boolean;
+  assistantName: string;
+}
+const DEFAULT_QUICK: QuickSettings = {
+  tone: 'acolhedor',
+  length: 'curta',
+  emojis: false,
+  assistantName: '',
+};
+
+const TONE_TEXT: Record<ToneOption, string> = {
+  formal: 'Use um tom formal e profissional.',
+  acolhedor: 'Use um tom acolhedor e gentil.',
+  descontraido: 'Use um tom leve e descontraído.',
+};
+const LENGTH_TEXT: Record<LengthOption, string> = {
+  curta: 'Respostas muito curtas, 1 a 2 frases.',
+  media: 'Respostas objetivas, até 3 ou 4 frases quando necessário.',
+};
+
+// Gera o bloco AJUSTES RÁPIDOS que vai dentro do custom_prompt (backend já lê).
+function buildQuickSettingsText(q: QuickSettings): string {
+  const lines = [
+    TONE_TEXT[q.tone],
+    LENGTH_TEXT[q.length],
+    q.emojis ? 'Pode usar emojis com moderação.' : 'Não use emojis.',
+  ];
+  if (q.assistantName.trim()) {
+    lines.push(`Apresente-se como ${q.assistantName.trim()}.`);
+  }
+  return `AJUSTES RÁPIDOS:\n${lines.map((l) => `- ${l}`).join('\n')}`;
+}
+
+// Reconstrói os toggles a partir do texto salvo (parse de volta ao reabrir).
+function parseQuickSettings(raw: string): QuickSettings {
+  const q: QuickSettings = { ...DEFAULT_QUICK };
+  if (!raw) return q;
+  const block = raw.match(/AJUSTES R[ÁA]PIDOS:\s*([\s\S]*?)(?:\n\n[A-ZÇÃ]|$)/i)?.[1] ?? '';
+  if (/tom formal/i.test(block)) q.tone = 'formal';
+  else if (/tom leve|descontra/i.test(block)) q.tone = 'descontraido';
+  else if (/tom acolhedor/i.test(block)) q.tone = 'acolhedor';
+  if (/at[ée] 3|4 frases|objetivas/i.test(block)) q.length = 'media';
+  else if (/muito curtas|1 a 2/i.test(block)) q.length = 'curta';
+  q.emojis = /pode usar emojis/i.test(block);
+  const nameMatch = block.match(/Apresente-se como ([^\n.]+)/i);
+  if (nameMatch) q.assistantName = nameMatch[1].trim();
+  return q;
+}
+
 export default function SecretariaIA() {
   const { currentClinicId } = useAuth();
   const aiCtx = useAiContext();
@@ -298,6 +354,10 @@ export default function SecretariaIA() {
   const [savedPersonality, setSavedPersonality] = useState<string>('');
   const [sections, setSections] = useState<SectionsState>(EMPTY_SECTIONS);
   const [savedSections, setSavedSections] = useState<SectionsState>(EMPTY_SECTIONS);
+  // Ajustes rápidos: toggles práticos que viram instruções no prompt (sem o
+  // usuário escrever nada). Defaults: tom acolhedor, resposta curta, sem emoji.
+  const [quick, setQuick] = useState<QuickSettings>(DEFAULT_QUICK);
+  const [savedQuick, setSavedQuick] = useState<QuickSettings>(DEFAULT_QUICK);
 
   useEffect(() => {
     if (config) {
@@ -310,6 +370,9 @@ export default function SecretariaIA() {
       setSavedSections(parsed);
       setPersonality(parsedPersonality);
       setSavedPersonality(parsedPersonality);
+      const q = parseQuickSettings(p);
+      setQuick(q);
+      setSavedQuick(q);
     }
   }, [config]);
 
@@ -324,12 +387,15 @@ export default function SecretariaIA() {
   const builtPrompt = (() => {
     const base = buildPromptFromSections(sections);
     const opt = PERSONALITY_OPTIONS.find((o) => o.value === personality);
-    return opt ? `${base}${opt.template}` : base;
+    const withPersonality = opt ? `${base}${opt.template}` : base;
+    const quickText = buildQuickSettingsText(quick);
+    return quickText ? `${withPersonality}\n\n${quickText}` : withPersonality;
   })();
 
   const isDirty =
     JSON.stringify(sections) !== JSON.stringify(savedSections) ||
-    personality !== savedPersonality;
+    personality !== savedPersonality ||
+    JSON.stringify(quick) !== JSON.stringify(savedQuick);
 
   const saveConfig = useMutation({
     mutationFn: async (vars: { custom_prompt: string; enabled: boolean }) => {
@@ -367,6 +433,7 @@ export default function SecretariaIA() {
       setPrompt(vars.custom_prompt);
       setSavedSections(sections);
       setSavedPersonality(personality);
+      setSavedQuick(quick);
       qc.invalidateQueries({ queryKey: ['ai-secretary-config'] });
       // Sincroniza com o backend externo da Secretária IA — fire-and-forget
       // Phase 1.0: só dispara para clínica (backend externo ainda não conhece tenants profissionais).
@@ -835,6 +902,72 @@ export default function SecretariaIA() {
               <Skeleton className="h-[420px] w-full" />
             ) : (
               <div className="space-y-4">
+                {/* Ajustes rápidos — prontos, sem precisar escrever prompt */}
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4">
+                  <div>
+                    <p className="text-sm font-semibold">Ajustes rápidos</p>
+                    <p className="text-xs text-muted-foreground">Configure o jeito da IA falar em segundos — sem escrever nada.</p>
+                  </div>
+
+                  {/* Tom de voz */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tom de voz</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {([['acolhedor', 'Acolhedor'], ['formal', 'Formal'], ['descontraido', 'Descontraído']] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setQuick((q) => ({ ...q, tone: val }))}
+                          className={cn(
+                            'rounded-full border px-3 py-1 text-xs transition-colors',
+                            quick.tone === val ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tamanho da resposta */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tamanho da resposta</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {([['curta', 'Curta'], ['media', 'Média']] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setQuick((q) => ({ ...q, length: val }))}
+                          className={cn(
+                            'rounded-full border px-3 py-1 text-xs transition-colors',
+                            quick.length === val ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Emojis */}
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Usar emojis nas mensagens</Label>
+                    <Switch checked={quick.emojis} onCheckedChange={(v) => setQuick((q) => ({ ...q, emojis: v }))} />
+                  </div>
+
+                  {/* Nome da assistente */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Nome da assistente (opcional)</Label>
+                    <input
+                      type="text"
+                      value={quick.assistantName}
+                      onChange={(e) => setQuick((q) => ({ ...q, assistantName: e.target.value }))}
+                      placeholder="Ex: Sofia"
+                      className="flex h-9 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    />
+                  </div>
+                </div>
+
                 {/* Personalidade */}
                 <div className="grid gap-2 sm:grid-cols-[180px_1fr] sm:items-center">
                   <Label htmlFor="personality" className="text-sm">
