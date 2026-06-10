@@ -18,6 +18,8 @@ interface ClinicGeoData {
   clinicId: string;
   clinicName: string;
   address?: string | null;
+  addressNumber?: string | null;
+  neighborhood?: string | null;
   city?: string | null;
   state?: string | null;
   zipCode?: string | null;
@@ -267,7 +269,14 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
       (async () => {
         const results = await Promise.allSettled(
           clinics.map((clinic) =>
-            geocodeAddress(clinic.address, clinic.city, clinic.state, clinic.zipCode).then((coords) => ({
+          geocodeAddress(
+            clinic.address,
+            clinic.city,
+            clinic.state,
+            clinic.zipCode,
+            clinic.addressNumber,
+            clinic.neighborhood,
+          ).then((coords) => ({
               clinicId: clinic.clinicId,
               clinicName: clinic.clinicName,
               coords,
