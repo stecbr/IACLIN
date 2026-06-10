@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Image, FileText, Trash2, Download, X } from 'lucide-react';
+import { Upload, Image, FileText, Trash2, Download, X, Eye } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -183,6 +183,9 @@ export function PatientDocuments({ patientId }: Props) {
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPreview(doc)}>
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadDoc(doc)}>
                         <Download className="h-3.5 w-3.5" />
                       </Button>
