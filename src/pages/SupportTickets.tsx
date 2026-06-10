@@ -307,22 +307,31 @@ function CreateTicketDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [selectedPreset, setSelectedPreset] = useState('');
-  const [customSubject, setCustomSubject] = useState('');
+  const [subject, setSubject] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [body, setBody] = useState('');
-  const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [operatorId, setOperatorId] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
 
   const isSolo = !currentClinicId;
-  const isOutro = selectedPreset === 'outro';
-  const preset = PRESET_SUBJECTS.find((s) => s.id === selectedPreset);
-  const finalSubject = isOutro ? customSubject.trim() : preset?.label ?? '';
+  const matchedPreset = PRESET_SUBJECTS.find(
+    (s) => s.label.toLowerCase() === subject.trim().toLowerCase()
+  );
+
+  const suggestions = PRESET_SUBJECTS.filter(
+    (s) => !subject || s.label.toLowerCase().includes(subject.toLowerCase())
+  );
+
+  const handleSelectSuggestion = (label: string) => {
+    setSubject(label);
+    setShowSuggestions(false);
+    subjectInputRef.current?.blur();
+  };
 
   const handleSubmit = async () => {
-    if (!selectedPreset) { toast.error('Selecione o assunto do chamado'); return; }
-    if (isOutro && !customSubject.trim()) { toast.error('Descreva o assunto'); return; }
+    if (!subject.trim()) { toast.error('Informe o assunto do chamado'); return; }
     if (!body.trim()) { toast.error('Descreva sua solicitação'); return; }
     if (isSolo && !operatorId) { toast.error('Selecione a operadora'); return; }
 
@@ -331,9 +340,8 @@ function CreateTicketDialog({
       const { data: ticket, error: tErr } = await supabase
         .from('support_tickets')
         .insert({
-          subject: finalSubject,
+          subject: subject.trim(),
           status: isSolo ? 'open' : 'pending_owner',
-          priority,
           created_by: userId,
           clinic_id: currentClinicId ?? null,
           operator_id: isSolo ? operatorId : null,
@@ -372,221 +380,189 @@ function CreateTicketDialog({
     }
   };
 
-  const canSubmit =
-    !!selectedPreset &&
-    !!body.trim() &&
-    (!isSolo || !!operatorId) &&
-    (!isOutro || !!customSubject.trim());
+  const canSubmit = !!subject.trim() && !!body.trim() && (!isSolo || !!operatorId);
 
   return (
     <Dialog open onOpenChange={onClose}>
-      {/* wide modal — close to Pipefy proportions */}
-      <DialogContent className="w-[95vw] max-w-5xl max-h-[92vh] flex flex-col gap-0 p-0 overflow-hidden">
-
-        {/* ── Header ── */}
-        <div className="px-8 pt-7 pb-5 border-b shrink-0">
-          <DialogTitle className="text-xl font-semibold">Novo Chamado</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Selecione o assunto e descreva sua solicitação à operadora
+      <DialogContent className="w-[92vw] max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl">Novo Chamado</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Descreva sua solicitação à operadora de saúde
           </p>
-        </div>
+        </DialogHeader>
 
-        {/* ── Body — two-column layout ── */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="space-y-5 py-1">
 
-          {/* LEFT — assunto + configurações */}
-          <div className="w-[42%] shrink-0 border-r flex flex-col overflow-y-auto px-7 py-6 space-y-6 bg-muted/20">
-
-            {/* Assunto chips */}
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Assunto <span className="text-destructive normal-case">*</span>
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {PRESET_SUBJECTS.map((s) => {
-                  const Icon = s.icon;
-                  const active = selectedPreset === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPreset(s.id);
-                        if (s.id !== 'outro') setCustomSubject('');
-                      }}
-                      className={`group flex items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 text-left transition-all hover:shadow-sm ${
-                        active
-                          ? `${s.bg} border-current`
-                          : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30'
-                      }`}
-                    >
-                      <Icon className={`h-4 w-4 shrink-0 ${active ? s.color : 'text-muted-foreground group-hover:text-primary'}`} />
-                      <span className={`text-xs font-medium leading-tight ${active ? s.color : 'text-foreground'}`}>
-                        {s.label}
-                      </span>
-                    </button>
-                  );
-                })}
+          {/* ── Assunto com autocomplete ── */}
+          <div className="space-y-1.5">
+            <Label>
+              Assunto <span className="text-destructive">*</span>
+            </Label>
+            <div className="relative">
+              <div className="relative flex items-center">
+                {matchedPreset && (
+                  <matchedPreset.icon className={`absolute left-3 h-4 w-4 shrink-0 ${matchedPreset.color}`} />
+                )}
+                <Input
+                  ref={subjectInputRef}
+                  placeholder="Digite ou selecione o assunto..."
+                  value={subject}
+                  className={matchedPreset ? 'pl-9' : ''}
+                  onChange={(e) => {
+                    setSubject(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  autoComplete="off"
+                />
+                {subject && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => { setSubject(''); setShowSuggestions(true); subjectInputRef.current?.focus(); }}
+                    className="absolute right-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
-              {/* Custom subject for "Outro" */}
-              {isOutro && (
-                <div className="space-y-1.5 pt-1">
-                  <Label className="text-xs text-muted-foreground">Qual é o assunto?</Label>
-                  <Input
-                    autoFocus
-                    placeholder="Descreva brevemente o assunto"
-                    value={customSubject}
-                    onChange={(e) => setCustomSubject(e.target.value)}
-                  />
+              {/* Dropdown de sugestões */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border bg-popover shadow-lg overflow-hidden">
+                  {suggestions.map((s) => {
+                    const Icon = s.icon;
+                    const isSelected = subject === s.label;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onMouseDown={() => handleSelectSuggestion(s.label)}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors hover:bg-muted ${
+                          isSelected ? 'bg-muted/60' : ''
+                        }`}
+                      >
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${s.bg}`}>
+                          <Icon className={`h-3.5 w-3.5 ${s.color}`} />
+                        </span>
+                        <span className="font-medium">{s.label}</span>
+                        {isSelected && (
+                          <span className="ml-auto text-xs text-primary">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Divisor */}
-            <div className="border-t" />
-
-            {/* Prioridade */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Prioridade
-              </p>
-              <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
-                <SelectTrigger className="bg-card">
-                  <SelectValue />
+          {/* ── Operadora (solo) ou aviso ── */}
+          {isSolo ? (
+            <div className="space-y-1.5">
+              <Label>
+                Operadora <span className="text-destructive">*</span>
+              </Label>
+              <Select value={operatorId} onValueChange={setOperatorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a operadora" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">🔵 Baixa</SelectItem>
-                  <SelectItem value="normal">🟢 Normal</SelectItem>
-                  <SelectItem value="high">🟠 Alta</SelectItem>
-                  <SelectItem value="urgent">🔴 Urgente</SelectItem>
+                  {operators.map((op) => (
+                    <SelectItem key={op.id} value={op.id}>
+                      {op.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+              <Info className="h-3.5 w-3.5 shrink-0" />
+              <span>Este chamado será enviado ao dono da clínica para encaminhar à operadora.</span>
+            </div>
+          )}
 
-            {/* Operadora ou info */}
-            {isSolo ? (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Operadora <span className="text-destructive normal-case">*</span>
+          {/* ── Descrição ── */}
+          <div className="space-y-1.5">
+            <Label>
+              Descrição <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              placeholder={
+                subject
+                  ? `Descreva com detalhes sua solicitação sobre "${subject}"...\n\nInclua informações como: número do paciente, data do procedimento, código TUSS, protocolo, etc.`
+                  : 'Informe o assunto acima e descreva sua solicitação em detalhes...'
+              }
+              rows={5}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
+
+          {/* ── Anexos ── */}
+          <div className="space-y-2">
+            <Label>
+              Anexos{' '}
+              <span className="font-normal text-muted-foreground text-xs">(opcional)</span>
+            </Label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5">
+              <Paperclip className="h-4 w-4 shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium truncate">
+                  {files.length > 0
+                    ? `${files.length} arquivo(s) selecionado(s)`
+                    : 'Clique para anexar arquivos'}
                 </p>
-                <Select value={operatorId} onValueChange={setOperatorId}>
-                  <SelectTrigger className="bg-card">
-                    <SelectValue placeholder="Selecione a operadora" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operators.map((op) => (
-                      <SelectItem key={op.id} value={op.id}>
-                        {op.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <p className="text-xs text-muted-foreground/70">PDFs, imagens, Word</p>
               </div>
-            ) : (
-              <div className="flex items-start gap-2 rounded-lg border bg-card px-3 py-2.5 text-xs text-muted-foreground">
-                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>Este chamado será enviado ao dono da clínica, que o encaminhará à operadora.</span>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT — descrição + anexos */}
-          <div className="flex-1 flex flex-col overflow-y-auto px-7 py-6 space-y-5">
-
-            {/* Preview do assunto selecionado */}
-            {selectedPreset && (
-              <div className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 ${preset?.bg ?? 'bg-muted/40 border-border'}`}>
-                {preset && <preset.icon className={`h-4 w-4 shrink-0 ${preset.color}`} />}
-                <span className={`text-sm font-medium ${preset?.color ?? 'text-foreground'}`}>
-                  {isOutro ? (customSubject || 'Outro — preencha o assunto ao lado') : preset?.label}
-                </span>
-              </div>
-            )}
-
-            {/* Descrição */}
-            <div className="flex flex-col flex-1 space-y-1.5">
-              <Label className="text-sm font-medium">
-                Descrição <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                className="flex-1 min-h-[200px] resize-none"
-                placeholder={
-                  selectedPreset
-                    ? `Descreva com detalhes sua solicitação sobre "${isOutro ? (customSubject || 'Outro') : preset?.label}".\n\nIncua informações como: número do paciente, data do procedimento, código TUSS, protocolo, etc.`
-                    : 'Selecione o assunto ao lado e depois descreva sua solicitação...'
-                }
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                className="sr-only"
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
-            </div>
-
-            {/* Anexos */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Anexos <span className="text-muted-foreground font-normal text-xs">(opcional)</span>
-              </Label>
-              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border-2 border-dashed p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5">
-                <Paperclip className="h-5 w-5 shrink-0" />
-                <div>
-                  <p className="font-medium">
-                    {files.length > 0
-                      ? `${files.length} arquivo(s) selecionado(s)`
-                      : 'Clique para anexar arquivos'}
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">PDFs, imagens, Word — até 10MB cada</p>
-                </div>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx"
-                  className="sr-only"
-                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-                />
-              </label>
-              {files.length > 0 && (
-                <div className="space-y-1 rounded-xl border bg-muted/30 p-2">
-                  {files.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/50">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Paperclip className="h-3 w-3 shrink-0" />
-                        <span className="truncate font-medium">{f.name}</span>
-                        <span className="shrink-0 text-muted-foreground/60">
-                          ({(f.size / 1024).toFixed(0)} KB)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                        className="ml-2 shrink-0 rounded p-0.5 text-destructive hover:bg-destructive/10"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+            </label>
+            {files.length > 0 && (
+              <div className="space-y-1 rounded-lg border bg-muted/30 p-2">
+                {files.map((f, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Paperclip className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                      <span className="shrink-0 text-muted-foreground/60">
+                        ({(f.size / 1024).toFixed(0)} KB)
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <button
+                      type="button"
+                      onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="ml-2 shrink-0 rounded p-0.5 text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div className="flex items-center justify-between gap-3 border-t px-8 py-4 shrink-0 bg-card">
-          <p className="text-xs text-muted-foreground">
-            {canSubmit
-              ? `Pronto para enviar: "${isOutro ? customSubject : preset?.label}"`
-              : 'Preencha os campos obrigatórios para continuar'}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={saving || !canSubmit}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Abrir chamado
-            </Button>
-          </div>
-        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={saving || !canSubmit}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Abrir chamado
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
