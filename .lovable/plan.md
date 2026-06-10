@@ -1,34 +1,126 @@
-## Objetivo
-1. Corrigir o erro "Could not find the 'address' column of 'profiles'" ao salvar o perfil (o formulário tenta gravar endereço, mas a tabela `profiles` não tem essas colunas).
-2. Fazer com que o pino no mapa (marketplace e tela inicial) apareça no endereço exato da rua/número da clínica, e não só no centro da cidade.
+# Cadastro de Clínica: Pessoa Física vs Jurídica + Kit Credenciamento
 
-## O que será feito
+Vamos transformar o fluxo "Cadastrar minha clínica" em dois caminhos, espelhando o Kit Credenciamento das imagens (Servdonto). O profissional escolhe se vai se cadastrar como **Pessoa Física** (autônomo, usa CPF) ou **Pessoa Jurídica** (clínica/empresa, usa CNPJ), e os campos/documentos solicitados mudam conforme o tipo.
 
-### 1. Backend — adicionar campos de endereço ao perfil
-Migração para acrescentar à tabela `profiles` as colunas:
-- `address` (logradouro), `address_number`, `address_complement`, `neighborhood`, `city`, `state`, `zip_code`
+## 1. Escolha do tipo no início do cadastro
 
-Isso destrava o salvamento do perfil que já tenta gravar esses campos.
+No diálogo "Cadastrar minha clínica" (`RegisterClinicDialog.tsx`), antes dos campos atuais, dois cards grandes:
 
-### 2. Geocodificação mais precisa
-Atualizar `src/lib/geocode.ts` para aceitar e usar também **número** e **bairro**, montando a busca estruturada no Nominatim com `street = "{logradouro}, {número}"` e `suburb = bairro`. Manter fallback atual (texto livre → cidade/estado) só quando a busca exata falhar, garantindo que o pino caia no endereço quando os dados estiverem completos.
+- **Pessoa Física** — Profissional autônomo, consultório individual no seu próprio CPF.
+- **Pessoa Jurídica** — Clínica/empresa formalizada com CNPJ.
 
-### 3. Passar os campos completos para o mapa
-- `src/components/marketplace/MarketplaceMap.tsx`: incluir `address_number` e `neighborhood` no objeto `ClinicGeoData` e repassar à função de geocode.
-- `src/pages/Marketplace.tsx` e `src/components/landing/MarketplaceSection.tsx`: ao montar a lista de clínicas para o mapa, ler os novos campos do registro de `clinics` e passar adiante.
-- Atualizar o texto do endereço mostrado no `DoctorCard` para incluir número/bairro quando existirem (ex.: "Rua 2, 37 — Canindezinho").
+A escolha controla quais blocos aparecem abaixo.
 
-### 4. Cache invalidado
-Como a chave do cache do geocode já é a concatenação dos campos, ao incluir número/bairro a chave muda automaticamente e novas buscas serão feitas — sem necessidade de limpar nada manualmente.
+## 2. Campos por tipo
 
-## Fora do escopo
-- Não alteramos a lógica do `ClinicsMapWidget` do superadmin (continua por cidade/estado, que é o desejado para visão macro).
-- Não mexemos em agenda, slots, RLS ou lógica de negócios.
+### Pessoa Física (novo fluxo)
+Dados pessoais
+- Nome completo *
+- CPF *
+- RG
+- Data de nascimento
+- Telefone *
+- E-mail *
 
-## Arquivos afetados
-- Nova migração em `supabase/migrations/`
-- `src/lib/geocode.ts`
-- `src/components/marketplace/MarketplaceMap.tsx`
-- `src/pages/Marketplace.tsx`
-- `src/components/landing/MarketplaceSection.tsx`
-- `src/components/marketplace/DoctorCard.tsx` (apenas exibição do endereço)
+Dados profissionais (kit credenciamento PF)
+- CRO/CRM do profissional * (já existe via specialty)
+- Número INSS / NIS / PIS
+- Inscrição Estadual e Municipal (opcional)
+- Certificado de especialização (se houver)
+- CNES do estabelecimento de saúde
+
+Endereço do consultório (já existe)
+- CEP, logradouro, número, complemento, bairro, cidade, UF
+
+Dados bancários (PF)
+- Banco, agência, conta, tipo (corrente/poupança), CPF do titular
+
+Documentos / Anexos (upload)
+- Foto da clínica (várias)
+- Alvará de funcionamento
+- Licença sanitária
+- Comprovante CNES
+- Certificado de especialização
+
+### Pessoa Jurídica (fluxo atual + extras do kit PJ)
+Dados da empresa (já existe + ajustes)
+- CNPJ *, Razão Social *, Nome fantasia *, Telefone *, Categoria *
+- Inscrição Estadual, Inscrição Municipal
+- CNES da clínica
+
+Responsável legal (já existe)
+- Nome completo *, CPF *, RG, cargo
+
+Endereço (já existe)
+
+Dados bancários (PJ)
+- Banco, agência, conta, CNPJ do titular
+
+Documentos / Anexos (upload)
+- Cartão CNPJ
+- Contrato Social ou Requerimento Empresarial
+- Alvará de funcionamento
+- Licença sanitária
+- CRO/CRM da clínica (responsável técnico)
+- Fotos da clínica
+- Certificado de especialização (se houver)
+
+## 3. Backend — schema
+
+Migration adicionando em `public.clinics`:
+
+- `entity_type` text NOT NULL DEFAULT 'juridica' — 'fisica' | 'juridica'
+- `cpf` text — usado no fluxo PF
+- `rg` text
+- `birth_date` date
+- `inss_pis` text — PF
+- `state_registration` text — IE
+- `municipal_registration` text — IM
+- `cnes` text — Cadastro Nacional de Estabelecimento de Saúde
+- `specialty_certificate` text — número/identificação
+- `bank_name` text, `bank_agency` text, `bank_account` text, `bank_account_type` text, `bank_holder_document` text
+
+Tabela nova `public.clinic_documents` para anexos:
+- `clinic_id` uuid → clinics(id)
+- `doc_type` text (ex.: 'alvara', 'licenca_sanitaria', 'cartao_cnpj', 'contrato_social', 'foto_clinica', 'cnes', 'cro_clinica', 'especializacao')
+- `file_path` text (caminho no bucket `clinic-documents`)
+- `file_name` text
+- `uploaded_by` uuid
+
+RLS: leitura/escrita restritas a `is_clinic_admin(clinic_id)`; `service_role` total. GRANTs explícitos para `authenticated` e `service_role`.
+
+Bucket novo `clinic-documents` (privado) com policies por `clinic_id` no path.
+
+## 4. Edge function
+
+Atualizar `create-own-clinic` para aceitar todos os novos campos (entity_type, cpf, rg, birth_date, inss_pis, IE/IM, CNES, dados bancários). Validar: PF exige CPF, PJ exige CNPJ.
+
+## 5. Frontend
+
+- `RegisterClinicDialog.tsx`: reestruturado com `entityType` state, dois cards iniciais, blocos condicionais, seção de upload de documentos (drag-drop por tipo).
+- Após criar a clínica, fazer upload dos arquivos para `clinic-documents/{clinic_id}/{doc_type}/...` e inserir linhas em `clinic_documents`.
+- `ClinicaCredentialings.tsx` / `MyCredentialingSection.tsx`: ao solicitar credenciamento mostrar progresso "Documentos do Kit Credenciamento" — checklist PF ou PJ baseado em `clinics.entity_type`, marcando o que já está anexado. Pendências bloqueiam envio à operadora.
+- `OperatorSettings.tsx` (lado operadora): nada muda agora além de exibir `entity_type` da clínica e link para baixar documentos via URL assinada.
+
+## 6. Fora de escopo
+
+- Sem alteração no marketplace, agenda, financeiro ou onboarding inicial (o onboarding continua mínimo; o cadastro completo PF/PJ é o que o profissional faz pelo botão "Cadastrar minha clínica").
+- Sem integração real com API da Receita / SERPRO para validar CPF/CNPJ (mantém só máscara + checksum cliente).
+
+## Detalhes técnicos resumidos
+
+```text
+clinics
+ ├─ entity_type ('fisica' | 'juridica')   ← novo
+ ├─ cpf, rg, birth_date, inss_pis         ← PF
+ ├─ state_registration, municipal_registration, cnes
+ ├─ specialty_certificate
+ └─ bank_* (5 colunas)
+
+clinic_documents (nova)
+ └─ clinic_id, doc_type, file_path, file_name, uploaded_by
+
+storage bucket: clinic-documents (privado)
+```
+
+Posso seguir com a migration + ajustes em `RegisterClinicDialog`, `create-own-clinic` e a seção de credenciamento?

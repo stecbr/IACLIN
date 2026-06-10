@@ -50,6 +50,21 @@ Deno.serve(async (req) => {
       city?: string;
       state?: string;
       zip_code?: string;
+      entity_type?: 'fisica' | 'juridica';
+      cpf?: string | null;
+      rg?: string | null;
+      birth_date?: string | null;
+      inss_pis?: string | null;
+      state_registration?: string | null;
+      municipal_registration?: string | null;
+      cnes?: string | null;
+      specialty_certificate?: string | null;
+      bank_name?: string | null;
+      bank_agency?: string | null;
+      bank_account?: string | null;
+      bank_account_type?: string | null;
+      bank_holder_document?: string | null;
+      email?: string | null;
     } = {};
     try {
       body = await req.json();
@@ -124,6 +139,20 @@ Deno.serve(async (req) => {
         city: body.city ?? null,
         state: body.state ?? null,
         zip_code: body.zip_code ?? null,
+        entity_type: body.entity_type ?? 'juridica',
+        cpf: body.cpf ?? null,
+        rg: body.rg ?? null,
+        birth_date: body.birth_date ?? null,
+        inss_pis: body.inss_pis ?? null,
+        state_registration: body.state_registration ?? null,
+        municipal_registration: body.municipal_registration ?? null,
+        cnes: body.cnes ?? null,
+        specialty_certificate: body.specialty_certificate ?? null,
+        bank_name: body.bank_name ?? null,
+        bank_agency: body.bank_agency ?? null,
+        bank_account: body.bank_account ?? null,
+        bank_account_type: body.bank_account_type ?? null,
+        bank_holder_document: body.bank_holder_document ?? null,
       })
       .select("id, name")
       .single();

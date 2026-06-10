@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Loader2, Search, Check, MapPin, User as UserIcon } from 'lucide-react';
+import { Building2, Loader2, Search, Check, MapPin, User as UserIcon, FileText, Landmark, Upload, X, ArrowLeft } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,14 @@ function formatCnpj(value: string) {
     .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/\.(\d{3})(\d)/, '.$1/$2')
     .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+function formatCpf(value: string) {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
 function formatCep(value: string) {
@@ -81,6 +89,27 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
   const [categoryLabel, setCategoryLabel] = useState<string>('');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
+  // Tipo de pessoa
+  const [entityType, setEntityType] = useState<'fisica' | 'juridica' | null>(null);
+  // Pessoa Física
+  const [fullName, setFullName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [rg, setRg] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [inssPis, setInssPis] = useState('');
+  // Documentação adicional (PF e PJ)
+  const [stateRegistration, setStateRegistration] = useState('');
+  const [municipalRegistration, setMunicipalRegistration] = useState('');
+  const [cnes, setCnes] = useState('');
+  const [specialtyCertificate, setSpecialtyCertificate] = useState('');
+  // Banco
+  const [bankName, setBankName] = useState('');
+  const [bankAgency, setBankAgency] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankAccountType, setBankAccountType] = useState<'corrente' | 'poupanca'>('corrente');
+  const [bankHolderDocument, setBankHolderDocument] = useState('');
+  // Anexos (kit credenciamento)
+  const [docFiles, setDocFiles] = useState<Record<string, File[]>>({});
   // Address
   const [zipCode, setZipCode] = useState('');
   const [address, setAddress] = useState('');
@@ -97,6 +126,11 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
 
   useEffect(() => {
     if (!open) {
+      setEntityType(null);
+      setFullName(''); setCpf(''); setRg(''); setBirthDate(''); setInssPis('');
+      setStateRegistration(''); setMunicipalRegistration(''); setCnes(''); setSpecialtyCertificate('');
+      setBankName(''); setBankAgency(''); setBankAccount(''); setBankAccountType('corrente'); setBankHolderDocument('');
+      setDocFiles({});
       setCnpj(''); setLegalName(''); setTradeName(''); setResponsibleName('');
       setPhone(''); setCategory(defaultCategory);
       setCategoryLabel(''); setCategoryQuery('');
@@ -172,11 +206,20 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
   }, [zipCode]);
 
   const handleSubmit = async () => {
-    if (cnpj.replace(/\D/g, '').length !== 14) {
-      toast.error('CNPJ deve ter 14 dígitos'); return;
+    if (!entityType) {
+      toast.error('Escolha Pessoa Física ou Jurídica'); return;
     }
-    if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
-      toast.error('Preencha todos os campos obrigatórios'); return;
+    if (entityType === 'juridica') {
+      if (cnpj.replace(/\D/g, '').length !== 14) {
+        toast.error('CNPJ deve ter 14 dígitos'); return;
+      }
+      if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
+        toast.error('Preencha todos os campos obrigatórios'); return;
+      }
+    } else {
+      if (!fullName.trim()) { toast.error('Informe o nome completo'); return; }
+      if (cpf.replace(/\D/g, '').length !== 11) { toast.error('CPF deve ter 11 dígitos'); return; }
+      if (!phone.trim()) { toast.error('Informe o telefone'); return; }
     }
     if (!zipCode.trim() || !address.trim() || !addressNumber.trim() || !city.trim() || !state.trim()) {
       toast.error('Preencha o endereço completo da clínica'); return;
@@ -184,14 +227,15 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
     setSubmitting(true);
     try {
       const fullAddress = `${address.trim()}, ${addressNumber.trim()}${addressComplement ? ` - ${addressComplement.trim()}` : ''}${neighborhood ? ` - ${neighborhood.trim()}` : ''}`;
+      const isPF = entityType === 'fisica';
       const { data, error } = await supabase.functions.invoke('create-own-clinic', {
         body: {
-          name: tradeName.trim(),
-          legal_name: legalName.trim(),
-          trade_name: tradeName.trim(),
-          cnpj: cnpj.replace(/\D/g, ''),
+          name: isPF ? fullName.trim() : tradeName.trim(),
+          legal_name: isPF ? null : legalName.trim(),
+          trade_name: isPF ? fullName.trim() : tradeName.trim(),
+          cnpj: isPF ? null : cnpj.replace(/\D/g, ''),
           phone: phone.trim(),
-          responsible_name: responsibleName.trim(),
+          responsible_name: isPF ? fullName.trim() : responsibleName.trim(),
           category,
           category_label: category === 'outro' ? categoryLabel.trim() || null : null,
           address: fullAddress,
@@ -201,11 +245,50 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
           city: city.trim(),
           state: state.trim().toUpperCase(),
           zip_code: zipCode.replace(/\D/g, ''),
+          entity_type: entityType,
+          cpf: isPF ? cpf.replace(/\D/g, '') : null,
+          rg: isPF ? (rg.trim() || null) : null,
+          birth_date: isPF ? (birthDate || null) : null,
+          inss_pis: isPF ? (inssPis.trim() || null) : null,
+          state_registration: stateRegistration.trim() || null,
+          municipal_registration: municipalRegistration.trim() || null,
+          cnes: cnes.trim() || null,
+          specialty_certificate: specialtyCertificate.trim() || null,
+          bank_name: bankName.trim() || null,
+          bank_agency: bankAgency.trim() || null,
+          bank_account: bankAccount.trim() || null,
+          bank_account_type: bankAccount.trim() ? bankAccountType : null,
+          bank_holder_document: bankHolderDocument.replace(/\D/g, '') || null,
         },
       });
       if (error || (data && data.error)) {
         toast.error((data && data.error) || error?.message || 'Falha ao cadastrar clínica.');
         return;
+      }
+      const clinicId = (data as any)?.clinic_id as string | undefined;
+      // Upload de documentos do kit credenciamento
+      if (clinicId) {
+        const uploads: Promise<unknown>[] = [];
+        for (const [docType, files] of Object.entries(docFiles)) {
+          for (const file of files) {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const path = `${clinicId}/${docType}/${Date.now()}-${safeName}`;
+            uploads.push((async () => {
+              const up = await supabase.storage.from('clinic-documents').upload(path, file, { upsert: false });
+              if (!up.error) {
+                await supabase.from('clinic_documents' as any).insert({
+                  clinic_id: clinicId,
+                  doc_type: docType,
+                  file_path: path,
+                  file_name: file.name,
+                });
+              }
+            })());
+          }
+        }
+        if (uploads.length) {
+          await Promise.allSettled(uploads);
+        }
       }
       toast.success('Clínica cadastrada!');
       await refreshClinics();
@@ -238,7 +321,76 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
-          {/* Dados da Empresa */}
+          {/* Tipo de pessoa */}
+          {!entityType ? (
+            <section className="space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Como você vai se cadastrar?
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <button type="button" onClick={() => setEntityType('fisica')}
+                  className="rounded-xl border bg-card p-5 text-left hover:border-primary transition-colors">
+                  <UserIcon className="h-6 w-6 text-primary mb-2" />
+                  <div className="font-semibold">Pessoa Física</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Profissional autônomo / consultório individual com CPF.
+                  </p>
+                </button>
+                <button type="button" onClick={() => setEntityType('juridica')}
+                  className="rounded-xl border bg-card p-5 text-left hover:border-primary transition-colors">
+                  <Building2 className="h-6 w-6 text-primary mb-2" />
+                  <div className="font-semibold">Pessoa Jurídica</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Clínica / empresa formalizada com CNPJ.
+                  </p>
+                </button>
+              </div>
+            </section>
+          ) : (<>
+          <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              Cadastro como <strong>{entityType === 'fisica' ? 'Pessoa Física (CPF)' : 'Pessoa Jurídica (CNPJ)'}</strong>
+            </span>
+            <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEntityType(null)}>
+              <ArrowLeft className="h-3 w-3" /> Trocar
+            </Button>
+          </div>
+
+          {entityType === 'fisica' && (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <UserIcon className="h-3.5 w-3.5" /> Dados pessoais
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="rc-fn">Nome completo *</Label>
+                  <Input id="rc-fn" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. João Silva" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-cpf">CPF *</Label>
+                  <Input id="rc-cpf" value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-rg">RG</Label>
+                  <Input id="rc-rg" value={rg} onChange={(e) => setRg(e.target.value)} placeholder="00.000.000-0" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-bd">Data de nascimento</Label>
+                  <Input id="rc-bd" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-inss">INSS / NIS / PIS</Label>
+                  <Input id="rc-inss" value={inssPis} onChange={(e) => setInssPis(e.target.value)} placeholder="Número do INSS, NIS ou PIS" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-phone-pf">Telefone *</Label>
+                  <Input id="rc-phone-pf" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {entityType === 'juridica' && (
           <section className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Building2 className="h-3.5 w-3.5" /> Dados da empresa
@@ -337,6 +489,7 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
               </div>
             </div>
           </section>
+          )}
 
           {/* Endereço */}
           <section className="space-y-3">
@@ -379,14 +532,124 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
             </div>
           </section>
 
-          {/* Responsável */}
+          {entityType === 'juridica' && (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <UserIcon className="h-3.5 w-3.5" /> Responsável legal
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-resp">Nome completo do responsável *</Label>
+                <Input id="rc-resp" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Nome completo do responsável legal" />
+              </div>
+            </section>
+          )}
+
+          {/* Documentação do kit credenciamento */}
           <section className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <UserIcon className="h-3.5 w-3.5" /> Responsável legal
+              <FileText className="h-3.5 w-3.5" /> Documentação {entityType === 'fisica' ? '(Pessoa Física)' : '(Pessoa Jurídica)'}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rc-resp">Nome completo do responsável *</Label>
-              <Input id="rc-resp" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Nome completo do responsável legal" />
+            <div className="grid md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-ie">Inscrição Estadual</Label>
+                <Input id="rc-ie" value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-im">Inscrição Municipal</Label>
+                <Input id="rc-im" value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-cnes">CNES — Cadastro Nacional de Estabelecimento de Saúde</Label>
+                <Input id="rc-cnes" value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="0000000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-esp">Certificado de especialização (se houver)</Label>
+                <Input id="rc-esp" value={specialtyCertificate} onChange={(e) => setSpecialtyCertificate(e.target.value)} placeholder="Identificação / número" />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-3 pt-2">
+              {(entityType === 'fisica'
+                ? [
+                    { type: 'cro_dentista', label: 'CRO/CRM do profissional' },
+                    { type: 'alvara', label: 'Alvará de funcionamento' },
+                    { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+                    { type: 'cnes_doc', label: 'Comprovante CNES' },
+                    { type: 'fotos_clinica', label: 'Fotos da clínica' },
+                    { type: 'especializacao', label: 'Certificado de especialização' },
+                  ]
+                : [
+                    { type: 'cartao_cnpj', label: 'Cartão CNPJ' },
+                    { type: 'contrato_social', label: 'Contrato Social ou Requerimento Empresarial' },
+                    { type: 'cro_clinica', label: 'CRO/CRM da clínica (responsável técnico)' },
+                    { type: 'alvara', label: 'Alvará de funcionamento' },
+                    { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+                    { type: 'cnes_doc', label: 'Comprovante CNES' },
+                    { type: 'fotos_clinica', label: 'Fotos da clínica' },
+                    { type: 'especializacao', label: 'Certificado de especialização' },
+                  ]
+              ).map((d) => (
+                <div key={d.type} className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                  <Label className="text-xs font-medium">{d.label}</Label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Selecionar arquivo(s)</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        if (!files.length) return;
+                        setDocFiles((prev) => ({ ...prev, [d.type]: [...(prev[d.type] ?? []), ...files] }));
+                      }}
+                    />
+                  </label>
+                  {(docFiles[d.type] ?? []).map((f, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs bg-background rounded px-2 py-1">
+                      <span className="truncate">{f.name}</span>
+                      <button type="button" className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setDocFiles((prev) => ({ ...prev, [d.type]: (prev[d.type] ?? []).filter((_, idx) => idx !== i) }))}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Dados bancários */}
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Landmark className="h-3.5 w-3.5" /> Dados bancários {entityType === 'fisica' ? '(PF)' : '(PJ)'}
+            </div>
+            <div className="grid md:grid-cols-4 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="rc-bank">Banco</Label>
+                <Input id="rc-bank" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco do Brasil, Itaú..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-ag">Agência</Label>
+                <Input id="rc-ag" value={bankAgency} onChange={(e) => setBankAgency(e.target.value)} placeholder="0000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-acc">Conta</Label>
+                <Input id="rc-acc" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="00000-0" />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Tipo</Label>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={bankAccountType === 'corrente' ? 'default' : 'outline'} onClick={() => setBankAccountType('corrente')}>Corrente</Button>
+                  <Button type="button" size="sm" variant={bankAccountType === 'poupanca' ? 'default' : 'outline'} onClick={() => setBankAccountType('poupanca')}>Poupança</Button>
+                </div>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="rc-hd">{entityType === 'fisica' ? 'CPF do titular' : 'CNPJ do titular'}</Label>
+                <Input id="rc-hd" value={bankHolderDocument}
+                  onChange={(e) => setBankHolderDocument(entityType === 'fisica' ? formatCpf(e.target.value) : formatCnpj(e.target.value))}
+                  placeholder={entityType === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'} />
+              </div>
             </div>
           </section>
 
@@ -394,6 +657,7 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
             {submitting ? 'Cadastrando…' : 'Cadastrar clínica'}
           </Button>
+          </>)}
         </div>
       </DialogContent>
     </Dialog>
