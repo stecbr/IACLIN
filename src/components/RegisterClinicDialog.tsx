@@ -234,45 +234,11 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
           rg: isPF ? (rg.trim() || null) : null,
           birth_date: isPF ? (birthDate || null) : null,
           inss_pis: isPF ? (inssPis.trim() || null) : null,
-          state_registration: stateRegistration.trim() || null,
-          municipal_registration: municipalRegistration.trim() || null,
-          cnes: cnes.trim() || null,
-          specialty_certificate: specialtyCertificate.trim() || null,
-          bank_name: bankName.trim() || null,
-          bank_agency: bankAgency.trim() || null,
-          bank_account: bankAccount.trim() || null,
-          bank_account_type: bankAccount.trim() ? bankAccountType : null,
-          bank_holder_document: bankHolderDocument.replace(/\D/g, '') || null,
         },
       });
       if (error || (data && data.error)) {
         toast.error((data && data.error) || error?.message || 'Falha ao cadastrar clínica.');
         return;
-      }
-      const clinicId = (data as any)?.clinic_id as string | undefined;
-      // Upload de documentos do kit credenciamento
-      if (clinicId) {
-        const uploads: Promise<unknown>[] = [];
-        for (const [docType, files] of Object.entries(docFiles)) {
-          for (const file of files) {
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const path = `${clinicId}/${docType}/${Date.now()}-${safeName}`;
-            uploads.push((async () => {
-              const up = await supabase.storage.from('clinic-documents').upload(path, file, { upsert: false });
-              if (!up.error) {
-                await supabase.from('clinic_documents' as any).insert({
-                  clinic_id: clinicId,
-                  doc_type: docType,
-                  file_path: path,
-                  file_name: file.name,
-                });
-              }
-            })());
-          }
-        }
-        if (uploads.length) {
-          await Promise.allSettled(uploads);
-        }
       }
       toast.success('Clínica cadastrada!');
       await refreshClinics();
