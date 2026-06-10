@@ -645,7 +645,8 @@ function TicketDetailDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [forwarding, setForwarding] = useState(false);
-  const [forwardOpId, setForwardOpId] = useState('');
+  // Pre-populate with the operator already chosen by the doctor at ticket creation
+  const [forwardOpId, setForwardOpId] = useState(ticket.operator_id ?? '');
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -783,24 +784,31 @@ function TicketDetailDialog({
             <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
               Encaminhar para operadora
             </p>
-            <div className="flex gap-2">
-              <Select value={forwardOpId} onValueChange={setForwardOpId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Selecione a operadora" />
-                </SelectTrigger>
-                <SelectContent>
-                  {operators.map((op) => (
-                    <SelectItem key={op.id} value={op.id}>
-                      {op.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button size="sm" onClick={handleForward} disabled={forwarding}>
-                {forwarding && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
-                Encaminhar
-              </Button>
-            </div>
+            {operators.length === 0 ? (
+              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>Sua clínica não possui operadoras credenciadas para encaminhar este chamado.</span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select value={forwardOpId} onValueChange={setForwardOpId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione a operadora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {operators.map((op) => (
+                      <SelectItem key={op.id} value={op.id}>
+                        {op.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" onClick={handleForward} disabled={forwarding}>
+                  {forwarding && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                  Encaminhar
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

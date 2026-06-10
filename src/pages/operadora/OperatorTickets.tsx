@@ -129,7 +129,20 @@ export default function OperatorTickets() {
     },
   });
 
-  const openCount = tickets.filter((t) => t.status === 'open').length;
+  // Separate count so the badge stays accurate regardless of current filter
+  const { data: openCount = 0 } = useQuery({
+    queryKey: ['operator-tickets-open-count', operatorId],
+    enabled: !!operatorId,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('support_tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('operator_id', operatorId!)
+        .eq('status', 'open');
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
 
   const TABS: { value: StatusFilter; label: string }[] = [
     { value: 'open', label: 'Abertos' },
