@@ -212,8 +212,17 @@ export default function MyCredentialingSection() {
       setClinicZip((clinic as any)?.zip_code ?? '');
       setClinicResponsible((clinic as any)?.responsible_name ?? '');
       setSchedule(parseSchedule((clinic as any)?.business_hours));
+      // Detecção inteligente PF/PJ. Mesmo que o registro tenha entity_type='juridica'
+      // legado, se não houver CNPJ tratamos como PF (caso usuário corrija em Configurações).
       const rawEt = (clinic as any)?.entity_type as EntityType | null | undefined;
-      const et: EntityType = rawEt ?? ((clinic as any)?.cpf && !(clinic as any)?.cnpj ? 'fisica' : 'juridica');
+      const hasCnpj = !!(clinic as any)?.cnpj;
+      const hasCpf = !!(clinic as any)?.cpf;
+      const et: EntityType =
+        hasCpf && !hasCnpj
+          ? 'fisica'
+          : hasCnpj
+          ? 'juridica'
+          : rawEt ?? 'fisica';
       setEntityType(et);
 
       const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
