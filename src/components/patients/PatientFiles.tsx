@@ -30,10 +30,11 @@ import {
   Plus,
   Lock,
   Eye,
-  ImageOff,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getSignedFileUrl } from '@/lib/storageSignedUrl';
+import { SignedImage } from '@/components/patients/SignedImage';
 
 interface Props {
   patientId: string;
@@ -53,7 +54,6 @@ export function PatientFiles({ patientId }: Props) {
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
-  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<
     { type: 'file'; item: FileRow } | { type: 'folder'; item: FolderRow } | null
   >(null);
@@ -162,12 +162,10 @@ export function PatientFiles({ patientId }: Props) {
         const { error: uploadError } = await supabase.storage.from('patient-files').upload(path, file);
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage.from('patient-files').getPublicUrl(path);
-
         const { error: dbError } = await supabase.from('documents').insert({
           patient_id: patientId,
           name: file.name,
-          file_url: publicUrl,
+          file_url: path,
           file_type: file.type,
           category: categoryKey,
           uploaded_by: user.id,
@@ -184,11 +182,17 @@ export function PatientFiles({ patientId }: Props) {
     }
   };
 
+  const extractPath = (url: string) => {
+    const marker = '/patient-files/';
+    const idx = url.indexOf(marker);
+    return idx >= 0 ? url.slice(idx + marker.length).split('?')[0] : url;
+  };
+
   const handleDeleteFile = async (file: FileRow) => {
     if (!user) return;
     try {
-      const urlPart = file.file_url.split('/patient-files/')[1];
-      if (urlPart) await supabase.storage.from('patient-files').remove([urlPart]);
+      const path = extractPath(file.file_url);
+      if (path) await supabase.storage.from('patient-files').remove([path]);
       const { error } = await supabase.from('documents').delete().eq('id', file.id);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['patient-private-files', patientId, user.id, ctx] });
@@ -196,6 +200,24 @@ export function PatientFiles({ patientId }: Props) {
     } catch (err: any) {
       toast.error(err.message);
     }
+  };
+
+  const openPreview = async (file: FileRow) => {
+    const signed = await getSignedFileUrl(file.file_url, { expiresIn: 3600 });
+    if (!signed) {
+      toast.error('Não foi possível abrir o arquivo');
+      return;
+    }
+    setPreview({ url: signed, type: file.file_type, name: file.name });
+  };
+
+  const downloadFile = async (file: FileRow) => {
+    const signed = await getSignedFileUrl(file.file_url, { expiresIn: 3600, download: file.name });
+    if (!signed) {
+      toast.error('Não foi possível baixar o arquivo');
+      return;
+    }
+    window.open(signed, '_blank', 'noopener,noreferrer');
   };
 
   const isImg  = (type: string | null) => !!type?.startsWith('image/');
@@ -291,21 +313,9 @@ export function PatientFiles({ patientId }: Props) {
                   <div
                     key={file.id}
                     className="relative group aspect-square rounded-lg overflow-hidden border border-border cursor-pointer bg-muted"
-                    onClick={() => setPreview({ url: file.file_url, type: file.file_type, name: file.name })}
+                    onClick={() => openPreview(file)}
                   >
-                    {brokenImages.has(file.id) ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground">
-                        <ImageOff className="h-6 w-6" />
-                        <span className="text-[10px] text-center px-1 leading-tight">{file.name}</span>
-                      </div>
-                    ) : (
-                      <img
-                        src={file.file_url}
-                        alt={file.name}
-                        className="w-full h-full object-cover"
-                        onError={() => setBrokenImages(prev => new Set([...prev, file.id]))}
-                      />
-                    )}
+                    <SignedImage fileUrl={file.file_url} alt={file.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                       <Button
                         variant="ghost" size="icon"
@@ -342,15 +352,13 @@ export function PatientFiles({ patientId }: Props) {
                         <Button
                           variant="ghost" size="icon" className="h-7 w-7"
                           title="Pré-visualizar"
-                          onClick={() => setPreview({ url: file.file_url, type: file.file_type, name: file.name })}
+                          onClick={() => openPreview(file)}
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                        <a href={file.file_url} download={file.name} target="_blank" rel="noopener noreferrer">
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(file)}>
+                        <Download className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost" size="icon"
@@ -485,9 +493,9 @@ export function PatientFiles({ patientId }: Props) {
               <DialogTitle className="text-sm truncate">{preview.name}</DialogTitle>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs" asChild>
-                  <a href={preview.url} download={preview.name} target="_blank" rel="noopener noreferrer">
+                  <a href={preview.url} target="_blank" rel="noopener noreferrer">
                     <Download className="h-3.5 w-3.5" />
-                    Baixar
+                    Abrir
                   </a>
                 </Button>
               </div>
