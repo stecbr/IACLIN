@@ -634,10 +634,9 @@ export default function MyCredentialingSection() {
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Documentação ({entityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})
               </h4>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant={entityType === 'fisica' ? 'default' : 'outline'} onClick={() => setEntityType('fisica')}>Pessoa Física</Button>
-                <Button type="button" size="sm" variant={entityType === 'juridica' ? 'default' : 'outline'} onClick={() => setEntityType('juridica')}>Pessoa Jurídica</Button>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Tipo detectado automaticamente conforme o cadastro da sua clínica.
+              </p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <div><Label>Inscrição Estadual</Label><Input value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" /></div>
                 <div><Label>Inscrição Municipal</Label><Input value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" /></div>
