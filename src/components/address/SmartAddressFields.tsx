@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { CitySelect } from './CitySelect';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BR_UF_LIST, normalizeUf, resolveCity } from '@/lib/brazilCities';
 
 export interface AddressValue {
   zipCode: string;
@@ -119,13 +122,15 @@ export function SmartAddressFields({ value, onChange, idPrefix = 'addr', classNa
   }, []);
 
   const handleSelect = (s: ViaCepSuggestion) => {
+    const uf = normalizeUf(s.uf) || s.uf;
+    const resolved = resolveCity(s.localidade, uf);
     onChange({
       ...value,
       zipCode: formatCep(s.cep),
       address: s.logradouro,
       neighborhood: s.bairro,
-      city: s.localidade,
-      state: s.uf,
+      city: resolved?.name ?? s.localidade,
+      state: uf,
     });
     setOpen(false);
   };
@@ -231,24 +236,23 @@ export function SmartAddressFields({ value, onChange, idPrefix = 'addr', classNa
         />
       </div>
 
-      <div className="space-y-1.5 md:col-span-4">
-        <Label htmlFor={`${idPrefix}-city`}>Cidade *</Label>
-        <Input
-          id={`${idPrefix}-city`}
-          value={value.city}
-          onChange={(e) => set({ city: e.target.value })}
-          placeholder="São Paulo"
-        />
-      </div>
-
       <div className="space-y-1.5 md:col-span-2">
         <Label htmlFor={`${idPrefix}-state`}>UF *</Label>
-        <Input
-          id={`${idPrefix}-state`}
-          value={value.state}
-          onChange={(e) => set({ state: e.target.value.toUpperCase().slice(0, 2) })}
-          placeholder="SP"
-          maxLength={2}
+        <Select value={value.state} onValueChange={(v) => set({ state: v, city: '' })}>
+          <SelectTrigger id={`${idPrefix}-state`}><SelectValue placeholder="UF" /></SelectTrigger>
+          <SelectContent className="z-[1000]">
+            {BR_UF_LIST.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5 md:col-span-4">
+        <Label htmlFor={`${idPrefix}-city`}>Cidade *</Label>
+        <CitySelect
+          id={`${idPrefix}-city`}
+          uf={value.state}
+          value={value.city}
+          onChange={(city, uf) => set({ city, state: uf || value.state })}
+          placeholder={value.state ? 'Selecione a cidade…' : 'Selecione a UF primeiro'}
         />
       </div>
     </div>

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, X } from 'lucide-react';
+import { CitySelect } from '@/components/address/CitySelect';
 
 interface PatientFormDialogProps {
   open: boolean;
@@ -551,7 +552,15 @@ export function PatientFormDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Cidade</Label>
-              <Input value={form.city} onChange={(e) => update('city', e.target.value)} />
+              <CitySelect
+                uf={form.state}
+                value={form.city}
+                onChange={(city, uf) => {
+                  update('city', city);
+                  if (uf) update('state', uf);
+                }}
+                placeholder={form.state ? 'Selecione…' : 'UF primeiro'}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Estado</Label>

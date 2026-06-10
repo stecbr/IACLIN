@@ -12,6 +12,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CitySelect } from '@/components/address/CitySelect';
+import { BR_UF_LIST } from '@/lib/brazilCities';
+
+function UfSelect({ value, onChange }: { value: string; onChange: (uf: string) => void }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+      <SelectContent className="z-[1000]">
+        {BR_UF_LIST.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
@@ -350,12 +364,17 @@ export default function Onboarding() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Cidade</Label>
-                    <Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="São Paulo" autoFocus />
+                    <Label>Estado</Label>
+                    <UfSelect value={form.state} onChange={(uf) => setForm({ ...form, state: uf, city: '' })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Estado</Label>
-                    <Input value={form.state} onChange={e => setForm({ ...form, state: e.target.value })} placeholder="SP" maxLength={2} />
+                    <Label>Cidade</Label>
+                    <CitySelect
+                      uf={form.state}
+                      value={form.city}
+                      onChange={(city, uf) => setForm({ ...form, city, state: uf || form.state })}
+                      placeholder={form.state ? 'Selecione a cidade…' : 'Selecione a UF primeiro'}
+                    />
                   </div>
                 </div>
 
