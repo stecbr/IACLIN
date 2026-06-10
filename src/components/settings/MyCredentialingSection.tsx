@@ -551,6 +551,76 @@ export default function MyCredentialingSection() {
               </div>
             </div>
 
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Documentação ({entityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})
+              </h4>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={entityType === 'fisica' ? 'default' : 'outline'} onClick={() => setEntityType('fisica')}>Pessoa Física</Button>
+                <Button type="button" size="sm" variant={entityType === 'juridica' ? 'default' : 'outline'} onClick={() => setEntityType('juridica')}>Pessoa Jurídica</Button>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div><Label>Inscrição Estadual</Label><Input value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" /></div>
+                <div><Label>Inscrição Municipal</Label><Input value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" /></div>
+                <div><Label>CNES</Label><Input value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="0000000" /></div>
+                <div><Label>Certificado de especialização (se houver)</Label><Input value={specialtyCertificate} onChange={(e) => setSpecialtyCertificate(e.target.value)} placeholder="Identificação / número" /></div>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                {(entityType === 'fisica' ? PF_DOC_TYPES : PJ_DOC_TYPES).map((d) => (
+                  <div key={d.type} className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                    <Label className="text-xs font-medium">{d.label}</Label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Selecionar arquivo(s)</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? []);
+                          if (!files.length) return;
+                          setDocFiles((prev) => ({ ...prev, [d.type]: [...(prev[d.type] ?? []), ...files] }));
+                        }}
+                      />
+                    </label>
+                    {(docFiles[d.type] ?? []).map((f, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs bg-background rounded px-2 py-1">
+                        <span className="truncate">{f.name}</span>
+                        <button type="button" className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setDocFiles((prev) => ({ ...prev, [d.type]: (prev[d.type] ?? []).filter((_, idx) => idx !== i) }))}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Landmark className="h-4 w-4" /> Dados bancários ({entityType === 'fisica' ? 'PF' : 'PJ'})
+              </h4>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div><Label>Banco</Label><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco do Brasil, Itaú..." /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Agência</Label><Input value={bankAgency} onChange={(e) => setBankAgency(e.target.value)} placeholder="0000" /></div>
+                  <div><Label>Conta</Label><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="00000-0" /></div>
+                </div>
+                <div>
+                  <Label>Tipo</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Button type="button" size="sm" variant={bankAccountType === 'corrente' ? 'default' : 'outline'} onClick={() => setBankAccountType('corrente')}>Corrente</Button>
+                    <Button type="button" size="sm" variant={bankAccountType === 'poupanca' ? 'default' : 'outline'} onClick={() => setBankAccountType('poupanca')}>Poupança</Button>
+                  </div>
+                </div>
+                <div>
+                  <Label>{entityType === 'fisica' ? 'CPF do titular' : 'CNPJ do titular'}</Label>
+                  <Input value={bankHolderDocument} onChange={(e) => setBankHolderDocument(e.target.value)} placeholder={entityType === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'} />
+                </div>
+              </div>
+            </div>
+
             <label className="flex items-start gap-2 rounded-md border border-border p-3">
               <Checkbox checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(!!checked)} />
               <span className="text-xs text-muted-foreground">
