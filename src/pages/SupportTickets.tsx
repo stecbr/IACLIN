@@ -31,6 +31,15 @@ import {
   ChevronRight,
   MessageSquareDot,
   X,
+  ClipboardCheck,
+  AlertCircle,
+  HelpCircle,
+  CreditCard,
+  BadgeCheck,
+  RotateCcw,
+  Clock,
+  PenLine,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -270,6 +279,19 @@ export default function SupportTickets() {
   );
 }
 
+// ── Pre-defined subjects ──────────────────────────────────────────────────────
+
+const PRESET_SUBJECTS = [
+  { id: 'autorizacao', label: 'Autorização de Procedimento', icon: ClipboardCheck, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' },
+  { id: 'glosa',       label: 'Recurso de Glosa',           icon: AlertCircle,    color: 'text-red-600 dark:text-red-400',    bg: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' },
+  { id: 'cobertura',   label: 'Dúvida sobre Cobertura',     icon: HelpCircle,     color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800' },
+  { id: 'faturamento', label: 'Faturamento e Pagamento',    icon: CreditCard,     color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' },
+  { id: 'credencial',  label: 'Credenciamento',             icon: BadgeCheck,     color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800' },
+  { id: 'reembolso',   label: 'Reembolso',                  icon: RotateCcw,      color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800' },
+  { id: 'prazo',       label: 'Prazo de Atendimento',       icon: Clock,          color: 'text-cyan-600 dark:text-cyan-400',    bg: 'bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800' },
+  { id: 'outro',       label: 'Outro',                      icon: PenLine,        color: 'text-muted-foreground',               bg: 'bg-muted/40 border-border' },
+];
+
 // ── Create Dialog ─────────────────────────────────────────────────────────────
 
 function CreateTicketDialog({
@@ -285,7 +307,8 @@ function CreateTicketDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [subject, setSubject] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState('');
+  const [customSubject, setCustomSubject] = useState('');
   const [body, setBody] = useState('');
   const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [operatorId, setOperatorId] = useState('');
@@ -293,9 +316,13 @@ function CreateTicketDialog({
   const [saving, setSaving] = useState(false);
 
   const isSolo = !currentClinicId;
+  const isOutro = selectedPreset === 'outro';
+  const preset = PRESET_SUBJECTS.find((s) => s.id === selectedPreset);
+  const finalSubject = isOutro ? customSubject.trim() : preset?.label ?? '';
 
   const handleSubmit = async () => {
-    if (!subject.trim()) { toast.error('Informe o assunto'); return; }
+    if (!selectedPreset) { toast.error('Selecione o assunto do chamado'); return; }
+    if (isOutro && !customSubject.trim()) { toast.error('Descreva o assunto'); return; }
     if (!body.trim()) { toast.error('Descreva sua solicitação'); return; }
     if (isSolo && !operatorId) { toast.error('Selecione a operadora'); return; }
 
@@ -304,7 +331,7 @@ function CreateTicketDialog({
       const { data: ticket, error: tErr } = await supabase
         .from('support_tickets')
         .insert({
-          subject: subject.trim(),
+          subject: finalSubject,
           status: isSolo ? 'open' : 'pending_owner',
           priority,
           created_by: userId,
@@ -347,24 +374,65 @@ function CreateTicketDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Chamado</DialogTitle>
+          <DialogTitle className="text-xl">Novo Chamado</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Selecione o assunto e descreva sua solicitação à operadora
+          </p>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Assunto</Label>
-            <Input
-              placeholder="Resumo do chamado"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-            />
+        <div className="space-y-5 py-1">
+          {/* ── Assunto (chips) ── */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Assunto <span className="text-destructive">*</span>
+            </Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {PRESET_SUBJECTS.map((s) => {
+                const Icon = s.icon;
+                const active = selectedPreset === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPreset(s.id);
+                      if (s.id !== 'outro') setCustomSubject('');
+                    }}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all hover:shadow-sm ${
+                      active
+                        ? `${s.bg} border-current ring-2 ring-offset-1 ring-primary/30`
+                        : 'border-border bg-card hover:border-primary/40'
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 ${active ? s.color : 'text-muted-foreground'}`} />
+                    <span className={`text-[11px] font-medium leading-tight ${active ? s.color : 'text-foreground'}`}>
+                      {s.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom subject when "Outro" is selected */}
+            {isOutro && (
+              <div className="mt-2 space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Qual é o assunto?</Label>
+                <Input
+                  autoFocus
+                  placeholder="Descreva brevemente o assunto do chamado"
+                  value={customSubject}
+                  onChange={(e) => setCustomSubject(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
-          <div className={`grid gap-3 ${isSolo ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {/* ── Prioridade + Operadora ── */}
+          <div className={`grid gap-3 ${isSolo ? 'grid-cols-2' : 'grid-cols-2'}`}>
             <div className="space-y-1.5">
-              <Label>Prioridade</Label>
+              <Label className="text-sm font-medium">Prioridade</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -377,9 +445,11 @@ function CreateTicketDialog({
                 </SelectContent>
               </Select>
             </div>
-            {isSolo && (
+            {isSolo ? (
               <div className="space-y-1.5">
-                <Label>Operadora</Label>
+                <Label className="text-sm font-medium">
+                  Operadora <span className="text-destructive">*</span>
+                </Label>
                 <Select value={operatorId} onValueChange={setOperatorId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
@@ -393,51 +463,66 @@ function CreateTicketDialog({
                   </SelectContent>
                 </Select>
               </div>
+            ) : (
+              <div className="flex items-end pb-0.5">
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground w-full">
+                  <Info className="h-3.5 w-3.5 shrink-0" />
+                  <span>Será encaminhado ao dono da clínica</span>
+                </div>
+              </div>
             )}
           </div>
 
-          {!isSolo && (
-            <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
-              Este chamado será enviado ao dono da clínica para encaminhar à operadora.
-            </div>
-          )}
-
+          {/* ── Descrição ── */}
           <div className="space-y-1.5">
-            <Label>Descrição</Label>
+            <Label className="text-sm font-medium">
+              Descrição <span className="text-destructive">*</span>
+            </Label>
             <Textarea
-              placeholder="Descreva sua dúvida ou solicitação em detalhes..."
+              placeholder={
+                selectedPreset
+                  ? `Descreva com detalhes sua solicitação sobre "${isOutro ? (customSubject || 'Outro') : preset?.label}"...`
+                  : 'Selecione um assunto acima e depois descreva sua solicitação...'
+              }
               rows={4}
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Anexos (opcional)</Label>
+          {/* ── Anexos ── */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Anexos <span className="text-muted-foreground font-normal">(opcional)</span></Label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-              <Paperclip className="h-4 w-4" />
+              <Paperclip className="h-4 w-4 shrink-0" />
               <span>
                 {files.length > 0
                   ? `${files.length} arquivo(s) selecionado(s)`
-                  : 'Clique para selecionar PDFs ou imagens'}
+                  : 'Clique para anexar PDFs, imagens ou documentos'}
               </span>
               <input
                 type="file"
                 multiple
-                accept="image/*,.pdf"
+                accept="image/*,.pdf,.doc,.docx"
                 className="sr-only"
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
             </label>
             {files.length > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-1 rounded-lg border bg-muted/30 p-2">
                 {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="truncate">{f.name}</span>
+                  <div key={i} className="flex items-center justify-between rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Paperclip className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                      <span className="shrink-0 text-muted-foreground/60">
+                        ({(f.size / 1024).toFixed(0)} KB)
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                      className="ml-2 rounded p-0.5 text-destructive hover:bg-destructive/10"
+                      className="ml-2 shrink-0 rounded p-0.5 text-destructive hover:bg-destructive/10"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -448,11 +533,14 @@ function CreateTicketDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button
+            onClick={handleSubmit}
+            disabled={saving || !selectedPreset || !body.trim() || (isSolo && !operatorId) || (isOutro && !customSubject.trim())}
+          >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Abrir chamado
           </Button>
