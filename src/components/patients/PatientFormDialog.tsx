@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, X } from 'lucide-react';
+import { CitySelect } from '@/components/address/CitySelect';
 
 interface PatientFormDialogProps {
   open: boolean;
