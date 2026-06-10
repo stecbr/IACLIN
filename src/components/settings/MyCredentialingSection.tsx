@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User } from 'lucide-react';
 
 type Operator = {
   id: string;
@@ -36,6 +37,59 @@ type Credentialing = {
 type ProcedureOption = { id: string; name: string; specialty_category: string };
 
 type EntityType = 'fisica' | 'juridica';
+
+type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+const DAY_LABELS: { key: DayKey; label: string }[] = [
+  { key: 'mon', label: 'Segunda' },
+  { key: 'tue', label: 'Terça' },
+  { key: 'wed', label: 'Quarta' },
+  { key: 'thu', label: 'Quinta' },
+  { key: 'fri', label: 'Sexta' },
+  { key: 'sat', label: 'Sábado' },
+  { key: 'sun', label: 'Domingo' },
+];
+type DaySchedule = { enabled: boolean; start: string; end: string };
+type WeeklySchedule = Record<DayKey, DaySchedule>;
+const DEFAULT_SCHEDULE: WeeklySchedule = {
+  mon: { enabled: true, start: '08:00', end: '18:00' },
+  tue: { enabled: true, start: '08:00', end: '18:00' },
+  wed: { enabled: true, start: '08:00', end: '18:00' },
+  thu: { enabled: true, start: '08:00', end: '18:00' },
+  fri: { enabled: true, start: '08:00', end: '18:00' },
+  sat: { enabled: false, start: '08:00', end: '12:00' },
+  sun: { enabled: false, start: '08:00', end: '12:00' },
+};
+
+function parseSchedule(raw: any): WeeklySchedule {
+  const out: WeeklySchedule = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE));
+  if (!raw) return out;
+  let obj: any = raw;
+  if (typeof raw === 'string') {
+    try { obj = JSON.parse(raw); } catch { return out; }
+  }
+  if (typeof obj !== 'object') return out;
+  for (const { key } of DAY_LABELS) {
+    const d = obj[key];
+    if (d && typeof d === 'object') {
+      out[key] = {
+        enabled: d.enabled !== false && (d.enabled === true || !!d.start || !!d.open),
+        start: d.start ?? d.open ?? out[key].start,
+        end: d.end ?? d.close ?? out[key].end,
+      };
+      if (typeof d.enabled === 'boolean') out[key].enabled = d.enabled;
+    }
+  }
+  return out;
+}
+
+function scheduleToText(s: WeeklySchedule): string {
+  return DAY_LABELS
+    .map(({ key, label }) => {
+      const d = s[key];
+      return d.enabled ? `${label}: ${d.start} - ${d.end}` : `${label}: Fechado`;
+    })
+    .join('\n');
+}
 
 const PF_DOC_TYPES: { type: string; label: string }[] = [
   { type: 'cro_dentista', label: 'CRO/CRM do profissional' },
@@ -102,14 +156,14 @@ export default function MyCredentialingSection() {
   const [professionalPhone, setProfessionalPhone] = useState('');
   const [clinicName, setClinicName] = useState('');
   const [clinicCnpj, setClinicCnpj] = useState('');
+  const [clinicCpf, setClinicCpf] = useState('');
   const [clinicAddress, setClinicAddress] = useState('');
   const [clinicCity, setClinicCity] = useState('');
   const [clinicState, setClinicState] = useState('');
   const [clinicZip, setClinicZip] = useState('');
   const [clinicResponsible, setClinicResponsible] = useState('');
-  const [businessHours, setBusinessHours] = useState('');
+  const [schedule, setSchedule] = useState<WeeklySchedule>(DEFAULT_SCHEDULE);
   const [selectedProcedureIds, setSelectedProcedureIds] = useState<string[]>([]);
-  const [clinicPhotoFiles, setClinicPhotoFiles] = useState<File[]>([]);
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   // Documentação e dados bancários para o credenciamento
@@ -140,7 +194,7 @@ export default function MyCredentialingSection() {
           .eq('clinic_id', currentClinicId)
           .maybeSingle(),
         supabase.from('profiles').select('full_name, phone').eq('id', user.id).maybeSingle(),
-        supabase.from('clinics').select('name, cnpj, address, city, state, zip_code, responsible_name, business_hours, logo_url').eq('id', currentClinicId).maybeSingle(),
+        supabase.from('clinics').select('name, cnpj, cpf, entity_type, address, city, state, zip_code, responsible_name, business_hours, logo_url').eq('id', currentClinicId).maybeSingle(),
       ]);
 
       const mId = (member as any)?.id ?? null;
@@ -151,13 +205,15 @@ export default function MyCredentialingSection() {
 
       setClinicName((clinic as any)?.name ?? '');
       setClinicCnpj((clinic as any)?.cnpj ?? '');
+      setClinicCpf((clinic as any)?.cpf ?? '');
       setClinicAddress((clinic as any)?.address ?? '');
       setClinicCity((clinic as any)?.city ?? '');
       setClinicState((clinic as any)?.state ?? '');
       setClinicZip((clinic as any)?.zip_code ?? '');
       setClinicResponsible((clinic as any)?.responsible_name ?? '');
-      setBusinessHours(JSON.stringify((clinic as any)?.business_hours ?? {}, null, 2));
-      const et = ((clinic as any)?.entity_type as EntityType) ?? ((clinic as any)?.cnpj ? 'juridica' : 'juridica');
+      setSchedule(parseSchedule((clinic as any)?.business_hours));
+      const rawEt = (clinic as any)?.entity_type as EntityType | null | undefined;
+      const et: EntityType = rawEt ?? ((clinic as any)?.cpf && !(clinic as any)?.cnpj ? 'fisica' : 'juridica');
       setEntityType(et);
 
       const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
@@ -253,12 +309,6 @@ export default function MyCredentialingSection() {
 
     setSubmittingRequest(true);
     try {
-      const clinicPhotos: string[] = [];
-      for (const file of clinicPhotoFiles) {
-        const url = await uploadCredentialingFile(file, 'clinic');
-        if (url) clinicPhotos.push(url);
-      }
-
       // Upload de documentos do kit credenciamento
       const uploadedDocs: Array<{ doc_type: string; file_name: string; url: string }> = [];
       for (const [docType, files] of Object.entries(docFiles)) {
@@ -279,15 +329,20 @@ export default function MyCredentialingSection() {
         },
         clinic: {
           name: clinicName.trim(),
-          cnpj: clinicCnpj.trim(),
+          cnpj: entityType === 'juridica' ? clinicCnpj.trim() : '',
           address: clinicAddress.trim(),
           city: clinicCity.trim(),
           state: clinicState.trim(),
           zip_code: clinicZip.trim(),
           responsible_name: clinicResponsible.trim(),
-          photos: clinicPhotos,
-          business_hours: businessHours.trim(),
+          photos: [],
+          business_hours: scheduleToText(schedule),
         },
+        clinic_extras: ({
+          entity_type: entityType,
+          cpf: entityType === 'fisica' ? clinicCpf.trim() : '',
+          schedule,
+        }) as any,
         contact: ({
           responsible_name: fullName.trim(),
           phone: professionalPhone.trim(),
@@ -348,7 +403,6 @@ export default function MyCredentialingSection() {
       toast.success(`Pedido enviado para ${openFor.name}`);
       setOpenFor(null);
       setAcceptTerms(false);
-      setClinicPhotoFiles([]);
       setSelectedProcedureIds([]);
       setDocFiles({});
       await load();
@@ -498,10 +552,19 @@ export default function MyCredentialingSection() {
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold">Dados da clínica</h4>
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                Dados da clínica
+                <Badge variant="outline" className="gap-1 font-normal">
+                  {entityType === 'fisica' ? <><User className="h-3 w-3" /> Pessoa Física</> : <><Building2 className="h-3 w-3" /> Pessoa Jurídica</>}
+                </Badge>
+              </h4>
               <div className="grid sm:grid-cols-2 gap-3">
                 <div><Label>Nome da clínica</Label><Input value={clinicName} onChange={(e) => setClinicName(e.target.value)} /></div>
-                <div><Label>CNPJ</Label><Input value={clinicCnpj} onChange={(e) => setClinicCnpj(e.target.value)} /></div>
+                {entityType === 'fisica' ? (
+                  <div><Label>CPF</Label><Input value={clinicCpf} onChange={(e) => setClinicCpf(e.target.value)} placeholder="000.000.000-00" /></div>
+                ) : (
+                  <div><Label>CNPJ</Label><Input value={clinicCnpj} onChange={(e) => setClinicCnpj(e.target.value)} placeholder="00.000.000/0000-00" /></div>
+                )}
                 <div className="sm:col-span-2"><Label>Endereço completo</Label><Input value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} /></div>
                 <div><Label>Cidade</Label><Input value={clinicCity} onChange={(e) => setClinicCity(e.target.value)} /></div>
                 <div><Label>Estado</Label><Input value={clinicState} onChange={(e) => setClinicState(e.target.value)} /></div>
@@ -509,23 +572,39 @@ export default function MyCredentialingSection() {
                 <div><Label>Responsável</Label><Input value={clinicResponsible} onChange={(e) => setClinicResponsible(e.target.value)} /></div>
               </div>
               <div>
-                <Label>Horários de atendimento</Label>
-                <Textarea value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} rows={4} placeholder="Descreva seus horários ou mantenha o JSON padrão" />
-              </div>
-              <div>
-                <Label>Fotos da clínica</Label>
-                <div className="mt-1 flex items-center gap-3">
-                  <label className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-input cursor-pointer hover:bg-muted transition">
-                    <FileText className="h-4 w-4" />
-                    {clinicPhotoFiles.length > 0 ? `${clinicPhotoFiles.length} arquivo(s)` : 'Selecionar fotos'}
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => setClinicPhotoFiles(Array.from(e.target.files ?? []))}
-                    />
-                  </label>
+                <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Horários de atendimento</Label>
+                <div className="mt-2 rounded-lg border border-border divide-y divide-border overflow-hidden">
+                  {DAY_LABELS.map(({ key, label }) => {
+                    const day = schedule[key];
+                    return (
+                      <div key={key} className="flex items-center gap-3 px-3 py-2 bg-muted/10">
+                        <div className="w-24 text-sm font-medium">{label}</div>
+                        <Switch
+                          checked={day.enabled}
+                          onCheckedChange={(v) => setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], enabled: !!v } }))}
+                        />
+                        {day.enabled ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              type="time"
+                              value={day.start}
+                              onChange={(e) => setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], start: e.target.value } }))}
+                              className="h-8 w-28"
+                            />
+                            <span className="text-xs text-muted-foreground">às</span>
+                            <Input
+                              type="time"
+                              value={day.end}
+                              onChange={(e) => setSchedule((prev) => ({ ...prev, [key]: { ...prev[key], end: e.target.value } }))}
+                              className="h-8 w-28"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Fechado</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -555,10 +634,9 @@ export default function MyCredentialingSection() {
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Documentação ({entityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})
               </h4>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant={entityType === 'fisica' ? 'default' : 'outline'} onClick={() => setEntityType('fisica')}>Pessoa Física</Button>
-                <Button type="button" size="sm" variant={entityType === 'juridica' ? 'default' : 'outline'} onClick={() => setEntityType('juridica')}>Pessoa Jurídica</Button>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Tipo detectado automaticamente conforme o cadastro da sua clínica.
+              </p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <div><Label>Inscrição Estadual</Label><Input value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" /></div>
                 <div><Label>Inscrição Municipal</Label><Input value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" /></div>
