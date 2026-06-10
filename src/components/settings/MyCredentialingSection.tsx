@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark } from 'lucide-react';
 
 type Operator = {
   id: string;
@@ -34,6 +34,27 @@ type Credentialing = {
 };
 
 type ProcedureOption = { id: string; name: string; specialty_category: string };
+
+type EntityType = 'fisica' | 'juridica';
+
+const PF_DOC_TYPES: { type: string; label: string }[] = [
+  { type: 'cro_dentista', label: 'CRO/CRM do profissional' },
+  { type: 'alvara', label: 'Alvará de funcionamento' },
+  { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+  { type: 'cnes_doc', label: 'Comprovante CNES' },
+  { type: 'fotos_clinica', label: 'Fotos da clínica' },
+  { type: 'especializacao', label: 'Certificado de especialização' },
+];
+const PJ_DOC_TYPES: { type: string; label: string }[] = [
+  { type: 'cartao_cnpj', label: 'Cartão CNPJ' },
+  { type: 'contrato_social', label: 'Contrato Social ou Requerimento Empresarial' },
+  { type: 'cro_clinica', label: 'CRO/CRM da clínica (responsável técnico)' },
+  { type: 'alvara', label: 'Alvará de funcionamento' },
+  { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+  { type: 'cnes_doc', label: 'Comprovante CNES' },
+  { type: 'fotos_clinica', label: 'Fotos da clínica' },
+  { type: 'especializacao', label: 'Certificado de especialização' },
+];
 
 type CredentialingPayload = {
   invite?: {
@@ -91,6 +112,19 @@ export default function MyCredentialingSection() {
   const [clinicPhotoFiles, setClinicPhotoFiles] = useState<File[]>([]);
   const [acceptTerms, setAcceptTerms] = useState(false);
 
+  // Documentação e dados bancários para o credenciamento
+  const [entityType, setEntityType] = useState<EntityType>('juridica');
+  const [stateRegistration, setStateRegistration] = useState('');
+  const [municipalRegistration, setMunicipalRegistration] = useState('');
+  const [cnes, setCnes] = useState('');
+  const [specialtyCertificate, setSpecialtyCertificate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAgency, setBankAgency] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankAccountType, setBankAccountType] = useState<'corrente' | 'poupanca'>('corrente');
+  const [bankHolderDocument, setBankHolderDocument] = useState('');
+  const [docFiles, setDocFiles] = useState<Record<string, File[]>>({});
+
   const invitedOperatorId = searchParams.get('cred_op');
   const inviteToken = searchParams.get('invite');
 
@@ -123,6 +157,8 @@ export default function MyCredentialingSection() {
       setClinicZip((clinic as any)?.zip_code ?? '');
       setClinicResponsible((clinic as any)?.responsible_name ?? '');
       setBusinessHours(JSON.stringify((clinic as any)?.business_hours ?? {}, null, 2));
+      const et = ((clinic as any)?.entity_type as EntityType) ?? ((clinic as any)?.cnpj ? 'juridica' : 'juridica');
+      setEntityType(et);
 
       const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
         supabase.from('insurance_operators').select('id, name, ans_code, type, brand_color, logo_url, created_at').eq('is_active', true).order('name'),
@@ -223,6 +259,19 @@ export default function MyCredentialingSection() {
         if (url) clinicPhotos.push(url);
       }
 
+      // Upload de documentos do kit credenciamento
+      const uploadedDocs: Array<{ doc_type: string; file_name: string; url: string }> = [];
+      for (const [docType, files] of Object.entries(docFiles)) {
+        for (const file of files) {
+          try {
+            const url = await uploadCredentialingFile(file, 'clinic');
+            if (url) uploadedDocs.push({ doc_type: docType, file_name: file.name, url });
+          } catch {
+            // ignore individual upload failure
+          }
+        }
+      }
+
       const payload: CredentialingPayload = {
         invite: {
           token: inviteToken,
@@ -247,6 +296,21 @@ export default function MyCredentialingSection() {
         requested_procedures: selectedProcedureList.map((p) => ({ id: p.id, name: p.name })),
         terms: {
           accepted_at: new Date().toISOString(),
+        },
+        documentation: {
+          entity_type: entityType,
+          state_registration: stateRegistration.trim() || null,
+          municipal_registration: municipalRegistration.trim() || null,
+          cnes: cnes.trim() || null,
+          specialty_certificate: specialtyCertificate.trim() || null,
+          files: uploadedDocs,
+        },
+        banking: {
+          bank_name: bankName.trim() || null,
+          agency: bankAgency.trim() || null,
+          account: bankAccount.trim() || null,
+          account_type: bankAccount.trim() ? bankAccountType : null,
+          holder_document: bankHolderDocument.replace(/\D/g, '') || null,
         },
       } as any;
 
@@ -286,6 +350,7 @@ export default function MyCredentialingSection() {
       setAcceptTerms(false);
       setClinicPhotoFiles([]);
       setSelectedProcedureIds([]);
+      setDocFiles({});
       await load();
     } catch (e: any) {
       toast.error(`Erro ao enviar pedido: ${e.message ?? 'erro desconhecido'}`);
