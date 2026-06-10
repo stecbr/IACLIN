@@ -168,7 +168,16 @@ export function MarketplaceSection() {
   const clinicsGeo = useMemo(() => {
     const seen = new Set<string>();
     return doctors.filter((d) => { if (seen.has(d.clinicId)) return false; seen.add(d.clinicId); return true; })
-      .map((d) => ({ clinicId: d.clinicId, clinicName: d.clinicName, address: d.clinicAddress, city: d.clinicCity, state: d.clinicState, zipCode: d.clinicZipCode }));
+      .map((d) => ({
+        clinicId: d.clinicId,
+        clinicName: d.clinicName,
+        address: d.clinicAddress,
+        addressNumber: d.clinicAddressNumber,
+        neighborhood: d.clinicNeighborhood,
+        city: d.clinicCity,
+        state: d.clinicState,
+        zipCode: d.clinicZipCode,
+      }));
   }, [doctors]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
