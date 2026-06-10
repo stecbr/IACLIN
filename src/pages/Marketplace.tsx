@@ -52,7 +52,7 @@ export default function Marketplace() {
 
       const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }] = await Promise.all([
         supabase.rpc("get_marketplace_doctor_profiles", { _user_ids: userIds }),
-        supabase.from("clinics").select("id, name, city, state, phone, address, zip_code").in("id", clinicIds),
+        supabase.from("clinics").select("id, name, city, state, phone, address, address_number, neighborhood, zip_code").in("id", clinicIds),
         supabase
           .from("professional_schedule_template")
           .select("user_id, clinic_id, weekday, start_time, end_time, is_active")
@@ -105,7 +105,15 @@ export default function Marketplace() {
             clinicState: clinic?.state ?? null,
             clinicPhone: clinic?.phone ?? null,
             clinicAddress: clinic?.address ?? null,
+            clinicAddressNumber: (clinic as any)?.address_number ?? null,
+            clinicNeighborhood: (clinic as any)?.neighborhood ?? null,
             clinicZipCode: clinic?.zip_code ?? null,
+            profilePhone: (profile as any)?.phone ?? null,
+            profileCity: (profile as any)?.city ?? null,
+            profileState: (profile as any)?.state ?? null,
+            profileAddress: (profile as any)?.address ?? null,
+            profileAddressNumber: (profile as any)?.address_number ?? null,
+            profileNeighborhood: (profile as any)?.neighborhood ?? null,
             shifts,
             appointments: appts.map((a) => ({
               start_time: a.start_time,

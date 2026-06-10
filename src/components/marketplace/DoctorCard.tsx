@@ -31,7 +31,15 @@ export interface DoctorData {
   clinicState: string | null;
   clinicPhone: string | null;
   clinicAddress: string | null;
+  clinicAddressNumber: string | null;
+  clinicNeighborhood: string | null;
   clinicZipCode: string | null;
+  profilePhone: string | null;
+  profileCity: string | null;
+  profileState: string | null;
+  profileAddress: string | null;
+  profileAddressNumber: string | null;
+  profileNeighborhood: string | null;
   shifts: AvailabilityShift[];
   appointments: Appointment[];
 }
@@ -121,6 +129,16 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
     ? doctor.specialty.charAt(0).toUpperCase() + doctor.specialty.slice(1)
     : null;
 
+  const displayPhone = doctor.clinicPhone || doctor.profilePhone;
+  const displayCity  = doctor.clinicCity  || doctor.profileCity;
+  const displayState = doctor.clinicState || doctor.profileState;
+  const streetParts = [
+    doctor.clinicAddress  || doctor.profileAddress,
+    doctor.clinicAddressNumber || doctor.profileAddressNumber,
+  ].filter(Boolean).join(", ");
+  const displayNeighborhood = doctor.clinicNeighborhood || doctor.profileNeighborhood;
+  const displayStreet = [streetParts, displayNeighborhood].filter(Boolean).join(" — ");
+
   const handleSlotClick = (date: Date, time: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
     navigate(`/marketplace/agendar?dentistId=${doctor.userId}&clinicId=${doctor.clinicId}&date=${dateStr}&time=${time}`);
@@ -150,14 +168,14 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
                 <span className="truncate">{doctor.clinicName}</span>
               </span>
             </div>
-            {(doctor.clinicCity || doctor.clinicState) && (
+            {(displayCity || displayState) && (
               <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span>{[doctor.clinicCity, doctor.clinicState].filter(Boolean).join(", ")}</span>
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{[displayCity, displayState].filter(Boolean).join(", ")}</span>
                 {onShowOnMap && (
                   <button
                     type="button"
-                    className="ml-1 text-primary hover:underline"
+                    className="ml-1 shrink-0 text-primary hover:underline"
                     onClick={() => onShowOnMap(doctor.clinicId)}
                   >
                     Ver no mapa
@@ -165,10 +183,16 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
                 )}
               </div>
             )}
-            {doctor.clinicPhone && (
+            {displayStreet && (
               <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <Phone className="h-3 w-3" />
-                <span>{doctor.clinicPhone}</span>
+                <MapPin className="h-3 w-3 shrink-0 opacity-0" />
+                <span className="truncate">{displayStreet}</span>
+              </div>
+            )}
+            {displayPhone && (
+              <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3 shrink-0" />
+                <span>{displayPhone}</span>
               </div>
             )}
             {nextSlot && (
