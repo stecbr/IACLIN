@@ -336,15 +336,6 @@ export const aiBackend = {
       method: 'DELETE',
     }),
 
-  testAutomation: (clinicId: string, payload: { message_template: string; phone: string; type?: string }) =>
-    request<{ ok: boolean; sent_text?: string }>(
-      `/api/clinics/${clinicId}/automations/test`,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      },
-    ),
-
   // ============================================================
   // Conversas — assumir manualmente (handoff humano)
   // ============================================================

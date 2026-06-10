@@ -172,6 +172,17 @@ const PROMPT_SECTIONS: {
   },
 ];
 
+// Regras obrigatórias de conversa. NÃO são editáveis pelo usuário — vão
+// sempre anexadas ao prompt enviado ao backend para corrigir os 3 problemas
+// recorrentes: (1) repetir a saudação a cada mensagem, (2) esquecer dados que
+// o paciente já informou e (3) inventar data/hora diferente da que foi dada.
+const CONVERSATION_RULES = `REGRAS OBRIGATÓRIAS DE CONVERSA (NÃO IGNORAR):
+- Use a SAUDAÇÃO apenas na PRIMEIRA mensagem da conversa. Nas mensagens seguintes, NUNCA repita a saudação nem se reapresente — continue a conversa diretamente.
+- MEMORIZE tudo que o paciente já informou (procedimento, dia, horário, nome, etc.). NUNCA pergunte de novo algo que ele já respondeu. Se o paciente disser que já informou, releia o histórico e use o dado que ele deu.
+- Quando o paciente informar dia e horário, use EXATAMENTE o dia e horário que ele disse. NUNCA invente, troque ou sugira outra data sem ele pedir. Se houver ambiguidade (ex.: "segunda"), confirme a data exata correspondente, mas mantendo o dia da semana que o paciente escolheu.
+- Antes de confirmar o agendamento, repita ao paciente o resumo com os dados que ELE forneceu: procedimento + dia + horário. Só confirme depois que todos esses dados estiverem coletados.
+- Faça uma pergunta de cada vez e avance no fluxo; não volte para etapas já concluídas.`;
+
 type SectionsState = Record<PromptSectionKey, string>;
 
 const EMPTY_SECTIONS: SectionsState = {
@@ -201,6 +212,14 @@ function matchPersonality(body: string): string {
 function parsePromptToSections(raw: string): { sections: SectionsState; personality: string } {
   const result: SectionsState = { ...EMPTY_SECTIONS };
   if (!raw || !raw.trim()) return { sections: result, personality: '' };
+
+  // Remove o bloco de regras obrigatórias (sempre reanexado em builtPrompt).
+  // Sem isso ele acumularia a cada salvamento e poderia vazar para a UI.
+  raw = raw.replace(/REGRAS OBRIGATÓRIAS DE CONVERSA[\s\S]*$/g, '').trim();
+
+  // Remove o bloco AJUSTES RÁPIDOS — ele é lido por parseQuickSettings e não
+  // é um delimitador aqui; se ficar, vaza para dentro de PERSONALIDADE/EXEMPLOS.
+  raw = raw.replace(/AJUSTES R[ÁA]PIDOS:[\s\S]*?(?=\n(?:SAUDAÇÃO|OBJETIVO|REGRAS|RESTRIÇÕES|PERSONALIDADE|ENDEREÇO DA CLÍNICA|EXEMPLOS DE RESPOSTA):|$)/g, '').trim();
 
   // Migração: remove blocos legados (HORÁRIOS / URGÊNCIAS) que agora
   // vêm direto do sistema. Tudo até a próxima seção conhecida ou fim do texto.
@@ -387,7 +406,8 @@ export default function SecretariaIA() {
     const opt = PERSONALITY_OPTIONS.find((o) => o.value === personality);
     const withPersonality = opt ? `${base}${opt.template}` : base;
     const quickText = buildQuickSettingsText(quick);
-    return quickText ? `${withPersonality}\n\n${quickText}` : withPersonality;
+    const withQuick = quickText ? `${withPersonality}\n\n${quickText}` : withPersonality;
+    return `${withQuick}\n\n${CONVERSATION_RULES}`;
   })();
 
   const isDirty =
