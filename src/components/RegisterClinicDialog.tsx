@@ -321,7 +321,76 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
-          {/* Dados da Empresa */}
+          {/* Tipo de pessoa */}
+          {!entityType ? (
+            <section className="space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Como você vai se cadastrar?
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <button type="button" onClick={() => setEntityType('fisica')}
+                  className="rounded-xl border bg-card p-5 text-left hover:border-primary transition-colors">
+                  <UserIcon className="h-6 w-6 text-primary mb-2" />
+                  <div className="font-semibold">Pessoa Física</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Profissional autônomo / consultório individual com CPF.
+                  </p>
+                </button>
+                <button type="button" onClick={() => setEntityType('juridica')}
+                  className="rounded-xl border bg-card p-5 text-left hover:border-primary transition-colors">
+                  <Building2 className="h-6 w-6 text-primary mb-2" />
+                  <div className="font-semibold">Pessoa Jurídica</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Clínica / empresa formalizada com CNPJ.
+                  </p>
+                </button>
+              </div>
+            </section>
+          ) : (<>
+          <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              Cadastro como <strong>{entityType === 'fisica' ? 'Pessoa Física (CPF)' : 'Pessoa Jurídica (CNPJ)'}</strong>
+            </span>
+            <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEntityType(null)}>
+              <ArrowLeft className="h-3 w-3" /> Trocar
+            </Button>
+          </div>
+
+          {entityType === 'fisica' && (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <UserIcon className="h-3.5 w-3.5" /> Dados pessoais
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="rc-fn">Nome completo *</Label>
+                  <Input id="rc-fn" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dr. João Silva" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-cpf">CPF *</Label>
+                  <Input id="rc-cpf" value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-rg">RG</Label>
+                  <Input id="rc-rg" value={rg} onChange={(e) => setRg(e.target.value)} placeholder="00.000.000-0" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-bd">Data de nascimento</Label>
+                  <Input id="rc-bd" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-inss">INSS / NIS / PIS</Label>
+                  <Input id="rc-inss" value={inssPis} onChange={(e) => setInssPis(e.target.value)} placeholder="Número do INSS, NIS ou PIS" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rc-phone-pf">Telefone *</Label>
+                  <Input id="rc-phone-pf" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {entityType === 'juridica' && (
           <section className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Building2 className="h-3.5 w-3.5" /> Dados da empresa
@@ -420,6 +489,7 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
               </div>
             </div>
           </section>
+          )}
 
           {/* Endereço */}
           <section className="space-y-3">
@@ -462,14 +532,124 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
             </div>
           </section>
 
-          {/* Responsável */}
+          {entityType === 'juridica' && (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <UserIcon className="h-3.5 w-3.5" /> Responsável legal
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-resp">Nome completo do responsável *</Label>
+                <Input id="rc-resp" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Nome completo do responsável legal" />
+              </div>
+            </section>
+          )}
+
+          {/* Documentação do kit credenciamento */}
           <section className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <UserIcon className="h-3.5 w-3.5" /> Responsável legal
+              <FileText className="h-3.5 w-3.5" /> Documentação {entityType === 'fisica' ? '(Pessoa Física)' : '(Pessoa Jurídica)'}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rc-resp">Nome completo do responsável *</Label>
-              <Input id="rc-resp" value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="Nome completo do responsável legal" />
+            <div className="grid md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-ie">Inscrição Estadual</Label>
+                <Input id="rc-ie" value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-im">Inscrição Municipal</Label>
+                <Input id="rc-im" value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-cnes">CNES — Cadastro Nacional de Estabelecimento de Saúde</Label>
+                <Input id="rc-cnes" value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="0000000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-esp">Certificado de especialização (se houver)</Label>
+                <Input id="rc-esp" value={specialtyCertificate} onChange={(e) => setSpecialtyCertificate(e.target.value)} placeholder="Identificação / número" />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-3 pt-2">
+              {(entityType === 'fisica'
+                ? [
+                    { type: 'cro_dentista', label: 'CRO/CRM do profissional' },
+                    { type: 'alvara', label: 'Alvará de funcionamento' },
+                    { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+                    { type: 'cnes_doc', label: 'Comprovante CNES' },
+                    { type: 'fotos_clinica', label: 'Fotos da clínica' },
+                    { type: 'especializacao', label: 'Certificado de especialização' },
+                  ]
+                : [
+                    { type: 'cartao_cnpj', label: 'Cartão CNPJ' },
+                    { type: 'contrato_social', label: 'Contrato Social ou Requerimento Empresarial' },
+                    { type: 'cro_clinica', label: 'CRO/CRM da clínica (responsável técnico)' },
+                    { type: 'alvara', label: 'Alvará de funcionamento' },
+                    { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+                    { type: 'cnes_doc', label: 'Comprovante CNES' },
+                    { type: 'fotos_clinica', label: 'Fotos da clínica' },
+                    { type: 'especializacao', label: 'Certificado de especialização' },
+                  ]
+              ).map((d) => (
+                <div key={d.type} className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                  <Label className="text-xs font-medium">{d.label}</Label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Selecionar arquivo(s)</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        if (!files.length) return;
+                        setDocFiles((prev) => ({ ...prev, [d.type]: [...(prev[d.type] ?? []), ...files] }));
+                      }}
+                    />
+                  </label>
+                  {(docFiles[d.type] ?? []).map((f, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs bg-background rounded px-2 py-1">
+                      <span className="truncate">{f.name}</span>
+                      <button type="button" className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setDocFiles((prev) => ({ ...prev, [d.type]: (prev[d.type] ?? []).filter((_, idx) => idx !== i) }))}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Dados bancários */}
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Landmark className="h-3.5 w-3.5" /> Dados bancários {entityType === 'fisica' ? '(PF)' : '(PJ)'}
+            </div>
+            <div className="grid md:grid-cols-4 gap-3">
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="rc-bank">Banco</Label>
+                <Input id="rc-bank" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco do Brasil, Itaú..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-ag">Agência</Label>
+                <Input id="rc-ag" value={bankAgency} onChange={(e) => setBankAgency(e.target.value)} placeholder="0000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rc-acc">Conta</Label>
+                <Input id="rc-acc" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="00000-0" />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Tipo</Label>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={bankAccountType === 'corrente' ? 'default' : 'outline'} onClick={() => setBankAccountType('corrente')}>Corrente</Button>
+                  <Button type="button" size="sm" variant={bankAccountType === 'poupanca' ? 'default' : 'outline'} onClick={() => setBankAccountType('poupanca')}>Poupança</Button>
+                </div>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="rc-hd">{entityType === 'fisica' ? 'CPF do titular' : 'CNPJ do titular'}</Label>
+                <Input id="rc-hd" value={bankHolderDocument}
+                  onChange={(e) => setBankHolderDocument(entityType === 'fisica' ? formatCpf(e.target.value) : formatCnpj(e.target.value))}
+                  placeholder={entityType === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'} />
+              </div>
             </div>
           </section>
 
@@ -477,6 +657,7 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
             {submitting ? 'Cadastrando…' : 'Cadastrar clínica'}
           </Button>
+          </>)}
         </div>
       </DialogContent>
     </Dialog>
