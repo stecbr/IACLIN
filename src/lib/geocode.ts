@@ -18,20 +18,33 @@ export async function geocodeAddress(
   address?: string | null,
   city?: string | null,
   state?: string | null,
-  zipCode?: string | null
+  zipCode?: string | null,
+  addressNumber?: string | null,
+  neighborhood?: string | null
 ): Promise<{ lat: number; lng: number } | null> {
-  const key = [address, city, state, zipCode].filter(Boolean).join(", ");
+  const street = address
+    ? addressNumber
+      ? `${address}, ${addressNumber}`
+      : address
+    : null;
+  const key = [street, neighborhood, city, state, zipCode].filter(Boolean).join(", ");
   if (!key) return null;
   if (cache.has(key)) return cache.get(key)!;
 
   // 1. Structured search
   const structured: Record<string, string> = {};
-  if (address) structured.street = address;
+  if (street) structured.street = street;
   if (city) structured.city = city;
   if (state) structured.state = state;
   if (zipCode) structured.postalcode = zipCode;
 
   let coords = await fetchNominatim(structured);
+
+  // 1b. Try with neighborhood as suburb if first attempt failed
+  if (!coords && neighborhood) {
+    const withSuburb: Record<string, string> = { ...structured, suburb: neighborhood };
+    coords = await fetchNominatim(withSuburb);
+  }
 
   // 2. Free-text fallback
   if (!coords) {
