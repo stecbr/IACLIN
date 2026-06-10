@@ -346,66 +346,6 @@ function ProfileInfoSection() {
             <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
           </div>
         </div>
-        {/* ── Endereço ── */}
-        <div className="space-y-3 pt-1">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Endereço do consultório</span>
-          </div>
-          {/* CEP */}
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Label htmlFor="zip">CEP</Label>
-              <Input
-                id="zip"
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                onBlur={handleCepLookup}
-                placeholder="00000-000"
-                inputMode="numeric"
-                maxLength={9}
-              />
-            </div>
-            <div className="flex items-end pb-0.5">
-              <Button type="button" variant="outline" size="icon" className="h-10 w-10" onClick={handleCepLookup} disabled={fetchingCep}>
-                {fetchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-          {/* Rua + Número */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Label htmlFor="addr">Logradouro</Label>
-              <Input id="addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, Avenida..." />
-            </div>
-            <div>
-              <Label htmlFor="num">Número</Label>
-              <Input id="num" value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} placeholder="123" />
-            </div>
-          </div>
-          {/* Complemento + Bairro */}
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="comp">Complemento <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
-              <Input id="comp" value={addressComplement} onChange={(e) => setAddressComplement(e.target.value)} placeholder="Sala 201, Andar 3..." />
-            </div>
-            <div>
-              <Label htmlFor="neigh">Bairro</Label>
-              <Input id="neigh" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Centro" />
-            </div>
-          </div>
-          {/* Cidade + Estado */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Label htmlFor="city">Cidade</Label>
-              <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="uf">Estado</Label>
-              <Input id="uf" value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="SP" maxLength={2} />
-            </div>
-          </div>
-        </div>
 
         {isProfessionalProfile && (
           <>
