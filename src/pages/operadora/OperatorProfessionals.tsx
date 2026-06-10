@@ -206,153 +206,287 @@ export default function OperatorProfessionals() {
     window.open(`https://wa.me/${digits}`, '_blank');
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Rede de Busca</h1>
-        <p className="text-sm text-muted-foreground">Busque clínicas da base IACLIN para prospectar profissionais e enviar convites.</p>
-      </div>
+  // ====== Map ======
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-      <Card className="rounded-xl p-4 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-          <div className="md:col-span-2 relative">
-            <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por clínica, profissional, especialidade, cidade..."
-              className="pl-9"
-            />
+  // Init map once
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    const map = L.map(mapContainerRef.current, {
+      center: [-14.235, -51.9253], // Brazil center
+      zoom: 4,
+      zoomControl: false,
+      attributionControl: false,
+    });
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+    mapInstanceRef.current = map;
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Geocode all clinics once loaded
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next = new Map(coords);
+      const pending = rows.filter((r) => !next.has(r.clinic_id));
+      const results = await Promise.allSettled(
+        pending.map((r) =>
+          geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood).then((c) => ({
+            id: r.clinic_id,
+            c,
+          })),
+        ),
+      );
+      if (cancelled) return;
+      let changed = false;
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value.c) {
+          next.set(res.value.id, res.value.c);
+          changed = true;
+        }
+      }
+      if (changed) setCoords(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+
+  // Render markers when filtered or coords change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Clear existing markers
+    markersRef.current.forEach((m) => map.removeLayer(m));
+    markersRef.current.clear();
+
+    const bounds: L.LatLng[] = [];
+    filtered.forEach((clinic) => {
+      const c = coords.get(clinic.clinic_id);
+      if (!c) return;
+      const latlng = L.latLng(c.lat, c.lng);
+      bounds.push(latlng);
+      const initials = clinic.clinic_name
+        .split(' ')
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+      const inner = clinic.logo_url
+        ? `<img src="${clinic.logo_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9999px"/>`
+        : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:hsl(var(--primary));color:#fff;border-radius:9999px;font-weight:700;font-size:13px;">${initials}</div>`;
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:#fff;border:3px solid hsl(var(--primary));box-shadow:0 8px 18px rgba(0,0,0,.35);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
+        iconSize: [44, 50],
+        iconAnchor: [22, 50],
+      });
+      const marker = L.marker(latlng, { icon }).addTo(map);
+      marker.on('click', () => {
+        setSelectedId(clinic.clinic_id);
+        map.setView(latlng, Math.max(map.getZoom(), 14), { animate: true });
+      });
+      markersRef.current.set(clinic.clinic_id, marker);
+    });
+
+    if (bounds.length > 0 && !selectedId) {
+      map.fitBounds(L.latLngBounds(bounds).pad(0.2), { animate: false });
+    }
+    setTimeout(() => map.invalidateSize(), 50);
+  }, [filtered, coords]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selected = useMemo(
+    () => filtered.find((c) => c.clinic_id === selectedId) ?? null,
+    [filtered, selectedId],
+  );
+
+  return (
+    <div className="-m-4 md:-m-8 relative h-[calc(100vh-4rem)] overflow-hidden">
+      {/* Map */}
+      <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+
+      {/* Floating filters */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
+        <Card className="pointer-events-auto mx-auto max-w-5xl rounded-2xl border border-border/60 bg-background/85 p-3 shadow-xl backdrop-blur-md">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <h1 className="text-base font-semibold">Rede de Busca</h1>
+            <Badge variant="outline" className="text-[10px]">
+              {filtered.length} clínica{filtered.length !== 1 ? 's' : ''}
+            </Badge>
           </div>
-          <div>
-            <Select
-              value={professionalType}
-              onValueChange={(v) => setProfessionalType(v as 'all' | 'medico' | 'dentista')}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <div className="md:col-span-2 relative">
+              <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar clínica, profissional..."
+                className="pl-9 h-9 bg-background/70"
+              />
+            </div>
+            <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
+              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Médicos e dentistas</SelectItem>
-                <SelectItem value="medico">Só médicos</SelectItem>
-                <SelectItem value="dentista">Só dentistas</SelectItem>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="medico">Médicos</SelectItem>
+                <SelectItem value="dentista">Dentistas</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
             <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Especialidade" />
-              </SelectTrigger>
+              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="Especialidade" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas especialidades</SelectItem>
-                {specialtyOptions.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
+                {specialtyOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-          <div>
             <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="UF" />
-              </SelectTrigger>
+              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="UF" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas UFs</SelectItem>
-                {stateOptions.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
+                {stateOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-          <div>
             <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Cidade" />
-              </SelectTrigger>
+              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="Cidade" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas cidades</SelectItem>
-                {cityOptions.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
+                {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="text-xs text-muted-foreground">{filtered.length} clínica(s) encontrada(s)</div>
-      </Card>
+        </Card>
+      </div>
 
-      <Card className="rounded-xl p-0 overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Carregando rede de clínicas...</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma clínica encontrada com os filtros atuais.</div>
-        ) : (
-          <div className="divide-y divide-border">
-            {filtered.map((clinic) => {
-              const mainProfessional = clinic.professionals[0];
-              return (
-              <div key={clinic.clinic_id} className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar className="h-11 w-11">
-                    <AvatarImage src={mainProfessional?.avatar_url ?? undefined} />
-                    <AvatarFallback>
-                      {(clinic.clinic_name || 'C')
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+      {/* Bottom info panel */}
+      {selected && (
+        <div className="absolute inset-x-0 bottom-0 z-[500] p-3 md:p-4 pointer-events-none">
+          <Card className="pointer-events-auto mx-auto max-w-4xl rounded-2xl border border-border/60 bg-background/95 p-4 shadow-2xl backdrop-blur-md">
+            <div className="flex items-start gap-4">
+              <Avatar className="h-14 w-14 shrink-0">
+                <AvatarImage src={selected.logo_url ?? undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
+                  {selected.clinic_name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="font-medium truncate">{clinic.clinic_name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {clinic.phone ?? 'Telefone da clínica não informado'}
-                      {clinic.state ? ` · ${clinic.state}` : ''}
-                      {clinic.city ? ` · ${clinic.city}` : ''}
-                      {clinic.cnpj ? ` · CNPJ ${clinic.cnpj}` : ''}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      <Badge variant="outline">{clinic.category === 'medico' ? 'Médica' : clinic.category === 'odonto' ? 'Odontológica' : 'Outras'}</Badge>
-                      {clinic.specialties.length === 0 ? (
-                        <Badge variant="outline">Sem especialidade</Badge>
-                      ) : (
-                        clinic.specialties.slice(0, 3).map((s) => (
-                          <Badge key={s} variant="secondary">{s}</Badge>
-                        ))
-                      )}
-                      <Badge variant="outline">{clinic.professionals_count} profissional(is)</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 truncate">
-                      {clinic.professionals.slice(0, 3).map((p) => p.full_name).join(' · ')}
-                      {clinic.professionals.length > 3 ? ` · +${clinic.professionals.length - 3}` : ''}
+                    <div className="font-semibold truncate">{selected.clinic_name}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-[10px]">
+                        {selected.category === 'medico' ? 'Médica' : selected.category === 'odonto' ? 'Odontológica' : 'Outras'}
+                      </Badge>
+                      {selected.specialties.slice(0, 3).map((s) => (
+                        <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                      ))}
+                      <Badge variant="outline" className="text-[10px]">{selected.professionals_count} profissional(is)</Badge>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                  {(selected.address || selected.city) && (
+                    <div className="flex items-start gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span className="truncate">
+                        {[selected.address, selected.address_number].filter(Boolean).join(', ')}
+                        {selected.neighborhood ? ` · ${selected.neighborhood}` : ''}
+                        {selected.city ? ` · ${selected.city}` : ''}
+                        {selected.state ? `/${selected.state}` : ''}
+                      </span>
+                    </div>
+                  )}
+                  {selected.phone && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{selected.phone}</span>
+                    </div>
+                  )}
+                  {selected.email && (
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{selected.email}</span>
+                    </div>
+                  )}
+                  {selected.cnpj && <div>CNPJ {selected.cnpj}</div>}
+                </div>
+                {selected.professionals.length > 0 && (
+                  <div className="mt-3 text-xs">
+                    <div className="text-muted-foreground mb-1">Profissionais:</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selected.professionals.slice(0, 5).map((p) => (
+                        <Badge key={p.user_id} variant="outline" className="text-[10px] font-normal">
+                          {p.full_name}{p.specialties[0] ? ` · ${p.specialties[0]}` : ''}
+                        </Badge>
+                      ))}
+                      {selected.professionals.length > 5 && (
+                        <span className="text-muted-foreground">+{selected.professionals.length - 5}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
                     variant="outline"
                     className="rounded-xl"
-                    disabled={!clinic.phone && !mainProfessional?.phone}
-                    onClick={() => handleContact(clinic.phone ?? mainProfessional?.phone ?? null)}
+                    disabled={!selected.phone && !selected.professionals[0]?.phone}
+                    onClick={() => handleContact(selected.phone ?? selected.professionals[0]?.phone ?? null)}
                   >
-                    <MessageCircle className="h-4 w-4 mr-1" /> Contato
+                    <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
                   </Button>
+                  {selected.email && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => window.open(`mailto:${selected.email}`)}
+                    >
+                      <Mail className="h-4 w-4 mr-1" /> E-mail
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     className="rounded-xl"
-                    onClick={() => navigate(`/operadora/convites?name=${encodeURIComponent(clinic.clinic_name)}&email=${encodeURIComponent(clinic.email ?? '')}`)}
+                    onClick={() =>
+                      navigate(
+                        `/operadora/convites?name=${encodeURIComponent(selected.clinic_name)}&email=${encodeURIComponent(selected.email ?? '')}`,
+                      )
+                    }
                   >
                     <Send className="h-4 w-4 mr-1" /> Convidar
                   </Button>
                 </div>
               </div>
-            )})}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {loading && (
+        <div className="absolute inset-0 z-[400] flex items-center justify-center pointer-events-none">
+          <div className="bg-background/80 backdrop-blur px-4 py-2 rounded-xl text-sm text-muted-foreground border border-border/60">
+            Carregando rede de clínicas...
           </div>
-        )}
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
