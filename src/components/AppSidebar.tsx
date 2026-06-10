@@ -529,10 +529,12 @@ export function AppSidebar() {
       {/* ── Content ── */}
       <SidebarContent className="px-2 py-2 gap-0">
 
-        {/* Clinic Switcher — primeiro */}
-        <div className="py-1.5 px-0">
-          <ClinicSwitcher />
-        </div>
+        {/* Clinic Switcher — primeiro, oculto no modo colapsado */}
+        {!collapsed && (
+          <div className="py-1.5 px-0">
+            <ClinicSwitcher />
+          </div>
+        )}
 
         {/* PESSOAL */}
         {filteredPersonalNav.length > 0 && (
