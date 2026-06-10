@@ -291,13 +291,13 @@ export default function OperatorRequests() {
         ))}
       </div>
       {loading ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">Carregando...</Card>
+        <Card className="rounded-xl p-8 text-center text-sm text-muted-foreground">Carregando...</Card>
       ) : visible.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum pedido.</Card>
+        <Card className="rounded-xl p-8 text-center text-sm text-muted-foreground">Nenhum pedido.</Card>
       ) : (
         <div className="space-y-3">
           {visible.map((r) => (
-            <Card key={r.id} className="p-4 flex items-center justify-between gap-4">
+            <Card key={r.id} className="rounded-xl p-4 flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="font-medium">{r.clinic_name}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
@@ -315,21 +315,21 @@ export default function OperatorRequests() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" variant="ghost" onClick={() => setDetailReq(r)}>
+                <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setDetailReq(r)}>
                   <FileText className="h-4 w-4 mr-1" /> Ver dados da clínica
                 </Button>
                 <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{STATUS_LABELS[r.status] ?? r.status}</Badge>
                 {(r.status === 'approved' || r.status === 'pending') && (
-                  <Button size="sm" variant="ghost" onClick={() => setRevoking(r)}>
+                  <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setRevoking(r)}>
                     Revogar
                   </Button>
                 )}
                 {r.status === 'pending' && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => setRejecting(r)}>
+                    <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setRejecting(r)}>
                       <X className="h-4 w-4 mr-1" /> Recusar
                     </Button>
-                    <Button size="sm" onClick={() => approve(r)}>
+                    <Button size="sm" className="rounded-xl" onClick={() => approve(r)}>
                       <Check className="h-4 w-4 mr-1" /> Aprovar
                     </Button>
                   </>
@@ -350,8 +350,8 @@ export default function OperatorRequests() {
             rows={4}
           />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRejecting(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={reject}>Confirmar recusa</Button>
+            <Button variant="ghost" className="rounded-xl" onClick={() => setRejecting(null)}>Cancelar</Button>
+            <Button variant="destructive" className="rounded-xl" onClick={reject}>Confirmar recusa</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -439,7 +439,7 @@ export default function OperatorRequests() {
                   ) : (
                     <div className="mt-2 space-y-2">
                       {detailProfessionals.map((prof) => (
-                        <div key={prof.user_id} className="rounded-md border border-border/60 p-2 flex items-center justify-between gap-3">
+                        <div key={prof.user_id} className="rounded-xl border border-border/60 p-2 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <Avatar className="h-10 w-10">
                               <AvatarImage src={prof.avatar_url ?? undefined} />
@@ -461,7 +461,7 @@ export default function OperatorRequests() {
                               </div>
                             </div>
                           </div>
-                          <Button size="sm" variant="outline" onClick={() => setSelectedProfessional(prof)}>
+                          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setSelectedProfessional(prof)}>
                             <Eye className="h-4 w-4 mr-1" /> Ver perfil
                           </Button>
                         </div>
@@ -540,8 +540,8 @@ export default function OperatorRequests() {
             rows={4}
           />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRevoking(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={revoke}>Confirmar revogação</Button>
+            <Button variant="ghost" className="rounded-xl" onClick={() => setRevoking(null)}>Cancelar</Button>
+            <Button variant="destructive" className="rounded-xl" onClick={revoke}>Confirmar revogação</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

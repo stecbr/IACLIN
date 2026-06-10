@@ -60,8 +60,12 @@ import OperatorSettings from "./pages/operadora/OperatorSettings";
 import OperatorAttendances from "./pages/operadora/OperatorAttendances";
 import OperatorBilling from "./pages/operadora/OperatorBilling";
 import OperatorInvites from "./pages/operadora/OperatorInvites";
+<<<<<<< Updated upstream
 import OperatorTickets from "./pages/operadora/OperatorTickets";
 import SupportTickets from "./pages/SupportTickets";
+=======
+import OperatorProfessionals from "./pages/operadora/OperatorProfessionals";
+>>>>>>> Stashed changes
 import { SuperAdminLayout } from "./components/superadmin/SuperAdminLayout";
 import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
@@ -246,6 +250,7 @@ const AppRoutes = () => (
     </Route>
     <Route path="/operadora" element={<OperatorProtectedRoute />}>
       <Route index element={<OperatorDashboard />} />
+      <Route path="profissionais" element={<OperatorProfessionals />} />
       <Route path="rede" element={<OperatorNetwork />} />
       <Route path="pedidos" element={<OperatorRequests />} />
       <Route path="convites" element={<OperatorInvites />} />

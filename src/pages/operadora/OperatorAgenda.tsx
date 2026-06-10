@@ -62,22 +62,22 @@ export default function OperatorAgenda() {
         <p className="text-sm text-muted-foreground">Horários liberados pelos profissionais credenciados (próximos 14 dias)</p>
       </div>
       {loading ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">Carregando...</Card>
+        <Card className="rounded-xl p-8 text-center text-sm text-muted-foreground">Carregando...</Card>
       ) : Object.keys(grouped).length === 0 ? (
-        <Card className="p-12 text-center text-sm text-muted-foreground">
+        <Card className="rounded-xl p-12 text-center text-sm text-muted-foreground">
           <Calendar className="h-10 w-10 mx-auto mb-3 opacity-40" />
           Nenhum horário disponível no momento.
         </Card>
       ) : (
         <div className="space-y-4">
           {Object.entries(grouped).map(([date, items]) => (
-            <Card key={date} className="p-4">
+            <Card key={date} className="rounded-xl p-4">
               <div className="font-medium mb-3 capitalize">
                 {format(new Date(date + 'T00:00'), "EEEE, dd 'de' MMMM", { locale: ptBR })}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {items.map((s) => (
-                  <div key={s.id} className="text-sm border border-border rounded-md p-2">
+                  <div key={s.id} className="text-sm border border-border rounded-xl p-2">
                     <div className="font-medium">{s.full_name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} · {s.mode === 'plano' ? 'Reservado p/ plano' : 'Particular + plano'}

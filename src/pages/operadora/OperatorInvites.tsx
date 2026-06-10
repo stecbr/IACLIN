@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ const storageKey = (operatorId: string) => `operator-invites:${operatorId}`;
 
 export default function OperatorInvites() {
   const { operatorId } = useAuth();
+  const [searchParams] = useSearchParams();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [targetType, setTargetType] = useState<'medico' | 'clinica'>('medico');
@@ -48,6 +50,13 @@ export default function OperatorInvites() {
       .maybeSingle()
       .then(({ data }) => setOperatorName(data?.name ?? 'Operadora'));
   }, [operatorId]);
+
+  useEffect(() => {
+    const name = searchParams.get('name');
+    const email = searchParams.get('email');
+    if (name) setFullName(name);
+    if (email) setEmail(email);
+  }, [searchParams]);
 
   const saveRecords = (next: InviteRecord[]) => {
     if (!operatorId) return;
@@ -112,7 +121,7 @@ export default function OperatorInvites() {
         </div>
       </div>
 
-      <Card className="p-5 space-y-4">
+      <Card className="rounded-xl p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="md:col-span-1">
             <Label>Tipo</Label>
@@ -135,7 +144,7 @@ export default function OperatorInvites() {
             <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="convidado@email.com" />
           </div>
           <div className="flex items-end">
-            <Button className="w-full" onClick={createInvite}>
+            <Button className="w-full rounded-xl" onClick={createInvite}>
               <Send className="h-4 w-4 mr-2" />
               Gerar convite
             </Button>
@@ -147,7 +156,7 @@ export default function OperatorInvites() {
       </Card>
 
       {records.length === 0 ? (
-        <Card className="p-10 flex flex-col items-center justify-center text-center gap-3">
+        <Card className="rounded-xl p-10 flex flex-col items-center justify-center text-center gap-3">
           <Send className="h-10 w-10 text-muted-foreground" />
           <div className="text-sm font-medium">Nenhum convite enviado ainda</div>
           <p className="text-xs text-muted-foreground max-w-md">
@@ -155,7 +164,7 @@ export default function OperatorInvites() {
           </p>
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="rounded-xl p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40">
@@ -185,11 +194,11 @@ export default function OperatorInvites() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => copyLink(r.link)}>
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => copyLink(r.link)}>
                           <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
                         </Button>
                         {r.status === 'pending' && (
-                          <Button size="sm" variant="ghost" onClick={() => revokeInvite(r.id)}>Revogar</Button>
+                          <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => revokeInvite(r.id)}>Revogar</Button>
                         )}
                       </div>
                     </td>
@@ -201,7 +210,7 @@ export default function OperatorInvites() {
         </Card>
       )}
 
-      <Card className="p-4">
+      <Card className="rounded-xl p-4">
         <div className="text-sm font-medium flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Briefing do convite</div>
         <p className="text-xs text-muted-foreground mt-1">
           O convite informa que a operadora {operatorName || 'selecionada'} está aberta a novos credenciados e direciona o profissional para completar o dossiê com dados cadastrais, fotos e procedimentos desejados.
