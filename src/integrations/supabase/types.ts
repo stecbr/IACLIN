@@ -2691,6 +2691,14 @@ export type Database = {
         Returns: number
       }
       generate_clinic_invite_code: { Args: never; Returns: string }
+      get_marketplace_doctor_profiles: {
+        Args: { _user_ids: string[] }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
