@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { format, parseISO, isAfter, isBefore, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, ChevronRight, Sparkles } from "lucide-react";
+import { MapPin, Phone, ChevronRight, Sparkles, Stethoscope, Building2 } from "lucide-react";
 
 interface Appointment {
   start_time: string;
@@ -114,6 +115,11 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  const displayName = doctor.fullName?.trim() || "Sem nome";
+  const displayInitials = initials || "?";
+  const specialtyLabel = doctor.specialty
+    ? doctor.specialty.charAt(0).toUpperCase() + doctor.specialty.slice(1)
+    : null;
 
   const handleSlotClick = (date: Date, time: string) => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -125,16 +131,27 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
       <CardContent className="p-4">
         <div className="flex gap-4">
           <Avatar className="h-16 w-16 shrink-0 ring-2 ring-primary/20 ring-offset-1">
-            <AvatarImage src={doctor.avatarUrl ?? undefined} alt={doctor.fullName} className="object-cover" />
+            <AvatarImage src={doctor.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
             <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
-              {initials}
+              {displayInitials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold text-foreground">{doctor.fullName}</h3>
-            <p className="truncate text-sm text-muted-foreground">{doctor.clinicName}</p>
+            <h3 className="truncate text-base font-semibold text-foreground">{displayName}</h3>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {specialtyLabel && (
+                <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary hover:bg-primary/15 border-0 font-medium">
+                  <Stethoscope className="h-3 w-3" />
+                  {specialtyLabel}
+                </Badge>
+              )}
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground/90 truncate">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{doctor.clinicName}</span>
+              </span>
+            </div>
             {(doctor.clinicCity || doctor.clinicState) && (
-              <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3" />
                 <span>{[doctor.clinicCity, doctor.clinicState].filter(Boolean).join(", ")}</span>
                 {onShowOnMap && (
