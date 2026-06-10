@@ -218,11 +218,13 @@ export default function MyCredentialingSection() {
       const hasCnpj = !!(clinic as any)?.cnpj;
       const hasCpf = !!(clinic as any)?.cpf;
       const et: EntityType =
-        hasCpf && !hasCnpj
+        rawEt === 'fisica' || (rawEt === 'juridica' && hasCnpj)
+          ? rawEt
+          : hasCpf && !hasCnpj
           ? 'fisica'
           : hasCnpj
           ? 'juridica'
-          : rawEt ?? 'fisica';
+          : 'fisica';
       setEntityType(et);
 
       const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
