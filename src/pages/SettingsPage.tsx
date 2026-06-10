@@ -27,6 +27,22 @@ import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { aiBackend } from '@/lib/aiBackend';
 import { SmartAddressFields } from '@/components/address/SmartAddressFields';
 
+function formatCnpj(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 14);
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+function formatCpf(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2');
+}
+
 const sections = [
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
@@ -140,7 +156,9 @@ function ClinicSection() {
   });
 
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', cnpj: '', category: '',
+    name: '', phone: '', email: '', cnpj: '', cpf: '', category: '',
+    entity_type: 'juridica' as 'fisica' | 'juridica',
+    responsible_name: '',
     zip_code: '', address: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '',
   });
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
@@ -149,9 +167,25 @@ function ClinicSection() {
   const [fetchingCep, setFetchingCep] = useState(false);
 
   if (clinic && !initialized) {
+    const rawEt = (clinic as any).entity_type as 'fisica' | 'juridica' | null | undefined;
+    // Detecção inteligente: se entity_type não foi definido (ou marcado errado),
+    // usa o CPF/CNPJ presentes para inferir.
+    const hasCnpj = !!(clinic as any).cnpj;
+    const hasCpf = !!(clinic as any).cpf;
+    const inferredEt: 'fisica' | 'juridica' =
+      rawEt && ((rawEt === 'juridica' && hasCnpj) || (rawEt === 'fisica' && hasCpf) || (rawEt === 'fisica' && !hasCnpj))
+        ? rawEt
+        : hasCpf && !hasCnpj
+        ? 'fisica'
+        : hasCnpj
+        ? 'juridica'
+        : rawEt ?? 'juridica';
     setForm({
       name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
-      cnpj: clinic.cnpj ?? '', category: (clinic as any).category ?? '',
+      cnpj: clinic.cnpj ?? '', cpf: (clinic as any).cpf ?? '',
+      category: (clinic as any).category ?? '',
+      entity_type: inferredEt,
+      responsible_name: (clinic as any).responsible_name ?? '',
       zip_code: clinic.zip_code ?? '', address: clinic.address ?? '',
       address_number: (clinic as any).address_number ?? '',
       address_complement: (clinic as any).address_complement ?? '',
@@ -258,13 +292,24 @@ function ClinicSection() {
     }
     setSaving(true);
     try {
+      const isPF = form.entity_type === 'fisica';
       const payload = {
-        ...form,
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
         category: form.category || null,
-        business_hours: businessHours as any,
+        entity_type: form.entity_type,
+        cnpj: isPF ? null : (form.cnpj || null),
+        cpf: isPF ? (form.cpf || null) : null,
+        responsible_name: form.responsible_name || null,
+        zip_code: form.zip_code,
+        address: form.address,
         address_number: form.address_number || null,
         address_complement: form.address_complement || null,
         neighborhood: form.neighborhood || null,
+        city: form.city,
+        state: form.state,
+        business_hours: businessHours as any,
       };
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
@@ -385,6 +430,31 @@ function ClinicSection() {
 
           {/* Form fields */}
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* Tipo de pessoa */}
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Tipo de cadastro</Label>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {(['fisica','juridica'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setForm({ ...form, entity_type: t })}
+                    className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                      form.entity_type === t
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border hover:border-primary/50 text-muted-foreground'
+                    }`}
+                  >
+                    <div className="font-medium text-foreground">
+                      {t === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {t === 'fisica' ? 'Profissional autônomo (CPF)' : 'Empresa formalizada (CNPJ)'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Nome da Clínica</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Clínica Sorriso" />
@@ -410,10 +480,17 @@ function ClinicSection() {
                 </p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>CNPJ</Label>
-              <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
-            </div>
+            {form.entity_type === 'juridica' ? (
+              <div className="space-y-2">
+                <Label>CNPJ</Label>
+                <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: formatCnpj(e.target.value) })} placeholder="00.000.000/0000-00" inputMode="numeric" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>CPF</Label>
+                <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: formatCpf(e.target.value) })} placeholder="000.000.000-00" inputMode="numeric" />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Telefone</Label>
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" />
@@ -421,6 +498,10 @@ function ClinicSection() {
             <div className="space-y-2">
               <Label>E-mail</Label>
               <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="contato@clinica.com" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>{form.entity_type === 'fisica' ? 'Nome completo do titular' : 'Responsável pela clínica'}</Label>
+              <Input value={form.responsible_name} onChange={(e) => setForm({ ...form, responsible_name: e.target.value })} placeholder={form.entity_type === 'fisica' ? 'Dr. João Silva' : 'Nome do responsável'} />
             </div>
             {/* ── Endereço ── */}
             <div className="space-y-3 sm:col-span-2">
