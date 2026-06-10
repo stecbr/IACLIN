@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         city: body.city ?? null,
         state: body.state ?? null,
         zip_code: body.zip_code ?? null,
-        entity_type: body.entity_type ?? 'juridica',
+        entity_type: body.entity_type ?? (body.cpf && !body.cnpj ? 'fisica' : body.cnpj ? 'juridica' : 'fisica'),
         cpf: body.cpf ?? null,
         rg: body.rg ?? null,
         birth_date: body.birth_date ?? null,
