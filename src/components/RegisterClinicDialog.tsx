@@ -206,11 +206,20 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
   }, [zipCode]);
 
   const handleSubmit = async () => {
-    if (cnpj.replace(/\D/g, '').length !== 14) {
-      toast.error('CNPJ deve ter 14 dígitos'); return;
+    if (!entityType) {
+      toast.error('Escolha Pessoa Física ou Jurídica'); return;
     }
-    if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
-      toast.error('Preencha todos os campos obrigatórios'); return;
+    if (entityType === 'juridica') {
+      if (cnpj.replace(/\D/g, '').length !== 14) {
+        toast.error('CNPJ deve ter 14 dígitos'); return;
+      }
+      if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
+        toast.error('Preencha todos os campos obrigatórios'); return;
+      }
+    } else {
+      if (!fullName.trim()) { toast.error('Informe o nome completo'); return; }
+      if (cpf.replace(/\D/g, '').length !== 11) { toast.error('CPF deve ter 11 dígitos'); return; }
+      if (!phone.trim()) { toast.error('Informe o telefone'); return; }
     }
     if (!zipCode.trim() || !address.trim() || !addressNumber.trim() || !city.trim() || !state.trim()) {
       toast.error('Preencha o endereço completo da clínica'); return;
@@ -218,14 +227,15 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
     setSubmitting(true);
     try {
       const fullAddress = `${address.trim()}, ${addressNumber.trim()}${addressComplement ? ` - ${addressComplement.trim()}` : ''}${neighborhood ? ` - ${neighborhood.trim()}` : ''}`;
+      const isPF = entityType === 'fisica';
       const { data, error } = await supabase.functions.invoke('create-own-clinic', {
         body: {
-          name: tradeName.trim(),
-          legal_name: legalName.trim(),
-          trade_name: tradeName.trim(),
-          cnpj: cnpj.replace(/\D/g, ''),
+          name: isPF ? fullName.trim() : tradeName.trim(),
+          legal_name: isPF ? null : legalName.trim(),
+          trade_name: isPF ? fullName.trim() : tradeName.trim(),
+          cnpj: isPF ? null : cnpj.replace(/\D/g, ''),
           phone: phone.trim(),
-          responsible_name: responsibleName.trim(),
+          responsible_name: isPF ? fullName.trim() : responsibleName.trim(),
           category,
           category_label: category === 'outro' ? categoryLabel.trim() || null : null,
           address: fullAddress,
@@ -235,11 +245,50 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
           city: city.trim(),
           state: state.trim().toUpperCase(),
           zip_code: zipCode.replace(/\D/g, ''),
+          entity_type: entityType,
+          cpf: isPF ? cpf.replace(/\D/g, '') : null,
+          rg: isPF ? (rg.trim() || null) : null,
+          birth_date: isPF ? (birthDate || null) : null,
+          inss_pis: isPF ? (inssPis.trim() || null) : null,
+          state_registration: stateRegistration.trim() || null,
+          municipal_registration: municipalRegistration.trim() || null,
+          cnes: cnes.trim() || null,
+          specialty_certificate: specialtyCertificate.trim() || null,
+          bank_name: bankName.trim() || null,
+          bank_agency: bankAgency.trim() || null,
+          bank_account: bankAccount.trim() || null,
+          bank_account_type: bankAccount.trim() ? bankAccountType : null,
+          bank_holder_document: bankHolderDocument.replace(/\D/g, '') || null,
         },
       });
       if (error || (data && data.error)) {
         toast.error((data && data.error) || error?.message || 'Falha ao cadastrar clínica.');
         return;
+      }
+      const clinicId = (data as any)?.clinic_id as string | undefined;
+      // Upload de documentos do kit credenciamento
+      if (clinicId) {
+        const uploads: Promise<unknown>[] = [];
+        for (const [docType, files] of Object.entries(docFiles)) {
+          for (const file of files) {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const path = `${clinicId}/${docType}/${Date.now()}-${safeName}`;
+            uploads.push((async () => {
+              const up = await supabase.storage.from('clinic-documents').upload(path, file, { upsert: false });
+              if (!up.error) {
+                await supabase.from('clinic_documents' as any).insert({
+                  clinic_id: clinicId,
+                  doc_type: docType,
+                  file_path: path,
+                  file_name: file.name,
+                });
+              }
+            })());
+          }
+        }
+        if (uploads.length) {
+          await Promise.allSettled(uploads);
+        }
       }
       toast.success('Clínica cadastrada!');
       await refreshClinics();
