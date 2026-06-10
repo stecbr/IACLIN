@@ -181,7 +181,7 @@ export default function OperatorDashboard() {
             <button
               key={d}
               onClick={() => setDaysRange(d)}
-              className={`px-3 py-1 rounded-md text-sm border ${daysRange === d ? 'bg-muted/40 border-transparent' : 'border-border'}`}>
+              className={`px-3 py-1 rounded-xl text-sm border ${daysRange === d ? 'bg-muted/40 border-transparent' : 'border-border'}`}>
               {d}d
             </button>
           ))}
@@ -190,7 +190,7 @@ export default function OperatorDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((k) => (
-          <Card key={k.key} className="p-4">
+          <Card key={k.key} className="rounded-xl p-4">
             <div className="flex items-start justify-between mb-2">
               <div>
                 <div className="text-xs text-muted-foreground">{k.label}</div>
@@ -216,7 +216,7 @@ export default function OperatorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-4 lg:col-span-2">
+        <Card className="rounded-xl p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium">Evolução ({daysRange} dias)</h3>
             <div className="text-xs text-muted-foreground">Tempo médio decisão: {avgDecisionDays === null ? '—' : `${avgDecisionDays} dias`}</div>
@@ -234,7 +234,7 @@ export default function OperatorDashboard() {
           </div>
         </Card>
 
-        <Card className="p-4">
+        <Card className="rounded-xl p-4">
           <h3 className="text-sm font-medium mb-2">Top especialidades</h3>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height={260}>
@@ -252,7 +252,7 @@ export default function OperatorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-4">
+        <Card className="rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium">Distribuição por status</h3>
             <div className="text-xs text-muted-foreground">Taxa aprovação: {approvalRate}%</div>
@@ -271,7 +271,7 @@ export default function OperatorDashboard() {
           </div>
           <div className="grid grid-cols-3 gap-2 mt-2">
             {statusBreakdown.map((item) => (
-              <div key={item.name} className="rounded-md border border-border p-2 text-center">
+              <div key={item.name} className="rounded-xl border border-border p-2 text-center">
                 <div className="text-[11px] text-muted-foreground">{item.name}</div>
                 <div className="text-sm font-semibold">{item.value}</div>
               </div>
@@ -279,7 +279,7 @@ export default function OperatorDashboard() {
           </div>
         </Card>
 
-        <Card className="p-4">
+        <Card className="rounded-xl p-4">
           <h3 className="text-sm font-medium mb-2">Funil de credenciamento</h3>
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer width="100%" height={220}>
@@ -301,20 +301,20 @@ export default function OperatorDashboard() {
           </p>
         </Card>
 
-        <Card className="p-4">
+        <Card className="rounded-xl p-4">
           <h3 className="text-sm font-medium mb-3">Prioridades operacionais</h3>
           <div className="space-y-2">
-            <div className="rounded-md border border-border p-3">
+            <div className="rounded-xl border border-border p-3">
               <div className="text-xs text-muted-foreground">Pendências agora</div>
               <div className="text-xl font-semibold mt-1">{loading ? '—' : stats.pending}</div>
               <Link to="/operadora/pedidos" className="text-xs text-primary hover:underline">Ir para pedidos</Link>
             </div>
-            <div className="rounded-md border border-border p-3">
+            <div className="rounded-xl border border-border p-3">
               <div className="text-xs text-muted-foreground">Agenda disponível (14 dias)</div>
               <div className="text-xl font-semibold mt-1">{loading ? '—' : upcomingSlots}</div>
               <Link to="/operadora/agenda" className="text-xs text-primary hover:underline">Ver agenda</Link>
             </div>
-            <div className="rounded-md border border-border p-3">
+            <div className="rounded-xl border border-border p-3">
               <div className="text-xs text-muted-foreground">Profissionais ativos</div>
               <div className="text-xl font-semibold mt-1">{loading ? '—' : stats.approved}</div>
               <Link to="/operadora/rede" className="text-xs text-primary hover:underline">Abrir rede</Link>

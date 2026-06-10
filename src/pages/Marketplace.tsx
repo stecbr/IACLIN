@@ -191,6 +191,8 @@ export default function Marketplace() {
         clinicId: d.clinicId,
         clinicName: d.clinicName,
         address: d.clinicAddress,
+        addressNumber: d.clinicAddressNumber,
+        neighborhood: d.clinicNeighborhood,
         city: d.clinicCity,
         state: d.clinicState,
         zipCode: d.clinicZipCode,

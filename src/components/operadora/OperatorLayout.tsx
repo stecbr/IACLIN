@@ -3,6 +3,7 @@ import { NavLink, useLocation, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
+  UserRoundSearch,
   Inbox,
   Calendar,
   Settings,
@@ -41,6 +42,7 @@ const navGroups: NavGroup[] = [
     label: 'Operação',
     items: [
       { to: '/operadora', label: 'Visão geral', icon: LayoutDashboard, end: true },
+      { to: '/operadora/profissionais', label: 'Rede de Busca', icon: UserRoundSearch },
       { to: '/operadora/rede', label: 'Rede credenciada', icon: Users },
       { to: '/operadora/agenda', label: 'Agenda', icon: Calendar },
     ],

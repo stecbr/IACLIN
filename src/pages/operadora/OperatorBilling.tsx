@@ -16,13 +16,13 @@ export default function OperatorBilling() {
           { label: 'Faturado no mês', value: 'R$ 0,00' },
           { label: 'Glosas em análise', value: '0' },
         ].map((k) => (
-          <Card key={k.label} className="p-5">
+          <Card key={k.label} className="rounded-xl p-5">
             <div className="text-xs text-muted-foreground">{k.label}</div>
             <div className="text-2xl font-semibold mt-1">{k.value}</div>
           </Card>
         ))}
       </div>
-      <Card className="p-10 flex flex-col items-center justify-center text-center gap-3">
+      <Card className="rounded-xl p-10 flex flex-col items-center justify-center text-center gap-3">
         <Wallet className="h-10 w-10 text-muted-foreground" />
         <div className="text-sm font-medium">Nenhum lote de faturamento gerado</div>
         <p className="text-xs text-muted-foreground max-w-md">

@@ -152,7 +152,7 @@ export default function OperatorNetwork() {
           className="pl-9"
         />
       </div>
-      <Card className="p-0 overflow-hidden">
+      <Card className="rounded-xl p-0 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground text-sm">Carregando...</div>
         ) : filtered.length === 0 ? (
@@ -193,7 +193,7 @@ export default function OperatorNetwork() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{r.clinic_city ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <Button size="sm" variant="destructive" onClick={() => setRevoking(r)}>
+                      <Button size="sm" variant="destructive" className="rounded-xl" onClick={() => setRevoking(r)}>
                         Cancelar credenciamento
                       </Button>
                     </td>
@@ -217,8 +217,8 @@ export default function OperatorNetwork() {
             rows={4}
           />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRevoking(null)}>Voltar</Button>
-            <Button variant="destructive" onClick={revokeCredentialing} disabled={busyId === revoking?.id}>
+            <Button variant="ghost" className="rounded-xl" onClick={() => setRevoking(null)}>Voltar</Button>
+            <Button variant="destructive" className="rounded-xl" onClick={revokeCredentialing} disabled={busyId === revoking?.id}>
               Confirmar cancelamento
             </Button>
           </DialogFooter>

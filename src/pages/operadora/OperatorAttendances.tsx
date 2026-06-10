@@ -10,7 +10,7 @@ export default function OperatorAttendances() {
           Acompanhe os atendimentos realizados pela rede e as confirmações do paciente.
         </p>
       </div>
-      <Card className="p-10 flex flex-col items-center justify-center text-center gap-3">
+      <Card className="rounded-xl p-10 flex flex-col items-center justify-center text-center gap-3">
         <ClipboardCheck className="h-10 w-10 text-muted-foreground" />
         <div className="text-sm font-medium">Nenhum atendimento aguardando confirmação</div>
         <p className="text-xs text-muted-foreground max-w-md">
