@@ -14,7 +14,6 @@ import {
 import { format } from 'date-fns';
 import { getSignedFileUrl } from '@/lib/storageSignedUrl';
 import { SignedImage } from '@/components/patients/SignedImage';
-import { toast } from 'sonner';
 
 interface Props {
   patientId: string;
