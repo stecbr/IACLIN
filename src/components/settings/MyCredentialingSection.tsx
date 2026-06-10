@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark } from 'lucide-react';
 
 type Operator = {
   id: string;
@@ -34,6 +34,27 @@ type Credentialing = {
 };
 
 type ProcedureOption = { id: string; name: string; specialty_category: string };
+
+type EntityType = 'fisica' | 'juridica';
+
+const PF_DOC_TYPES: { type: string; label: string }[] = [
+  { type: 'cro_dentista', label: 'CRO/CRM do profissional' },
+  { type: 'alvara', label: 'Alvará de funcionamento' },
+  { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+  { type: 'cnes_doc', label: 'Comprovante CNES' },
+  { type: 'fotos_clinica', label: 'Fotos da clínica' },
+  { type: 'especializacao', label: 'Certificado de especialização' },
+];
+const PJ_DOC_TYPES: { type: string; label: string }[] = [
+  { type: 'cartao_cnpj', label: 'Cartão CNPJ' },
+  { type: 'contrato_social', label: 'Contrato Social ou Requerimento Empresarial' },
+  { type: 'cro_clinica', label: 'CRO/CRM da clínica (responsável técnico)' },
+  { type: 'alvara', label: 'Alvará de funcionamento' },
+  { type: 'licenca_sanitaria', label: 'Licença sanitária' },
+  { type: 'cnes_doc', label: 'Comprovante CNES' },
+  { type: 'fotos_clinica', label: 'Fotos da clínica' },
+  { type: 'especializacao', label: 'Certificado de especialização' },
+];
 
 type CredentialingPayload = {
   invite?: {
@@ -91,6 +112,19 @@ export default function MyCredentialingSection() {
   const [clinicPhotoFiles, setClinicPhotoFiles] = useState<File[]>([]);
   const [acceptTerms, setAcceptTerms] = useState(false);
 
+  // Documentação e dados bancários para o credenciamento
+  const [entityType, setEntityType] = useState<EntityType>('juridica');
+  const [stateRegistration, setStateRegistration] = useState('');
+  const [municipalRegistration, setMunicipalRegistration] = useState('');
+  const [cnes, setCnes] = useState('');
+  const [specialtyCertificate, setSpecialtyCertificate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAgency, setBankAgency] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankAccountType, setBankAccountType] = useState<'corrente' | 'poupanca'>('corrente');
+  const [bankHolderDocument, setBankHolderDocument] = useState('');
+  const [docFiles, setDocFiles] = useState<Record<string, File[]>>({});
+
   const invitedOperatorId = searchParams.get('cred_op');
   const inviteToken = searchParams.get('invite');
 
@@ -123,6 +157,8 @@ export default function MyCredentialingSection() {
       setClinicZip((clinic as any)?.zip_code ?? '');
       setClinicResponsible((clinic as any)?.responsible_name ?? '');
       setBusinessHours(JSON.stringify((clinic as any)?.business_hours ?? {}, null, 2));
+      const et = ((clinic as any)?.entity_type as EntityType) ?? ((clinic as any)?.cnpj ? 'juridica' : 'juridica');
+      setEntityType(et);
 
       const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
         supabase.from('insurance_operators').select('id, name, ans_code, type, brand_color, logo_url, created_at').eq('is_active', true).order('name'),
@@ -223,6 +259,19 @@ export default function MyCredentialingSection() {
         if (url) clinicPhotos.push(url);
       }
 
+      // Upload de documentos do kit credenciamento
+      const uploadedDocs: Array<{ doc_type: string; file_name: string; url: string }> = [];
+      for (const [docType, files] of Object.entries(docFiles)) {
+        for (const file of files) {
+          try {
+            const url = await uploadCredentialingFile(file, 'clinic');
+            if (url) uploadedDocs.push({ doc_type: docType, file_name: file.name, url });
+          } catch {
+            // ignore individual upload failure
+          }
+        }
+      }
+
       const payload: CredentialingPayload = {
         invite: {
           token: inviteToken,
@@ -247,6 +296,21 @@ export default function MyCredentialingSection() {
         requested_procedures: selectedProcedureList.map((p) => ({ id: p.id, name: p.name })),
         terms: {
           accepted_at: new Date().toISOString(),
+        },
+        documentation: {
+          entity_type: entityType,
+          state_registration: stateRegistration.trim() || null,
+          municipal_registration: municipalRegistration.trim() || null,
+          cnes: cnes.trim() || null,
+          specialty_certificate: specialtyCertificate.trim() || null,
+          files: uploadedDocs,
+        },
+        banking: {
+          bank_name: bankName.trim() || null,
+          agency: bankAgency.trim() || null,
+          account: bankAccount.trim() || null,
+          account_type: bankAccount.trim() ? bankAccountType : null,
+          holder_document: bankHolderDocument.replace(/\D/g, '') || null,
         },
       } as any;
 
@@ -286,6 +350,7 @@ export default function MyCredentialingSection() {
       setAcceptTerms(false);
       setClinicPhotoFiles([]);
       setSelectedProcedureIds([]);
+      setDocFiles({});
       await load();
     } catch (e: any) {
       toast.error(`Erro ao enviar pedido: ${e.message ?? 'erro desconhecido'}`);
@@ -483,6 +548,76 @@ export default function MyCredentialingSection() {
                     <span className="text-[11px] text-muted-foreground ml-auto">{p.specialty_category}</span>
                   </label>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Documentação ({entityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})
+              </h4>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={entityType === 'fisica' ? 'default' : 'outline'} onClick={() => setEntityType('fisica')}>Pessoa Física</Button>
+                <Button type="button" size="sm" variant={entityType === 'juridica' ? 'default' : 'outline'} onClick={() => setEntityType('juridica')}>Pessoa Jurídica</Button>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div><Label>Inscrição Estadual</Label><Input value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" /></div>
+                <div><Label>Inscrição Municipal</Label><Input value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" /></div>
+                <div><Label>CNES</Label><Input value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="0000000" /></div>
+                <div><Label>Certificado de especialização (se houver)</Label><Input value={specialtyCertificate} onChange={(e) => setSpecialtyCertificate(e.target.value)} placeholder="Identificação / número" /></div>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                {(entityType === 'fisica' ? PF_DOC_TYPES : PJ_DOC_TYPES).map((d) => (
+                  <div key={d.type} className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                    <Label className="text-xs font-medium">{d.label}</Label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Selecionar arquivo(s)</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? []);
+                          if (!files.length) return;
+                          setDocFiles((prev) => ({ ...prev, [d.type]: [...(prev[d.type] ?? []), ...files] }));
+                        }}
+                      />
+                    </label>
+                    {(docFiles[d.type] ?? []).map((f, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs bg-background rounded px-2 py-1">
+                        <span className="truncate">{f.name}</span>
+                        <button type="button" className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setDocFiles((prev) => ({ ...prev, [d.type]: (prev[d.type] ?? []).filter((_, idx) => idx !== i) }))}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Landmark className="h-4 w-4" /> Dados bancários ({entityType === 'fisica' ? 'PF' : 'PJ'})
+              </h4>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div><Label>Banco</Label><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco do Brasil, Itaú..." /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Agência</Label><Input value={bankAgency} onChange={(e) => setBankAgency(e.target.value)} placeholder="0000" /></div>
+                  <div><Label>Conta</Label><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="00000-0" /></div>
+                </div>
+                <div>
+                  <Label>Tipo</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Button type="button" size="sm" variant={bankAccountType === 'corrente' ? 'default' : 'outline'} onClick={() => setBankAccountType('corrente')}>Corrente</Button>
+                    <Button type="button" size="sm" variant={bankAccountType === 'poupanca' ? 'default' : 'outline'} onClick={() => setBankAccountType('poupanca')}>Poupança</Button>
+                  </div>
+                </div>
+                <div>
+                  <Label>{entityType === 'fisica' ? 'CPF do titular' : 'CNPJ do titular'}</Label>
+                  <Input value={bankHolderDocument} onChange={(e) => setBankHolderDocument(e.target.value)} placeholder={entityType === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'} />
+                </div>
               </div>
             </div>
 
