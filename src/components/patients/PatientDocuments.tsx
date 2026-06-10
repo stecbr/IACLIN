@@ -12,6 +12,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
+import { getSignedFileUrl } from '@/lib/storageSignedUrl';
+import { SignedImage } from '@/components/patients/SignedImage';
 
 interface Props {
   patientId: string;
@@ -57,17 +59,13 @@ export function PatientDocuments({ patientId }: Props) {
           .upload(path, file);
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('patient-files')
-          .getPublicUrl(path);
-
         const isImage = file.type.startsWith('image/');
         const category = isImage ? 'image' : 'document';
 
         const { error: dbError } = await supabase.from('documents').insert({
           patient_id: patientId,
           name: file.name,
-          file_url: publicUrl,
+          file_url: path,
           file_type: file.type,
           category,
           uploaded_by: user.id,
@@ -87,10 +85,10 @@ export function PatientDocuments({ patientId }: Props) {
 
   const handleDelete = async (doc: any) => {
     try {
-      const urlParts = doc.file_url.split('/patient-files/');
-      if (urlParts[1]) {
-        await supabase.storage.from('patient-files').remove([urlParts[1]]);
-      }
+      const marker = '/patient-files/';
+      const idx = (doc.file_url as string).indexOf(marker);
+      const path = idx >= 0 ? doc.file_url.slice(idx + marker.length).split('?')[0] : doc.file_url;
+      if (path) await supabase.storage.from('patient-files').remove([path]);
       const { error } = await supabase.from('documents').delete().eq('id', doc.id);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['patient-documents', patientId] });
@@ -101,6 +99,18 @@ export function PatientDocuments({ patientId }: Props) {
   };
 
   const isImage = (type: string | null) => type?.startsWith('image/');
+
+  const openPreview = async (doc: any) => {
+    const signed = await getSignedFileUrl(doc.file_url, { expiresIn: 3600 });
+    if (!signed) { toast.error('Não foi possível abrir o arquivo'); return; }
+    setPreview(signed);
+  };
+
+  const downloadDoc = async (doc: any) => {
+    const signed = await getSignedFileUrl(doc.file_url, { expiresIn: 3600, download: doc.name });
+    if (!signed) { toast.error('Não foi possível baixar o arquivo'); return; }
+    window.open(signed, '_blank', 'noopener,noreferrer');
+  };
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
@@ -144,9 +154,9 @@ export function PatientDocuments({ patientId }: Props) {
                   <div
                     key={doc.id}
                     className="relative group aspect-square rounded-lg overflow-hidden border border-border cursor-pointer bg-muted"
-                    onClick={() => setPreview(doc.file_url)}
+                    onClick={() => openPreview(doc)}
                   >
-                    <img src={doc.file_url} alt={doc.name} className="w-full h-full object-cover" />
+                    <SignedImage fileUrl={doc.file_url} alt={doc.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-white" onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc); }}>
                         <Trash2 className="h-4 w-4" />
@@ -173,10 +183,8 @@ export function PatientDocuments({ patientId }: Props) {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadDoc(doc)}>
+                        <Download className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(doc)}>
                         <Trash2 className="h-3.5 w-3.5" />
