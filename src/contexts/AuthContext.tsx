@@ -46,8 +46,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const CLINIC_STORAGE_KEY = 'iaclin.currentClinicId';
-const SCOPE_STORAGE_KEY = 'iaclin.scope'; // 'personal' or absent
+const LEGACY_CLINIC_STORAGE_KEY = 'iaclin.currentClinicId';
+const LEGACY_SCOPE_STORAGE_KEY = 'iaclin.scope';
+const clinicStorageKey = (userId: string) => `iaclin.currentClinicId.${userId}`;
+const scopeStorageKey = (userId: string) => `iaclin.scope.${userId}`;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -59,10 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentClinicId, setCurrentClinicId] = useState<string | null>(null);
   const [clinicsLoaded, setClinicsLoaded] = useState(false);
   const [operatorId, setOperatorId] = useState<string | null>(null);
-  const [personalScope, setPersonalScope] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(SCOPE_STORAGE_KEY) === 'personal';
-  });
+  const [personalScope, setPersonalScope] = useState(false);
   // Modo de simulação foi descontinuado. Limpa qualquer valor antigo do
   // localStorage e mantém o estado sempre nulo.
   const [simulatedRole, setSimulatedRoleState] = useState<SimulatedRole | null>(() => {
@@ -88,6 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData);
         setOperatorId((operatorMember as any)?.operator_id ?? null);
         const memberRows = (memberData ?? []) as Array<{ clinic_id: string; role: string; is_owner: boolean }>;
+        const storedPersonalScope = typeof window !== 'undefined'
+          ? localStorage.getItem(scopeStorageKey(userId)) === 'personal'
+          : false;
+        setPersonalScope(storedPersonalScope);
         if (memberRows.length === 0) {
           setClinics([]);
           setCurrentClinicId(null);
@@ -110,10 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted) return;
         setClinics(memberships);
 
-        // Pick current clinic: stored value if still valid, otherwise first
-        const stored = typeof window !== 'undefined' ? localStorage.getItem(CLINIC_STORAGE_KEY) : null;
+        // Pick current clinic per authenticated user. Prefer the user's own
+        // clinic when there is no user-scoped selection to avoid showing a
+        // clinic remembered from another login in the same browser.
+        const stored = typeof window !== 'undefined' ? localStorage.getItem(clinicStorageKey(userId)) : null;
         const validStored = stored && memberships.some((m) => m.clinic_id === stored) ? stored : null;
-        setCurrentClinicId(validStored ?? memberships[0].clinic_id);
+        const ownedClinic = memberships.find((m) => m.is_owner || m.role === 'admin');
+        setCurrentClinicId(validStored ?? ownedClinic?.clinic_id ?? memberships[0].clinic_id);
         setClinicsLoaded(true);
       });
     };
@@ -165,7 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    if (typeof window !== 'undefined') localStorage.removeItem(SIMULATED_ROLE_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(SIMULATED_ROLE_STORAGE_KEY);
+      if (user?.id) {
+        localStorage.removeItem(clinicStorageKey(user.id));
+        localStorage.removeItem(scopeStorageKey(user.id));
+      }
+      localStorage.removeItem(LEGACY_CLINIC_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_SCOPE_STORAGE_KEY);
+    }
     setSimulatedRoleState(null);
     await supabase.auth.signOut();
   };
@@ -183,12 +197,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!clinics.some((c) => c.clinic_id === clinicId)) return;
     setCurrentClinicId(clinicId);
     setPersonalScope(false);
-    if (typeof window !== 'undefined') localStorage.setItem(CLINIC_STORAGE_KEY, clinicId);
-    if (typeof window !== 'undefined') localStorage.removeItem(SCOPE_STORAGE_KEY);
+    if (typeof window !== 'undefined' && user?.id) localStorage.setItem(clinicStorageKey(user.id), clinicId);
+    if (typeof window !== 'undefined' && user?.id) localStorage.removeItem(scopeStorageKey(user.id));
   };
   const switchToPersonal = () => {
     setPersonalScope(true);
-    if (typeof window !== 'undefined') localStorage.setItem(SCOPE_STORAGE_KEY, 'personal');
+    if (typeof window !== 'undefined' && user?.id) localStorage.setItem(scopeStorageKey(user.id), 'personal');
   };
   const currentMembership = clinics.find((c) => c.clinic_id === currentClinicId) ?? null;
   // Dentists with no clinics fall back to personal mode automatically so

@@ -139,7 +139,7 @@ export default function SettingsPage() {
 }
 
 function ClinicSection() {
-  const { user, refreshClinics } = useAuth();
+  const { user, currentClinicId, refreshClinics } = useAuth();
   const { isSolo } = useSoloMode();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
@@ -147,39 +147,56 @@ function ClinicSection() {
   const [savingHideFlag, setSavingHideFlag] = useState(false);
 
   const { data: clinic, isLoading } = useQuery({
-    queryKey: ['clinic-settings'],
+    queryKey: ['clinic-settings', user?.id, currentClinicId],
     queryFn: async () => {
-      const { data } = await supabase.from('clinics').select('*').eq('owner_id', user?.id).maybeSingle();
+      if (!currentClinicId) return null;
+      const { data, error } = await supabase
+        .from('clinics')
+        .select('*')
+        .eq('id', currentClinicId)
+        .maybeSingle();
+      if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!currentClinicId,
   });
 
+  const emptyForm = {
+    name: '', phone: '', email: user?.email ?? '', cnpj: '', cpf: '', category: '',
+    entity_type: 'fisica' as 'fisica' | 'juridica',
+    responsible_name: '',
+    zip_code: '', address: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '',
+  };
   const [form, setForm] = useState({
     name: '', phone: '', email: '', cnpj: '', cpf: '', category: '',
-    entity_type: 'juridica' as 'fisica' | 'juridica',
+    entity_type: 'fisica' as 'fisica' | 'juridica',
     responsible_name: '',
     zip_code: '', address: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '',
   });
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
-  const [initialized, setInitialized] = useState(false);
   const [fetchingCep, setFetchingCep] = useState(false);
 
-  if (clinic && !initialized) {
+  useEffect(() => {
+    if (isLoading) return;
+    if (!clinic) {
+      setForm(emptyForm);
+      setBusinessHours(DEFAULT_HOURS);
+      return;
+    }
     const rawEt = (clinic as any).entity_type as 'fisica' | 'juridica' | null | undefined;
     // Detecção inteligente: se entity_type não foi definido (ou marcado errado),
     // usa o CPF/CNPJ presentes para inferir.
     const hasCnpj = !!(clinic as any).cnpj;
     const hasCpf = !!(clinic as any).cpf;
     const inferredEt: 'fisica' | 'juridica' =
-      rawEt && ((rawEt === 'juridica' && hasCnpj) || (rawEt === 'fisica' && hasCpf) || (rawEt === 'fisica' && !hasCnpj))
+      rawEt === 'fisica' || (rawEt === 'juridica' && hasCnpj)
         ? rawEt
         : hasCpf && !hasCnpj
         ? 'fisica'
         : hasCnpj
         ? 'juridica'
-        : rawEt ?? 'juridica';
+        : 'fisica';
     setForm({
       name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
       cnpj: clinic.cnpj ?? '', cpf: (clinic as any).cpf ?? '',
@@ -193,8 +210,7 @@ function ClinicSection() {
       city: clinic.city ?? '', state: clinic.state ?? '',
     });
     setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
-    setInitialized(true);
-  }
+  }, [clinic, isLoading, user?.email]);
 
   const handleCepLookup = async () => {
     const digits = form.zip_code.replace(/\D/g, '');
