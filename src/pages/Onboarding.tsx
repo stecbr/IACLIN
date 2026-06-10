@@ -12,6 +12,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CitySelect } from '@/components/address/CitySelect';
+import { BR_UF_LIST } from '@/lib/brazilCities';
+
+function UfSelect({ value, onChange }: { value: string; onChange: (uf: string) => void }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+      <SelectContent className="z-[1000]">
+        {BR_UF_LIST.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
