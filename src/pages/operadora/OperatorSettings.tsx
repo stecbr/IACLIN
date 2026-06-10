@@ -38,11 +38,6 @@ export default function OperatorSettings() {
     toast.success('Salvo');
   };
 
-<<<<<<< Updated upstream
-=======
-  if (!op) return <Card className="rounded-xl p-8 text-sm text-muted-foreground">Carregando...</Card>;
-
->>>>>>> Stashed changes
   const uploadLogo = async (file: File) => {
     if (!operatorId) return;
     const ext = file.name.split('.').pop();
@@ -64,57 +59,6 @@ export default function OperatorSettings() {
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <p className="text-sm text-muted-foreground">Dados da sua operadora e segurança da conta</p>
       </div>
-<<<<<<< Updated upstream
-=======
-      <Card className="rounded-xl p-6">
-        <Label className="mb-3 block">Logo da operadora</Label>
-        <div className="flex items-center gap-4">
-          <div className="h-20 w-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
-            {op.logo_url ? (
-              <img src={op.logo_url} alt="Logo" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-xs text-muted-foreground">Sem logo</span>
-            )}
-          </div>
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
-            />
-            <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
-              <Upload className="h-4 w-4" /> Enviar logo
-            </span>
-          </label>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          A logo aparece no topo da sidebar e no cabeçalho do painel.
-        </p>
-      </Card>
-      <Card className="rounded-xl p-6 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div><Label>Nome fantasia</Label><Input value={op.name ?? ''} onChange={(e) => setOp({ ...op, name: e.target.value })} /></div>
-          <div><Label>Razão social</Label><Input value={op.legal_name ?? ''} onChange={(e) => setOp({ ...op, legal_name: e.target.value })} /></div>
-          <div><Label>CNPJ</Label><Input value={op.cnpj ?? ''} onChange={(e) => setOp({ ...op, cnpj: e.target.value })} /></div>
-          <div><Label>Código ANS</Label><Input value={op.ans_code ?? ''} onChange={(e) => setOp({ ...op, ans_code: e.target.value })} /></div>
-          <div>
-            <Label>Tipo</Label>
-            <select className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
-              value={op.type} onChange={(e) => setOp({ ...op, type: e.target.value })}>
-              <option value="medico">Médica</option>
-              <option value="odonto">Odontológica</option>
-              <option value="ambos">Médica e odontológica</option>
-            </select>
-          </div>
-          <div><Label>Cor da marca</Label><Input type="color" value={op.brand_color ?? '#3B82F6'} onChange={(e) => setOp({ ...op, brand_color: e.target.value })} /></div>
-          <div><Label>E-mail</Label><Input value={op.contact_email ?? ''} onChange={(e) => setOp({ ...op, contact_email: e.target.value })} /></div>
-          <div><Label>Telefone</Label><Input value={op.contact_phone ?? ''} onChange={(e) => setOp({ ...op, contact_phone: e.target.value })} /></div>
-          <div className="sm:col-span-2"><Label>Responsável</Label><Input value={op.responsible_name ?? ''} onChange={(e) => setOp({ ...op, responsible_name: e.target.value })} /></div>
-        </div>
-        <div className="flex justify-end"><Button className="rounded-xl" onClick={save} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button></div>
-      </Card>
->>>>>>> Stashed changes
 
       <Tabs defaultValue="dados">
         <TabsList className="mb-4">
