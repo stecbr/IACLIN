@@ -17,6 +17,7 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
+import { SmartAddressFields } from '@/components/address/SmartAddressFields';
 
 interface RegisterClinicDialogProps {
   open: boolean;
@@ -446,40 +447,19 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" /> Endereço da clínica
             </div>
-            <div className="grid md:grid-cols-6 gap-3">
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="rc-cep">CEP *</Label>
-                <div className="relative">
-                  <Input id="rc-cep" value={zipCode} onChange={(e) => setZipCode(formatCep(e.target.value))}
-                    placeholder="00000-000" inputMode="numeric" />
-                  {fetchingCep && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-                </div>
-              </div>
-              <div className="space-y-1.5 md:col-span-4">
-                <Label htmlFor="rc-address">Logradouro *</Label>
-                <Input id="rc-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, Avenida..." />
-              </div>
-              <div className="space-y-1.5 md:col-span-1">
-                <Label htmlFor="rc-num">Número *</Label>
-                <Input id="rc-num" value={addressNumber} onChange={(e) => setAddressNumber(e.target.value)} placeholder="123" />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="rc-comp">Complemento</Label>
-                <Input id="rc-comp" value={addressComplement} onChange={(e) => setAddressComplement(e.target.value)} placeholder="Sala 101" />
-              </div>
-              <div className="space-y-1.5 md:col-span-3">
-                <Label htmlFor="rc-bairro">Bairro</Label>
-                <Input id="rc-bairro" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} placeholder="Centro" />
-              </div>
-              <div className="space-y-1.5 md:col-span-4">
-                <Label htmlFor="rc-city">Cidade *</Label>
-                <Input id="rc-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="São Paulo" />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="rc-state">UF *</Label>
-                <Input id="rc-state" value={state} onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))} placeholder="SP" maxLength={2} />
-              </div>
-            </div>
+            <SmartAddressFields
+              idPrefix="rc"
+              value={{ zipCode, address, addressNumber, addressComplement, neighborhood, city, state }}
+              onChange={(v) => {
+                setZipCode(v.zipCode);
+                setAddress(v.address);
+                setAddressNumber(v.addressNumber);
+                setAddressComplement(v.addressComplement);
+                setNeighborhood(v.neighborhood);
+                setCity(v.city);
+                setState(v.state);
+              }}
+            />
           </section>
 
           {entityType === 'juridica' && (

@@ -25,6 +25,7 @@ import HolidaysSection from '@/components/settings/HolidaysSection';
 import PaymentAccountSection from '@/components/settings/PaymentAccountSection';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { aiBackend } from '@/lib/aiBackend';
+import { SmartAddressFields } from '@/components/address/SmartAddressFields';
 
 const sections = [
   { id: 'clinic', label: 'Clínica', icon: Building2 },
@@ -427,58 +428,28 @@ function ClinicSection() {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">Endereço</span>
               </div>
-              {/* CEP com busca automática */}
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1.5">
-                  <Label>CEP</Label>
-                  <Input
-                    value={form.zip_code}
-                    onChange={(e) => setForm({ ...form, zip_code: e.target.value })}
-                    onBlur={handleCepLookup}
-                    placeholder="00000-000"
-                    inputMode="numeric"
-                    maxLength={9}
-                  />
-                </div>
-                <div className="flex items-end pb-0.5">
-                  <Button type="button" variant="outline" size="icon" className="h-10 w-10" onClick={handleCepLookup} disabled={fetchingCep}>
-                    {fetchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              {/* Rua + Número */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-1.5">
-                  <Label>Logradouro</Label>
-                  <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Rua, Avenida, Alameda..." />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Número</Label>
-                  <Input value={form.address_number} onChange={(e) => setForm({ ...form, address_number: e.target.value })} placeholder="123" />
-                </div>
-              </div>
-              {/* Complemento + Bairro */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Complemento <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
-                  <Input value={form.address_complement} onChange={(e) => setForm({ ...form, address_complement: e.target.value })} placeholder="Sala 201, Andar 3..." />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Bairro</Label>
-                  <Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} placeholder="Centro" />
-                </div>
-              </div>
-              {/* Cidade + Estado */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-1.5">
-                  <Label>Cidade</Label>
-                  <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Estado</Label>
-                  <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="SP" maxLength={2} />
-                </div>
-              </div>
+              <SmartAddressFields
+                idPrefix="clinic"
+                value={{
+                  zipCode: form.zip_code,
+                  address: form.address,
+                  addressNumber: form.address_number,
+                  addressComplement: form.address_complement,
+                  neighborhood: form.neighborhood,
+                  city: form.city,
+                  state: form.state,
+                }}
+                onChange={(v) => setForm({
+                  ...form,
+                  zip_code: v.zipCode,
+                  address: v.address,
+                  address_number: v.addressNumber,
+                  address_complement: v.addressComplement,
+                  neighborhood: v.neighborhood,
+                  city: v.city,
+                  state: v.state,
+                })}
+              />
             </div>
           </div>
 
