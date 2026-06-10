@@ -23,67 +23,88 @@ const AI_BACKEND_URL = Deno.env.get('AI_BACKEND_URL') ?? 'https://iaclin.stec-ap
 
 const aiHeaders = { 'bypass-tunnel-reminder': 'true', 'Content-Type': 'application/json' };
 
+// Sincroniza os pedidos pendentes de UMA clínica. Retorna contagem.
+async function syncOneClinic(admin: any, clinicId: string) {
+  const listRes = await fetch(
+    `${AI_BACKEND_URL}/api/clinics/${clinicId}/appointments?source=ai&sync_status=pending`,
+    { headers: aiHeaders },
+  );
+  if (!listRes.ok) {
+    return { clinicId, synced: 0, total: 0, errors: [`Backend IA respondeu ${listRes.status}`] };
+  }
+  const listBody = await listRes.json();
+  const pending = Array.isArray(listBody?.data) ? listBody.data : [];
+
+  let created = 0;
+  const errors: string[] = [];
+
+  for (const apt of pending) {
+    const startTime = apt.scheduled_at ?? apt.start_time ?? apt.scheduledAt;
+    if (!startTime) { errors.push(`apt ${apt.id}: sem data`); continue; }
+
+    const { data: existing } = await admin
+      .from('ai_appointment_requests')
+      .select('id')
+      .eq('external_ref', apt.id)
+      .maybeSingle();
+    if (existing) {
+      await confirmSync(clinicId, apt.id);
+      continue;
+    }
+
+    const { error } = await admin.from('ai_appointment_requests').insert({
+      clinic_id: clinicId,
+      patient_name: apt.patient_name ?? null,
+      patient_phone: apt.patient_phone ?? null,
+      patient_id: apt.patient_provisional ? null : (apt.patient_id ?? null),
+      requested_at: new Date(startTime).toISOString(),
+      notes: apt.notes ?? null,
+      status: 'pending',
+      source: 'ai_whatsapp',
+      external_ref: apt.id,
+    });
+
+    if (error) { errors.push(`apt ${apt.id}: ${error.message}`); continue; }
+
+    created++;
+    await confirmSync(clinicId, apt.id);
+  }
+
+  return { clinicId, synced: created, total: pending.length, errors };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { clinicId } = await req.json();
-    if (!clinicId) {
-      return json({ error: 'clinicId é obrigatório' }, 400);
-    }
+    // body pode vir vazio (chamada do cron) — nesse caso sincroniza TODAS as clínicas.
+    const body = await req.json().catch(() => ({}));
+    const clinicId = body?.clinicId ?? null;
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
-    // 1. Busca agendamentos pendentes no backend da IA
-    const listRes = await fetch(
-      `${AI_BACKEND_URL}/api/clinics/${clinicId}/appointments?source=ai&sync_status=pending`,
-      { headers: aiHeaders },
-    );
-    if (!listRes.ok) {
-      return json({ error: `Backend IA respondeu ${listRes.status}` }, 502);
-    }
-    const listBody = await listRes.json();
-    const pending = Array.isArray(listBody?.data) ? listBody.data : [];
-
-    let created = 0;
-    const errors: string[] = [];
-
-    for (const apt of pending) {
-      const startTime = apt.scheduled_at ?? apt.start_time ?? apt.scheduledAt;
-      if (!startTime) { errors.push(`apt ${apt.id}: sem data`); continue; }
-
-      // Evita duplicar: se já existe um request com esse external_ref, pula
-      const { data: existing } = await admin
-        .from('ai_appointment_requests')
-        .select('id')
-        .eq('external_ref', apt.id)
-        .maybeSingle();
-      if (existing) {
-        // já sincronizado antes — apenas confirma de volta e segue
-        await confirmSync(clinicId, apt.id);
-        continue;
-      }
-
-      const { error } = await admin.from('ai_appointment_requests').insert({
-        clinic_id: clinicId,
-        patient_name: apt.patient_name ?? null,
-        patient_phone: apt.patient_phone ?? null,
-        patient_id: apt.patient_provisional ? null : (apt.patient_id ?? null),
-        requested_at: new Date(startTime).toISOString(),
-        notes: apt.notes ?? null,
-        status: 'pending',
-        source: 'ai_whatsapp',
-        external_ref: apt.id,
-      });
-
-      if (error) { errors.push(`apt ${apt.id}: ${error.message}`); continue; }
-
-      created++;
-      // 3. Confirma no backend da IA que sincronizou (para não retornar de novo)
-      await confirmSync(clinicId, apt.id);
+    // Caso 1: clínica específica (botão "Sincronizar agora" no painel).
+    if (clinicId) {
+      const res = await syncOneClinic(admin, clinicId);
+      return json({ ok: true, ...res });
     }
 
-    return json({ ok: true, synced: created, total: pending.length, errors });
+    // Caso 2: sem clinicId (cron) → todas as clínicas com a Secretária IA ativa.
+    const { data: configs } = await admin
+      .from('ai_secretary_config')
+      .select('clinic_id')
+      .eq('enabled', true)
+      .not('clinic_id', 'is', null);
+    const clinicIds = [...new Set((configs ?? []).map((c: any) => c.clinic_id))];
+
+    const results = [];
+    let totalSynced = 0;
+    for (const cid of clinicIds) {
+      const res = await syncOneClinic(admin, cid as string);
+      totalSynced += res.synced;
+      if (res.synced > 0 || res.errors.length > 0) results.push(res);
+    }
+    return json({ ok: true, clinics: clinicIds.length, totalSynced, results });
   } catch (e) {
     console.error('sync-ai-appointments error', e);
     return json({ error: (e as Error).message }, 500);
