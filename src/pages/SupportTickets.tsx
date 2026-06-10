@@ -268,6 +268,7 @@ export default function SupportTickets() {
       {showCreate && (
         <CreateTicketDialog
           operators={operators}
+          loadingOperators={loadingOperators}
           currentClinicId={currentClinicId}
           userId={user!.id}
           onClose={() => setShowCreate(false)}
@@ -313,12 +314,14 @@ const PRESET_SUBJECTS = [
 
 function CreateTicketDialog({
   operators,
+  loadingOperators,
   currentClinicId,
   userId,
   onClose,
   onCreated,
 }: {
   operators: Operator[];
+  loadingOperators: boolean;
   currentClinicId: string | null;
   userId: string;
   onClose: () => void;
