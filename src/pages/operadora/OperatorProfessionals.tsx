@@ -11,6 +11,7 @@ import { Search, Send, MessageCircle, X, Mail, Phone, MapPin } from 'lucide-reac
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { geocodeAddress } from '@/lib/geocode';
+import { useTheme } from '@/components/ThemeProvider';
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -210,8 +211,10 @@ export default function OperatorProfessionals() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { resolved } = useTheme();
 
   // Init map once
   useEffect(() => {
@@ -223,13 +226,35 @@ export default function OperatorProfessionals() {
       attributionControl: false,
     });
     L.control.zoom({ position: 'topright' }).addTo(map);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+    tileLayerRef.current = L.tileLayer(
+      resolved === 'dark'
+        ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20 },
+    ).addTo(map);
     mapInstanceRef.current = map;
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      tileLayerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Swap tile layer on theme change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+    tileLayerRef.current = L.tileLayer(
+      resolved === 'dark'
+        ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20 },
+    ).addTo(map);
+  }, [resolved]);
 
   // Geocode all clinics once loaded
   useEffect(() => {
@@ -312,8 +337,15 @@ export default function OperatorProfessionals() {
 
   return (
     <div className="-m-4 md:-m-8 relative h-[calc(100vh-4rem)] overflow-hidden">
+      {/* Center Leaflet zoom controls vertically on the right */}
+      <style>{`
+        .rede-busca-map .leaflet-top.leaflet-right {
+          top: 50%;
+          transform: translateY(-50%);
+        }
+      `}</style>
       {/* Map */}
-      <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+      <div ref={mapContainerRef} className="rede-busca-map absolute inset-0 z-0" />
 
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
