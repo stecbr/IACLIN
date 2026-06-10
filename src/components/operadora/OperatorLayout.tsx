@@ -42,7 +42,6 @@ const navGroups: NavGroup[] = [
     label: 'Operação',
     items: [
       { to: '/operadora', label: 'Visão geral', icon: LayoutDashboard, end: true },
-      { to: '/operadora/profissionais', label: 'Rede de Busca', icon: UserRoundSearch },
       { to: '/operadora/rede', label: 'Rede credenciada', icon: Users },
       { to: '/operadora/agenda', label: 'Agenda', icon: Calendar },
     ],
@@ -51,7 +50,7 @@ const navGroups: NavGroup[] = [
     label: 'Onboarding',
     items: [
       { to: '/operadora/pedidos', label: 'Pedidos', icon: Inbox },
-      { to: '/operadora/convites', label: 'Convites', icon: Send },
+      { to: '/operadora/profissionais', label: 'Rede de Busca', icon: UserRoundSearch },
     ],
   },
   {
