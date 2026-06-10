@@ -2407,31 +2407,52 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          address_complement: string | null
+          address_number: string | null
           avatar_url: string | null
+          city: string | null
           created_at: string
           full_name: string | null
           id: string
+          neighborhood: string | null
           phone: string | null
           signature_url: string | null
+          state: string | null
           updated_at: string
+          zip_code: string | null
         }
         Insert: {
+          address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
           avatar_url?: string | null
+          city?: string | null
           created_at?: string
           full_name?: string | null
           id: string
+          neighborhood?: string | null
           phone?: string | null
           signature_url?: string | null
+          state?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Update: {
+          address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
           avatar_url?: string | null
+          city?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          neighborhood?: string | null
           phone?: string | null
           signature_url?: string | null
+          state?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Relationships: []
       }
