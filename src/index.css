@@ -253,6 +253,78 @@
   }
 }
 
+@keyframes marketplace-ping {
+  0% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.45);
+    opacity: 0;
+  }
+}
+
+.marketplace-map .leaflet-control-zoom {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.14);
+}
+
+.marketplace-map .leaflet-control-zoom a {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.marketplace-map .leaflet-control-attribution {
+  border-radius: 10px 10px 0 0;
+  background: hsla(0, 0%, 100%, 0.88);
+  border: 1px solid hsl(var(--border));
+  border-bottom: none;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.google-like-map .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.82);
+  border-top-left-radius: 10px;
+  backdrop-filter: blur(4px);
+  font-size: 11px;
+}
+
+.google-like-map .leaflet-popup-content-wrapper {
+  border-radius: 16px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.2);
+}
+
+.google-like-map .leaflet-popup-tip {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.google-like-map .leaflet-popup-content {
+  margin: 10px;
+}
+
+.google-like-map .leaflet-marker-icon {
+  transition: transform 120ms ease;
+}
+
+.google-like-map .leaflet-marker-icon:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.google-like-map .leaflet-control-zoom {
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+.google-like-map .leaflet-control-zoom a {
+  background: rgba(255, 255, 255, 0.95);
+  color: hsl(var(--foreground));
+}
+
 /* ============================================================
  * Operator (B2B) scope — distinct corporate identity
  * Applied via <div class="operator-scope"> wrapping OperatorLayout
