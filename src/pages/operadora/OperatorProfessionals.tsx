@@ -363,34 +363,34 @@ export default function OperatorProfessionals() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Buscar clínica, profissional..."
-                className="pl-9 h-9 bg-background/70"
+                className="pl-9 h-9 rounded-xl bg-background/70"
               />
             </div>
             <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todos os tipos</SelectItem>
                 <SelectItem value="medico">Médicos</SelectItem>
                 <SelectItem value="dentista">Dentistas</SelectItem>
               </SelectContent>
             </Select>
             <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="Especialidade" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="Especialidade" /></SelectTrigger>
+              <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todas especialidades</SelectItem>
                 {specialtyOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="UF" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="UF" /></SelectTrigger>
+              <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todas UFs</SelectItem>
                 {stateOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="h-9 bg-background/70"><SelectValue placeholder="Cidade" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="Cidade" /></SelectTrigger>
+              <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todas cidades</SelectItem>
                 {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
