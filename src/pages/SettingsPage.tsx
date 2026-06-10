@@ -190,13 +190,13 @@ function ClinicSection() {
     const hasCnpj = !!(clinic as any).cnpj;
     const hasCpf = !!(clinic as any).cpf;
     const inferredEt: 'fisica' | 'juridica' =
-      rawEt && ((rawEt === 'juridica' && hasCnpj) || (rawEt === 'fisica' && hasCpf) || (rawEt === 'fisica' && !hasCnpj))
+      rawEt === 'fisica' || (rawEt === 'juridica' && hasCnpj)
         ? rawEt
         : hasCpf && !hasCnpj
         ? 'fisica'
         : hasCnpj
         ? 'juridica'
-        : rawEt ?? 'fisica';
+        : 'fisica';
     setForm({
       name: clinic.name ?? '', phone: clinic.phone ?? '', email: clinic.email ?? '',
       cnpj: clinic.cnpj ?? '', cpf: (clinic as any).cpf ?? '',
