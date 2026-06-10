@@ -146,12 +146,29 @@ export default function SupportTickets() {
     },
   });
 
-  const { data: operators = [] } = useQuery({
-    queryKey: ['operators-list'],
+  const { data: operators = [], isLoading: loadingOperators } = useQuery({
+    queryKey: ['credentialed-operators', user?.id, currentClinicId],
+    enabled: !!user?.id,
     queryFn: async () => {
+      let q = supabase
+        .from('operator_credentialings')
+        .select('operator_id')
+        .eq('status', 'approved');
+
+      if (currentClinicId) {
+        q = q.eq('clinic_id', currentClinicId);
+      } else {
+        q = q.eq('professional_user_id', user!.id);
+      }
+
+      const { data: creds } = await q;
+      const ids = [...new Set((creds ?? []).map((c) => c.operator_id as string))];
+      if (ids.length === 0) return [];
+
       const { data } = await supabase
         .from('insurance_operators')
         .select('id, name')
+        .in('id', ids)
         .eq('is_active', true)
         .order('name');
       return (data ?? []) as Operator[];
@@ -338,8 +355,8 @@ function CreateTicketDialog({
 
   const handleSubmit = async () => {
     if (!subject.trim()) { toast.error('Informe o assunto do chamado'); return; }
+    if (!operatorId) { toast.error('Selecione a operadora'); return; }
     if (!body.trim()) { toast.error('Descreva sua solicitação'); return; }
-    if (isSolo && !operatorId) { toast.error('Selecione a operadora'); return; }
 
     setSaving(true);
     try {
@@ -350,7 +367,7 @@ function CreateTicketDialog({
           status: isSolo ? 'open' : 'pending_owner',
           created_by: userId,
           clinic_id: currentClinicId ?? null,
-          operator_id: isSolo ? operatorId : null,
+          operator_id: operatorId,
         })
         .select()
         .single();
@@ -386,7 +403,38 @@ function CreateTicketDialog({
     }
   };
 
-  const canSubmit = !!subject.trim() && !!body.trim() && (!isSolo || !!operatorId);
+  const canSubmit = !!subject.trim() && !!body.trim() && !!operatorId;
+
+  // ── No operators: show empty-state dialog ──
+  if (!loadingOperators && operators.length === 0) {
+    return (
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Sem vínculo com operadoras</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <AlertCircle className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-medium text-foreground">
+                Nenhuma operadora vinculada
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {currentClinicId
+                  ? 'Sua clínica não possui vínculo ativo com nenhuma operadora no momento. Entre em contato com o responsável da clínica para solicitar um credenciamento.'
+                  : 'Você não possui vínculo ativo com nenhuma operadora no momento. Acesse a área de Credenciamentos para solicitar vínculo.'}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -465,31 +513,30 @@ function CreateTicketDialog({
             </div>
           </div>
 
-          {/* ── Operadora (solo) ou aviso ── */}
-          {isSolo ? (
-            <div className="space-y-1.5">
-              <Label>
-                Operadora <span className="text-destructive">*</span>
-              </Label>
-              <Select value={operatorId} onValueChange={setOperatorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a operadora" />
-                </SelectTrigger>
-                <SelectContent>
-                  {operators.map((op) => (
-                    <SelectItem key={op.id} value={op.id}>
-                      {op.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-              <Info className="h-3.5 w-3.5 shrink-0" />
-              <span>Este chamado será enviado ao dono da clínica para encaminhar à operadora.</span>
-            </div>
-          )}
+          {/* ── Operadora ── */}
+          <div className="space-y-1.5">
+            <Label>
+              Operadora <span className="text-destructive">*</span>
+            </Label>
+            <Select value={operatorId} onValueChange={setOperatorId} disabled={loadingOperators}>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingOperators ? 'Carregando...' : 'Selecione a operadora'} />
+              </SelectTrigger>
+              <SelectContent>
+                {operators.map((op) => (
+                  <SelectItem key={op.id} value={op.id}>
+                    {op.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!isSolo && (
+              <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                <span>Após enviar, o chamado passará pelo dono da clínica antes de chegar à operadora.</span>
+              </div>
+            )}
+          </div>
 
           {/* ── Descrição ── */}
           <div className="space-y-1.5">
