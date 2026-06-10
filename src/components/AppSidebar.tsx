@@ -529,6 +529,11 @@ export function AppSidebar() {
       {/* ── Content ── */}
       <SidebarContent className="px-2 py-2 gap-0">
 
+        {/* Clinic Switcher — primeiro */}
+        <div className="py-1.5 px-0">
+          <ClinicSwitcher />
+        </div>
+
         {/* PESSOAL */}
         {filteredPersonalNav.length > 0 && (
           <NavSection id="pessoal" label="Pessoal" collapsed={collapsed}>
@@ -540,11 +545,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </NavSection>
         )}
-
-        {/* Clinic Switcher */}
-        <div className="py-1.5 px-0">
-          <ClinicSwitcher />
-        </div>
 
         {/* ── Admin com clínica ativa ── */}
         {isAdmin && currentClinicId ? (() => {
@@ -596,6 +596,16 @@ export function AppSidebar() {
                 </NavSection>
               )}
 
+              {/* AUTOMAÇÃO */}
+              {automationItems.length > 0 && (
+                <NavSection id="automacao" label="Automação" collapsed={collapsed} defaultOpen={false}>
+                  <SidebarMenu>
+                    {automationItems.map((item) => renderNavItem(item))}
+                    {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
+                  </SidebarMenu>
+                </NavSection>
+              )}
+
               {/* FINANCEIRO */}
               {financialItems.length > 0 && (
                 <NavSection id="financeiro" label="Financeiro" collapsed={collapsed} defaultOpen={false}>
@@ -606,15 +616,10 @@ export function AppSidebar() {
                 </NavSection>
               )}
 
-              {/* AUTOMAÇÃO */}
-              {automationItems.length > 0 && (
-                <NavSection id="automacao" label="Automação" collapsed={collapsed} defaultOpen={false}>
-                  <SidebarMenu>
-                    {automationItems.map((item) => renderNavItem(item))}
-                    {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
-                  </SidebarMenu>
-                </NavSection>
-              )}
+              {/* SUPORTE */}
+              <NavSection id="suporte" label="Suporte" collapsed={collapsed} defaultOpen={false}>
+                <SidebarMenu>{chamadosItem}</SidebarMenu>
+              </NavSection>
 
               {/* PACIENTES DO DIA */}
               {!collapsed && (
@@ -676,12 +681,6 @@ export function AppSidebar() {
               </NavSection>
             )}
 
-            {!collapsed && currentClinicId && (
-              <NavSection id="pacientes-dia" label={`Pacientes do Dia${todayApts.length > 0 ? ` (${todayApts.length})` : ''}`} collapsed={collapsed} defaultOpen={false}>
-                <TodayPatientsList />
-              </NavSection>
-            )}
-
             {!isDentist && effectiveRole !== 'patient' && (
               <NavSection id="gestao" label="Gestão da Clínica" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
@@ -691,16 +690,20 @@ export function AppSidebar() {
                 </SidebarMenu>
               </NavSection>
             )}
-          </>
-        )}
 
-        {/* SUPORTE */}
-        {(isDentist || isAdmin) && (
-          <NavSection id="suporte" label="Suporte" collapsed={collapsed} defaultOpen={false}>
-            <SidebarMenu>
-              {chamadosItem}
-            </SidebarMenu>
-          </NavSection>
+            {/* SUPORTE */}
+            {(isDentist || isAdmin) && (
+              <NavSection id="suporte" label="Suporte" collapsed={collapsed} defaultOpen={false}>
+                <SidebarMenu>{chamadosItem}</SidebarMenu>
+              </NavSection>
+            )}
+
+            {!collapsed && currentClinicId && (
+              <NavSection id="pacientes-dia" label={`Pacientes do Dia${todayApts.length > 0 ? ` (${todayApts.length})` : ''}`} collapsed={collapsed} defaultOpen={false}>
+                <TodayPatientsList />
+              </NavSection>
+            )}
+          </>
         )}
 
         {/* Configurações — sempre no fundo */}
