@@ -324,10 +324,16 @@ function CreateTicketDialog({
     (s) => !subject || s.label.toLowerCase().includes(subject.toLowerCase())
   );
 
-  const handleSelectSuggestion = (label: string) => {
-    setSubject(label);
-    setShowSuggestions(false);
-    subjectInputRef.current?.blur();
+  const handleSelectSuggestion = (label: string, id: string) => {
+    if (id === 'outro') {
+      setSubject('');
+      setShowSuggestions(false);
+      setTimeout(() => subjectInputRef.current?.focus(), 50);
+    } else {
+      setSubject(label);
+      setShowSuggestions(false);
+      subjectInputRef.current?.blur();
+    }
   };
 
   const handleSubmit = async () => {
@@ -439,7 +445,7 @@ function CreateTicketDialog({
                       <button
                         key={s.id}
                         type="button"
-                        onMouseDown={() => handleSelectSuggestion(s.label)}
+                        onMouseDown={() => handleSelectSuggestion(s.label, s.id)}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors hover:bg-muted ${
                           isSelected ? 'bg-muted/60' : ''
                         }`}
