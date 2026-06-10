@@ -337,8 +337,15 @@ export default function OperatorProfessionals() {
 
   return (
     <div className="-m-4 md:-m-8 relative h-[calc(100vh-4rem)] overflow-hidden">
+      {/* Center Leaflet zoom controls vertically on the right */}
+      <style>{`
+        .rede-busca-map .leaflet-top.leaflet-right {
+          top: 50%;
+          transform: translateY(-50%);
+        }
+      `}</style>
       {/* Map */}
-      <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+      <div ref={mapContainerRef} className="rede-busca-map absolute inset-0 z-0" />
 
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
