@@ -7,10 +7,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { geocodeAddress } from "@/lib/geocode";
 import { cn } from "@/lib/utils";
-import { format, isAfter, isBefore, isSameDay, parseISO, addDays, startOfDay } from "date-fns";
+import { format, isAfter, isBefore, isSameDay, addDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import type { DoctorData } from "./DoctorCard";
+import type { AvailabilityShift, DoctorData } from "./DoctorCard";
 
 const FORTALEZA_CENTER: [number, number] = [-3.7172, -38.5433];
 
@@ -45,24 +45,22 @@ interface MarketplaceMapProps {
 function createBlueIcon() {
   return L.divIcon({
     className: "",
-    html: '<div style="width:24px;height:24px;background:hsl(var(--primary));border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -14],
+    html: '<div style="position:relative;width:26px;height:26px"><div style="position:absolute;inset:0;border-radius:9999px;background:radial-gradient(circle at 30% 30%, #7ea7ff, hsl(var(--primary)));border:3px solid #fff;box-shadow:0 8px 18px rgba(37,99,235,.35)"></div><div style="position:absolute;left:50%;top:50%;width:8px;height:8px;transform:translate(-50%,-50%);border-radius:9999px;background:#fff;opacity:.95"></div></div>',
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -16],
   });
 }
 
 function createHighlightIcon() {
   return L.divIcon({
     className: "",
-    html: '<div style="width:32px;height:32px;background:hsl(var(--primary));border:4px solid white;border-radius:50%;box-shadow:0 4px 12px rgba(37,99,235,0.5)"></div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -18],
+    html: '<div style="position:relative;width:34px;height:34px"><div style="position:absolute;inset:0;border-radius:9999px;background:hsl(var(--primary));border:4px solid #fff;box-shadow:0 12px 28px rgba(37,99,235,.45)"></div><div style="position:absolute;left:50%;top:50%;width:10px;height:10px;transform:translate(-50%,-50%);border-radius:9999px;background:#fff"></div><div style="position:absolute;left:50%;top:50%;width:34px;height:34px;transform:translate(-50%,-50%);border-radius:9999px;border:2px solid rgba(59,130,246,.35);animation:marketplace-ping 1.6s ease-out infinite"></div></div>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -19],
   });
 }
-
-import type { AvailabilityShift } from "./DoctorCard";
 
 function generateSlots(date: Date, shifts: AvailabilityShift[], appointments: any[]): string[] {
   const dateKey = format(date, "yyyy-MM-dd");
@@ -83,7 +81,10 @@ function generateSlots(date: Date, shifts: AvailabilityShift[], appointments: an
     let cursor = new Date(start);
     while (cursor < end) {
       const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
-      if (isSameDay(date, now) && isBefore(cursor, now)) { cursor = slotEnd; continue; }
+      if (isSameDay(date, now) && isBefore(cursor, now)) {
+        cursor = slotEnd;
+        continue;
+      }
       const hasConflict = appointments.some((apt) => {
         if (apt.status === "cancelled") return false;
         const aptStart = new Date(apt.start_time);
@@ -164,7 +165,7 @@ function SidebarDoctorItem({ doctor, onFocus }: SidebarDoctorItemProps) {
                 </p>
                 <div className="flex flex-col gap-0.5">
                   {slots.length === 0 ? (
-                    <span className="py-1 text-center text-[10px] text-muted-foreground/60">—</span>
+                    <span className="py-1 text-center text-[10px] text-muted-foreground/60">-</span>
                   ) : (
                     slots.slice(0, 3).map((time) => (
                       <Button
@@ -172,7 +173,10 @@ function SidebarDoctorItem({ doctor, onFocus }: SidebarDoctorItemProps) {
                         variant="outline"
                         size="sm"
                         className="h-6 w-full text-[10px] font-medium text-primary hover:bg-primary hover:text-primary-foreground"
-                        onClick={(e) => { e.stopPropagation(); handleSlotClick(date, time); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSlotClick(date, time);
+                        }}
                       >
                         {time}
                       </Button>
@@ -198,7 +202,6 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const markersRef = useRef<Map<string, L.Marker>>(new Map());
-    const coordsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
     const userMovedRef = useRef(false);
 
     const handleMoveEnd = useCallback(() => {
@@ -229,11 +232,23 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
 
     useEffect(() => {
       if (!mapContainerRef.current) return;
-      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
 
-      const map = L.map(mapContainerRef.current, { center: FORTALEZA_CENTER, zoom: 13, zoomControl: true });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      const map = L.map(mapContainerRef.current, {
+        center: FORTALEZA_CENTER,
+        zoom: 13,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      // attributionControl está desativado; evite acessar map.attributionControl aqui.
+      L.control.zoom({ position: "topright" }).addTo(map);
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 20,
       }).addTo(map);
 
       mapInstanceRef.current = map;
@@ -241,7 +256,9 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
       userMovedRef.current = false;
       setShowSearchBtn(false);
 
-      map.on("movestart", () => { userMovedRef.current = true; });
+      map.on("movestart", () => {
+        userMovedRef.current = true;
+      });
       map.on("moveend", handleMoveEnd);
 
       const icon = createBlueIcon();
@@ -250,10 +267,12 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
       (async () => {
         const results = await Promise.allSettled(
           clinics.map((clinic) =>
-            geocodeAddress(clinic.address, clinic.city, clinic.state, clinic.zipCode).then(
-              (coords) => ({ clinicId: clinic.clinicId, clinicName: clinic.clinicName, coords })
-            )
-          )
+            geocodeAddress(clinic.address, clinic.city, clinic.state, clinic.zipCode).then((coords) => ({
+              clinicId: clinic.clinicId,
+              clinicName: clinic.clinicName,
+              coords,
+            })),
+          ),
         );
         if (cancelled) return;
 
@@ -273,7 +292,6 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
           }
         }
 
-        coordsRef.current = newCoords;
         onCoordsReady?.(newCoords);
 
         if (!cancelled && bounds.length > 0 && mapInstanceRef.current) {
@@ -282,7 +300,13 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
         }
       })();
 
-      return () => { cancelled = true; if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
+      return () => {
+        cancelled = true;
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [clinics]);
 
@@ -292,7 +316,6 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
 
     return (
       <div className={cn(expanded ? "fixed inset-0 z-50 flex bg-background" : className)}>
-        {/* Sidebar with doctors — only in expanded mode */}
         {expanded && doctors.length > 0 && (
           <div className="hidden w-80 flex-col border-r md:flex">
             <div className="border-b px-4 py-3">
@@ -303,25 +326,26 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
             <ScrollArea className="flex-1">
               <div className="space-y-2 p-3">
                 {doctors.map((d) => (
-                  <SidebarDoctorItem
-                    key={`${d.userId}_${d.clinicId}`}
-                    doctor={d}
-                    onFocus={focusClinic}
-                  />
+                  <SidebarDoctorItem key={`${d.userId}_${d.clinicId}`} doctor={d} onFocus={focusClinic} />
                 ))}
               </div>
             </ScrollArea>
           </div>
         )}
 
-        {/* Map area */}
-        <div className={cn("relative", expanded ? "flex-1" : "h-full min-h-[400px] overflow-hidden rounded-lg border")}>
-          <div ref={mapContainerRef} className="h-full w-full" />
+        <div
+          className={cn(
+            "relative",
+            expanded ? "flex-1" : "h-full min-h-[400px] overflow-hidden rounded-xl border border-border/70 shadow-sm",
+          )}
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[900] h-16 bg-gradient-to-b from-background/30 to-transparent" />
+          <div ref={mapContainerRef} className="marketplace-map google-like-map h-full w-full" />
 
           {showSearchBtn && onBoundsSearch && (
             <Button
               size="sm"
-              className="absolute left-1/2 top-3 z-[1000] -translate-x-1/2 shadow-lg"
+              className="absolute left-1/2 top-3 z-[1000] -translate-x-1/2 border border-border/60 bg-background/95 text-foreground shadow-lg backdrop-blur hover:bg-muted"
               onClick={handleSearchArea}
             >
               <Search className="mr-1 h-4 w-4" />
@@ -333,7 +357,7 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
             <Button
               size="sm"
               variant="secondary"
-              className="absolute bottom-3 right-3 z-[1000] shadow-md"
+              className="absolute bottom-3 right-3 z-[1000] border border-border/60 bg-white/90 shadow-md backdrop-blur"
               onClick={() => setExpanded(false)}
             >
               <Minimize2 className="mr-1 h-4 w-4" />
@@ -343,7 +367,7 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
             <Button
               size="sm"
               variant="secondary"
-              className="absolute bottom-3 right-3 z-[1000] shadow-md"
+              className="absolute bottom-3 right-3 z-[1000] border border-border/60 bg-white/90 shadow-md backdrop-blur"
               onClick={() => setExpanded(true)}
             >
               <Maximize2 className="mr-1 h-4 w-4" />
@@ -353,5 +377,5 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
         </div>
       </div>
     );
-  }
+  },
 );
