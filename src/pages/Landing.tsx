@@ -409,7 +409,7 @@ const PREVIEW_DOCTORS = ([
     shifts: buildPreviewShifts(),
     appointments: [],
   },
-];
+] as unknown) as DoctorData[];
 
 function MarketplacePreview() {
   return <MarketplaceSection />;
