@@ -8,7 +8,33 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Search, Building2, MapPin, Stethoscope, Users, Eye } from 'lucide-react';
+import { Search, Building2, MapPin, Stethoscope, Users, Eye, Phone, Mail, FileText, IdCard, Calendar, User as UserIcon } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getAvatarColor, getInitials } from '@/lib/avatarColor';
+
+function InfoField({
+  icon, label, value, className,
+}: { icon: React.ReactNode; label: string; value: string | null | undefined; className?: string }) {
+  return (
+    <div className={className}>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+        {icon}{label}
+      </div>
+      <div className="text-sm truncate">{value || '—'}</div>
+    </div>
+  );
+}
+
+interface Doctor {
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  specialty: string | null;
+  specialties: string[];
+  registration_number: string | null;
+  is_owner: boolean;
+  created_at: string | null;
+}
 
 interface Row {
   id: string;
@@ -19,7 +45,16 @@ interface Row {
   clinic_name?: string | null;
   clinic_cnpj?: string | null;
   clinic_city?: string | null;
-  doctors?: Array<{ name: string; specialty: string | null; registration_number: string | null }>;
+  clinic_phone?: string | null;
+  clinic_email?: string | null;
+  clinic_address?: string | null;
+  clinic_neighborhood?: string | null;
+  clinic_state?: string | null;
+  clinic_category_label?: string | null;
+  clinic_logo_url?: string | null;
+  clinic_responsible?: string | null;
+  clinic_created_at?: string | null;
+  doctors?: Doctor[];
 }
 
 export default function OperatorNetwork() {
@@ -31,6 +66,7 @@ export default function OperatorNetwork() {
   const [revokeReason, setRevokeReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Row | null>(null);
+  const [doctorViewing, setDoctorViewing] = useState<Doctor | null>(null);
 
   const load = async () => {
     if (!operatorId) return;
@@ -64,31 +100,61 @@ export default function OperatorNetwork() {
     }
     const clinicIds = [...new Set(list.map((r) => r.clinic_id))];
     const [{ data: clinics }, { data: clinicMembers }, { data: profiles }] = await Promise.all([
-      supabase.from('clinics').select('id, name, city, cnpj').in('id', clinicIds),
-      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role').in('clinic_id', clinicIds).eq('role', 'dentist'),
-      supabase.from('profiles').select('id, full_name'),
+      supabase.from('clinics').select('id, name, city, cnpj, phone, email, address, neighborhood, state, category_label, logo_url, responsible_name, created_at').in('id', clinicIds),
+      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role, is_owner, created_at').in('clinic_id', clinicIds).eq('role', 'dentist'),
+      supabase.from('profiles').select('id, full_name, avatar_url'),
     ]);
+
+    const memberIds = (clinicMembers ?? []).map((m: any) => m.id);
+    const { data: extraSpecs } = memberIds.length > 0
+      ? await supabase.from('clinic_member_specialties').select('clinic_member_id, specialty').in('clinic_member_id', memberIds)
+      : { data: [] as any[] };
+    const specsByMember = new Map<string, string[]>();
+    (extraSpecs ?? []).forEach((s: any) => {
+      const arr = specsByMember.get(s.clinic_member_id) ?? [];
+      if (s.specialty) arr.push(s.specialty);
+      specsByMember.set(s.clinic_member_id, arr);
+    });
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
-    const doctorsByClinic = new Map<string, Array<{ name: string; specialty: string | null; registration_number: string | null }>>();
+    const doctorsByClinic = new Map<string, Doctor[]>();
     (clinicMembers ?? []).forEach((m: any) => {
       const arr = doctorsByClinic.get(m.clinic_id) ?? [];
+      const extra = specsByMember.get(m.id) ?? [];
+      const merged = Array.from(new Set([m.specialty, ...extra].filter(Boolean))) as string[];
       arr.push({
+        user_id: m.user_id,
         name: profileMap.get(m.user_id)?.full_name ?? '—',
+        avatar_url: profileMap.get(m.user_id)?.avatar_url ?? null,
         specialty: m.specialty ?? null,
+        specialties: merged,
         registration_number: m.registration_number ?? null,
+        is_owner: !!m.is_owner,
+        created_at: m.created_at ?? null,
       });
       doctorsByClinic.set(m.clinic_id, arr);
     });
 
-    const merged: Row[] = list.map((r) => ({
-      ...r,
-      clinic_name: clinicMap.get(r.clinic_id)?.name ?? '—',
-      clinic_cnpj: clinicMap.get(r.clinic_id)?.cnpj ?? null,
-      clinic_city: clinicMap.get(r.clinic_id)?.city ?? null,
-      doctors: doctorsByClinic.get(r.clinic_id) ?? [],
-    }));
+    const merged: Row[] = list.map((r) => {
+      const c: any = clinicMap.get(r.clinic_id);
+      return {
+        ...r,
+        clinic_name: c?.name ?? '—',
+        clinic_cnpj: c?.cnpj ?? null,
+        clinic_city: c?.city ?? null,
+        clinic_phone: c?.phone ?? null,
+        clinic_email: c?.email ?? null,
+        clinic_address: c?.address ?? null,
+        clinic_neighborhood: c?.neighborhood ?? null,
+        clinic_state: c?.state ?? null,
+        clinic_category_label: c?.category_label ?? null,
+        clinic_logo_url: c?.logo_url ?? null,
+        clinic_responsible: c?.responsible_name ?? null,
+        clinic_created_at: c?.created_at ?? null,
+        doctors: doctorsByClinic.get(r.clinic_id) ?? [],
+      };
+    });
     setRows(merged);
     setLoading(false);
   };
@@ -234,39 +300,114 @@ export default function OperatorNetwork() {
       </Card>
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              {viewing?.clinic_name}
-            </DialogTitle>
+            <DialogTitle className="sr-only">Detalhes da clínica</DialogTitle>
           </DialogHeader>
           {viewing && (
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">CNPJ</div>
-                  <div>{viewing.clinic_cnpj ?? '—'}</div>
+            <div className="space-y-5 text-sm">
+              {/* Cabeçalho da clínica */}
+              <div className="flex items-start gap-4">
+                <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-border">
+                  {viewing.clinic_logo_url ? (
+                    <img src={viewing.clinic_logo_url} alt={viewing.clinic_name ?? ''} className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-7 w-7 text-primary" />
+                  )}
                 </div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cidade</div>
-                  <div>{viewing.clinic_city ?? '—'}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg font-semibold leading-tight truncate">{viewing.clinic_name}</div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {viewing.clinic_category_label && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">{viewing.clinic_category_label}</Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px] font-normal inline-flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {viewing.doctors?.length ?? 0} médico(s)
+                    </Badge>
+                    {viewing.clinic_created_at && (
+                      <Badge variant="outline" className="text-[10px] font-normal inline-flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Desde {new Date(viewing.clinic_created_at).toLocaleDateString('pt-BR')}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Grid de info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border border-border p-3 bg-muted/30">
+                <InfoField icon={<FileText className="h-3.5 w-3.5" />} label="CNPJ" value={viewing.clinic_cnpj} />
+                <InfoField icon={<UserIcon className="h-3.5 w-3.5" />} label="Responsável" value={viewing.clinic_responsible} />
+                <InfoField icon={<Phone className="h-3.5 w-3.5" />} label="Telefone" value={viewing.clinic_phone} />
+                <InfoField icon={<Mail className="h-3.5 w-3.5" />} label="E-mail" value={viewing.clinic_email} />
+                <InfoField
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Endereço"
+                  value={[viewing.clinic_address, viewing.clinic_neighborhood].filter(Boolean).join(', ') || null}
+                  className="sm:col-span-2"
+                />
+                <InfoField
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Cidade / UF"
+                  value={[viewing.clinic_city, viewing.clinic_state].filter(Boolean).join(' - ') || null}
+                  className="sm:col-span-2"
+                />
+              </div>
+
+              {/* Lista de médicos */}
               <div>
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
                   <Stethoscope className="h-3 w-3" />
                   Médicos vinculados ({viewing.doctors?.length ?? 0})
                 </div>
                 {viewing.doctors && viewing.doctors.length > 0 ? (
-                  <div className="rounded-lg border border-border divide-y divide-border max-h-72 overflow-y-auto">
+                  <div className="rounded-lg border border-border divide-y divide-border max-h-80 overflow-y-auto">
                     {viewing.doctors.map((d, i) => (
-                      <div key={`${d.name}-${i}`} className="px-3 py-2 flex flex-col">
-                        <span className="font-medium text-sm">{d.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {d.specialty ?? 'Sem especialidade'}
-                          {d.registration_number ? ` · ${d.registration_number}` : ''}
-                        </span>
+                      <div key={`${d.user_id}-${i}`} className="px-3 py-3 flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-border">
+                          {d.avatar_url && <AvatarImage src={d.avatar_url} alt={d.name} />}
+                          <AvatarFallback
+                            className="text-xs font-medium text-white"
+                            style={{ backgroundColor: getAvatarColor(d.user_id) }}
+                          >
+                            {getInitials(d.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm truncate">{d.name}</span>
+                            {d.is_owner && (
+                              <Badge variant="secondary" className="text-[9px] font-normal">Owner</Badge>
+                            )}
+                            {d.registration_number && (
+                              <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                                <IdCard className="h-3 w-3" />
+                                {d.registration_number}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {d.specialties.length > 0 ? (
+                              d.specialties.map((s) => (
+                                <Badge key={s} variant="outline" className="text-[10px] font-normal">
+                                  {s}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">Sem especialidade</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-xl shrink-0"
+                          onClick={() => setDoctorViewing(d)}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Ver perfil
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -289,6 +430,70 @@ export default function OperatorNetwork() {
               }}
             >
               Cancelar credenciamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Perfil do médico */}
+      <Dialog open={!!doctorViewing} onOpenChange={(o) => !o && setDoctorViewing(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Perfil do médico</DialogTitle>
+          </DialogHeader>
+          {doctorViewing && (
+            <div className="space-y-4 text-sm">
+              <div className="flex flex-col items-center text-center gap-3 pt-2">
+                <Avatar className="h-20 w-20 border border-border">
+                  {doctorViewing.avatar_url && <AvatarImage src={doctorViewing.avatar_url} alt={doctorViewing.name} />}
+                  <AvatarFallback
+                    className="text-xl font-medium text-white"
+                    style={{ backgroundColor: getAvatarColor(doctorViewing.user_id) }}
+                  >
+                    {getInitials(doctorViewing.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="text-lg font-semibold">{doctorViewing.name}</div>
+                  {doctorViewing.registration_number && (
+                    <div className="text-xs text-muted-foreground inline-flex items-center gap-1 mt-0.5">
+                      <IdCard className="h-3 w-3" />
+                      {doctorViewing.registration_number}
+                    </div>
+                  )}
+                </div>
+                {doctorViewing.is_owner && (
+                  <Badge variant="secondary" className="text-[10px] font-normal">Owner da clínica</Badge>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-2">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <Stethoscope className="h-3 w-3" />
+                  Especialidades
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {doctorViewing.specialties.length > 0 ? (
+                    doctorViewing.specialties.map((s) => (
+                      <Badge key={s} variant="outline" className="text-[10px] font-normal">{s}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Sem especialidade cadastrada</span>
+                  )}
+                </div>
+              </div>
+
+              {doctorViewing.created_at && (
+                <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Vinculado em {new Date(doctorViewing.created_at).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl" onClick={() => setDoctorViewing(null)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
