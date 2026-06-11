@@ -306,6 +306,156 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
   return { clinicName: clinic?.name ?? "sua clínica", contextText: lines.join("\n") };
 }
 
+// ============================================================
+// Contexto do Profissional Autônomo (sem clínica vinculada).
+// Base inicial para análise de dados: perfil, agenda (templates +
+// overrides), próximas consultas como dentista, pedidos pendentes e
+// horários livres nos próximos 7 dias.
+// ============================================================
+async function loadProfessionalContext(admin: ReturnType<typeof createClient>, userId: string) {
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+  const in7days = new Date(now.getTime() + 7 * 86400000).toISOString();
+  const apptSince30 = new Date(now.getTime() - 30 * 86400000).toISOString();
+
+  const [profileQ, todayApsQ, weekApsQ, recentApsQ, pendingReqQ,
+         templatesQ, availOverridesQ, blockedQ, busyApsQ] = await Promise.all([
+    admin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    admin.from("appointments").select("status, presence_status, start_time").eq("dentist_id", userId).gte("start_time", startToday).lt("start_time", endToday),
+    admin.from("appointments").select("start_time, status, clinic_id").eq("dentist_id", userId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled").order("start_time").limit(50),
+    admin.from("appointments").select("status, presence_status, procedures(name)").eq("dentist_id", userId).gte("start_time", apptSince30).lt("start_time", startToday),
+    admin.from("appointment_requests").select("start_time, end_time, specialty, patient_account_snapshot, created_at").eq("dentist_id", userId).eq("status", "pending").order("start_time").limit(30),
+    admin.from("professional_schedule_template").select("weekday, is_active, start_time, end_time, breaks").eq("user_id", userId).is("clinic_id", null),
+    admin.from("professional_availability").select("work_date, start_time, end_time, breaks").eq("user_id", userId).gte("work_date", startToday.slice(0,10)).lte("work_date", in7days.slice(0,10)),
+    admin.from("professional_blocked_dates").select("blocked_date").eq("user_id", userId).gte("blocked_date", startToday.slice(0,10)).lte("blocked_date", in7days.slice(0,10)),
+    admin.from("appointments").select("start_time, end_time").eq("dentist_id", userId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled"),
+  ]);
+
+  const displayName = (profileQ.data as any)?.full_name ?? "Profissional";
+  const today = todayApsQ.data ?? [];
+  const confirmed = today.filter((a: any) => a.status === "confirmed").length;
+  const cancelled = today.filter((a: any) => a.status === "cancelled").length;
+  const waiting = today.filter((a: any) => a.status === "scheduled").length;
+
+  const recent = recentApsQ.data ?? [];
+  const noShows = recent.filter((a: any) => a.presence_status === "no_show" || a.status === "no_show").length;
+  const noShowRate = recent.length > 0 ? (noShows / recent.length) * 100 : 0;
+  const procCount = new Map<string, number>();
+  for (const a of recent as any[]) {
+    const name = a.procedures?.name;
+    if (name) procCount.set(name, (procCount.get(name) ?? 0) + 1);
+  }
+  const topProcs = [...procCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const lines: string[] = [];
+  lines.push(`# Profissional autônomo`);
+  lines.push(`- Nome: ${displayName}`);
+  lines.push(`- Modo: consultório próprio (sem clínica vinculada)`);
+
+  lines.push(`\n# Agenda de hoje`);
+  lines.push(`- Total: ${today.length} | Confirmadas: ${confirmed} | Aguardando: ${waiting} | Canceladas: ${cancelled}`);
+
+  lines.push(`\n# Próximos 7 dias (${weekApsQ.data?.length ?? 0} consultas)`);
+  for (const a of (weekApsQ.data ?? []).slice(0, 20) as any[]) {
+    const d = new Date(a.start_time);
+    lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${a.status}`);
+  }
+
+  const pendingReqs = (pendingReqQ.data ?? []) as any[];
+  lines.push(`\n# Pedidos de consulta pendentes (${pendingReqs.length})`);
+  if (pendingReqs.length === 0) {
+    lines.push(`- Nenhum pedido aguardando aprovação.`);
+  } else {
+    for (const r of pendingReqs.slice(0, 15)) {
+      const d = new Date(r.start_time);
+      const pName = r.patient_account_snapshot?.full_name ?? "paciente";
+      lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${pName}${r.specialty ? " / " + r.specialty : ""}`);
+    }
+  }
+
+  // ===== Horários disponíveis (próximos 7 dias) =====
+  const SLOT_MIN = 30;
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
+  const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const subtractBusy = (intervals: Array<[number, number]>, busy: Array<[number, number]>) => {
+    let result = intervals.slice();
+    for (const [bs, be] of busy) {
+      const next: Array<[number, number]> = [];
+      for (const [s, e] of result) {
+        if (be <= s || bs >= e) { next.push([s, e]); continue; }
+        if (bs > s) next.push([s, bs]);
+        if (be < e) next.push([be, e]);
+      }
+      result = next;
+    }
+    return result;
+  };
+
+  const templates = (templatesQ.data ?? []) as any[];
+  const overrides = (availOverridesQ.data ?? []) as any[];
+  const blocked = new Set(((blockedQ.data ?? []) as any[]).map((b) => b.blocked_date));
+  const busy: Array<{ date: string; start: number; end: number }> = [];
+  for (const a of (busyApsQ.data ?? []) as any[]) {
+    if (!a.start_time || !a.end_time) continue;
+    const s = new Date(a.start_time); const e = new Date(a.end_time);
+    const date = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(s.getDate()).padStart(2, "0")}`;
+    busy.push({ date, start: s.getHours() * 60 + s.getMinutes(), end: e.getHours() * 60 + e.getMinutes() });
+  }
+
+  lines.push(`\n# Horários disponíveis (próximos 7 dias)`);
+  let totalFreeMin = 0;
+  const dayLines: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    if (blocked.has(dateStr)) continue;
+    const ov = overrides.find((o) => o.work_date === dateStr);
+    let baseIntervals: Array<[number, number]> = [];
+    let breaks: Array<{ start: string; end: string }> = [];
+    if (ov) {
+      baseIntervals = [[toMin(ov.start_time), toMin(ov.end_time)]];
+      breaks = (ov.breaks ?? []) as any[];
+    } else {
+      const tpl = templates.find((t) => t.weekday === day.getDay() && t.is_active);
+      if (!tpl) continue;
+      baseIntervals = [[toMin(tpl.start_time), toMin(tpl.end_time)]];
+      breaks = (tpl.breaks ?? []) as any[];
+    }
+    const breakBusy: Array<[number, number]> = (breaks ?? [])
+      .filter((b: any) => b?.start && b?.end)
+      .map((b: any) => [toMin(b.start), toMin(b.end)] as [number, number]);
+    let intervals = subtractBusy(baseIntervals, breakBusy);
+    let busyArr: Array<[number, number]> = busy.filter((b) => b.date === dateStr).map((b) => [b.start, b.end]);
+    if (i === 0) busyArr.push([0, now.getHours() * 60 + now.getMinutes()]);
+    intervals = subtractBusy(intervals, busyArr);
+    const freeRanges = intervals.filter(([s, e]) => e - s >= SLOT_MIN);
+    const dayFreeMin = freeRanges.reduce((sum, [s, e]) => sum + (e - s), 0);
+    if (dayFreeMin <= 0) continue;
+    totalFreeMin += dayFreeMin;
+    const label = day.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+    const ranges = freeRanges.slice(0, 4).map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`).join(", ");
+    const slotCount = Math.floor(dayFreeMin / SLOT_MIN);
+    dayLines.push(`- ${label}: ${slotCount} slots de ${SLOT_MIN}min (${ranges})`);
+  }
+  if (totalFreeMin === 0) {
+    lines.push(`- Nenhum horário livre detectado. Cadastre seu horário em /availability.`);
+  } else {
+    lines.push(`- Total livre: ${Math.floor(totalFreeMin / 60)}h${totalFreeMin % 60 ? ` ${totalFreeMin % 60}min` : ""}`);
+    lines.push(...dayLines);
+  }
+
+  lines.push(`\n# Desempenho (últimos 30 dias)`);
+  lines.push(`- Total realizadas: ${recent.length}`);
+  lines.push(`- Faltas (no-show): ${noShows} (${noShowRate.toFixed(1)}%)`);
+  if (topProcs.length > 0) {
+    lines.push(`- Procedimentos mais feitos:`);
+    for (const [name, count] of topProcs) lines.push(`  • ${name}: ${count}x`);
+  }
+
+  return { displayName, contextText: lines.join("\n") };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -322,9 +472,13 @@ Deno.serve(async (req) => {
     const messages = body.messages as UIMessage[];
     const threadId = body.threadId as string | undefined;
     const clinicId = body.clinicId as string | undefined;
+    const isProfessional = body.mode === "professional" || (!clinicId && body.userId);
 
-    if (!threadId || !clinicId) {
-      return new Response(JSON.stringify({ error: "threadId e clinicId obrigatórios" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!threadId) {
+      return new Response(JSON.stringify({ error: "threadId obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (!clinicId && !isProfessional) {
+      return new Response(JSON.stringify({ error: "clinicId ou mode=professional obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Validar thread pertence ao usuário
@@ -333,13 +487,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Thread inválida" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Validar membership na clínica
-    const { data: membership } = await admin.from("clinic_members").select("id").eq("clinic_id", clinicId).eq("user_id", user.id).maybeSingle();
-    if (!membership) {
-      return new Response(JSON.stringify({ error: "Sem acesso a esta clínica" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let scopeName: string;
+    let contextText: string;
+    if (isProfessional) {
+      const ctx = await loadProfessionalContext(admin, user.id);
+      scopeName = ctx.displayName;
+      contextText = ctx.contextText;
+    } else {
+      // Validar membership na clínica
+      const { data: membership } = await admin.from("clinic_members").select("id").eq("clinic_id", clinicId!).eq("user_id", user.id).maybeSingle();
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Sem acesso a esta clínica" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const ctx = await loadClinicContext(admin, clinicId!);
+      scopeName = ctx.clinicName;
+      contextText = ctx.contextText;
     }
-
-    const { clinicName, contextText } = await loadClinicContext(admin, clinicId);
 
     // Folder shared context: include short summary of messages from the FIRST thread
     // of the same folder (excluding the current thread) so conversations in the
@@ -386,7 +549,8 @@ Deno.serve(async (req) => {
       console.warn("folder context load failed", e);
     }
 
-    const system = `Você é o Gestor IA da clínica ${clinicName}, um copiloto de gestão clínica.
+    const system = `Você é o Gestor IA ${isProfessional ? `do consultório de ${scopeName}` : `da clínica ${scopeName}`}, um copiloto de gestão clínica.
+${isProfessional ? `\nMODO: profissional autônomo (sem clínica vinculada). Trate o usuário como dono do próprio consultório. Não mencione "clínica" — fale em "seu consultório" / "sua agenda".\n` : ""}
 
 REGRAS DE ESTILO (muito importantes):
 - Seja CONCISO por padrão. Respostas curtas, diretas, sem rodeios.
@@ -422,7 +586,7 @@ USO DOS DADOS:
 - Se houver aniversariantes hoje, pode mencioná-los se for relevante.
 - Sempre cite números reais dos dados, nunca invente valores.
 
---- DADOS DA CLÍNICA ---
+--- DADOS ${isProfessional ? "DO CONSULTÓRIO" : "DA CLÍNICA"} ---
 ${contextText}
 --- FIM DOS DADOS ---${folderContextBlock}`;
 
