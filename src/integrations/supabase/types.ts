@@ -1863,6 +1863,8 @@ export type Database = {
           patient_user_id: string | null
           phone: string | null
           photo_url: string | null
+          profession: string | null
+          rg: string | null
           state: string | null
           updated_at: string
           zip_code: string | null
@@ -1886,6 +1888,8 @@ export type Database = {
           patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
+          profession?: string | null
+          rg?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
@@ -1909,6 +1913,8 @@ export type Database = {
           patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
+          profession?: string | null
+          rg?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
