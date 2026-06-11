@@ -29,6 +29,7 @@ export default function Marketplace() {
   const [showMapMobile, setShowMapMobile] = useState(false);
   const [clinicCoords, setClinicCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [highlightedClinicId, setHighlightedClinicId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchDoctors() {
@@ -212,6 +213,13 @@ export default function Marketplace() {
     setTimeout(() => mapRef.current?.focusClinic(clinicId), 200);
   }, [isMobile]);
 
+  const handleMarkerClick = useCallback((clinicId: string) => {
+    setHighlightedClinicId(clinicId);
+    setTimeout(() => {
+      document.getElementById(`doctor-card-${clinicId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <MarketplaceHeader
@@ -269,6 +277,8 @@ export default function Marketplace() {
             doctors={filtered}
             onBoundsSearch={handleBoundsSearch}
             onCoordsReady={handleCoordsReady}
+            onMarkerClick={handleMarkerClick}
+            highlightedClinicId={highlightedClinicId}
           />
         ) : (
           <>
@@ -300,6 +310,8 @@ export default function Marketplace() {
                       key={`${doctor.userId}_${doctor.clinicId}`}
                       doctor={doctor}
                       onShowOnMap={handleShowOnMap}
+                      onHover={setHighlightedClinicId}
+                      highlighted={highlightedClinicId === doctor.clinicId}
                     />
                   ))}
                 </div>
@@ -315,6 +327,8 @@ export default function Marketplace() {
                   doctors={filtered}
                   onBoundsSearch={handleBoundsSearch}
                   onCoordsReady={handleCoordsReady}
+                  onMarkerClick={handleMarkerClick}
+                  highlightedClinicId={highlightedClinicId}
                 />
               </div>
             )}

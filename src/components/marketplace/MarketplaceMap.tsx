@@ -1,16 +1,11 @@
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2, Search } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Search } from "lucide-react";
 import { geocodeAddress } from "@/lib/geocode";
 import { cn } from "@/lib/utils";
-import { format, isAfter, isBefore, isSameDay, addDays, startOfDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
-import type { AvailabilityShift, DoctorData } from "./DoctorCard";
+import type { DoctorData } from "./DoctorCard";
 
 const FORTALEZA_CENTER: [number, number] = [-3.7172, -38.5433];
 
@@ -42,6 +37,8 @@ interface MarketplaceMapProps {
   doctors?: DoctorData[];
   onBoundsSearch?: (bounds: MapBounds) => void;
   onCoordsReady?: (coords: Map<string, { lat: number; lng: number }>) => void;
+  onMarkerClick?: (clinicId: string) => void;
+  highlightedClinicId?: string | null;
 }
 
 function createBlueIcon() {
@@ -64,142 +61,8 @@ function createHighlightIcon() {
   });
 }
 
-function generateSlots(date: Date, shifts: AvailabilityShift[], appointments: any[]): string[] {
-  const dateKey = format(date, "yyyy-MM-dd");
-  const dayShifts = shifts.filter((s) => s.date === dateKey);
-  if (dayShifts.length === 0) return [];
-
-  const now = new Date();
-  const slots: string[] = [];
-
-  for (const sh of dayShifts) {
-    const [oh, om] = sh.start.split(":").map(Number);
-    const [ch, cm] = sh.end.split(":").map(Number);
-    const start = new Date(date);
-    start.setHours(oh, om, 0, 0);
-    const end = new Date(date);
-    end.setHours(ch, cm, 0, 0);
-
-    let cursor = new Date(start);
-    while (cursor < end) {
-      const slotEnd = new Date(cursor.getTime() + 30 * 60 * 1000);
-      if (isSameDay(date, now) && isBefore(cursor, now)) {
-        cursor = slotEnd;
-        continue;
-      }
-      const hasConflict = appointments.some((apt) => {
-        if (apt.status === "cancelled") return false;
-        const aptStart = new Date(apt.start_time);
-        const aptEnd = new Date(apt.end_time);
-        return isBefore(cursor, aptEnd) && isAfter(slotEnd, aptStart);
-      });
-      if (!hasConflict) slots.push(format(cursor, "HH:mm"));
-      cursor = slotEnd;
-    }
-  }
-  return slots;
-}
-
-interface SidebarDoctorItemProps {
-  doctor: DoctorData;
-  onFocus: (clinicId: string) => void;
-}
-
-function SidebarDoctorItem({ doctor, onFocus }: SidebarDoctorItemProps) {
-  const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(false);
-  const initials = doctor.fullName
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  const days = useMemo(() => {
-    const today = startOfDay(new Date());
-    return Array.from({ length: 4 }, (_, i) => {
-      const date = addDays(today, i);
-      const dayAppts = doctor.appointments.filter((a) => isSameDay(new Date(a.start_time), date));
-      const slots = generateSlots(date, doctor.shifts, dayAppts);
-      return { date, slots };
-    });
-  }, [doctor]);
-
-  const handleClick = () => {
-    onFocus(doctor.clinicId);
-    setExpanded(!expanded);
-  };
-
-  const handleSlotClick = (date: Date, time: string) => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    navigate(`/marketplace/agendar?dentistId=${doctor.userId}&clinicId=${doctor.clinicId}&date=${dateStr}&time=${time}`);
-  };
-
-  return (
-    <div className="rounded-lg border transition-colors hover:border-primary/40">
-      <button
-        type="button"
-        className="flex w-full items-center gap-3 p-2 text-left text-sm"
-        onClick={handleClick}
-      >
-        <Avatar className="h-9 w-9 shrink-0">
-          <AvatarImage src={doctor.avatarUrl ?? undefined} />
-          <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-foreground">{doctor.fullName}</p>
-          <p className="truncate text-xs text-muted-foreground">{doctor.clinicName}</p>
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t px-2 pb-2 pt-1">
-          {doctor.clinicAddress && (
-            <p className="mb-1 text-[11px] text-muted-foreground">{doctor.clinicAddress}</p>
-          )}
-          <div className="grid grid-cols-2 gap-1.5">
-            {days.map(({ date, slots }) => (
-              <div key={date.toISOString()} className="min-w-0">
-                <p className="mb-1 text-center text-[10px] font-medium capitalize text-muted-foreground">
-                  {format(date, "EEE dd/MM", { locale: ptBR })}
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  {slots.length === 0 ? (
-                    <span className="py-1 text-center text-[10px] text-muted-foreground/60">-</span>
-                  ) : (
-                    slots.slice(0, 3).map((time) => (
-                      <Button
-                        key={time}
-                        variant="outline"
-                        size="sm"
-                        className="h-6 w-full text-[10px] font-medium text-primary hover:bg-primary hover:text-primary-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSlotClick(date, time);
-                        }}
-                      >
-                        {time}
-                      </Button>
-                    ))
-                  )}
-                  {slots.length > 3 && (
-                    <span className="text-center text-[10px] text-muted-foreground">+{slots.length - 3}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapProps>(
-  function MarketplaceMap({ className, clinics = [], doctors = [], onBoundsSearch, onCoordsReady }, ref) {
-    const [expanded, setExpanded] = useState(false);
+  function MarketplaceMap({ className, clinics = [], doctors: _doctors = [], onBoundsSearch, onCoordsReady, onMarkerClick, highlightedClinicId }, ref) {
     const [showSearchBtn, setShowSearchBtn] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
@@ -223,10 +86,9 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
       const marker = markersRef.current.get(clinicId);
       if (map && marker) {
         userMovedRef.current = false;
-        map.setView(marker.getLatLng(), 16, { animate: true });
-        marker.setIcon(createHighlightIcon());
+        const targetZoom = Math.max(map.getZoom(), 14);
+        map.flyTo(marker.getLatLng(), targetZoom, { duration: 0.6 });
         marker.openPopup();
-        setTimeout(() => marker.setIcon(createBlueIcon()), 3000);
       }
     }, []);
 
@@ -297,6 +159,9 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
             const marker = L.marker(latlng, { icon })
               .addTo(mapInstanceRef.current)
               .bindPopup(`<strong>${clinicName}</strong>`);
+            marker.on("click", () => {
+              onMarkerClick?.(clinicId);
+            });
             markersRef.current.set(clinicId, marker);
           }
         }
@@ -319,35 +184,25 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [clinics]);
 
+    // Highlight marker when external selection changes
     useEffect(() => {
-      if (mapInstanceRef.current) setTimeout(() => mapInstanceRef.current?.invalidateSize(), 100);
-    }, [expanded]);
+      const blue = createBlueIcon();
+      markersRef.current.forEach((marker, clinicId) => {
+        marker.setIcon(clinicId === highlightedClinicId ? createHighlightIcon() : blue);
+      });
+      if (highlightedClinicId) {
+        const marker = markersRef.current.get(highlightedClinicId);
+        const map = mapInstanceRef.current;
+        if (marker && map) {
+          userMovedRef.current = false;
+          map.panTo(marker.getLatLng(), { animate: true });
+        }
+      }
+    }, [highlightedClinicId]);
 
     return (
-      <div className={cn(expanded ? "fixed inset-0 z-50 flex bg-background" : className)}>
-        {expanded && doctors.length > 0 && (
-          <div className="hidden w-80 flex-col border-r md:flex">
-            <div className="border-b px-4 py-3">
-              <p className="text-sm font-medium text-foreground">
-                {doctors.length} profissional{doctors.length !== 1 ? "is" : ""}
-              </p>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="space-y-2 p-3">
-                {doctors.map((d) => (
-                  <SidebarDoctorItem key={`${d.userId}_${d.clinicId}`} doctor={d} onFocus={focusClinic} />
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
-
-        <div
-          className={cn(
-            "relative",
-            expanded ? "flex-1" : "h-full min-h-[400px] overflow-hidden rounded-xl border border-border/70 shadow-sm",
-          )}
-        >
+      <div className={cn(className)}>
+        <div className="relative h-full min-h-[400px] overflow-hidden rounded-xl border border-border/70 shadow-sm">
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[900] h-16 bg-gradient-to-b from-background/30 to-transparent" />
           <div ref={mapContainerRef} className="marketplace-map google-like-map h-full w-full" />
 
@@ -359,28 +214,6 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
             >
               <Search className="mr-1 h-4 w-4" />
               Buscar nesta área
-            </Button>
-          )}
-
-          {expanded ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="absolute bottom-3 right-3 z-[1000] border border-border/60 bg-white/90 shadow-md backdrop-blur"
-              onClick={() => setExpanded(false)}
-            >
-              <Minimize2 className="mr-1 h-4 w-4" />
-              Diminuir mapa
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="absolute bottom-3 right-3 z-[1000] border border-border/60 bg-white/90 shadow-md backdrop-blur"
-              onClick={() => setExpanded(true)}
-            >
-              <Maximize2 className="mr-1 h-4 w-4" />
-              Ampliar mapa
             </Button>
           )}
         </div>

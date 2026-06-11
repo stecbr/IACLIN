@@ -84,6 +84,10 @@ export function LandingNetworkMap() {
       attributionControl: false,
       scrollWheelZoom: false,
       dragging: true,
+      doubleClickZoom: false,
+      boxZoom: false,
+      touchZoom: false,
+      keyboard: false,
     });
 
     // CartoDB Light tiles — look clean on white landing pages
