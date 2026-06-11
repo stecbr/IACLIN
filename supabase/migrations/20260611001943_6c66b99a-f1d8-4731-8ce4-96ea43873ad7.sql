@@ -1,0 +1,3 @@
+UPDATE public.clinics  SET city = 'São Paulo' WHERE city IS NOT NULL AND lower(translate(city,'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc')) = 'sao paulo';
+UPDATE public.patients SET city = 'São Paulo' WHERE city IS NOT NULL AND lower(translate(city,'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc')) = 'sao paulo';
+UPDATE public.profiles SET city = 'São Paulo' WHERE city IS NOT NULL AND lower(translate(city,'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc')) = 'sao paulo';
