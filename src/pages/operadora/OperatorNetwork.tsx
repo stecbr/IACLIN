@@ -8,7 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Search, Building2, MapPin, Stethoscope, Users, Eye } from 'lucide-react';
+import { Search, Building2, MapPin, Stethoscope, Users, Eye, Phone, Mail, FileText, IdCard, Calendar, User as UserIcon } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getAvatarColor, getInitials } from '@/lib/avatarColor';
+
+interface Doctor {
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  specialty: string | null;
+  specialties: string[];
+  registration_number: string | null;
+  is_owner: boolean;
+  created_at: string | null;
+}
 
 interface Row {
   id: string;
@@ -19,7 +32,16 @@ interface Row {
   clinic_name?: string | null;
   clinic_cnpj?: string | null;
   clinic_city?: string | null;
-  doctors?: Array<{ name: string; specialty: string | null; registration_number: string | null }>;
+  clinic_phone?: string | null;
+  clinic_email?: string | null;
+  clinic_address?: string | null;
+  clinic_neighborhood?: string | null;
+  clinic_state?: string | null;
+  clinic_category_label?: string | null;
+  clinic_logo_url?: string | null;
+  clinic_responsible?: string | null;
+  clinic_created_at?: string | null;
+  doctors?: Doctor[];
 }
 
 export default function OperatorNetwork() {
@@ -31,6 +53,7 @@ export default function OperatorNetwork() {
   const [revokeReason, setRevokeReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Row | null>(null);
+  const [doctorViewing, setDoctorViewing] = useState<Doctor | null>(null);
 
   const load = async () => {
     if (!operatorId) return;
@@ -64,31 +87,61 @@ export default function OperatorNetwork() {
     }
     const clinicIds = [...new Set(list.map((r) => r.clinic_id))];
     const [{ data: clinics }, { data: clinicMembers }, { data: profiles }] = await Promise.all([
-      supabase.from('clinics').select('id, name, city, cnpj').in('id', clinicIds),
-      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role').in('clinic_id', clinicIds).eq('role', 'dentist'),
-      supabase.from('profiles').select('id, full_name'),
+      supabase.from('clinics').select('id, name, city, cnpj, phone, email, address, neighborhood, state, category_label, logo_url, responsible_name, created_at').in('id', clinicIds),
+      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role, is_owner, created_at').in('clinic_id', clinicIds).eq('role', 'dentist'),
+      supabase.from('profiles').select('id, full_name, avatar_url'),
     ]);
+
+    const memberIds = (clinicMembers ?? []).map((m: any) => m.id);
+    const { data: extraSpecs } = memberIds.length > 0
+      ? await supabase.from('clinic_member_specialties').select('clinic_member_id, specialty').in('clinic_member_id', memberIds)
+      : { data: [] as any[] };
+    const specsByMember = new Map<string, string[]>();
+    (extraSpecs ?? []).forEach((s: any) => {
+      const arr = specsByMember.get(s.clinic_member_id) ?? [];
+      if (s.specialty) arr.push(s.specialty);
+      specsByMember.set(s.clinic_member_id, arr);
+    });
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const clinicMap = new Map((clinics ?? []).map((c) => [c.id, c]));
-    const doctorsByClinic = new Map<string, Array<{ name: string; specialty: string | null; registration_number: string | null }>>();
+    const doctorsByClinic = new Map<string, Doctor[]>();
     (clinicMembers ?? []).forEach((m: any) => {
       const arr = doctorsByClinic.get(m.clinic_id) ?? [];
+      const extra = specsByMember.get(m.id) ?? [];
+      const merged = Array.from(new Set([m.specialty, ...extra].filter(Boolean))) as string[];
       arr.push({
+        user_id: m.user_id,
         name: profileMap.get(m.user_id)?.full_name ?? '—',
+        avatar_url: profileMap.get(m.user_id)?.avatar_url ?? null,
         specialty: m.specialty ?? null,
+        specialties: merged,
         registration_number: m.registration_number ?? null,
+        is_owner: !!m.is_owner,
+        created_at: m.created_at ?? null,
       });
       doctorsByClinic.set(m.clinic_id, arr);
     });
 
-    const merged: Row[] = list.map((r) => ({
-      ...r,
-      clinic_name: clinicMap.get(r.clinic_id)?.name ?? '—',
-      clinic_cnpj: clinicMap.get(r.clinic_id)?.cnpj ?? null,
-      clinic_city: clinicMap.get(r.clinic_id)?.city ?? null,
-      doctors: doctorsByClinic.get(r.clinic_id) ?? [],
-    }));
+    const merged: Row[] = list.map((r) => {
+      const c: any = clinicMap.get(r.clinic_id);
+      return {
+        ...r,
+        clinic_name: c?.name ?? '—',
+        clinic_cnpj: c?.cnpj ?? null,
+        clinic_city: c?.city ?? null,
+        clinic_phone: c?.phone ?? null,
+        clinic_email: c?.email ?? null,
+        clinic_address: c?.address ?? null,
+        clinic_neighborhood: c?.neighborhood ?? null,
+        clinic_state: c?.state ?? null,
+        clinic_category_label: c?.category_label ?? null,
+        clinic_logo_url: c?.logo_url ?? null,
+        clinic_responsible: c?.responsible_name ?? null,
+        clinic_created_at: c?.created_at ?? null,
+        doctors: doctorsByClinic.get(r.clinic_id) ?? [],
+      };
+    });
     setRows(merged);
     setLoading(false);
   };
