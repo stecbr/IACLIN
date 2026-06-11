@@ -92,7 +92,7 @@ export interface SyncConfigPayload {
 
 export interface SyncDoctorsBatchPayload {
   clinic_id: string;
-  doctors: Required<SyncDoctor>[];
+  doctors: Array<SyncDoctor & { active: boolean }>;
 }
 
 export interface SyncDoctorPayload {
