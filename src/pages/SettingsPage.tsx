@@ -176,6 +176,7 @@ function ClinicSection() {
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
   const [fetchingCep, setFetchingCep] = useState(false);
+  const [approvalMode, setApprovalMode] = useState<'clinic' | 'professional'>('clinic');
 
   useEffect(() => {
     if (isLoading) return;
@@ -210,6 +211,7 @@ function ClinicSection() {
       city: clinic.city ?? '', state: clinic.state ?? '',
     });
     setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
+    setApprovalMode(((clinic as any).appointment_approval_mode as 'clinic' | 'professional') ?? 'clinic');
   }, [clinic, isLoading, user?.email]);
 
   const handleCepLookup = async () => {
@@ -326,6 +328,7 @@ function ClinicSection() {
         city: form.city,
         state: form.state,
         business_hours: businessHours as any,
+        appointment_approval_mode: approvalMode,
       };
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
@@ -552,6 +555,36 @@ function ClinicSection() {
 
           {/* Business Hours */}
           <ClinicHoursSection value={businessHours} onChange={setBusinessHours} />
+
+          {/* Aprovação de agendamentos via IA / online */}
+          <div className="rounded-lg border border-border/50 p-4 space-y-3">
+            <div>
+              <Label className="text-sm font-medium">Quem aprova agendamentos solicitados pela IA?</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Define quem recebe e decide sobre pedidos vindos do WhatsApp/marketplace.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {([
+                { v: 'clinic' as const, t: 'Clínica (admin/secretária)', d: 'Pedidos centralizados na recepção.' },
+                { v: 'professional' as const, t: 'Profissional', d: 'Cada profissional aprova os pedidos da própria agenda.' },
+              ]).map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setApprovalMode(opt.v)}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                    approvalMode === opt.v
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border hover:border-primary/50 text-muted-foreground'
+                  }`}
+                >
+                  <div className="font-medium text-foreground">{opt.t}</div>
+                  <div className="text-[11px] text-muted-foreground">{opt.d}</div>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <Button onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />

@@ -63,6 +63,12 @@ export interface SyncDoctor {
   role: string;
   specialty: string | null;
   active?: boolean;
+  procedures?: Array<{
+    id: string;
+    name: string;
+    duration_min: number;
+    price?: number | null;
+  }>;
 }
 
 export interface SyncHandoff {
@@ -81,11 +87,12 @@ export interface SyncConfigPayload {
   rooms: SyncRoom[];
   doctors: SyncDoctor[];
   handoff?: SyncHandoff | null;
+  approval_mode?: 'clinic' | 'professional';
 }
 
 export interface SyncDoctorsBatchPayload {
   clinic_id: string;
-  doctors: Required<SyncDoctor>[];
+  doctors: Array<SyncDoctor & { active: boolean }>;
 }
 
 export interface SyncDoctorPayload {
