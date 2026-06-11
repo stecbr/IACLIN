@@ -12,11 +12,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
-import { User, Stethoscope, Network, KeyRound, Palette, Save, AlertCircle, Plus, Star, Trash2, BadgeCheck, Upload, CheckCircle2, MapPin, Loader2 } from 'lucide-react';
+import { User, Stethoscope, Network, KeyRound, Palette, Save, AlertCircle, Plus, Star, Trash2, BadgeCheck, Upload, CheckCircle2, MapPin, Loader2, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '@/components/ThemeProvider';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import MyClinicsSection from '@/components/settings/MyClinicsSection';
+import { MyProceduresPerClinic } from '@/components/settings/MyProceduresPerClinic';
 import { Switch } from '@/components/ui/switch';
 import {
   SpecialtySelect,
@@ -28,6 +29,7 @@ import { getFamilyConfig } from '@/lib/specialtyFamily';
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
   { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
+  { id: 'procedures', label: 'Procedimentos', icon: ListChecks },
   { id: 'clinics', label: 'Minhas Clínicas', icon: Network },
   { id: 'security', label: 'Segurança', icon: KeyRound },
   { id: 'appearance', label: 'Aparência', icon: Palette },
@@ -59,6 +61,7 @@ export default function Profile() {
         <div className="flex-1 min-w-0 space-y-6">
           {activeSection === 'profile' && <ProfileInfoSection />}
           {activeSection === 'specialty' && <SpecialtiesSection />}
+          {activeSection === 'procedures' && <MyProceduresPerClinic />}
           {activeSection === 'clinics' && <MyClinicsSection />}
           {activeSection === 'security' && <SecuritySection />}
           {activeSection === 'appearance' && <AppearanceBlock />}
