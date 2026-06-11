@@ -586,7 +586,7 @@ USO DOS DADOS:
 - Se houver aniversariantes hoje, pode mencioná-los se for relevante.
 - Sempre cite números reais dos dados, nunca invente valores.
 
---- DADOS DA CLÍNICA ---
+--- DADOS ${isProfessional ? "DO CONSULTÓRIO" : "DA CLÍNICA"} ---
 ${contextText}
 --- FIM DOS DADOS ---${folderContextBlock}`;
 
