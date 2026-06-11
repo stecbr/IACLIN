@@ -12,6 +12,30 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Envia uma mensagem ao paciente no WhatsApp via backend da IA (que tem a
+// conexão Evolution). convId = base64url de "clinicId:phone". Não bloqueia o
+// fluxo se falhar (a aprovação já aconteceu).
+const AI_BACKEND_URL = Deno.env.get('AI_BACKEND_URL') ?? 'https://iaclin.stec-apps.com';
+async function notifyPatient(clinicId: string, phone: string, text: string) {
+  if (!clinicId || !phone || !text) return;
+  try {
+    const convId = btoa(`${clinicId}:${phone}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    await fetch(`${AI_BACKEND_URL}/api/clinics/${clinicId}/conversations/${convId}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'bypass-tunnel-reminder': 'true' },
+      body: JSON.stringify({ text }),
+    });
+  } catch (_) { /* não bloqueia */ }
+}
+
+function formatBR(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return iso; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -129,6 +153,14 @@ Deno.serve(async (req) => {
       })
       .eq('id', requestId);
     if (updErr) throw updErr;
+
+    // Avisa o paciente no WhatsApp que a consulta foi confirmada.
+    const nome = (request.patient_name ?? '').split(' ')[0] || '';
+    await notifyPatient(
+      request.clinic_id,
+      request.patient_phone,
+      `${nome ? `Olá ${nome}! ` : ''}Sua consulta foi CONFIRMADA para ${formatBR(start.toISOString())}. Até lá! 😊`,
+    );
 
     return json({ success: true, appointmentId: appt.id, patientId });
   } catch (err) {

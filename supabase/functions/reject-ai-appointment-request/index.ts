@@ -12,6 +12,20 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Avisa o paciente no WhatsApp via backend da IA. convId = base64url "clinicId:phone".
+const AI_BACKEND_URL = Deno.env.get('AI_BACKEND_URL') ?? 'https://iaclin.stec-apps.com';
+async function notifyPatient(clinicId: string, phone: string, text: string) {
+  if (!clinicId || !phone || !text) return;
+  try {
+    const convId = btoa(`${clinicId}:${phone}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    await fetch(`${AI_BACKEND_URL}/api/clinics/${clinicId}/conversations/${convId}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'bypass-tunnel-reminder': 'true' },
+      body: JSON.stringify({ text }),
+    });
+  } catch (_) { /* não bloqueia */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -38,7 +52,7 @@ Deno.serve(async (req) => {
 
     const { data: request } = await admin
       .from('ai_appointment_requests')
-      .select('clinic_id, status')
+      .select('clinic_id, status, patient_phone, patient_name')
       .eq('id', requestId)
       .maybeSingle();
     if (!request) return json({ error: 'Pedido não encontrado' }, 404);
@@ -64,6 +78,14 @@ Deno.serve(async (req) => {
       })
       .eq('id', requestId);
     if (updErr) throw updErr;
+
+    // Avisa o paciente que o horário não pôde ser confirmado e oferece remarcar.
+    const nome = (request.patient_name ?? '').split(' ')[0] || '';
+    await notifyPatient(
+      request.clinic_id,
+      request.patient_phone,
+      `${nome ? `Olá ${nome}. ` : ''}Infelizmente não conseguimos confirmar o horário solicitado.${reason ? ` Motivo: ${reason}.` : ''} Gostaria de tentar outra data? É só me dizer o dia e horário de sua preferência. 🙏`,
+    );
 
     return json({ success: true });
   } catch (err) {
