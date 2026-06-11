@@ -287,39 +287,114 @@ export default function OperatorNetwork() {
       </Card>
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              {viewing?.clinic_name}
-            </DialogTitle>
+            <DialogTitle className="sr-only">Detalhes da clínica</DialogTitle>
           </DialogHeader>
           {viewing && (
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">CNPJ</div>
-                  <div>{viewing.clinic_cnpj ?? '—'}</div>
+            <div className="space-y-5 text-sm">
+              {/* Cabeçalho da clínica */}
+              <div className="flex items-start gap-4">
+                <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-border">
+                  {viewing.clinic_logo_url ? (
+                    <img src={viewing.clinic_logo_url} alt={viewing.clinic_name ?? ''} className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-7 w-7 text-primary" />
+                  )}
                 </div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cidade</div>
-                  <div>{viewing.clinic_city ?? '—'}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg font-semibold leading-tight truncate">{viewing.clinic_name}</div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {viewing.clinic_category_label && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">{viewing.clinic_category_label}</Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px] font-normal inline-flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {viewing.doctors?.length ?? 0} médico(s)
+                    </Badge>
+                    {viewing.clinic_created_at && (
+                      <Badge variant="outline" className="text-[10px] font-normal inline-flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Desde {new Date(viewing.clinic_created_at).toLocaleDateString('pt-BR')}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Grid de info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border border-border p-3 bg-muted/30">
+                <InfoField icon={<FileText className="h-3.5 w-3.5" />} label="CNPJ" value={viewing.clinic_cnpj} />
+                <InfoField icon={<UserIcon className="h-3.5 w-3.5" />} label="Responsável" value={viewing.clinic_responsible} />
+                <InfoField icon={<Phone className="h-3.5 w-3.5" />} label="Telefone" value={viewing.clinic_phone} />
+                <InfoField icon={<Mail className="h-3.5 w-3.5" />} label="E-mail" value={viewing.clinic_email} />
+                <InfoField
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Endereço"
+                  value={[viewing.clinic_address, viewing.clinic_neighborhood].filter(Boolean).join(', ') || null}
+                  className="sm:col-span-2"
+                />
+                <InfoField
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Cidade / UF"
+                  value={[viewing.clinic_city, viewing.clinic_state].filter(Boolean).join(' - ') || null}
+                  className="sm:col-span-2"
+                />
+              </div>
+
+              {/* Lista de médicos */}
               <div>
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
                   <Stethoscope className="h-3 w-3" />
                   Médicos vinculados ({viewing.doctors?.length ?? 0})
                 </div>
                 {viewing.doctors && viewing.doctors.length > 0 ? (
-                  <div className="rounded-lg border border-border divide-y divide-border max-h-72 overflow-y-auto">
+                  <div className="rounded-lg border border-border divide-y divide-border max-h-80 overflow-y-auto">
                     {viewing.doctors.map((d, i) => (
-                      <div key={`${d.name}-${i}`} className="px-3 py-2 flex flex-col">
-                        <span className="font-medium text-sm">{d.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {d.specialty ?? 'Sem especialidade'}
-                          {d.registration_number ? ` · ${d.registration_number}` : ''}
-                        </span>
+                      <div key={`${d.user_id}-${i}`} className="px-3 py-3 flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-border">
+                          {d.avatar_url && <AvatarImage src={d.avatar_url} alt={d.name} />}
+                          <AvatarFallback
+                            className="text-xs font-medium text-white"
+                            style={{ backgroundColor: getAvatarColor(d.user_id) }}
+                          >
+                            {getInitials(d.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm truncate">{d.name}</span>
+                            {d.is_owner && (
+                              <Badge variant="secondary" className="text-[9px] font-normal">Owner</Badge>
+                            )}
+                            {d.registration_number && (
+                              <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                                <IdCard className="h-3 w-3" />
+                                {d.registration_number}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {d.specialties.length > 0 ? (
+                              d.specialties.map((s) => (
+                                <Badge key={s} variant="outline" className="text-[10px] font-normal">
+                                  {s}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">Sem especialidade</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-xl shrink-0"
+                          onClick={() => setDoctorViewing(d)}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          Ver perfil
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -342,6 +417,70 @@ export default function OperatorNetwork() {
               }}
             >
               Cancelar credenciamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Perfil do médico */}
+      <Dialog open={!!doctorViewing} onOpenChange={(o) => !o && setDoctorViewing(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Perfil do médico</DialogTitle>
+          </DialogHeader>
+          {doctorViewing && (
+            <div className="space-y-4 text-sm">
+              <div className="flex flex-col items-center text-center gap-3 pt-2">
+                <Avatar className="h-20 w-20 border border-border">
+                  {doctorViewing.avatar_url && <AvatarImage src={doctorViewing.avatar_url} alt={doctorViewing.name} />}
+                  <AvatarFallback
+                    className="text-xl font-medium text-white"
+                    style={{ backgroundColor: getAvatarColor(doctorViewing.user_id) }}
+                  >
+                    {getInitials(doctorViewing.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="text-lg font-semibold">{doctorViewing.name}</div>
+                  {doctorViewing.registration_number && (
+                    <div className="text-xs text-muted-foreground inline-flex items-center gap-1 mt-0.5">
+                      <IdCard className="h-3 w-3" />
+                      {doctorViewing.registration_number}
+                    </div>
+                  )}
+                </div>
+                {doctorViewing.is_owner && (
+                  <Badge variant="secondary" className="text-[10px] font-normal">Owner da clínica</Badge>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-2">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <Stethoscope className="h-3 w-3" />
+                  Especialidades
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {doctorViewing.specialties.length > 0 ? (
+                    doctorViewing.specialties.map((s) => (
+                      <Badge key={s} variant="outline" className="text-[10px] font-normal">{s}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Sem especialidade cadastrada</span>
+                  )}
+                </div>
+              </div>
+
+              {doctorViewing.created_at && (
+                <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Vinculado em {new Date(doctorViewing.created_at).toLocaleDateString('pt-BR')}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl" onClick={() => setDoctorViewing(null)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
