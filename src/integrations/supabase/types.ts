@@ -540,6 +540,51 @@ export type Database = {
           },
         ]
       }
+      clinic_member_procedures: {
+        Row: {
+          clinic_member_id: string
+          created_at: string
+          custom_duration: number | null
+          custom_price: number | null
+          id: string
+          procedure_id: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_member_id: string
+          created_at?: string
+          custom_duration?: number | null
+          custom_price?: number | null
+          id?: string
+          procedure_id: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_member_id?: string
+          created_at?: string
+          custom_duration?: number | null
+          custom_price?: number | null
+          id?: string
+          procedure_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_member_procedures_clinic_member_id_fkey"
+            columns: ["clinic_member_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_member_procedures_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_member_specialties: {
         Row: {
           clinic_member_id: string
@@ -875,6 +920,7 @@ export type Database = {
           address: string | null
           address_complement: string | null
           address_number: string | null
+          appointment_approval_mode: string
           bank_account: string | null
           bank_account_type: string | null
           bank_agency: string | null
@@ -914,6 +960,7 @@ export type Database = {
           address?: string | null
           address_complement?: string | null
           address_number?: string | null
+          appointment_approval_mode?: string
           bank_account?: string | null
           bank_account_type?: string | null
           bank_agency?: string | null
@@ -953,6 +1000,7 @@ export type Database = {
           address?: string | null
           address_complement?: string | null
           address_number?: string | null
+          appointment_approval_mode?: string
           bank_account?: string | null
           bank_account_type?: string | null
           bank_agency?: string | null
