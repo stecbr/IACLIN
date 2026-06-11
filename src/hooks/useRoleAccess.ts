@@ -19,6 +19,7 @@ const routePermissions: RouteAccess[] = [
   { path: '/clinica', allowedRoles: ['admin'] },
   { path: '/clinica/medicos', allowedRoles: ['admin'] },
   { path: '/clinica/credenciamentos', allowedRoles: ['admin'] },
+  { path: '/clinica/convenios', allowedRoles: ['admin', 'dentist', 'secretary'] },
   { path: '/clinica/aprovacoes', allowedRoles: ['admin', 'secretary'] },
   { path: '/odontogram', allowedRoles: ['admin', 'dentist'] },
   { path: '/ferramentas', allowedRoles: ['admin', 'dentist'] },
