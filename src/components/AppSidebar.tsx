@@ -263,6 +263,24 @@ export function AppSidebar() {
     refetchInterval: 30000,
   });
 
+  // Pedidos da IA (WhatsApp) aguardando aprovação — somados ao badge da Agenda
+  // para o médico ver a "bolinha" sem precisar abrir a tela.
+  const { data: aiPendingCount = 0 } = useQuery({
+    queryKey: ['ai-pending-requests-count', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { count } = await (supabase as any)
+        .from('ai_appointment_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', currentClinicId!)
+        .eq('status', 'pending');
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+  // Total de pedidos aguardando aprovação (app + IA), para o badge da Agenda.
+  const agendaPendingCount = (pendingCount ?? 0) + (aiPendingCount ?? 0);
+
   const { data: todayApts = [] } = useQuery({
     queryKey: ['sidebar-today-apts', currentClinicId, user?.id, isDentist],
     enabled: !!currentClinicId,
@@ -577,7 +595,9 @@ export function AppSidebar() {
                     {attendance.map((item) =>
                       renderNavItem(
                         item,
-                        item.url === '/agenda' || item.url === '/pacientes-do-dia'
+                        item.url === '/agenda'
+                          ? (agendaPendingCount > 0 ? agendaPendingCount : todayCount)
+                          : item.url === '/pacientes-do-dia'
                           ? todayCount
                           : item.url === '/clinica/aprovacoes'
                           ? pendingCount
@@ -638,7 +658,14 @@ export function AppSidebar() {
               <NavSection id="atendimento" label="Atendimento do Dia" collapsed={collapsed}>
                 <SidebarMenu>
                   {filteredOperationNav.map((item) =>
-                    renderNavItem(item, item.url === '/agenda' ? todayCount : undefined)
+                    renderNavItem(
+                      item,
+                      item.url === '/agenda'
+                        // Prioriza alertar pedidos aguardando aprovação; se não houver,
+                        // mostra a contagem de consultas do dia.
+                        ? (agendaPendingCount > 0 ? agendaPendingCount : todayCount)
+                        : undefined,
+                    )
                   )}
                 </SidebarMenu>
               </NavSection>
