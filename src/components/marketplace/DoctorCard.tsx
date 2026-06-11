@@ -90,9 +90,11 @@ function generateSlotsForDate(
 interface DoctorCardProps {
   doctor: DoctorData;
   onShowOnMap?: (clinicId: string) => void;
+  onHover?: (clinicId: string | null) => void;
+  highlighted?: boolean;
 }
 
-export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
+export function DoctorCard({ doctor, onShowOnMap, onHover, highlighted }: DoctorCardProps) {
   const navigate = useNavigate();
   const [showMore, setShowMore] = useState(false);
 
@@ -145,7 +147,12 @@ export function DoctorCard({ doctor, onShowOnMap }: DoctorCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md">
+    <Card
+      id={`doctor-card-${doctor.clinicId}`}
+      onMouseEnter={() => onHover?.(doctor.clinicId)}
+      onMouseLeave={() => onHover?.(null)}
+      className={`overflow-hidden transition-all hover:shadow-md ${highlighted ? "ring-2 ring-primary shadow-md" : ""}`}
+    >
       <CardContent className="p-4">
         <div className="flex gap-4">
           <Avatar className="h-16 w-16 shrink-0 ring-2 ring-primary/20 ring-offset-1">
