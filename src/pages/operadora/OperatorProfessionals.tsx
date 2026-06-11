@@ -55,6 +55,7 @@ export default function OperatorProfessionals() {
   const [stateFilter, setStateFilter] = useState('all');
   const [professionalType, setProfessionalType] = useState<'all' | 'medico' | 'dentista'>('all');
   const [specialtyFilter, setSpecialtyFilter] = useState('all');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -335,6 +336,22 @@ export default function OperatorProfessionals() {
     [filtered, selectedId],
   );
 
+  const searchSuggestions = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return [];
+    return filtered.slice(0, 8);
+  }, [filtered, q]);
+
+  const handleSelectClinic = (clinic: ClinicSearchRow) => {
+    setSelectedId(clinic.clinic_id);
+    setSearchOpen(false);
+    const c = coords.get(clinic.clinic_id);
+    const map = mapInstanceRef.current;
+    if (c && map) {
+      map.setView([c.lat, c.lng], Math.max(map.getZoom(), 14), { animate: true });
+    }
+  };
+
   return (
     <div className="-m-4 md:-m-8 relative h-[calc(100vh-0rem)] md:h-screen overflow-hidden">
       {/* Center Leaflet zoom controls vertically on the right */}
@@ -355,10 +372,43 @@ export default function OperatorProfessionals() {
             <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
             <Input
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => { setQ(e.target.value); setSearchOpen(true); }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
               placeholder="Buscar clínica, profissional..."
               className="pl-10 h-11 w-full rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md"
             />
+            {searchOpen && searchSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur-md overflow-hidden max-h-80 overflow-y-auto">
+                {searchSuggestions.map((clinic) => {
+                  const initials = clinic.clinic_name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+                  return (
+                    <button
+                      key={clinic.clinic_id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSelectClinic(clinic)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/60 text-left border-b border-border/40 last:border-0"
+                    >
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarImage src={clinic.logo_url ?? undefined} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{clinic.clinic_name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {clinic.category === 'medico' ? 'Médica' : clinic.category === 'odonto' ? 'Odontológica' : 'Outras'}
+                          {clinic.city ? ` · ${clinic.city}` : ''}
+                          {clinic.state ? `/${clinic.state}` : ''}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Individually floating filter buttons */}
