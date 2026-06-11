@@ -391,7 +391,7 @@ function MessagePart({ part }: { part: any }) {
   return null;
 }
 
-function ChatView({ threadId, clinicId, initialMessages, onOpenMenu }: { threadId: string; clinicId: string; initialMessages: UIMessage[]; onOpenMenu?: () => void }) {
+function ChatView({ threadId, clinicId, initialMessages, onOpenMenu }: { threadId: string; clinicId: string | null; initialMessages: UIMessage[]; onOpenMenu?: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -545,7 +545,7 @@ export default function IaGestor() {
   const { threadId } = useParams<{ threadId?: string }>();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, currentClinicId } = useAuth();
+  const { user, currentClinicId, isPersonalMode } = useAuth();
   const qc = useQueryClient();
 
   const { data: threads = [], isLoading: threadsLoading } = useQuery({
@@ -587,7 +587,7 @@ export default function IaGestor() {
   // Reset bootstrap flag when clinic context changes so new clinic gets its own thread
   useEffect(() => {
     bootstrappedRef.current = false;
-  }, [currentClinicId]);
+  }, [currentClinicId, isPersonalMode]);
   useEffect(() => {
     if (bootstrappedRef.current) return;
     if (!user?.id || threadsLoading) return;
@@ -696,10 +696,10 @@ export default function IaGestor() {
     },
   });
 
-  if (!currentClinicId) {
+  if (!currentClinicId && !isPersonalMode) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        Selecione uma clínica para usar o IA Gestor.
+        Selecione uma clínica ou ative o modo consultório próprio para usar o IA Gestor.
       </div>
     );
   }
