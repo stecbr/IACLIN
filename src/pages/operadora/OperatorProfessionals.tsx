@@ -336,7 +336,7 @@ export default function OperatorProfessionals() {
   );
 
   return (
-    <div className="-m-4 md:-m-8 relative h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="-m-4 md:-m-8 relative h-[calc(100vh-0rem)] md:h-screen overflow-hidden">
       {/* Center Leaflet zoom controls vertically on the right */}
       <style>{`
         .rede-busca-map .leaflet-top.leaflet-right {
@@ -349,7 +349,7 @@ export default function OperatorProfessionals() {
 
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
-        <div className="mx-auto max-w-5xl space-y-2">
+        <div className="mx-auto max-w-4xl space-y-2">
           {/* Full-width floating search */}
           <div className="pointer-events-auto relative">
             <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
@@ -362,9 +362,9 @@ export default function OperatorProfessionals() {
           </div>
 
           {/* Individually floating filter buttons */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 w-full">
             <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[140px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[120px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent className="z-[1000]">
@@ -374,7 +374,7 @@ export default function OperatorProfessionals() {
               </SelectContent>
             </Select>
             <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[160px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[140px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
                 <SelectValue placeholder="Especialidade" />
               </SelectTrigger>
               <SelectContent className="z-[1000]">
@@ -383,7 +383,7 @@ export default function OperatorProfessionals() {
               </SelectContent>
             </Select>
             <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[120px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[100px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
                 <SelectValue placeholder="UF" />
               </SelectTrigger>
               <SelectContent className="z-[1000]">
@@ -392,7 +392,7 @@ export default function OperatorProfessionals() {
               </SelectContent>
             </Select>
             <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[150px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[130px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
                 <SelectValue placeholder="Cidade" />
               </SelectTrigger>
               <SelectContent className="z-[1000]">
