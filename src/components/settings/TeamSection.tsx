@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Crown } from 'lucide-react';
+import { Plus, Trash2, Crown, ListChecks } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { MemberProceduresDialog } from './MemberProceduresDialog';
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
@@ -31,6 +32,18 @@ export default function TeamSection() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ email: '', full_name: '', password: '', role: 'dentist' });
   const [saving, setSaving] = useState(false);
+  const [procEditor, setProcEditor] = useState<{ id: string; name: string } | null>(null);
+
+  // Categoria da clínica para filtrar o catálogo de procedimentos
+  const { data: clinicCategory } = useQuery({
+    queryKey: ['clinic-category', currentClinicId],
+    queryFn: async () => {
+      if (!currentClinicId) return null;
+      const { data } = await supabase.from('clinics').select('category').eq('id', currentClinicId).maybeSingle();
+      return (data?.category as string | null) ?? null;
+    },
+    enabled: !!currentClinicId,
+  });
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['clinic-members', currentClinicId],
@@ -51,9 +64,23 @@ export default function TeamSection() {
 
       const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
 
+      // Conta procedimentos por membro
+      const memberIds = (data ?? []).map((m) => m.id);
+      const { data: procCounts } = memberIds.length
+        ? await supabase
+            .from('clinic_member_procedures' as any)
+            .select('clinic_member_id')
+            .in('clinic_member_id', memberIds)
+        : { data: [] as Array<{ clinic_member_id: string }> };
+      const procCountMap = new Map<string, number>();
+      for (const r of ((procCounts ?? []) as unknown as Array<{ clinic_member_id: string }>)) {
+        procCountMap.set(r.clinic_member_id, (procCountMap.get(r.clinic_member_id) ?? 0) + 1);
+      }
+
       return (data ?? []).map(m => ({
         ...m,
         full_name: profileMap.get(m.user_id)?.full_name ?? 'Sem nome',
+        procedure_count: procCountMap.get(m.id) ?? 0,
       }));
     },
     enabled: !!currentClinicId,
@@ -170,6 +197,7 @@ export default function TeamSection() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Papel</TableHead>
+                <TableHead>Procedimentos</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,6 +213,22 @@ export default function TeamSection() {
                   <TableCell>
                     <Badge variant={roleColors[m.role] as any}>{roleLabels[m.role] ?? m.role}</Badge>
                   </TableCell>
+                  <TableCell>
+                    {(m.role === 'dentist' || m.role === 'admin') ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                        onClick={() => setProcEditor({ id: m.id, name: m.full_name })}
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
+                        {(m as any).procedure_count > 0
+                          ? `${(m as any).procedure_count} procedimento(s)`
+                          : 'Adicionar'}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     {isClinicOwner && !m.is_owner && (
                       <Button variant="ghost" size="icon" onClick={() => handleRemove(m.id, m.user_id)} className="text-destructive hover:text-destructive">
@@ -198,6 +242,14 @@ export default function TeamSection() {
           </Table>
         )}
       </CardContent>
+      <MemberProceduresDialog
+        open={!!procEditor}
+        onOpenChange={(o) => !o && setProcEditor(null)}
+        clinicMemberId={procEditor?.id ?? null}
+        clinicCategory={clinicCategory ?? null}
+        memberName={procEditor?.name}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ['clinic-members'] })}
+      />
     </Card>
   );
 }
