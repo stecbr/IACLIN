@@ -40,7 +40,8 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const [clinicQ, membersQ, plansQ, proceduresQ, todayApsQ, weekApsQ, patientsCountQ, finQ,
-         finPrevQ, recentApsQ, inactiveQ, birthdaysQ] = await Promise.all([
+         finPrevQ, recentApsQ, inactiveQ, birthdaysQ, pendingReqQ, templatesQ, availOverridesQ,
+         blockedQ, busyApsQ] = await Promise.all([
     admin.from("clinics").select("name, address, city, state, phone, email, category").eq("id", clinicId).maybeSingle(),
     admin.from("clinic_members").select("user_id, role, specialty, registration_number").eq("clinic_id", clinicId),
     admin.from("insurance_plans").select("name, type, is_active").eq("clinic_id", clinicId).eq("is_active", true),
@@ -57,6 +58,16 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
     admin.from("appointments").select("patient_id").eq("clinic_id", clinicId).gte("start_time", inactiveCutoff).not("patient_id", "is", null),
     // Aniversariantes do dia
     admin.from("patients").select("full_name, date_of_birth").eq("clinic_id", clinicId).not("date_of_birth", "is", null).limit(500),
+    // Pedidos de consulta pendentes (aguardando aprovação)
+    admin.from("appointment_requests").select("start_time, end_time, dentist_id, specialty, patient_account_snapshot, created_at").eq("clinic_id", clinicId).eq("status", "pending").order("start_time").limit(30),
+    // Templates de horário por profissional (clínica + sem clínica vinculada)
+    admin.from("professional_schedule_template").select("user_id, clinic_id, weekday, is_active, start_time, end_time, breaks").or(`clinic_id.eq.${clinicId},clinic_id.is.null`),
+    // Sobrescrições de disponibilidade (próximos 7 dias)
+    admin.from("professional_availability").select("user_id, work_date, start_time, end_time, breaks").eq("clinic_id", clinicId).gte("work_date", startToday.slice(0,10)).lte("work_date", in7days.slice(0,10)),
+    // Datas bloqueadas
+    admin.from("professional_blocked_dates").select("user_id, blocked_date").or(`clinic_id.eq.${clinicId},clinic_id.is.null`).gte("blocked_date", startToday.slice(0,10)).lte("blocked_date", in7days.slice(0,10)),
+    // Consultas ocupando horários nos próximos 7 dias
+    admin.from("appointments").select("dentist_id, start_time, end_time").eq("clinic_id", clinicId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled"),
   ]);
 
   const clinic = clinicQ.data as any;
