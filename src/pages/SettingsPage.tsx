@@ -176,6 +176,7 @@ function ClinicSection() {
   const [businessHours, setBusinessHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
   const [fetchingCep, setFetchingCep] = useState(false);
+  const [approvalMode, setApprovalMode] = useState<'clinic' | 'professional'>('clinic');
 
   useEffect(() => {
     if (isLoading) return;
@@ -210,6 +211,7 @@ function ClinicSection() {
       city: clinic.city ?? '', state: clinic.state ?? '',
     });
     setBusinessHours((clinic as any).business_hours ?? DEFAULT_HOURS);
+    setApprovalMode(((clinic as any).appointment_approval_mode as 'clinic' | 'professional') ?? 'clinic');
   }, [clinic, isLoading, user?.email]);
 
   const handleCepLookup = async () => {
@@ -326,6 +328,7 @@ function ClinicSection() {
         city: form.city,
         state: form.state,
         business_hours: businessHours as any,
+        appointment_approval_mode: approvalMode,
       };
       if (clinic) {
         const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
