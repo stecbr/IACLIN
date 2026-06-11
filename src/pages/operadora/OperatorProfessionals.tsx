@@ -349,25 +349,32 @@ export default function OperatorProfessionals() {
 
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
-        <Card className="pointer-events-auto mx-auto max-w-5xl rounded-2xl border border-border/60 bg-background/85 p-3 shadow-xl backdrop-blur-md">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <h1 className="text-base font-semibold">Rede de Busca</h1>
-            <Badge variant="outline" className="text-[10px]">
+        <div className="mx-auto max-w-5xl space-y-2">
+          {/* Title floating over the map */}
+          <div className="pointer-events-auto flex items-center gap-2 px-1">
+            <h1 className="text-base font-semibold drop-shadow-sm">Rede de Busca</h1>
+            <Badge variant="outline" className="text-[10px] bg-background/70 backdrop-blur-md">
               {filtered.length} clínica{filtered.length !== 1 ? 's' : ''}
             </Badge>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-            <div className="md:col-span-2 relative">
-              <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar clínica, profissional..."
-                className="pl-9 h-9 rounded-xl bg-background/70"
-              />
-            </div>
+
+          {/* Full-width floating search */}
+          <div className="pointer-events-auto relative">
+            <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar clínica, profissional..."
+              className="pl-10 h-11 w-full rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md"
+            />
+          </div>
+
+          {/* Individually floating filter buttons */}
+          <div className="flex flex-wrap gap-2">
             <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[140px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
               <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todos os tipos</SelectItem>
                 <SelectItem value="medico">Médicos</SelectItem>
@@ -375,28 +382,34 @@ export default function OperatorProfessionals() {
               </SelectContent>
             </Select>
             <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="Especialidade" /></SelectTrigger>
+              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[160px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+                <SelectValue placeholder="Especialidade" />
+              </SelectTrigger>
               <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todas especialidades</SelectItem>
                 {specialtyOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="UF" /></SelectTrigger>
+              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[120px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+                <SelectValue placeholder="UF" />
+              </SelectTrigger>
               <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todas UFs</SelectItem>
                 {stateOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="h-9 rounded-xl bg-background/70"><SelectValue placeholder="Cidade" /></SelectTrigger>
+              <SelectTrigger className="pointer-events-auto h-10 w-auto min-w-[150px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
+                <SelectValue placeholder="Cidade" />
+              </SelectTrigger>
               <SelectContent className="z-[1000]">
                 <SelectItem value="all">Todas cidades</SelectItem>
                 {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Bottom info panel */}
