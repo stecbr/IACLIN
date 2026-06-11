@@ -378,7 +378,7 @@ function buildPreviewShifts() {
   });
 }
 
-const PREVIEW_DOCTORS: DoctorData[] = [
+const PREVIEW_DOCTORS = ([
   {
     userId: "preview-1",
     specialty: "Ortodontia",
