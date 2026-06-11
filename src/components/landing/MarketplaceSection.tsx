@@ -211,9 +211,9 @@ export function MarketplaceSection() {
   const toggleSpec = (id: string) => setSelectedSpec((s) => (s === id ? null : id));
 
   return (
-    <section id="marketplace" className="container py-20">
+    <section id="marketplace" className="w-full py-20">
       {/* ── Cabeçalho ──────────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
+      <motion.div {...fadeUp} className="mx-auto max-w-2xl px-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Rede Médica</p>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
           Sua clínica encontrada por novos pacientes.
@@ -225,7 +225,7 @@ export function MarketplaceSection() {
       </motion.div>
 
       {/* ── Barra de busca ─────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mx-auto mt-10 max-w-3xl">
+      <motion.div {...fadeUp} transition={{ duration: 0.5, delay: 0.05 }} className="mx-auto mt-10 max-w-3xl px-4">
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2 shadow-card">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <Input
@@ -293,12 +293,12 @@ export function MarketplaceSection() {
       <motion.div
         {...fadeUp}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="mx-auto mt-6 max-w-7xl"
+        className="mt-6 w-full px-4 sm:px-8 lg:px-12 xl:px-16"
       >
-        <div className="flex gap-4">
+        <div className="flex gap-6">
           {/* Lista de médicos */}
           {(!showMap) && (
-            <div className="w-full sm:w-3/5 overflow-y-auto pr-1" style={{ maxHeight: 680 }}>
+            <div className="w-full sm:w-3/5 overflow-y-auto px-1 pb-2" style={{ maxHeight: 720 }}>
               {loading ? (
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -338,7 +338,7 @@ export function MarketplaceSection() {
           {/* Mapa — sticky, altura igual à lista */}
           <div
             className={`${showMap ? "w-full" : "hidden sm:block sm:w-2/5"} sticky top-24`}
-            style={{ height: 680 }}
+            style={{ height: 720 }}
           >
             <MarketplaceMap
               ref={mapRef}
@@ -356,7 +356,7 @@ export function MarketplaceSection() {
       </motion.div>
 
       {/* ── CTA final ──────────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp} className="mt-10 flex justify-center">
+      <motion.div {...fadeUp} className="mt-10 flex justify-center px-4">
         <Button asChild size="lg" variant="outline" className="shadow-card gap-2">
           <a href="/marketplace">
             Explorar Rede Médica completa
