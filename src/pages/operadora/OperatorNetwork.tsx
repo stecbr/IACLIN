@@ -12,6 +12,19 @@ import { Search, Building2, MapPin, Stethoscope, Users, Eye, Phone, Mail, FileTe
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 
+function InfoField({
+  icon, label, value, className,
+}: { icon: React.ReactNode; label: string; value: string | null | undefined; className?: string }) {
+  return (
+    <div className={className}>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+        {icon}{label}
+      </div>
+      <div className="text-sm truncate">{value || '—'}</div>
+    </div>
+  );
+}
+
 interface Doctor {
   user_id: string;
   name: string;
