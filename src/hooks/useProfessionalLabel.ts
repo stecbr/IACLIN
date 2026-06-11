@@ -5,22 +5,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSpecialtyFamily, type SpecialtyFamily } from '@/lib/specialtyFamily';
 
 const ROLE_BASE_LABEL: Record<string, string> = {
-  admin:     'Admin',
+  admin:     'IACLINADMIN',
   secretary: 'Secretária',
-  owner:     'Admin',
+  owner:     'IACLINADMIN',
   operator:  'Operadora',
   patient:   'Paciente',
 };
 
 const DENTIST_FAMILY_LABEL: Record<string, string> = {
-  odonto:    'Dentista',
+  odonto:    'IACLINODONTO',
   psi:       'Psicólogo(a)',
   aesthetic: 'Esteticista',
   nutrition: 'Nutricionista',
   physio:    'Fisioterapeuta',
   podology:  'Podólogo(a)',
-  medical:   'Médico',
-  generic:   'Médico',
+  medical:   'IACLINMEDICAL',
+  generic:   'IACLINMEDICAL',
 };
 
 export interface ProfessionalLabelResult {
