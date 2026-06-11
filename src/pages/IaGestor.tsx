@@ -401,8 +401,11 @@ function ChatView({ threadId, clinicId, initialMessages, onOpenMenu }: { threadI
     api: FN_URL,
     prepareSendMessagesRequest: async ({ messages, body }) => {
       const { data } = await supabase.auth.getSession();
+      const isProfessional = !clinicId;
       return {
-        body: { messages, threadId, clinicId, ...body },
+        body: isProfessional
+          ? { messages, threadId, mode: 'professional', ...body }
+          : { messages, threadId, clinicId, ...body },
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ''}` },
       };
     },
