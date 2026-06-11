@@ -40,7 +40,8 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const [clinicQ, membersQ, plansQ, proceduresQ, todayApsQ, weekApsQ, patientsCountQ, finQ,
-         finPrevQ, recentApsQ, inactiveQ, birthdaysQ] = await Promise.all([
+         finPrevQ, recentApsQ, inactiveQ, birthdaysQ, pendingReqQ, templatesQ, availOverridesQ,
+         blockedQ, busyApsQ] = await Promise.all([
     admin.from("clinics").select("name, address, city, state, phone, email, category").eq("id", clinicId).maybeSingle(),
     admin.from("clinic_members").select("user_id, role, specialty, registration_number").eq("clinic_id", clinicId),
     admin.from("insurance_plans").select("name, type, is_active").eq("clinic_id", clinicId).eq("is_active", true),
@@ -57,6 +58,16 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
     admin.from("appointments").select("patient_id").eq("clinic_id", clinicId).gte("start_time", inactiveCutoff).not("patient_id", "is", null),
     // Aniversariantes do dia
     admin.from("patients").select("full_name, date_of_birth").eq("clinic_id", clinicId).not("date_of_birth", "is", null).limit(500),
+    // Pedidos de consulta pendentes (aguardando aprovação)
+    admin.from("appointment_requests").select("start_time, end_time, dentist_id, specialty, patient_account_snapshot, created_at").eq("clinic_id", clinicId).eq("status", "pending").order("start_time").limit(30),
+    // Templates de horário por profissional (clínica + sem clínica vinculada)
+    admin.from("professional_schedule_template").select("user_id, clinic_id, weekday, is_active, start_time, end_time, breaks").or(`clinic_id.eq.${clinicId},clinic_id.is.null`),
+    // Sobrescrições de disponibilidade (próximos 7 dias)
+    admin.from("professional_availability").select("user_id, work_date, start_time, end_time, breaks").eq("clinic_id", clinicId).gte("work_date", startToday.slice(0,10)).lte("work_date", in7days.slice(0,10)),
+    // Datas bloqueadas
+    admin.from("professional_blocked_dates").select("user_id, blocked_date").or(`clinic_id.eq.${clinicId},clinic_id.is.null`).gte("blocked_date", startToday.slice(0,10)).lte("blocked_date", in7days.slice(0,10)),
+    // Consultas ocupando horários nos próximos 7 dias
+    admin.from("appointments").select("dentist_id, start_time, end_time").eq("clinic_id", clinicId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled"),
   ]);
 
   const clinic = clinicQ.data as any;
@@ -130,6 +141,139 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
   for (const a of (weekApsQ.data ?? []).slice(0, 20) as any[]) {
     const d = new Date(a.start_time);
     lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${a.status}`);
+  }
+
+  // ===== Pedidos de consulta pendentes =====
+  const pendingReqs = (pendingReqQ.data ?? []) as any[];
+  lines.push(`\n# Pedidos de consulta pendentes (${pendingReqs.length})`);
+  if (pendingReqs.length === 0) {
+    lines.push(`- Nenhum pedido aguardando aprovação no momento.`);
+  } else {
+    for (const r of pendingReqs.slice(0, 15)) {
+      const d = new Date(r.start_time);
+      const pName = r.patient_account_snapshot?.full_name ?? "paciente";
+      const docName = profilesMap.get(r.dentist_id) ?? "—";
+      const spec = r.specialty ? ` / ${r.specialty}` : "";
+      lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${pName} com ${docName}${spec}`);
+    }
+    if (pendingReqs.length > 15) lines.push(`- (+ ${pendingReqs.length - 15} pedidos)`);
+  }
+
+  // ===== Horários disponíveis (próximos 7 dias) =====
+  const SLOT_MIN = 30;
+  const toMin = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const fromMin = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const subtractBusy = (intervals: Array<[number, number]>, busy: Array<[number, number]>) => {
+    let result = intervals.slice();
+    for (const [bs, be] of busy) {
+      const next: Array<[number, number]> = [];
+      for (const [s, e] of result) {
+        if (be <= s || bs >= e) { next.push([s, e]); continue; }
+        if (bs > s) next.push([s, bs]);
+        if (be < e) next.push([be, e]);
+      }
+      result = next;
+    }
+    return result;
+  };
+
+  const templates = (templatesQ.data ?? []) as any[];
+  const overrides = (availOverridesQ.data ?? []) as any[];
+  const blocked = new Set(
+    ((blockedQ.data ?? []) as any[]).map((b) => `${b.user_id}|${b.blocked_date}`),
+  );
+  const busyByDoc: Record<string, Array<{ date: string; start: number; end: number }>> = {};
+  for (const a of (busyApsQ.data ?? []) as any[]) {
+    if (!a.dentist_id || !a.start_time || !a.end_time) continue;
+    const s = new Date(a.start_time);
+    const e = new Date(a.end_time);
+    const date = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(s.getDate()).padStart(2, "0")}`;
+    (busyByDoc[a.dentist_id] ??= []).push({
+      date,
+      start: s.getHours() * 60 + s.getMinutes(),
+      end: e.getHours() * 60 + e.getMinutes(),
+    });
+  }
+
+  const activeMembers = (membersQ.data ?? []).filter((m: any) => m.role === "admin" || m.role === "dentist");
+  lines.push(`\n# Horários disponíveis (próximos 7 dias)`);
+  let totalFreeMinAll = 0;
+  const perDocLines: string[] = [];
+
+  for (const m of activeMembers as any[]) {
+    const userId = m.user_id;
+    const docName = profilesMap.get(userId) ?? "Sem nome";
+    const daysOut: string[] = [];
+    let docFreeMin = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      if (blocked.has(`${userId}|${dateStr}`)) continue;
+
+      // 1) Override do dia tem prioridade
+      const ov = overrides.find((o) => o.user_id === userId && o.work_date === dateStr);
+      let baseIntervals: Array<[number, number]> = [];
+      let breaks: Array<{ start: string; end: string }> = [];
+
+      if (ov) {
+        baseIntervals = [[toMin(ov.start_time), toMin(ov.end_time)]];
+        breaks = (ov.breaks ?? []) as any[];
+      } else {
+        const tpl = templates.find(
+          (t) => t.user_id === userId && t.weekday === day.getDay() && t.is_active &&
+                 (t.clinic_id === clinicId || t.clinic_id == null),
+        );
+        if (!tpl) continue;
+        baseIntervals = [[toMin(tpl.start_time), toMin(tpl.end_time)]];
+        breaks = (tpl.breaks ?? []) as any[];
+      }
+
+      // Subtrai pausas
+      const breakBusy: Array<[number, number]> = (breaks ?? [])
+        .filter((b: any) => b?.start && b?.end)
+        .map((b: any) => [toMin(b.start), toMin(b.end)] as [number, number]);
+      let intervals = subtractBusy(baseIntervals, breakBusy);
+
+      // Subtrai consultas já marcadas
+      const docBusy = (busyByDoc[userId] ?? []).filter((b) => b.date === dateStr);
+      let busyArr: Array<[number, number]> = docBusy.map((b) => [b.start, b.end]);
+
+      // Se hoje, subtrai horário já passado
+      if (i === 0) {
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        busyArr.push([0, nowMin]);
+      }
+      intervals = subtractBusy(intervals, busyArr);
+
+      // Calcula slots SLOT_MIN
+      const freeRanges = intervals.filter(([s, e]) => e - s >= SLOT_MIN);
+      const dayFreeMin = freeRanges.reduce((sum, [s, e]) => sum + (e - s), 0);
+      if (dayFreeMin <= 0) continue;
+      docFreeMin += dayFreeMin;
+
+      const label = day.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+      const ranges = freeRanges.slice(0, 4).map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`).join(", ");
+      const slotCount = Math.floor(dayFreeMin / SLOT_MIN);
+      daysOut.push(`  • ${label}: ${slotCount} slots de ${SLOT_MIN}min (${ranges})`);
+    }
+
+    if (docFreeMin > 0) {
+      totalFreeMinAll += docFreeMin;
+      perDocLines.push(`- ${docName} — ${Math.floor(docFreeMin / 60)}h${docFreeMin % 60 ? ` ${docFreeMin % 60}min` : ""} livres`);
+      perDocLines.push(...daysOut);
+    }
+  }
+
+  if (totalFreeMinAll === 0) {
+    lines.push(`- Nenhum horário livre detectado (verifique templates de horário em /availability).`);
+  } else {
+    lines.push(`- Total livre na clínica: ${Math.floor(totalFreeMinAll / 60)}h${totalFreeMinAll % 60 ? ` ${totalFreeMinAll % 60}min` : ""} (slots de ${SLOT_MIN}min)`);
+    lines.push(...perDocLines);
   }
 
   lines.push(`\n# Pacientes`);
@@ -270,7 +414,9 @@ IMAGENS:
 - Quando o usuário pedir imagem/cartaz/post/logo/ilustração, chame "generate_image" com prompt detalhado em inglês.
 
 USO DOS DADOS:
-- Você tem acesso a métricas reais da clínica (no-show, inativos, aniversariantes, comparativo de faturamento, procedimentos mais feitos). Use-os para dar respostas concretas e proativas.
+- Você tem acesso a métricas reais da clínica (no-show, inativos, aniversariantes, comparativo de faturamento, procedimentos mais feitos, pedidos pendentes de consulta e horários livres por profissional nos próximos 7 dias). Use-os para dar respostas concretas e proativas.
+- Quando perguntarem "horários disponíveis", "tem vaga", "agenda livre" etc., responda a partir do bloco "Horários disponíveis" (slots e janelas por profissional/dia). Nunca invente horários.
+- Quando perguntarem sobre "pedidos pendentes", "solicitações aguardando", responda a partir do bloco "Pedidos de consulta pendentes" e ofereça um card para `/clinica/aprovacoes`.
 - Se a taxa de no-show estiver alta (>15%), pode sugerir ativar lembretes na Secretária IA.
 - Se houver muitos pacientes inativos, pode sugerir uma campanha de retorno.
 - Se houver aniversariantes hoje, pode mencioná-los se for relevante.
