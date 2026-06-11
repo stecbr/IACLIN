@@ -33,11 +33,11 @@ function silent<T>(p: Promise<T>): Promise<T | null> {
 
 async function buildConfigSnapshot(clinicId: string) {
   const [clinicRes, procRes, plansRes, roomsRes, membersRes, handoffRes, credRes] = await Promise.all([
-    supabase.from('clinics').select('name, business_hours, address, city, state, zip_code').eq('id', clinicId).maybeSingle(),
+    supabase.from('clinics').select('name, business_hours, address, city, state, zip_code, appointment_approval_mode').eq('id', clinicId).maybeSingle(),
     supabase.from('procedures').select('id, name, default_duration, category').eq('is_active', true),
     supabase.from('insurance_plans').select('id, name, ans_code, operator_id').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId).eq('is_active', true),
-    supabase.from('clinic_members').select('user_id, role, specialty').eq('clinic_id', clinicId),
+    supabase.from('clinic_members').select('id, user_id, role, specialty').eq('clinic_id', clinicId),
     supabase.from('ai_secretary_handoff').select('enabled, trigger_keywords, handoff_message, target_phone').eq('clinic_id', clinicId).maybeSingle(),
     // Credenciamentos APROVADOS da clínica → operadoras realmente vinculadas
     supabase.from('operator_credentialings').select('operator_id').eq('clinic_id', clinicId).eq('status', 'approved'),
@@ -49,12 +49,35 @@ async function buildConfigSnapshot(clinicId: string) {
     (credRes.data ?? []).map((c: any) => c.operator_id).filter(Boolean),
   );
 
-  const memberRows = (membersRes.data ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
+  const memberRows = (membersRes.data ?? []) as Array<{ id: string; user_id: string; role: string; specialty: string | null }>;
   const userIds = memberRows.map((m) => m.user_id);
   const profilesRes = userIds.length
     ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
     : { data: [] as Array<{ id: string; full_name: string | null }> };
   const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name]));
+
+  // Procedimentos por membro
+  const memberIds = memberRows.map((m) => m.id);
+  const { data: cmpRows } = memberIds.length
+    ? await supabase
+        .from('clinic_member_procedures' as any)
+        .select('clinic_member_id, custom_duration, custom_price, procedures(id, name, default_duration, default_price)')
+        .in('clinic_member_id', memberIds)
+    : { data: [] as any[] };
+
+  const procsByMember = new Map<string, Array<{ id: string; name: string; duration_min: number; price: number | null }>>();
+  for (const r of (cmpRows ?? []) as any[]) {
+    const p = r.procedures;
+    if (!p) continue;
+    const arr = procsByMember.get(r.clinic_member_id) ?? [];
+    arr.push({
+      id: p.id,
+      name: p.name,
+      duration_min: r.custom_duration ?? p.default_duration ?? 30,
+      price: r.custom_price ?? p.default_price ?? null,
+    });
+    procsByMember.set(r.clinic_member_id, arr);
+  }
 
   const doctors: SyncDoctor[] = memberRows.map((m) => ({
     user_id: m.user_id,
@@ -62,6 +85,7 @@ async function buildConfigSnapshot(clinicId: string) {
     role: m.role,
     specialty: m.specialty,
     active: true,
+    procedures: procsByMember.get(m.id) ?? [],
   }));
 
   const handoff = handoffRes.data
@@ -83,6 +107,7 @@ async function buildConfigSnapshot(clinicId: string) {
     name: c?.name ?? null,
     address: fullAddress,
     business_hours: (clinicRes.data?.business_hours as Record<string, unknown> | null) ?? null,
+    approval_mode: ((c?.appointment_approval_mode as 'clinic' | 'professional' | null) ?? 'clinic'),
     procedures: (procRes.data ?? []).map((p) => ({
       id: p.id,
       name: p.name,
@@ -108,20 +133,43 @@ async function buildConfigSnapshot(clinicId: string) {
 async function buildDoctorsBatch(clinicId: string) {
   const { data: rows } = await supabase
     .from('clinic_members')
-    .select('user_id, role, specialty')
+    .select('id, user_id, role, specialty')
     .eq('clinic_id', clinicId);
-  const memberRows = (rows ?? []) as Array<{ user_id: string; role: string; specialty: string | null }>;
+  const memberRows = (rows ?? []) as Array<{ id: string; user_id: string; role: string; specialty: string | null }>;
   const userIds = memberRows.map((m) => m.user_id);
   const profilesRes = userIds.length
     ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
     : { data: [] as Array<{ id: string; full_name: string | null }> };
   const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.full_name]));
+
+  const memberIds = memberRows.map((m) => m.id);
+  const { data: cmpRows } = memberIds.length
+    ? await supabase
+        .from('clinic_member_procedures' as any)
+        .select('clinic_member_id, custom_duration, custom_price, procedures(id, name, default_duration, default_price)')
+        .in('clinic_member_id', memberIds)
+    : { data: [] as any[] };
+  const procsByMember = new Map<string, Array<{ id: string; name: string; duration_min: number; price: number | null }>>();
+  for (const r of (cmpRows ?? []) as any[]) {
+    const p = r.procedures;
+    if (!p) continue;
+    const arr = procsByMember.get(r.clinic_member_id) ?? [];
+    arr.push({
+      id: p.id,
+      name: p.name,
+      duration_min: r.custom_duration ?? p.default_duration ?? 30,
+      price: r.custom_price ?? p.default_price ?? null,
+    });
+    procsByMember.set(r.clinic_member_id, arr);
+  }
+
   return memberRows.map((m) => ({
     user_id: m.user_id,
     full_name: profileMap.get(m.user_id) ?? '—',
     role: m.role,
     specialty: m.specialty,
     active: true,
+    procedures: procsByMember.get(m.id) ?? [],
   }));
 }
 
