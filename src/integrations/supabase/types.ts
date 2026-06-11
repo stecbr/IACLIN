@@ -1728,6 +1728,153 @@ export type Database = {
           },
         ]
       }
+      operator_price_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_price_files_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "operator_price_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_price_items: {
+        Row: {
+          category: string
+          charge_type: string
+          created_at: string
+          id: string
+          longevity: string | null
+          observations: string | null
+          photo_required: boolean
+          plan_coverage: string[]
+          procedure_name: string
+          rx_required: boolean
+          sort_order: number
+          table_id: string
+          tuss_code: string | null
+          value_brl: number | null
+          value_us: number | null
+        }
+        Insert: {
+          category?: string
+          charge_type?: string
+          created_at?: string
+          id?: string
+          longevity?: string | null
+          observations?: string | null
+          photo_required?: boolean
+          plan_coverage?: string[]
+          procedure_name: string
+          rx_required?: boolean
+          sort_order?: number
+          table_id: string
+          tuss_code?: string | null
+          value_brl?: number | null
+          value_us?: number | null
+        }
+        Update: {
+          category?: string
+          charge_type?: string
+          created_at?: string
+          id?: string
+          longevity?: string | null
+          observations?: string | null
+          photo_required?: boolean
+          plan_coverage?: string[]
+          procedure_name?: string
+          rx_required?: boolean
+          sort_order?: number
+          table_id?: string
+          tuss_code?: string | null
+          value_brl?: number | null
+          value_us?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_price_items_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "operator_price_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_price_tables: {
+        Row: {
+          city: string | null
+          created_at: string
+          id: string
+          name: string
+          operator_id: string
+          region: string | null
+          state: string | null
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          operator_id: string
+          region?: string | null
+          state?: string | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          operator_id?: string
+          region?: string | null
+          state?: string | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_price_tables_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_accounts: {
         Row: {
           cpf: string
@@ -2961,9 +3108,16 @@ export type Database = {
       get_marketplace_doctor_profiles: {
         Args: { _user_ids: string[] }
         Returns: {
+          address: string
+          address_number: string
           avatar_url: string
+          city: string
           full_name: string
           id: string
+          neighborhood: string
+          phone: string
+          state: string
+          zip_code: string
         }[]
       }
       has_role: {

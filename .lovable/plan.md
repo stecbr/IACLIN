@@ -1,68 +1,69 @@
-# Procedimentos por profissional + Aprovação configurável
-
 ## Objetivo
-Permitir que cada profissional declare exatamente quais procedimentos do catálogo realiza dentro de cada clínica, e que a clínica escolha quem aprova os agendamentos feitos pela IA. A Secretária IA passa a saber, para cada procedimento solicitado, quais profissionais estão aptos e quando têm horário.
+Resolver os 3 itens urgentes: aplicar as 3 migrações pendentes, criar a tela de leitura da Tabela de Valores para clínicas credenciadas, e validar o botão "Encaminhar para operadora".
 
-## Hoje (estado atual)
-- `procedures`: catálogo global por `specialty_category`. Sem vínculo com profissional.
-- `clinic_member_specialties` / `professional_specialties`: só especialidades, granularidade grossa.
-- `professional_schedule_template` + `professional_availability`: agenda por profissional já existe.
-- IA recebe via `aiBackend.syncDoctors` apenas `specialty` (string única) e via `syncConfig` o catálogo da clínica inteira — sem mapa procedimento→profissional.
-- `appointment_requests` é sempre aprovado por admin/secretária da clínica.
+---
 
-## O que vamos construir
+## 1. Aplicar as 3 migrações pendentes no banco
 
-### 1. Banco: tabela de procedimentos por membro da clínica
-Nova tabela `clinic_member_procedures` (lista exata por profissional, escopo da clínica):
-- `clinic_member_id` (FK → clinic_members, cascade)
-- `procedure_id` (FK → procedures)
-- `custom_duration` (nullable, override do default do catálogo)
-- `custom_price` (nullable, override)
-- UNIQUE (clinic_member_id, procedure_id)
-- RLS: leitura por membros da clínica + anon (marketplace); escrita pelo próprio profissional, owner ou admin da clínica.
-- GRANTs: `authenticated` (CRUD), `anon` (SELECT), `service_role` (ALL).
+As migrações já existem como arquivos SQL mas não foram executadas. Vou aplicá-las via tool de migração (Cloud), em um único migration consolidado para reduzir aprovações:
 
-### 2. Banco: flag de aprovação por clínica
-Adicionar em `clinics`:
-- `appointment_approval_mode` text default `'clinic'` (`'clinic'` | `'professional'`).
+- **profiles**: adicionar colunas `phone`, `address`, `address_number`, `address_complement`, `neighborhood`, `city`, `state`, `zip_code` (idempotente — `ADD COLUMN IF NOT EXISTS`).
+- **RPC `get_marketplace_doctor_profiles`**: recriar para retornar os novos campos (phone + endereço completo) + `GRANT EXECUTE` para anon/authenticated.
+- **Tabela de Valores**: criar `operator_price_tables`, `operator_price_items`, `operator_price_files` com GRANTs (`authenticated` + `service_role`), RLS habilitado e políticas:
+  - membros da operadora: full access
+  - clínicas credenciadas (via `operator_credentialings` + `clinic_members`): apenas SELECT
 
-Ajustar `notify_appointment_request_change`: quando o modo for `'professional'`, notificar apenas o `dentist_id` em vez de admins/secretárias; quando for `'clinic'`, manter o comportamento atual. As Edge Functions `approve-appointment-request` / `reject-appointment-request` passam a aceitar a aprovação do próprio `dentist_id` quando a clínica estiver em modo `'professional'`.
+Observação: os arquivos `.sql` originais não têm GRANTs explícitos — o migration consolidado vai incluir os GRANTs corretos conforme padrão do projeto.
 
-### 3. UI — Profissional
-- **Perfil do profissional (Profile.tsx)** e **Configurações → Equipe** (`EditDoctorSpecialtiesDialog`):
-  - Nova aba/seção "Procedimentos que realizo" com lista do catálogo filtrada pela categoria da clínica.
-  - Multiselect com busca, agrupado por categoria do procedimento.
-  - Opção de definir duração/preço personalizados por procedimento (opcional).
-- Aviso na agenda quando o profissional não tem nenhum procedimento marcado ("Cadastre seus procedimentos para que a IA e a clínica possam direcionar pacientes corretamente").
+---
 
-### 4. UI — Clínica
-- **Configurações → Clínica**: novo toggle "Quem aprova agendamentos solicitados via IA/online?" com opções `Clínica (admin/secretária)` ou `Profissional`.
-- **Equipe (TeamSection)**: na linha de cada membro, badge com a quantidade de procedimentos cadastrados; admin/owner pode editar pela mesma tela.
-- **Marketplace público (`DoctorCard`, perfil público)**: passar a listar os procedimentos do profissional (não só especialidade) e usar isso no filtro de busca "tratamento de canal" → só mostra quem tem o procedimento marcado.
+## 2. Tela de leitura da Tabela de Valores para clínicas
 
-### 5. Sync para a Secretária IA
-- Estender `SyncDoctor` (em `src/lib/aiBackend.ts`) com `procedures: { id, name, duration_min, price }[]`.
-- `useAiSync` passa a buscar `clinic_member_procedures` joined com `procedures` e enviar no `syncDoctors`/`syncDoctor`.
-- Estender `SyncConfigPayload` para incluir `approval_mode` da clínica, para a IA saber se deve avisar "aguardando aprovação da clínica" ou "aguardando aprovação do(a) Dr(a). X".
-- Sem mudança no fluxo de criação: a IA continua criando em `ai_appointment_requests`, só muda quem é notificado/quem aprova.
+**Nova rota:** `/clinica/convenios` (item de menu na sidebar da clínica, grupo Clínica).
 
-### 6. Fluxo de agendamento pela IA (resultado prático)
-1. Paciente diz: "quero tratamento de canal".
-2. IA filtra `clinic_member_procedures` por `procedure.name ILIKE 'canal'` → lista de profissionais aptos da clínica.
-3. IA cruza com `professional_schedule_template` + `professional_availability` − `appointments` para mostrar horários reais.
-4. Paciente escolhe; IA cria `ai_appointment_request`.
-5. Notificação vai para clínica OU profissional conforme `appointment_approval_mode`.
-6. Aprovação cria `appointments` (já aparece nas duas agendas — clínica e profissional, via `dentist_id`+`clinic_id`).
+**Página `src/pages/clinica/ClinicaConvenios.tsx`:**
+- Header com PageHeader ("Convênios e Tabelas de Valores", descrição).
+- Query 1: lista das operadoras nas quais a clínica tem credenciamento aprovado (`operator_credentialings` filtrando por `clinic_id` da clínica atual e `status = 'approved'`, join com `insurance_operators`).
+- Estado vazio: card informando "Sua clínica ainda não está credenciada com nenhuma operadora."
+- **Select de operadora** no topo (com logo + nome).
+- Query 2: ao selecionar operadora, busca `operator_price_tables` ativas dela.
+- **Select de tabela** (caso a operadora tenha mais de uma — por região/vigência).
+- Query 3: `operator_price_items` da tabela escolhida.
 
-## Fora do escopo
-- Comissão diferenciada por procedimento por profissional (fica para Financeiro v2).
-- Aprovação granular por tipo de procedimento (só global por clínica nesta entrega).
-- Bulk import de procedimentos por profissional via CSV.
+**UI da listagem de procedimentos (modo leitura):**
+- Barra de busca (filtra por `procedure_name` ou `tuss_code`).
+- Filtro por categoria (chips).
+- Lista agrupada por categoria com cabeçalho colapsável e contador.
+- Cada item mostra: nome, TUSS, tipo de cobrança (badge), valor R$ em destaque, planos cobertos como chips, ícones para RX/foto obrigatórios.
+- Botão "Detalhes" abre Dialog com observações e longevidade.
+- **Somente leitura** — sem edição, sem exclusão.
 
-## Ordem de implementação
-1. Migration: `clinic_member_procedures` + `appointment_approval_mode` + ajuste do trigger de notificação.
-2. UI do profissional para marcar procedimentos.
-3. UI da clínica (toggle + visualização de procedimentos por membro).
-4. Sync IA (`aiBackend.ts` + `useAiSync`).
-5. Filtro do marketplace por procedimento exato.
-6. Ajuste nas Edge Functions de approve/reject para permitir o profissional aprovar quando o modo for `professional`.
+**Acesso:** disponível para qualquer membro da clínica (admin, dentista, secretária) — todos precisam consultar valores no atendimento.
+
+**Wiring:**
+- Registrar rota em `src/App.tsx` dentro de `ProtectedRoute`.
+- Adicionar entrada no `AppSidebar.tsx` (grupo Clínica, ícone `Receipt` ou `DollarSign`).
+- Garantir que `useRoleAccess` libere a rota para os 3 papéis.
+
+---
+
+## 3. Botão "Encaminhar para operadora"
+
+Já existe e está implementado em `src/pages/SupportTickets.tsx` (linha 781–832) com lógica `handleForward` que muda status de `pending_owner` → `open`. Ação:
+
+- **Verificar** rapidamente lendo o handler `handleForward` para confirmar que ele faz `update({ status: 'open', operator_id })` corretamente e atualiza a lista.
+- Se houver bug (ex: faltando atualizar local state ou faltando `operator_id`), corrigir.
+- Sem alterações de UI previstas.
+
+---
+
+## Arquivos afetados
+- (nova migração consolidada via tool de migração)
+- `src/pages/clinica/ClinicaConvenios.tsx` (novo)
+- `src/App.tsx` (rota)
+- `src/components/AppSidebar.tsx` (item de menu)
+- `src/hooks/useRoleAccess.ts` (liberar rota se necessário)
+- `src/pages/SupportTickets.tsx` (somente se `handleForward` estiver com bug)
+
+## Fora do escopo (Prioridade 4)
+Agrupamento por categoria no lado do operador, export PDF/Excel e edição inline ficam para depois — exceto o agrupamento no lado da clínica, que já entra naturalmente nesta tela de leitura.
