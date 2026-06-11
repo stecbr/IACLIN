@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Search } from 'lucide-react';
+import { Search, Building2, MapPin, Stethoscope, Users, Eye } from 'lucide-react';
 
 interface Row {
   id: string;
@@ -30,6 +30,7 @@ export default function OperatorNetwork() {
   const [revoking, setRevoking] = useState<Row | null>(null);
   const [revokeReason, setRevokeReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<Row | null>(null);
 
   const load = async () => {
     if (!operatorId) return;
@@ -160,50 +161,138 @@ export default function OperatorNetwork() {
             Nenhuma clínica credenciada ainda.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40">
-                <tr className="text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Clínica</th>
-                  <th className="px-4 py-3 font-medium">CNPJ</th>
-                  <th className="px-4 py-3 font-medium">Médicos vinculados</th>
-                  <th className="px-4 py-3 font-medium">Cidade</th>
-                  <th className="px-4 py-3 font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{r.clinic_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.clinic_cnpj ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      {r.doctors && r.doctors.length > 0 ? (
-                        <div className="space-y-1">
-                          {r.doctors.slice(0, 3).map((d, i) => (
-                            <div key={`${d.name}-${i}`} className="text-xs">
-                              <span className="font-medium">{d.name}</span>
-                              {d.specialty ? <span className="text-muted-foreground"> · {d.specialty}</span> : null}
-                            </div>
-                          ))}
-                          {r.doctors.length > 3 ? <div className="text-xs text-muted-foreground">+{r.doctors.length - 3} médico(s)</div> : null}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Sem médicos vinculados</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
+            {filtered.map((r) => {
+              const specialties = Array.from(
+                new Set((r.doctors ?? []).map((d) => d.specialty).filter(Boolean) as string[])
+              );
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 hover:shadow-sm transition-shadow"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm truncate">{r.clinic_name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{r.clinic_cnpj ?? '—'}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {r.clinic_city ?? '—'}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {r.doctors?.length ?? 0} médico(s)
+                    </span>
+                  </div>
+
+                  {specialties.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {specialties.slice(0, 3).map((s) => (
+                        <Badge key={s} variant="secondary" className="text-[10px] font-normal">
+                          {s}
+                        </Badge>
+                      ))}
+                      {specialties.length > 3 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          +{specialties.length - 3}
+                        </Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.clinic_city ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <Button size="sm" variant="destructive" className="rounded-xl" onClick={() => setRevoking(r)}>
-                        Cancelar credenciamento
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 mt-auto pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl flex-1"
+                      onClick={() => setViewing(r)}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" />
+                      Detalhes
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="rounded-xl"
+                      onClick={() => setRevoking(r)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              {viewing?.clinic_name}
+            </DialogTitle>
+          </DialogHeader>
+          {viewing && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">CNPJ</div>
+                  <div>{viewing.clinic_cnpj ?? '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cidade</div>
+                  <div>{viewing.clinic_city ?? '—'}</div>
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
+                  <Stethoscope className="h-3 w-3" />
+                  Médicos vinculados ({viewing.doctors?.length ?? 0})
+                </div>
+                {viewing.doctors && viewing.doctors.length > 0 ? (
+                  <div className="rounded-lg border border-border divide-y divide-border max-h-72 overflow-y-auto">
+                    {viewing.doctors.map((d, i) => (
+                      <div key={`${d.name}-${i}`} className="px-3 py-2 flex flex-col">
+                        <span className="font-medium text-sm">{d.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {d.specialty ?? 'Sem especialidade'}
+                          {d.registration_number ? ` · ${d.registration_number}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">Sem médicos vinculados.</div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" className="rounded-xl" onClick={() => setViewing(null)}>
+              Fechar
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              onClick={() => {
+                setRevoking(viewing);
+                setViewing(null);
+              }}
+            >
+              Cancelar credenciamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!revoking} onOpenChange={(o) => !o && setRevoking(null)}>
         <DialogContent>
