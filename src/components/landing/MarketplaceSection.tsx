@@ -52,6 +52,7 @@ export function MarketplaceSection() {
   const [showMap, setShowMap] = useState(false); // mobile toggle
   const [clinicCoords, setClinicCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [highlightedClinicId, setHighlightedClinicId] = useState<string | null>(null);
 
   // ── Fetch doctors ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -183,7 +184,14 @@ export function MarketplaceSection() {
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleShowOnMap = useCallback((clinicId: string) => {
     setShowMap(true);
-    setTimeout(() => mapRef.current?.focusClinic(clinicId), 250);
+    setHighlightedClinicId(clinicId);
+  }, []);
+
+  const handleMarkerClick = useCallback((clinicId: string) => {
+    setHighlightedClinicId(clinicId);
+    setTimeout(() => {
+      document.getElementById(`doctor-card-${clinicId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
   }, []);
 
   const handleBoundsSearch = useCallback((b: MapBounds) => setMapBounds(b), []);
@@ -307,6 +315,8 @@ export function MarketplaceSection() {
                       key={`${d.userId}_${d.clinicId}`}
                       doctor={d}
                       onShowOnMap={handleShowOnMap}
+                      onHover={setHighlightedClinicId}
+                      highlighted={highlightedClinicId === d.clinicId}
                     />
                   ))}
                   {filtered.length > 10 && (
@@ -334,6 +344,8 @@ export function MarketplaceSection() {
               doctors={[]}
               onBoundsSearch={handleBoundsSearch}
               onCoordsReady={handleCoordsReady}
+              onMarkerClick={handleMarkerClick}
+              highlightedClinicId={highlightedClinicId}
             />
           </div>
         </div>
