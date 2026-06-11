@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SYSTEM_URL, SIGNUP_URL } from "@/config/landing";
 import { Input } from "@/components/ui/input";
+import type { DoctorData } from "@/components/marketplace/DoctorCard";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin } from "lucide-react";
 import { MarketplaceSection } from "@/components/landing/MarketplaceSection";
@@ -377,7 +378,7 @@ function buildPreviewShifts() {
   });
 }
 
-const PREVIEW_DOCTORS: DoctorData[] = [
+const PREVIEW_DOCTORS = ([
   {
     userId: "preview-1",
     specialty: "Ortodontia",
@@ -408,7 +409,7 @@ const PREVIEW_DOCTORS: DoctorData[] = [
     shifts: buildPreviewShifts(),
     appointments: [],
   },
-];
+] as unknown) as DoctorData[];
 
 function MarketplacePreview() {
   return <MarketplaceSection />;

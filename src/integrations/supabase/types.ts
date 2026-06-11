@@ -1863,6 +1863,8 @@ export type Database = {
           patient_user_id: string | null
           phone: string | null
           photo_url: string | null
+          profession: string | null
+          rg: string | null
           state: string | null
           updated_at: string
           zip_code: string | null
@@ -1886,6 +1888,8 @@ export type Database = {
           patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
+          profession?: string | null
+          rg?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
@@ -1909,6 +1913,8 @@ export type Database = {
           patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
+          profession?: string | null
+          rg?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
@@ -2533,6 +2539,118 @@ export type Database = {
           state?: string | null
           updated_at?: string
           zip_code?: string | null
+        }
+        Relationships: []
+      }
+      support_ticket_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          message_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          message_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_ticket_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          sender_id: string
+          ticket_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          sender_id: string
+          ticket_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          created_by: string
+          forwarded_at: string | null
+          forwarded_by: string | null
+          id: string
+          operator_id: string | null
+          priority: string
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          created_by: string
+          forwarded_at?: string | null
+          forwarded_by?: string | null
+          id?: string
+          operator_id?: string | null
+          priority?: string
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          created_by?: string
+          forwarded_at?: string | null
+          forwarded_by?: string | null
+          id?: string
+          operator_id?: string | null
+          priority?: string
+          status?: string
+          subject?: string
+          updated_at?: string
         }
         Relationships: []
       }

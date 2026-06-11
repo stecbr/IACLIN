@@ -67,7 +67,7 @@ export function usePatientData() {
 
       if (patientIds.length === 0) {
         return {
-          account: account as PatientAccount | null,
+          account: (account as unknown) as PatientAccount | null,
           appointments: [] as AppointmentRow[],
           documents: [] as DocumentRow[],
           patientIds,
@@ -123,7 +123,7 @@ export function usePatientData() {
       }
 
       return {
-        account: account as PatientAccount | null,
+        account: (account as unknown) as PatientAccount | null,
         appointments: hydrated,
         documents: (docs ?? []) as DocumentRow[],
         patientIds,
