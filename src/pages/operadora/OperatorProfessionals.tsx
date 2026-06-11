@@ -350,14 +350,6 @@ export default function OperatorProfessionals() {
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
         <div className="mx-auto max-w-5xl space-y-2">
-          {/* Title floating over the map */}
-          <div className="pointer-events-auto flex items-center gap-2 px-1">
-            <h1 className="text-base font-semibold drop-shadow-sm">Rede de Busca</h1>
-            <Badge variant="outline" className="text-[10px] bg-background/70 backdrop-blur-md">
-              {filtered.length} clínica{filtered.length !== 1 ? 's' : ''}
-            </Badge>
-          </div>
-
           {/* Full-width floating search */}
           <div className="pointer-events-auto relative">
             <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
