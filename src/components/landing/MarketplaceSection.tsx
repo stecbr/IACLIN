@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { startOfDay, addDays } from "date-fns";
 import { motion } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function toLocalDateStr(d: Date) {
@@ -42,6 +43,7 @@ const fadeUp = {
 
 export function MarketplaceSection() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const mapRef = useRef<MarketplaceMapHandle>(null);
 
   const [doctors, setDoctors] = useState<DoctorData[]>([]);
@@ -183,9 +185,10 @@ export function MarketplaceSection() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handleShowOnMap = useCallback((clinicId: string) => {
-    setShowMap(true);
+    if (isMobile) setShowMap(true);
     setHighlightedClinicId(clinicId);
-  }, []);
+    setTimeout(() => mapRef.current?.focusClinic(clinicId), isMobile ? 300 : 0);
+  }, [isMobile]);
 
   const handleMarkerClick = useCallback((clinicId: string) => {
     setHighlightedClinicId(clinicId);
@@ -342,6 +345,7 @@ export function MarketplaceSection() {
               className="h-full rounded-2xl overflow-hidden shadow-lg border border-border"
               clinics={clinicsGeo}
               doctors={[]}
+              showZoomControl={false}
               onBoundsSearch={handleBoundsSearch}
               onCoordsReady={handleCoordsReady}
               onMarkerClick={handleMarkerClick}

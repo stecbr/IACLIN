@@ -39,6 +39,7 @@ interface MarketplaceMapProps {
   onCoordsReady?: (coords: Map<string, { lat: number; lng: number }>) => void;
   onMarkerClick?: (clinicId: string) => void;
   highlightedClinicId?: string | null;
+  showZoomControl?: boolean;
 }
 
 function createBlueIcon() {
@@ -62,7 +63,7 @@ function createHighlightIcon() {
 }
 
 export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapProps>(
-  function MarketplaceMap({ className, clinics = [], doctors: _doctors = [], onBoundsSearch, onCoordsReady, onMarkerClick, highlightedClinicId }, ref) {
+  function MarketplaceMap({ className, clinics = [], doctors: _doctors = [], onBoundsSearch, onCoordsReady, onMarkerClick, highlightedClinicId, showZoomControl = true }, ref) {
     const [showSearchBtn, setShowSearchBtn] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
@@ -109,7 +110,7 @@ export const MarketplaceMap = forwardRef<MarketplaceMapHandle, MarketplaceMapPro
       });
 
       // attributionControl está desativado; evite acessar map.attributionControl aqui.
-      L.control.zoom({ position: "topright" }).addTo(map);
+      if (showZoomControl) L.control.zoom({ position: "topright" }).addTo(map);
 
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         maxZoom: 20,
