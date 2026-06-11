@@ -63,7 +63,9 @@ export function MemberProceduresEditor({
         .eq('clinic_member_id', clinicMemberId);
 
       if (cancelled) return;
-      const active = new Set(((rows ?? []) as Array<{ procedure_id: string }>).map((r) => r.procedure_id));
+      const active = new Set(
+        ((rows ?? []) as unknown as Array<{ procedure_id: string }>).map((r) => r.procedure_id),
+      );
       setProcedures((procs ?? []) as Procedure[]);
       setSelected(active);
       setInitial(active);
