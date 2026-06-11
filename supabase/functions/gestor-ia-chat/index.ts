@@ -143,6 +143,139 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
     lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${a.status}`);
   }
 
+  // ===== Pedidos de consulta pendentes =====
+  const pendingReqs = (pendingReqQ.data ?? []) as any[];
+  lines.push(`\n# Pedidos de consulta pendentes (${pendingReqs.length})`);
+  if (pendingReqs.length === 0) {
+    lines.push(`- Nenhum pedido aguardando aprovação no momento.`);
+  } else {
+    for (const r of pendingReqs.slice(0, 15)) {
+      const d = new Date(r.start_time);
+      const pName = r.patient_account_snapshot?.full_name ?? "paciente";
+      const docName = profilesMap.get(r.dentist_id) ?? "—";
+      const spec = r.specialty ? ` / ${r.specialty}` : "";
+      lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${pName} com ${docName}${spec}`);
+    }
+    if (pendingReqs.length > 15) lines.push(`- (+ ${pendingReqs.length - 15} pedidos)`);
+  }
+
+  // ===== Horários disponíveis (próximos 7 dias) =====
+  const SLOT_MIN = 30;
+  const toMin = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const fromMin = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const subtractBusy = (intervals: Array<[number, number]>, busy: Array<[number, number]>) => {
+    let result = intervals.slice();
+    for (const [bs, be] of busy) {
+      const next: Array<[number, number]> = [];
+      for (const [s, e] of result) {
+        if (be <= s || bs >= e) { next.push([s, e]); continue; }
+        if (bs > s) next.push([s, bs]);
+        if (be < e) next.push([be, e]);
+      }
+      result = next;
+    }
+    return result;
+  };
+
+  const templates = (templatesQ.data ?? []) as any[];
+  const overrides = (availOverridesQ.data ?? []) as any[];
+  const blocked = new Set(
+    ((blockedQ.data ?? []) as any[]).map((b) => `${b.user_id}|${b.blocked_date}`),
+  );
+  const busyByDoc: Record<string, Array<{ date: string; start: number; end: number }>> = {};
+  for (const a of (busyApsQ.data ?? []) as any[]) {
+    if (!a.dentist_id || !a.start_time || !a.end_time) continue;
+    const s = new Date(a.start_time);
+    const e = new Date(a.end_time);
+    const date = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(s.getDate()).padStart(2, "0")}`;
+    (busyByDoc[a.dentist_id] ??= []).push({
+      date,
+      start: s.getHours() * 60 + s.getMinutes(),
+      end: e.getHours() * 60 + e.getMinutes(),
+    });
+  }
+
+  const activeMembers = (membersQ.data ?? []).filter((m: any) => m.role === "admin" || m.role === "dentist");
+  lines.push(`\n# Horários disponíveis (próximos 7 dias)`);
+  let totalFreeMinAll = 0;
+  const perDocLines: string[] = [];
+
+  for (const m of activeMembers as any[]) {
+    const userId = m.user_id;
+    const docName = profilesMap.get(userId) ?? "Sem nome";
+    const daysOut: string[] = [];
+    let docFreeMin = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      if (blocked.has(`${userId}|${dateStr}`)) continue;
+
+      // 1) Override do dia tem prioridade
+      const ov = overrides.find((o) => o.user_id === userId && o.work_date === dateStr);
+      let baseIntervals: Array<[number, number]> = [];
+      let breaks: Array<{ start: string; end: string }> = [];
+
+      if (ov) {
+        baseIntervals = [[toMin(ov.start_time), toMin(ov.end_time)]];
+        breaks = (ov.breaks ?? []) as any[];
+      } else {
+        const tpl = templates.find(
+          (t) => t.user_id === userId && t.weekday === day.getDay() && t.is_active &&
+                 (t.clinic_id === clinicId || t.clinic_id == null),
+        );
+        if (!tpl) continue;
+        baseIntervals = [[toMin(tpl.start_time), toMin(tpl.end_time)]];
+        breaks = (tpl.breaks ?? []) as any[];
+      }
+
+      // Subtrai pausas
+      const breakBusy: Array<[number, number]> = (breaks ?? [])
+        .filter((b: any) => b?.start && b?.end)
+        .map((b: any) => [toMin(b.start), toMin(b.end)] as [number, number]);
+      let intervals = subtractBusy(baseIntervals, breakBusy);
+
+      // Subtrai consultas já marcadas
+      const docBusy = (busyByDoc[userId] ?? []).filter((b) => b.date === dateStr);
+      let busyArr: Array<[number, number]> = docBusy.map((b) => [b.start, b.end]);
+
+      // Se hoje, subtrai horário já passado
+      if (i === 0) {
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        busyArr.push([0, nowMin]);
+      }
+      intervals = subtractBusy(intervals, busyArr);
+
+      // Calcula slots SLOT_MIN
+      const freeRanges = intervals.filter(([s, e]) => e - s >= SLOT_MIN);
+      const dayFreeMin = freeRanges.reduce((sum, [s, e]) => sum + (e - s), 0);
+      if (dayFreeMin <= 0) continue;
+      docFreeMin += dayFreeMin;
+
+      const label = day.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+      const ranges = freeRanges.slice(0, 4).map(([s, e]) => `${fromMin(s)}-${fromMin(e)}`).join(", ");
+      const slotCount = Math.floor(dayFreeMin / SLOT_MIN);
+      daysOut.push(`  • ${label}: ${slotCount} slots de ${SLOT_MIN}min (${ranges})`);
+    }
+
+    if (docFreeMin > 0) {
+      totalFreeMinAll += docFreeMin;
+      perDocLines.push(`- ${docName} — ${Math.floor(docFreeMin / 60)}h${docFreeMin % 60 ? ` ${docFreeMin % 60}min` : ""} livres`);
+      perDocLines.push(...daysOut);
+    }
+  }
+
+  if (totalFreeMinAll === 0) {
+    lines.push(`- Nenhum horário livre detectado (verifique templates de horário em /availability).`);
+  } else {
+    lines.push(`- Total livre na clínica: ${Math.floor(totalFreeMinAll / 60)}h${totalFreeMinAll % 60 ? ` ${totalFreeMinAll % 60}min` : ""} (slots de ${SLOT_MIN}min)`);
+    lines.push(...perDocLines);
+  }
+
   lines.push(`\n# Pacientes`);
   lines.push(`- Total cadastrados: ${patientsCountQ.count ?? 0}`);
   lines.push(`- Inativos (sem consulta há +180 dias): ${inactiveCount}`);
