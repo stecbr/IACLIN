@@ -1,126 +1,49 @@
-# Cadastro de Clínica: Pessoa Física vs Jurídica + Kit Credenciamento
+# Plano — Ajustes no Mapa (Landing + Marketplace) estilo Doctoralia
 
-Vamos transformar o fluxo "Cadastrar minha clínica" em dois caminhos, espelhando o Kit Credenciamento das imagens (Servdonto). O profissional escolhe se vai se cadastrar como **Pessoa Física** (autônomo, usa CPF) ou **Pessoa Jurídica** (clínica/empresa, usa CNPJ), e os campos/documentos solicitados mudam conforme o tipo.
+## Problema atual
+- **Bug:** ao clicar no mapa (marcador ou no botão de ampliar), ele entra em modo "fixed inset-0 z-50" cobrindo toda a tela. Ao sair desse modo, o layout do site quebra (mapa fica desproporcional, conteúdo embaixo some).
+- Na landing, o clique em um pin não traz contexto útil (popup minúsculo, sem card).
+- No marketplace, o mapa não acompanha o estilo Doctoralia: cards visíveis ao lado, marcador clicável que destaca o card correspondente, e vice-versa, sem ampliação em tela cheia.
 
-## 1. Escolha do tipo no início do cadastro
+## Comportamento desejado (referência Doctoralia)
+1. **Mapa fixo** ao lado da lista — sem botão de "ampliar mapa em tela cheia". Quem decide o tamanho é o layout responsivo.
+2. **Clicar num marcador** → abre um mini-card flutuante (foto + nome + clínica + botão "Ver perfil") sobre o mapa, **sem dar zoom agressivo** (mantém o zoom atual, só centraliza suavemente).
+3. **Hover/clique num card da lista** → marcador correspondente é destacado (pulsa) e o mapa centraliza suavemente nele.
+4. **Clicar no marcador** → também rola/destaca o card correspondente na lista.
+5. Botão "Buscar nesta área" continua, no topo do mapa, ao mover.
+6. **Mobile:** alternância lista ↔ mapa via botão (já existe), sem modo tela cheia.
 
-No diálogo "Cadastrar minha clínica" (`RegisterClinicDialog.tsx`), antes dos campos atuais, dois cards grandes:
+## Mudanças por arquivo
 
-- **Pessoa Física** — Profissional autônomo, consultório individual no seu próprio CPF.
-- **Pessoa Jurídica** — Clínica/empresa formalizada com CNPJ.
+### `src/components/marketplace/MarketplaceMap.tsx`
+- Remover modo `expanded` (fixed inset-0) e os botões "Ampliar/Diminuir mapa" — fonte principal do bug visual.
+- Remover a sidebar interna de doctors (já existe lista fora do mapa) — evita duplicação.
+- Manter `focusClinic` mas trocar `setView(latlng, 16)` por `panTo(latlng)` (sem mudar zoom abruptamente) e usar `flyTo` suave.
+- No `bindPopup`, renderizar um mini-card mais rico: avatar + nome do profissional + clínica + botão "Ver perfil" que navega ou rola até o card na lista (callback `onMarkerClick(clinicId)`).
+- Adicionar prop `highlightedClinicId` para destacar marcador a partir de hover/click na lista.
+- Manter "Buscar nesta área", controles de zoom no canto, e o gradiente superior.
 
-A escolha controla quais blocos aparecem abaixo.
+### `src/pages/Marketplace.tsx`
+- Passar `highlightedClinicId` e callback `onMarkerClick` ao `MarketplaceMap`.
+- Ao clicar no marcador, rolar até o `DoctorCard` correspondente (`scrollIntoView`) e aplicar um realce temporário.
+- Remover qualquer referência ao modo expandido.
 
-## 2. Campos por tipo
+### `src/components/marketplace/DoctorCard.tsx`
+- Adicionar `id` no card raiz (`doctor-card-${clinicId}`) para permitir scroll.
+- No `onMouseEnter` chamar `onHover?.(clinicId)` (nova prop opcional) para o pai destacar o marcador.
 
-### Pessoa Física (novo fluxo)
-Dados pessoais
-- Nome completo *
-- CPF *
-- RG
-- Data de nascimento
-- Telefone *
-- E-mail *
+### `src/components/landing/LandingNetworkMap.tsx`
+- Garantir `doubleClickZoom: false`, `scrollWheelZoom: false`, `boxZoom: false`, `touchZoom: false`, `dragging: true` para não permitir zoom acidental — o mapa da landing é apenas decorativo/exploratório.
+- Trocar o popup atual por um card mais bonito (mesmo estilo do marketplace, sem botões — apenas info da clínica).
+- Garantir altura fixa e `overflow-hidden` para evitar quebra de layout.
+- Sem mudanças no fluxo de dados.
 
-Dados profissionais (kit credenciamento PF)
-- CRO/CRM do profissional * (já existe via specialty)
-- Número INSS / NIS / PIS
-- Inscrição Estadual e Municipal (opcional)
-- Certificado de especialização (se houver)
-- CNES do estabelecimento de saúde
+## Detalhes técnicos
+- Leaflet: usar `map.flyTo(latlng, currentZoom, { duration: 0.6 })` em vez de `setView` com zoom alto.
+- Highlight de marcador: trocar `icon` para `createHighlightIcon` enquanto o card correspondente estiver em hover; restaurar `createBlueIcon` ao sair.
+- Scroll do card: `document.getElementById(...)?.scrollIntoView({ behavior: 'smooth', block: 'center' })`.
+- Não tocar em lógica de geocoding, filtros, busca por área ou agendamento.
 
-Endereço do consultório (já existe)
-- CEP, logradouro, número, complemento, bairro, cidade, UF
-
-Dados bancários (PF)
-- Banco, agência, conta, tipo (corrente/poupança), CPF do titular
-
-Documentos / Anexos (upload)
-- Foto da clínica (várias)
-- Alvará de funcionamento
-- Licença sanitária
-- Comprovante CNES
-- Certificado de especialização
-
-### Pessoa Jurídica (fluxo atual + extras do kit PJ)
-Dados da empresa (já existe + ajustes)
-- CNPJ *, Razão Social *, Nome fantasia *, Telefone *, Categoria *
-- Inscrição Estadual, Inscrição Municipal
-- CNES da clínica
-
-Responsável legal (já existe)
-- Nome completo *, CPF *, RG, cargo
-
-Endereço (já existe)
-
-Dados bancários (PJ)
-- Banco, agência, conta, CNPJ do titular
-
-Documentos / Anexos (upload)
-- Cartão CNPJ
-- Contrato Social ou Requerimento Empresarial
-- Alvará de funcionamento
-- Licença sanitária
-- CRO/CRM da clínica (responsável técnico)
-- Fotos da clínica
-- Certificado de especialização (se houver)
-
-## 3. Backend — schema
-
-Migration adicionando em `public.clinics`:
-
-- `entity_type` text NOT NULL DEFAULT 'juridica' — 'fisica' | 'juridica'
-- `cpf` text — usado no fluxo PF
-- `rg` text
-- `birth_date` date
-- `inss_pis` text — PF
-- `state_registration` text — IE
-- `municipal_registration` text — IM
-- `cnes` text — Cadastro Nacional de Estabelecimento de Saúde
-- `specialty_certificate` text — número/identificação
-- `bank_name` text, `bank_agency` text, `bank_account` text, `bank_account_type` text, `bank_holder_document` text
-
-Tabela nova `public.clinic_documents` para anexos:
-- `clinic_id` uuid → clinics(id)
-- `doc_type` text (ex.: 'alvara', 'licenca_sanitaria', 'cartao_cnpj', 'contrato_social', 'foto_clinica', 'cnes', 'cro_clinica', 'especializacao')
-- `file_path` text (caminho no bucket `clinic-documents`)
-- `file_name` text
-- `uploaded_by` uuid
-
-RLS: leitura/escrita restritas a `is_clinic_admin(clinic_id)`; `service_role` total. GRANTs explícitos para `authenticated` e `service_role`.
-
-Bucket novo `clinic-documents` (privado) com policies por `clinic_id` no path.
-
-## 4. Edge function
-
-Atualizar `create-own-clinic` para aceitar todos os novos campos (entity_type, cpf, rg, birth_date, inss_pis, IE/IM, CNES, dados bancários). Validar: PF exige CPF, PJ exige CNPJ.
-
-## 5. Frontend
-
-- `RegisterClinicDialog.tsx`: reestruturado com `entityType` state, dois cards iniciais, blocos condicionais, seção de upload de documentos (drag-drop por tipo).
-- Após criar a clínica, fazer upload dos arquivos para `clinic-documents/{clinic_id}/{doc_type}/...` e inserir linhas em `clinic_documents`.
-- `ClinicaCredentialings.tsx` / `MyCredentialingSection.tsx`: ao solicitar credenciamento mostrar progresso "Documentos do Kit Credenciamento" — checklist PF ou PJ baseado em `clinics.entity_type`, marcando o que já está anexado. Pendências bloqueiam envio à operadora.
-- `OperatorSettings.tsx` (lado operadora): nada muda agora além de exibir `entity_type` da clínica e link para baixar documentos via URL assinada.
-
-## 6. Fora de escopo
-
-- Sem alteração no marketplace, agenda, financeiro ou onboarding inicial (o onboarding continua mínimo; o cadastro completo PF/PJ é o que o profissional faz pelo botão "Cadastrar minha clínica").
-- Sem integração real com API da Receita / SERPRO para validar CPF/CNPJ (mantém só máscara + checksum cliente).
-
-## Detalhes técnicos resumidos
-
-```text
-clinics
- ├─ entity_type ('fisica' | 'juridica')   ← novo
- ├─ cpf, rg, birth_date, inss_pis         ← PF
- ├─ state_registration, municipal_registration, cnes
- ├─ specialty_certificate
- └─ bank_* (5 colunas)
-
-clinic_documents (nova)
- └─ clinic_id, doc_type, file_path, file_name, uploaded_by
-
-storage bucket: clinic-documents (privado)
-```
-
-Posso seguir com a migration + ajustes em `RegisterClinicDialog`, `create-own-clinic` e a seção de credenciamento?
+## Fora do escopo
+- Mudanças na busca, filtros, agendamento, edge functions.
+- Redesign visual completo dos cards de profissional.
