@@ -117,17 +117,18 @@ export function FinishPaymentDialog({
 
   const createBaseTx = async (overrides: Record<string, any>) => {
     const desc = `Atendimento - ${patientName}`;
+    const payload: any = {
+      patient_id: patientId,
+      appointment_id: appointmentId,
+      dentist_id: user!.id,
+      clinic_id: clinicId ?? null,
+      type: 'income',
+      description: desc,
+      ...overrides,
+    };
     const { data, error } = await supabase
       .from('financial_transactions')
-      .insert({
-        patient_id: patientId,
-        appointment_id: appointmentId,
-        dentist_id: user!.id,
-        clinic_id: clinicId ?? null,
-        type: 'income',
-        description: desc,
-        ...overrides,
-      })
+      .insert(payload)
       .select('id')
       .single();
     if (error) throw error;
