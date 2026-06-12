@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, Receipt } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
@@ -145,6 +145,7 @@ const statusMap: Record<string, { label: string; icon: any; cls: string }> = {
 export default function MyCredentialingSection() {
   const { user, currentClinicId } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [memberId, setMemberId] = useState<string | null>(null);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [creds, setCreds] = useState<Credentialing[]>([]);
@@ -522,9 +523,19 @@ export default function MyCredentialingSection() {
                         </Button>
                       )}
                       {cred?.status === 'approved' && (
-                        <Button size="sm" variant="destructive" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
-                          Cancelar credenciamento
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="w-full md:w-auto gap-1"
+                            onClick={() => navigate(`/clinica/convenios?operator=${op.id}`)}
+                          >
+                            <Receipt className="h-3.5 w-3.5" /> Ver tabela de valores
+                          </Button>
+                          <Button size="sm" variant="destructive" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
+                            Cancelar credenciamento
+                          </Button>
+                        </>
                       )}
                       {(cred?.status === 'rejected' || cred?.status === 'revoked') && (
                         <Button size="sm" variant="outline" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => setOpenFor(op)}>
