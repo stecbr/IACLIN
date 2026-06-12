@@ -2002,10 +2002,13 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           full_name: string
+          gender: string | null
           id: string
           insurance_number: string | null
           insurance_provider: string | null
           phone: string | null
+          profession: string | null
+          rg: string | null
           updated_at: string
           user_id: string
         }
@@ -2014,10 +2017,13 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           full_name: string
+          gender?: string | null
           id?: string
           insurance_number?: string | null
           insurance_provider?: string | null
           phone?: string | null
+          profession?: string | null
+          rg?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2026,10 +2032,13 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           full_name?: string
+          gender?: string | null
           id?: string
           insurance_number?: string | null
           insurance_provider?: string | null
           phone?: string | null
+          profession?: string | null
+          rg?: string | null
           updated_at?: string
           user_id?: string
         }

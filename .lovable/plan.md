@@ -1,43 +1,23 @@
-## Mudanças solicitadas
+## Causa do erro
 
-### 1. Configurações → Procedimentos: catálogo vazio
+O código de "Minhas configurações" do paciente (`PatientSettings.tsx`) tenta gravar `gender`, `rg` e `profession` na tabela `patient_accounts`, mas essas colunas não existem no banco. Por isso o PostgREST retorna `Could not find the 'gender' column of 'patient_accounts' in the schema cache` quando o paciente clica em Salvar (inclusive ao trocar a foto, porque o salvamento é um único upsert com todos os campos).
 
-- Apagar todos os 52 procedimentos do catálogo global (`procedures`). O dentista/médico passa a cadastrar manualmente via botão **+ Novo**.
-- Também limpar `clinic_member_procedures` (vínculos profissional↔procedimento) já que os procedimentos referenciados deixarão de existir. - exato porém depois que o dentista/medico adicionar ele tem que pegar as informações adicionandas 
-- A tela `ProceduresCrudSection` já suporta lista vazia (exibe só o botão **+ Novo**) — sem mudança de UI necessária.
+Hoje `patient_accounts` tem apenas: `id, user_id, cpf, full_name, phone, date_of_birth, insurance_provider, insurance_number, created_at, updated_at`.
 
-### 2. Remover aba "Feriados" das Configurações
+## Correção
 
-- Em `src/pages/SettingsPage.tsx`: remover o item `{ id: 'holidays', label: 'Feriados' }` da lista de seções e o bloco `{activeSection === 'holidays' && <HolidaysSection />}`.
-- Remover o import de `HolidaysSection` e do ícone `CalendarOff` (se não usado em outro lugar).
-- O arquivo `HolidaysSection.tsx` permanece no projeto (não excluir) caso queira religar depois.
+Migration única adicionando as colunas faltantes usadas pela tela:
 
-### 3. Fluxo Credenciamentos → Convênios
+```sql
+ALTER TABLE public.patient_accounts
+  ADD COLUMN IF NOT EXISTS gender text,
+  ADD COLUMN IF NOT EXISTS rg text,
+  ADD COLUMN IF NOT EXISTS profession text;
+```
 
-**Em `/clinica/credenciamentos**` (`ClinicaCredentialings.tsx` → `MyCredentialingSection`):
-
-- Cada card de operadora **credenciada** ("Credenciado" verde) ganha um onClick / botão **"Ver tabela de valores"** que navega para `/clinica/convenios?operator=<operator_id>`.
-- Operadoras ainda não credenciadas continuam mostrando só "Solicitar credenciamento" (sem navegação).
-
-**Em `/clinica/convenios**` (`ClinicaConvenios.tsx`):
-
-- Ler `?operator=` do query string e já pré-selecionar a operadora correspondente ao montar.
-- Adicionar botão **"← Voltar para credenciamentos"** no header da página, ao lado/abaixo do `PageHeader`, que navega para `/clinica/credenciamentos`.
-- Placeholder "Informações de contrato" fica **fora de escopo agora** (anotado para depois, conforme pedido).
-
-### 4. Remover US$ da tela `/clinica/convenios`
-
-- Em `ClinicaConvenios.tsx` linha 405-406: remover o bloco `{it.value_us != null && (<p>US$ ...</p>)}`. A página passa a exibir só `R$` (`value_brl`).
-- A tela da operadora (`OperatorPriceTable.tsx`) **não muda** — lá o campo US$ continua existindo (operadora pode preencher, mas clínica não vê).
+Sem mudança de RLS (políticas existentes já cobrem todas as colunas da linha do próprio usuário) e sem mudanças no front — o `PatientAccount` em `usePatientData.ts` já declara esses campos.
 
 ## Fora de escopo
 
-- Excluir `HolidaysSection.tsx` ou remover a coluna `value_us` do banco.
-- Tela / módulo de informações de contrato dentro de Convênios (fica para depois).
-- Mexer na tela da operadora.
-
-## Detalhes técnicos
-
-- Migration: `DELETE FROM public.clinic_member_procedures; DELETE FROM public.procedures;` (sem FK em procedures — verificado).
-- Navegação: usar `useNavigate()` + `useSearchParams()` do `react-router-dom`.
-- Sem alterações em RLS, types ou edge functions.
+- Foto do paciente: `photo_url` é salvo em `patients` (não em `patient_accounts`), então não precisa de alteração.
+- Outros campos do formulário (endereço, contato de emergência, etc.) já vão para `patients`, que possui as colunas.
