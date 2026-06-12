@@ -14,10 +14,11 @@ import {
 } from '@/components/ui/dialog';
 import {
   Search, Receipt, Building2, MapPin, CalendarDays, Camera, FileImage,
-  Eye, Loader2, ChevronDown, ChevronRight, Info,
+  Eye, Loader2, ChevronDown, ChevronRight, Info, FileText, Download,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PriceFileViewerDialog, type PriceFileLike } from '@/components/operadora/PriceFileViewerDialog';
 
 // ── Types ────────────────────────────────────────────────────────────────
 interface OperatorOption {
@@ -49,6 +50,14 @@ interface PriceItem {
   observations: string | null;
   plan_coverage: string[];
 }
+interface PriceFile {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string | null;
+  file_size: number | null;
+  created_at: string;
+}
 
 const brl = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -73,6 +82,8 @@ export default function ClinicaConvenios() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [detail, setDetail] = useState<PriceItem | null>(null);
+  const [files, setFiles] = useState<PriceFile[]>([]);
+  const [previewFile, setPreviewFile] = useState<PriceFileLike | null>(null);
 
   // 1. Operadoras credenciadas
   useEffect(() => {
@@ -140,6 +151,7 @@ export default function ClinicaConvenios() {
   useEffect(() => {
     if (!tableId) {
       setItems([]);
+      setFiles([]);
       return;
     }
     let cancelled = false;
@@ -155,9 +167,29 @@ export default function ClinicaConvenios() {
       if (error) setItems([]);
       else setItems((data ?? []) as PriceItem[]);
       setLoadingItems(false);
+
+      const { data: fileRows } = await sb
+        .from('operator_price_files')
+        .select('id, file_name, file_url, file_type, file_size, created_at')
+        .eq('table_id', tableId)
+        .order('created_at', { ascending: false });
+      if (!cancelled) setFiles((fileRows ?? []) as PriceFile[]);
     })();
     return () => { cancelled = true; };
   }, [tableId]);
+
+  async function downloadFile(f: PriceFile) {
+    const { data } = await supabase.storage
+      .from('operator-price-files').createSignedUrl(f.file_url, 120, { download: f.file_name });
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+  }
+
+  function fmtSize(n: number | null) {
+    if (!n) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   // Filtragem
   const filtered = useMemo(() => {
@@ -442,6 +474,58 @@ export default function ClinicaConvenios() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Arquivos enviados pela operadora (somente leitura) */}
+      {tableId && files.length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Arquivos originais da operadora</p>
+                <p className="text-xs text-muted-foreground">PDFs e planilhas enviados pela operadora. Somente leitura.</p>
+              </div>
+              <Badge variant="secondary">{files.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {files.map((f) => (
+                <div key={f.id} className="flex items-center gap-3 rounded-lg border p-2.5">
+                  <div className="rounded-md bg-primary/10 p-2 shrink-0">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{f.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtSize(f.file_size)} · {format(parseISO(f.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFile(f)}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                    title="Visualizar"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadFile(f)}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                    title="Baixar"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <PriceFileViewerDialog
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(o) => { if (!o) setPreviewFile(null); }}
+      />
     </div>
   );
 }

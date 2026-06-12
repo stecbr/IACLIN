@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 import {
   Plus, Trash2, Upload, FileText, Download, Loader2, MapPin,
   CalendarDays, Table2, FilePlus2, Search, X, CheckSquare, ArrowLeft,
-  Sparkles, ChevronDown, ChevronUp, Check,
+  Sparkles, ChevronDown, ChevronUp, Check, Eye,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { BRAZIL_STATES, stateName } from '@/lib/brazilStates';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { PriceFileViewerDialog, type PriceFileLike } from '@/components/operadora/PriceFileViewerDialog';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface PriceTable {
@@ -141,6 +142,7 @@ export default function OperatorPriceTable() {
 
   // upload progress
   const [uploadStage, setUploadStage] = useState<null | 'reading' | 'ai' | 'saving'>(null);
+  const [previewFile, setPreviewFile] = useState<PriceFileLike | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── load operator + tables ─────────────────────────────────────────────
@@ -579,6 +581,14 @@ export default function OperatorPriceTable() {
                       </div>
                       <button
                         type="button"
+                        onClick={() => setPreviewFile(f)}
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                        title="Visualizar"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleDownloadFile(f)}
                         className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
                         title="Baixar"
@@ -737,6 +747,12 @@ export default function OperatorPriceTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PriceFileViewerDialog
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(o) => { if (!o) setPreviewFile(null); }}
+      />
     </div>
   );
 }
