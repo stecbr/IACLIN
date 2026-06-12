@@ -2171,6 +2171,8 @@ export type Database = {
       patients: {
         Row: {
           address: string | null
+          address_complement: string | null
+          address_number: string | null
           city: string | null
           clinic_id: string | null
           cpf: string | null
@@ -2184,6 +2186,7 @@ export type Database = {
           insurance_number: string | null
           insurance_provider: string | null
           is_active: boolean
+          neighborhood: string | null
           notes: string | null
           patient_user_id: string | null
           phone: string | null
@@ -2196,6 +2199,8 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
           city?: string | null
           clinic_id?: string | null
           cpf?: string | null
@@ -2209,6 +2214,7 @@ export type Database = {
           insurance_number?: string | null
           insurance_provider?: string | null
           is_active?: boolean
+          neighborhood?: string | null
           notes?: string | null
           patient_user_id?: string | null
           phone?: string | null
@@ -2221,6 +2227,8 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
           city?: string | null
           clinic_id?: string | null
           cpf?: string | null
@@ -2234,6 +2242,7 @@ export type Database = {
           insurance_number?: string | null
           insurance_provider?: string | null
           is_active?: boolean
+          neighborhood?: string | null
           notes?: string | null
           patient_user_id?: string | null
           phone?: string | null
