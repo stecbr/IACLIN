@@ -33,6 +33,7 @@ export type Database = {
           source: string
           specialty: string | null
           status: string
+          suggested_dentist_id: string | null
           updated_at: string
         }
         Insert: {
@@ -53,6 +54,7 @@ export type Database = {
           source?: string
           specialty?: string | null
           status?: string
+          suggested_dentist_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -73,6 +75,7 @@ export type Database = {
           source?: string
           specialty?: string | null
           status?: string
+          suggested_dentist_id?: string | null
           updated_at?: string
         }
         Relationships: [
