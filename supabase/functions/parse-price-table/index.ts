@@ -1,6 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import * as XLSX from 'npm:xlsx@0.18.5';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +30,8 @@ async function readBody(req: Request) {
   try { return await req.json(); } catch { return null; }
 }
 
-function xlsxToCsv(bytes: Uint8Array): string {
+async function xlsxToCsv(bytes: Uint8Array): Promise<string> {
+  const XLSX: any = await import('npm:xlsx@0.18.5');
   const wb = XLSX.read(bytes, { type: 'array' });
   const parts: string[] = [];
   for (const name of wb.SheetNames) {
@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
     const body = await readBody(req);
     if (!body) return new Response(JSON.stringify({ error: 'invalid body' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const { table_id, file_base64, file_name, mime_type } = body as {
-      table_id: string; file_base64: string; file_name: string; mime_type: string;
+    const { table_id, file_base64, storage_path, file_name, mime_type } = body as {
+      table_id: string; file_base64?: string; storage_path?: string; file_name: string; mime_type: string;
     };
-    if (!table_id || !file_base64 || !file_name) {
+    if (!table_id || !file_name || (!file_base64 && !storage_path)) {
       return new Response(JSON.stringify({ error: 'missing fields' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -122,10 +122,37 @@ Deno.serve(async (req) => {
     const { data: tableRow, error: tableErr } = await userClient
       .from('operator_price_tables').select('id, operator_id').eq('id', table_id).maybeSingle();
     if (tableErr || !tableRow) {
+      console.error('table not accessible', tableErr?.message);
       return new Response(JSON.stringify({ error: 'table not accessible' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const bytes = Uint8Array.from(atob(file_base64), (c) => c.charCodeAt(0));
+    // Service-role client (used for storage download + later inserts)
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    let bytes: Uint8Array;
+    let b64: string;
+    if (storage_path) {
+      const { data: blob, error: dlErr } = await admin.storage
+        .from('operator-price-files').download(storage_path);
+      if (dlErr || !blob) {
+        console.error('storage download failed', dlErr?.message);
+        return new Response(JSON.stringify({ error: 'storage download failed: ' + (dlErr?.message ?? 'unknown') }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      bytes = new Uint8Array(await blob.arrayBuffer());
+      // Build base64 in chunks to avoid stack overflow
+      let bin = '';
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK) as unknown as number[]);
+      }
+      b64 = btoa(bin);
+    } else {
+      b64 = file_base64!;
+      bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    }
+
     const lower = file_name.toLowerCase();
     const isPdf = lower.endsWith('.pdf') || (mime_type ?? '').includes('pdf');
     const isSheet = /\.(xlsx|xls|csv|ods)$/i.test(lower);
@@ -133,9 +160,16 @@ Deno.serve(async (req) => {
     let csvText: string | null = null;
     let pdfBase64: string | null = null;
     if (isPdf) {
-      pdfBase64 = file_base64;
+      pdfBase64 = b64;
     } else if (isSheet) {
-      csvText = xlsxToCsv(bytes);
+      try {
+        csvText = await xlsxToCsv(bytes);
+      } catch (e: any) {
+        console.error('xlsx parse failed', e?.message);
+        return new Response(JSON.stringify({ error: 'xlsx parse failed: ' + (e?.message ?? 'unknown') }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       // Cap to avoid blowing the prompt
       if (csvText.length > 180_000) csvText = csvText.slice(0, 180_000);
     } else {
@@ -157,6 +191,7 @@ Deno.serve(async (req) => {
     });
     if (!aiResp.ok) {
       const errText = await aiResp.text();
+      console.error('AI error', aiResp.status, errText.slice(0, 500));
       return new Response(JSON.stringify({ error: 'AI error', detail: errText.slice(0, 500) }), {
         status: aiResp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -165,6 +200,7 @@ Deno.serve(async (req) => {
     const raw = aiJson?.choices?.[0]?.message?.content ?? '';
     let parsed: any;
     try { parsed = safeJson(raw); } catch (_) {
+      console.error('AI returned non-JSON', String(raw).slice(0, 200));
       return new Response(JSON.stringify({ error: 'AI returned non-JSON', raw: String(raw).slice(0, 500) }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -177,12 +213,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Service-role to insert (RLS guarded above by userClient ownership check)
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const payload = items.map((it) => ({ ...it, table_id }));
     const { data: inserted, error: insErr } = await admin
       .from('operator_price_items').insert(payload).select('*');
     if (insErr) {
+      console.error('insert failed', insErr.message);
       return new Response(JSON.stringify({ error: insErr.message }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -192,6 +227,7 @@ Deno.serve(async (req) => {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e: any) {
+    console.error('unhandled', e?.message, e?.stack);
     return new Response(JSON.stringify({ error: e?.message ?? 'unknown' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
