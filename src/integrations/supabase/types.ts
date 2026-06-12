@@ -1637,6 +1637,121 @@ export type Database = {
           },
         ]
       }
+      operator_beneficiaries: {
+        Row: {
+          card_number: string
+          cpf: string | null
+          created_at: string
+          date_of_birth: string | null
+          due_day: number | null
+          email: string | null
+          enrolled_at: string | null
+          full_name: string
+          id: string
+          last_payment_at: string | null
+          next_due_date: string | null
+          notes: string | null
+          operator_id: string
+          phone: string | null
+          plan_name: string | null
+          plan_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          card_number: string
+          cpf?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          due_day?: number | null
+          email?: string | null
+          enrolled_at?: string | null
+          full_name: string
+          id?: string
+          last_payment_at?: string | null
+          next_due_date?: string | null
+          notes?: string | null
+          operator_id: string
+          phone?: string | null
+          plan_name?: string | null
+          plan_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          card_number?: string
+          cpf?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          due_day?: number | null
+          email?: string | null
+          enrolled_at?: string | null
+          full_name?: string
+          id?: string
+          last_payment_at?: string | null
+          next_due_date?: string | null
+          notes?: string | null
+          operator_id?: string
+          phone?: string | null
+          plan_name?: string | null
+          plan_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_beneficiaries_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_beneficiary_dependents: {
+        Row: {
+          beneficiary_id: string
+          card_number: string | null
+          cpf: string | null
+          created_at: string
+          date_of_birth: string | null
+          full_name: string
+          id: string
+          relationship: string
+          updated_at: string
+        }
+        Insert: {
+          beneficiary_id: string
+          card_number?: string | null
+          cpf?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name: string
+          id?: string
+          relationship?: string
+          updated_at?: string
+        }
+        Update: {
+          beneficiary_id?: string
+          card_number?: string | null
+          cpf?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          full_name?: string
+          id?: string
+          relationship?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_beneficiary_dependents_beneficiary_id_fkey"
+            columns: ["beneficiary_id"]
+            isOneToOne: false
+            referencedRelation: "operator_beneficiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operator_credentialings: {
         Row: {
           clinic_id: string
