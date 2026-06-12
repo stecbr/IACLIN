@@ -782,16 +782,25 @@ export default function Attendance() {
         )}
       </Tabs>
 
-      <ConsultationPaymentDialog
+      <FinishPaymentDialog
         open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
-        transactionId={createdTransactionId}
-        amount={procedures.reduce((s, p) => s + p.price, 0)}
+        appointmentId={appointment.id}
+        patientId={appointment.patient_id}
         patientName={(appointment as any).patients?.full_name ?? 'Paciente'}
-        patientInsuranceProvider={(appointment as any).patients?.insurance_provider ?? null}
-        paymentAccount={paymentAccount}
-        insurancePlans={insurancePlans}
-        onComplete={() => {
+        clinicId={currentClinicId ?? null}
+        procedures={procedures
+          .filter((p) => p.procedure_id)
+          .map<FinishProcedure>((p) => {
+            const cat = proceduresCatalog.find((c: any) => c.id === p.procedure_id);
+            return {
+              procedure_id: p.procedure_id,
+              name: cat?.name ?? 'Procedimento',
+              code: (cat as any)?.code ?? null,
+              price: Number(p.price) || 0,
+            };
+          })}
+        onCompleted={() => {
           setShowPaymentDialog(false);
           setShowSummary(true);
           queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
