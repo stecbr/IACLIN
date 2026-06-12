@@ -1,69 +1,72 @@
-## Objetivo
-Resolver os 3 itens urgentes: aplicar as 3 migrações pendentes, criar a tela de leitura da Tabela de Valores para clínicas credenciadas, e validar o botão "Encaminhar para operadora".
+# Plano: Tabela de Valores por Estado (Operadora)
 
----
+A página `OperatorPriceTable.tsx` já tem CRUD de tabelas, itens e upload de arquivo. Vou refatorar o fluxo principal para o modelo "por estado" e adicionar parser inteligente.
 
-## 1. Aplicar as 3 migrações pendentes no banco
+## 1. Banco de dados (migração)
 
-As migrações já existem como arquivos SQL mas não foram executadas. Vou aplicá-las via tool de migração (Cloud), em um único migration consolidado para reduzir aprovações:
+Adicionar coluna em `insurance_operators`:
+- `active_states text[] default '{}'` — UFs onde a operadora atua.
 
-- **profiles**: adicionar colunas `phone`, `address`, `address_number`, `address_complement`, `neighborhood`, `city`, `state`, `zip_code` (idempotente — `ADD COLUMN IF NOT EXISTS`).
-- **RPC `get_marketplace_doctor_profiles`**: recriar para retornar os novos campos (phone + endereço completo) + `GRANT EXECUTE` para anon/authenticated.
-- **Tabela de Valores**: criar `operator_price_tables`, `operator_price_items`, `operator_price_files` com GRANTs (`authenticated` + `service_role`), RLS habilitado e políticas:
-  - membros da operadora: full access
-  - clínicas credenciadas (via `operator_credentialings` + `clinic_members`): apenas SELECT
+Garantir índice em `operator_price_tables(operator_id, state)` para busca rápida.
 
-Observação: os arquivos `.sql` originais não têm GRANTs explícitos — o migration consolidado vai incluir os GRANTs corretos conforme padrão do projeto.
+Bucket `operator-price-files` (privado) para armazenar PDFs/planilhas originais — RLS: membros da operadora dona da tabela.
 
----
+## 2. UI: seletor de estados (topo da página)
 
-## 2. Tela de leitura da Tabela de Valores para clínicas
+Substituir o atual seletor de "tabela ativa" por um fluxo de 2 níveis:
 
-**Nova rota:** `/clinica/convenios` (item de menu na sidebar da clínica, grupo Clínica).
+**Nível 1 — Grid de estados ativos** (cards destacados no topo):
+- Cada UF ativa = card com sigla grande, nome, contador de procedimentos cadastrados, badge de status (vigência).
+- Botão "+ Adicionar estado" abre um popover com grid de todas as 27 UFs (as não-selecionadas em cinza); clicar adiciona à lista ativa (atualiza `active_states`).
+- Seção colapsável "Ver outros estados" mostra UFs inativas em formato compacto.
 
-**Página `src/pages/clinica/ClinicaConvenios.tsx`:**
-- Header com PageHeader ("Convênios e Tabelas de Valores", descrição).
-- Query 1: lista das operadoras nas quais a clínica tem credenciamento aprovado (`operator_credentialings` filtrando por `clinic_id` da clínica atual e `status = 'approved'`, join com `insurance_operators`).
-- Estado vazio: card informando "Sua clínica ainda não está credenciada com nenhuma operadora."
-- **Select de operadora** no topo (com logo + nome).
-- Query 2: ao selecionar operadora, busca `operator_price_tables` ativas dela.
-- **Select de tabela** (caso a operadora tenha mais de uma — por região/vigência).
-- Query 3: `operator_price_items` da tabela escolhida.
+**Nível 2 — Visão do estado** (ao clicar num card):
+- Header com UF + vigência + ações (Upload, Adicionar manual, Voltar).
+- Se não existir tabela vigente para a UF, criar automaticamente ao primeiro upload/cadastro.
+- Lista de procedimentos em `<Table>` responsiva: Procedimento · TUSS · Tipo Cobrança · Valor Base (US/UCO) · Valor R$ · Ações.
+- Busca + filtro por categoria mantidos.
 
-**UI da listagem de procedimentos (modo leitura):**
-- Barra de busca (filtra por `procedure_name` ou `tuss_code`).
-- Filtro por categoria (chips).
-- Lista agrupada por categoria com cabeçalho colapsável e contador.
-- Cada item mostra: nome, TUSS, tipo de cobrança (badge), valor R$ em destaque, planos cobertos como chips, ícones para RX/foto obrigatórios.
-- Botão "Detalhes" abre Dialog com observações e longevidade.
-- **Somente leitura** — sem edição, sem exclusão.
+## 3. Edição inline
 
-**Acesso:** disponível para qualquer membro da clínica (admin, dentista, secretária) — todos precisam consultar valores no atendimento.
+Cada célula editável vira `<input>` ao clicar (Procedimento, TUSS, Tipo, Valor US, Valor R$). Salva no blur com `update` em `operator_price_items`. Feedback otimista + toast em erro.
 
-**Wiring:**
-- Registrar rota em `src/App.tsx` dentro de `ProtectedRoute`.
-- Adicionar entrada no `AppSidebar.tsx` (grupo Clínica, ícone `Receipt` ou `DollarSign`).
-- Garantir que `useRoleAccess` libere a rota para os 3 papéis.
+Botão lixeira por linha (já existe).
 
----
+## 4. Upload de planilha/PDF com parser IA
 
-## 3. Botão "Encaminhar para operadora"
+Nova edge function `parse-price-table`:
+- Recebe `table_id` + arquivo (PDF/XLSX/CSV).
+- XLSX/CSV: lê via `xlsx` (npm) → texto/CSV.
+- PDF: extrai texto via `pdf-parse` (npm) ou converte para texto antes de mandar.
+- Chama Lovable AI (`google/gemini-2.5-flash`) com prompt pedindo JSON estruturado:
+  ```
+  [{ category, procedure_name, tuss_code, charge_type, value_us, value_brl, observations, rx_required, photo_required, longevity, plan_coverage }]
+  ```
+- Insere em lote em `operator_price_items` e grava registro em `operator_price_files` com URL do storage para download.
+- Retorna `{ inserted: N, items: [...] }`.
 
-Já existe e está implementado em `src/pages/SupportTickets.tsx` (linha 781–832) com lógica `handleForward` que muda status de `pending_owner` → `open`. Ação:
+Frontend:
+- Botão "Importar arquivo" → input file → mostra progresso ("Lendo arquivo…", "Interpretando com IA…", "Salvando N procedimentos…").
+- Ao terminar, a tabela é recarregada e o usuário pode revisar/editar inline qualquer campo que a IA leu errado.
+- Card "Arquivos originais" lista os PDFs/planilhas com botão download (signed URL).
 
-- **Verificar** rapidamente lendo o handler `handleForward` para confirmar que ele faz `update({ status: 'open', operator_id })` corretamente e atualiza a lista.
-- Se houver bug (ex: faltando atualizar local state ou faltando `operator_id`), corrigir.
-- Sem alterações de UI previstas.
+## 5. Cadastro manual
 
----
+Manter o dialog atual (já tem todos os campos). Garantir que o `state` é herdado da UF aberta automaticamente.
 
 ## Arquivos afetados
-- (nova migração consolidada via tool de migração)
-- `src/pages/clinica/ClinicaConvenios.tsx` (novo)
-- `src/App.tsx` (rota)
-- `src/components/AppSidebar.tsx` (item de menu)
-- `src/hooks/useRoleAccess.ts` (liberar rota se necessário)
-- `src/pages/SupportTickets.tsx` (somente se `handleForward` estiver com bug)
 
-## Fora do escopo (Prioridade 4)
-Agrupamento por categoria no lado do operador, export PDF/Excel e edição inline ficam para depois — exceto o agrupamento no lado da clínica, que já entra naturalmente nesta tela de leitura.
+- `supabase/migrations/<novo>.sql` — coluna `active_states`, bucket `operator-price-files`, RLS.
+- `supabase/functions/parse-price-table/index.ts` — nova edge function.
+- `src/pages/operadora/OperatorPriceTable.tsx` — refatoração completa (seletor de estados + visão de estado + edição inline + integração da função).
+- `src/lib/brazilStates.ts` — lista de 27 UFs (sigla + nome) se ainda não existir.
+
+## Fora deste escopo
+
+- Edição inline de observações longas / requisitos (RX, foto, longevidade): mantém dialog separado.
+- Versionamento histórico de tabelas (apenas vigência atual).
+- Exportação para Excel/PDF.
+
+## Dúvida rápida
+
+A operadora deve ter **uma única tabela vigente por UF** (modelo simples — todas as alterações vão na mesma tabela) ou **múltiplas tabelas por UF com vigências diferentes** (já suportado hoje, mais complexo na UI)? Vou assumir **uma tabela vigente por UF** salvo indicação contrária.
