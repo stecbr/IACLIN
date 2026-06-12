@@ -310,26 +310,21 @@ export default function OperatorPriceTable() {
       .single();
     if (fileRec) setFiles((prev) => [fileRec as PriceFile, ...prev]);
 
-    // base64 (chunked to avoid stack overflow)
     setUploadStage('ai');
-    const buf = new Uint8Array(await file.arrayBuffer());
-    let binary = '';
-    const CHUNK = 0x8000;
-    for (let i = 0; i < buf.length; i += CHUNK) {
-      binary += String.fromCharCode.apply(null, buf.subarray(i, i + CHUNK) as unknown as number[]);
-    }
-    const base64 = btoa(binary);
-
     try {
       const { data, error } = await supabase.functions.invoke('parse-price-table', {
         body: {
           table_id: table.id,
-          file_base64: base64,
+          storage_path: path,
           file_name: file.name,
           mime_type: file.type,
         },
       });
-      if (error) throw error;
+      if (error) {
+        const detail = (data as any)?.error || (data as any)?.detail || error.message;
+        throw new Error(detail);
+      }
+      if ((data as any)?.error) throw new Error((data as any).error);
       const inserted = (data as any)?.inserted ?? 0;
       setUploadStage('saving');
       const { data: refreshed } = await supabase
