@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Search, Receipt, Building2, MapPin, CalendarDays, Camera, FileImage,
-  Eye, Loader2, ChevronDown, ChevronRight, Info, FileText, Download,
+  Eye, Loader2, ChevronDown, ChevronRight, Info, FileText, Download, ArrowLeft,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,6 +67,9 @@ const sb = supabase as any; // types não regenerados ainda
 
 export default function ClinicaConvenios() {
   const { currentClinicId } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectOperator = searchParams.get('operator');
 
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [tables, setTables] = useState<PriceTable[]>([]);
@@ -402,9 +406,6 @@ export default function ClinicaConvenios() {
                         <div className="flex items-center gap-2 md:justify-end">
                           <div className="text-right">
                             <p className="text-base font-semibold">{brl(it.value_brl)}</p>
-                            {it.value_us != null && (
-                              <p className="text-[10px] text-muted-foreground">US$ {it.value_us}</p>
-                            )}
                           </div>
                           <Button variant="ghost" size="icon" onClick={() => setDetail(it)} title="Detalhes">
                             <Eye className="h-4 w-4" />
