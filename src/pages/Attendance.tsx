@@ -21,7 +21,7 @@ import { HypothesesEditor, type Hypothesis } from '@/components/attendance/Hypot
 import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
 import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
-import { ConsultationPaymentDialog } from '@/components/attendance/ConsultationPaymentDialog';
+import { FinishPaymentDialog, type FinishProcedure } from '@/components/attendance/FinishPaymentDialog';
 import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
 import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
 import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
@@ -59,7 +59,6 @@ export default function Attendance() {
   const [showSummary, setShowSummary] = useState(false);
   const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [createdTransactionId, setCreatedTransactionId] = useState<string | null>(null);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
