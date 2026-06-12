@@ -39,6 +39,15 @@ Deno.serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const md = session.metadata ?? {};
+        // Pagamento de consulta (não-assinatura)
+        if (md.consultation_transaction_id) {
+          await admin.from('financial_transactions').update({
+            status: 'paid',
+            paid_date: new Date().toISOString().slice(0, 10),
+            payment_method: 'stripe',
+          }).eq('id', md.consultation_transaction_id);
+          break;
+        }
         const planId = md.plan_id;
         const entityType = md.entity_type;
         const entityId = md.entity_id;
