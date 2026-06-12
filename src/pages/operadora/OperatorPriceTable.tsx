@@ -129,7 +129,7 @@ export default function OperatorPriceTable() {
   const [loadingContent, setLoadingContent] = useState(false);
 
   const [search, setSearch] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('__all__');
   const [showOthers, setShowOthers] = useState(false);
 
   // dialogs
@@ -364,7 +364,7 @@ export default function OperatorPriceTable() {
   const filteredItems = items.filter((it) => {
     const q = search.toLowerCase();
     const matchQ = !q || it.procedure_name.toLowerCase().includes(q) || (it.tuss_code ?? '').toLowerCase().includes(q);
-    const matchCat = !filterCategory || it.category === filterCategory;
+    const matchCat = filterCategory === '__all__' || it.category === filterCategory;
     return matchQ && matchCat;
   });
   const categories = [...new Set(items.map((i) => i.category))].sort();
@@ -447,12 +447,12 @@ export default function OperatorPriceTable() {
               <Select value={filterCategory} onValueChange={setFilterCategory}>
                 <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Categoria" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as categorias</SelectItem>
+                  <SelectItem value="__all__">Todas as categorias</SelectItem>
                   {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
-              {(search || filterCategory) && (
-                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setSearch(''); setFilterCategory(''); }}>
+              {(search || filterCategory !== '__all__') && (
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setSearch(''); setFilterCategory('__all__'); }}>
                   <X className="h-4 w-4" />
                 </Button>
               )}
