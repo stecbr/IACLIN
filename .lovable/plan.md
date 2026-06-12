@@ -1,24 +1,15 @@
-## Causa
+## Diagnóstico
 
-A tela "Minhas configurações" do paciente grava `address_complement`, `address_number` e `neighborhood` em `patients`, mas a tabela só tem `address`, `city`, `state`, `zip_code`. Resultado: PostgREST devolve `Could not find the 'address_complement' column of 'patients' in the schema cache` e o salvar quebra (inclusive ao trocar foto, porque é um único upsert).
-
-Colunas atuais de `patients` relacionadas a endereço: `address`, `city`, `state`, `zip_code`.
-Faltando: `address_number`, `address_complement`, `neighborhood`.
+As 3 colunas (`address_number`, `address_complement`, `neighborhood`) já existem em `public.patients` — confirmado via consulta ao `information_schema`. O erro `Could not find the 'address_complement' column of 'patients' in the schema cache` agora é causado pelo **cache do PostgREST** que ainda não recarregou o schema após a migration.
 
 ## Correção
 
-Migration única adicionando as 3 colunas faltantes:
+Migration de 1 linha que dispara o reload do schema cache do PostgREST:
 
 ```sql
-ALTER TABLE public.patients
-  ADD COLUMN IF NOT EXISTS address_number text,
-  ADD COLUMN IF NOT EXISTS address_complement text,
-  ADD COLUMN IF NOT EXISTS neighborhood text;
+NOTIFY pgrst, 'reload schema';
 ```
 
-Sem mudança de RLS (políticas existentes já cobrem todas as colunas da linha) e sem alterações no front — o formulário já envia esses campos.
+Depois disso o salvar de `/paciente/configuracoes` (endereço + foto) deve funcionar. Confirmo via `supabase--read_query` que as colunas estão lá e oriento o usuário a recarregar a página (Ctrl+F5) para limpar qualquer cache do cliente.
 
-## Fora de escopo
-
-- `patient_accounts` já recebeu `gender`, `rg`, `profession` na migration anterior.
-- Outros campos do formulário do paciente já existem nas tabelas correspondentes.
+Sem alterações de frontend.
