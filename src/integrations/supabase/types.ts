@@ -2173,6 +2173,7 @@ export type Database = {
           address: string | null
           address_complement: string | null
           address_number: string | null
+          categories: string[] | null
           city: string | null
           clinic_id: string | null
           cpf: string | null
@@ -2180,19 +2181,30 @@ export type Database = {
           date_of_birth: string | null
           dentist_id: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           full_name: string
           gender: string | null
+          guardian_cpf: string | null
+          guardian_date_of_birth: string | null
+          guardian_name: string | null
           id: string
+          insurance_holder: string | null
+          insurance_holder_cpf: string | null
           insurance_number: string | null
           insurance_provider: string | null
           is_active: boolean
+          is_foreign: boolean
+          landline: string | null
           neighborhood: string | null
           notes: string | null
           patient_user_id: string | null
           phone: string | null
           photo_url: string | null
           profession: string | null
+          referral_source: string | null
           rg: string | null
+          sms_reminders: boolean
           state: string | null
           updated_at: string
           zip_code: string | null
@@ -2201,6 +2213,7 @@ export type Database = {
           address?: string | null
           address_complement?: string | null
           address_number?: string | null
+          categories?: string[] | null
           city?: string | null
           clinic_id?: string | null
           cpf?: string | null
@@ -2208,19 +2221,30 @@ export type Database = {
           date_of_birth?: string | null
           dentist_id?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name: string
           gender?: string | null
+          guardian_cpf?: string | null
+          guardian_date_of_birth?: string | null
+          guardian_name?: string | null
           id?: string
+          insurance_holder?: string | null
+          insurance_holder_cpf?: string | null
           insurance_number?: string | null
           insurance_provider?: string | null
           is_active?: boolean
+          is_foreign?: boolean
+          landline?: string | null
           neighborhood?: string | null
           notes?: string | null
           patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
           profession?: string | null
+          referral_source?: string | null
           rg?: string | null
+          sms_reminders?: boolean
           state?: string | null
           updated_at?: string
           zip_code?: string | null
@@ -2229,6 +2253,7 @@ export type Database = {
           address?: string | null
           address_complement?: string | null
           address_number?: string | null
+          categories?: string[] | null
           city?: string | null
           clinic_id?: string | null
           cpf?: string | null
@@ -2236,19 +2261,30 @@ export type Database = {
           date_of_birth?: string | null
           dentist_id?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name?: string
           gender?: string | null
+          guardian_cpf?: string | null
+          guardian_date_of_birth?: string | null
+          guardian_name?: string | null
           id?: string
+          insurance_holder?: string | null
+          insurance_holder_cpf?: string | null
           insurance_number?: string | null
           insurance_provider?: string | null
           is_active?: boolean
+          is_foreign?: boolean
+          landline?: string | null
           neighborhood?: string | null
           notes?: string | null
           patient_user_id?: string | null
           phone?: string | null
           photo_url?: string | null
           profession?: string | null
+          referral_source?: string | null
           rg?: string | null
+          sms_reminders?: boolean
           state?: string | null
           updated_at?: string
           zip_code?: string | null
