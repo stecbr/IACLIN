@@ -142,6 +142,7 @@ export default function OperatorPriceTable() {
 
   // upload progress
   const [uploadStage, setUploadStage] = useState<null | 'reading' | 'ai' | 'saving'>(null);
+  const [previewFile, setPreviewFile] = useState<PriceFileLike | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── load operator + tables ─────────────────────────────────────────────
@@ -578,6 +579,14 @@ export default function OperatorPriceTable() {
                         <p className="text-sm font-medium truncate">{f.file_name}</p>
                         <p className="text-xs text-muted-foreground">{fmtSize(f.file_size)} · {fmtDate(f.created_at)}</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFile(f)}
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                        title="Visualizar"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDownloadFile(f)}
