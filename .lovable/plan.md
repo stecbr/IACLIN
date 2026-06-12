@@ -1,70 +1,52 @@
 ## Objetivo
 
-Nova página `/operadora/beneficiarios` listando os clientes da operadora (titulares + dependentes), com carteirinha, plano, status da mensalidade, e drill-down com histórico de atendimentos e gastos detalhados — cruzando o cadastro próprio da operadora com os pacientes atendidos pela rede credenciada.
+1. Na página da operadora (`/operadora/tabela-valores` → aba "Arquivos importados"): adicionar botão de **olho** ao lado do download para visualizar o PDF/arquivo dentro da plataforma, sem precisar baixar.
+2. No painel da clínica (`/clinica/convenios` — "Convênios e Tabelas de Valores"): permitir que dentista/dono/secretária visualize (read-only) os PDFs originais da tabela da operadora credenciada — somente leitura, sem editar.
 
-## 1. Banco de dados (migration)
+## 1. Visualizador inline de PDF/arquivo (componente reutilizável)
 
-Criar 2 tabelas novas (escopo da operadora):
+Novo componente `src/components/operadora/PriceFileViewerDialog.tsx`:
+- Dialog (fade-only) full-width com header `nome do arquivo + tamanho + data` e ações (Baixar / Fechar).
+- Body: `<iframe src={signedUrl} />` ocupando ~80vh.
+- PDF → renderiza nativo no iframe. XLSX/CSV → mostra aviso "Pré-visualização não disponível para este formato" + botão Baixar (browsers não renderizam planilhas inline).
+- Gera URL assinada via `supabase.storage.from('operator-price-files').createSignedUrl(path, 600)` ao abrir.
 
-**`operator_beneficiaries`** — titulares
-- `operator_id`, `full_name`, `cpf`, `card_number` (carteirinha), `plan_name`, `plan_type` (individual/familiar/empresarial), `status` (em_dia | inadimplente | suspenso | cancelado), `due_day` (1–31), `last_payment_at`, `next_due_date`, `phone`, `email`, `date_of_birth`, `enrolled_at`, `notes`
-- Index em `operator_id`, `cpf`, `card_number`
-- RLS: somente membros da operadora (`user_belongs_to_operator`)
-- GRANT para authenticated + service_role
+## 2. Botão olho na página da operadora
 
-**`operator_beneficiary_dependents`** — dependentes
-- `beneficiary_id` (FK → titular, ON DELETE CASCADE), `full_name`, `cpf`, `card_number`, `relationship` (cônjuge/filho/pai/outro), `date_of_birth`
-- RLS herdada por EXISTS no titular
-- GRANT igual
+Em `OperatorPriceTable.tsx`, na lista `files.map(...)`:
+- Adicionar `<button>` com ícone `Eye` (lucide) **antes** do botão Download.
+- onClick abre `PriceFileViewerDialog` com o registro.
 
-Sem alteração nas tabelas existentes (`patients`, `appointments`, `operator_credentialings`).
+## 3. Acesso da clínica aos arquivos
 
-## 2. Edge Function: `operator-beneficiary-spend`
+### 3.1 Backend: RLS no Storage
+Nova política SELECT em `storage.objects` (bucket `operator-price-files`) permitindo membros de clínica com credenciamento aprovado:
 
-Função read-only que recebe `{ beneficiary_id }` e retorna gastos consolidados (titular + dependentes):
+```sql
+CREATE POLICY "Credentialed clinic members read price files"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'operator-price-files'
+  AND EXISTS (
+    SELECT 1 FROM operator_credentialings oc
+    JOIN clinic_members cm ON cm.clinic_id = oc.clinic_id
+    WHERE cm.user_id = auth.uid()
+      AND oc.status = 'approved'
+      AND oc.operator_id::text = split_part(objects.name, '/', 2)
+  )
+);
+```
 
-- Resolve CPFs (titular + dependentes) a partir das duas tabelas.
-- Busca `patients.id` cujos `cpf` batem **e** cuja `clinic_id` pertence à rede credenciada (`operator_credentialings` com `status='approved'` da operadora).
-- Busca `appointments` desses pacientes em clínicas credenciadas, com `status='completed'`, junta com `procedures`, `profiles` (dentista) e `clinics`.
-- Para cada atendimento, calcula valor cobrado consultando `operator_price_items` (match por `procedure_code` ou `procedure_name` dentro de `operator_price_tables` da operadora, pegando a vigente). Se não houver match, valor = null.
-- Retorna:
-  - `attendances[]`: data, paciente (titular/dependente), clínica, profissional, procedimento, valor
-  - `summary`: total geral, por mês (últimos 12), top procedimentos, top clínica, contagem por status
-  - `members[]`: titular + dependentes com subtotal cada
+### 3.2 Backend: RLS na tabela `operator_price_files`
+Adicionar policy SELECT idêntica em escopo (clínica credenciada com a operadora dona da tabela). Hoje só operadora lê — clínica não enxerga as linhas.
 
-Usa service role; valida que o `operator_id` da beneficiária bate com a operadora do `auth.uid()` via `user_belongs_to_operator`.
-
-## 3. Frontend
-
-**`src/pages/operadora/OperatorBeneficiaries.tsx`** (nova página)
-- Header com busca (nome, CPF, carteirinha) + filtros (plano, status, com/sem dependentes)
-- Botão "Adicionar beneficiário" e "Importar planilha" (CSV/Excel — fica como placeholder simples no MVP: importa CSV via parser local, cria linhas em `operator_beneficiaries`)
-- Tabela (shadcn) com colunas: Nome, CPF, Carteirinha, Plano, Tipo, Status (badge colorido), Vencimento, Dependentes (contador), Ações
-- Linha clicável → abre Dialog de detalhes (fade-in/out per memória)
-
-**Dialog `BeneficiaryDetailDialog.tsx`**
-- Abas: **Resumo** | **Dependentes** | **Atendimentos** | **Financeiro**
-- Resumo: dados cadastrais, status, vencimento, totais (gasto 12m, atendimentos 12m)
-- Dependentes: tabela editável (add/remove/edit)
-- Atendimentos: lista cronológica vinda da edge function, agrupada por mês, mostrando paciente (titular ou nome do dependente), clínica, profissional, procedimento, valor cobrado
-- Financeiro: cards (total acumulado, ticket médio, top procedimento, top clínica) + gráfico de gastos mensais (Recharts BarChart, 12 meses)
-
-**Dialog `BeneficiaryFormDialog.tsx`**
-- Cadastro/edição de titular (campos da tabela). Status e vencimento editáveis manualmente. Suporte a cadastrar dependentes na mesma tela.
-
-**Rotas** — adicionar `/operadora/beneficiarios` em `App.tsx` e item "Beneficiários" no `OperatorLayout.tsx`.
-
-## 4. Detalhes técnicos
-
-- Match titular ↔ paciente por CPF normalizado (regex `\D` → '').
-- "Em dia" calculado por status manual; quando importado via CSV o status sobrescreve. Badge: verde (em_dia), amarelo (próximo do vencimento ≤7 dias), vermelho (inadimplente/suspenso).
-- Valor por procedimento: lookup case-insensitive em `operator_price_items.procedure_name` da tabela vigente (operator_price_tables com `valid_from <= now() <= valid_until` ou a mais recente ativa).
-- Sem alterações em `patients`/`appointments`; operadora apenas lê via edge function.
-- Padrão visual: cards rounded-xl, badges shadcn, animações fade-only.
+### 3.3 Frontend
+Em `src/pages/clinica/ClinicaConvenios.tsx` (já lista tabelas por operadora):
+- Buscar `operator_price_files` da tabela selecionada (`table_id`).
+- Renderizar seção "Arquivos da tabela (somente leitura)" abaixo do seletor de tabela: lista de arquivos com nome, tamanho, data, **botão olho** (abre `PriceFileViewerDialog`) e **botão download**. Sem upload, sem delete.
 
 ## Fora de escopo
 
-- Cobrança/pagamento real de mensalidades (não somos processadora).
-- Geração automática de fatura para beneficiário.
-- Importação por planilha com IA (CSV simples manual; parser IA pode vir depois).
-- Edição de dados do paciente (patients) pela operadora.
+- Editar arquivos pela clínica.
+- Visualizador customizado de planilhas (XLSX/CSV) — só aviso + download.
+- Notificações de novo arquivo enviado pela operadora.
