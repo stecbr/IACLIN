@@ -474,6 +474,58 @@ export default function ClinicaConvenios() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Arquivos enviados pela operadora (somente leitura) */}
+      {tableId && files.length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Arquivos originais da operadora</p>
+                <p className="text-xs text-muted-foreground">PDFs e planilhas enviados pela operadora. Somente leitura.</p>
+              </div>
+              <Badge variant="secondary">{files.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {files.map((f) => (
+                <div key={f.id} className="flex items-center gap-3 rounded-lg border p-2.5">
+                  <div className="rounded-md bg-primary/10 p-2 shrink-0">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{f.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtSize(f.file_size)} · {format(parseISO(f.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFile(f)}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                    title="Visualizar"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadFile(f)}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+                    title="Baixar"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <PriceFileViewerDialog
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(o) => { if (!o) setPreviewFile(null); }}
+      />
     </div>
   );
 }
