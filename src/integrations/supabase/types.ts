@@ -1418,6 +1418,7 @@ export type Database = {
       }
       insurance_operators: {
         Row: {
+          active_states: string[]
           ans_code: string | null
           brand_color: string | null
           cnpj: string | null
@@ -1436,6 +1437,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_states?: string[]
           ans_code?: string | null
           brand_color?: string | null
           cnpj?: string | null
@@ -1454,6 +1456,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_states?: string[]
           ans_code?: string | null
           brand_color?: string | null
           cnpj?: string | null
