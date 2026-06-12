@@ -237,6 +237,9 @@ export default function ClinicaConvenios() {
   if (loadingOps) {
     return (
       <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/clinica/credenciamentos')} className="-ml-2">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para credenciamentos
+        </Button>
         <PageHeader title="Convênios e Tabelas de Valores" description="Valores acordados com as operadoras credenciadas." />
         <Card><CardContent className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></CardContent></Card>
       </div>
@@ -246,6 +249,9 @@ export default function ClinicaConvenios() {
   if (operators.length === 0) {
     return (
       <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/clinica/credenciamentos')} className="-ml-2">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para credenciamentos
+        </Button>
         <PageHeader title="Convênios e Tabelas de Valores" description="Valores acordados com as operadoras credenciadas." />
         <Card>
           <CardContent className="p-10 text-center space-y-2">
@@ -260,6 +266,9 @@ export default function ClinicaConvenios() {
 
   return (
     <div className="space-y-6">
+      <Button variant="ghost" size="sm" onClick={() => navigate('/clinica/credenciamentos')} className="-ml-2 w-fit">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para credenciamentos
+      </Button>
       <PageHeader title="Convênios e Tabelas de Valores" description="Consulte os valores acordados com as operadoras credenciadas." />
 
       {/* Seletor operadora + tabela */}
