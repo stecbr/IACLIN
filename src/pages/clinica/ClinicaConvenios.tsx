@@ -114,7 +114,12 @@ export default function ClinicaConvenios() {
         // dedupe
         const dedup = Array.from(new Map(list.map((o) => [o.id, o])).values());
         setOperators(dedup);
-        if (dedup.length && !operatorId) setOperatorId(dedup[0].id);
+        if (dedup.length && !operatorId) {
+          const pre = preselectOperator && dedup.some((o) => o.id === preselectOperator)
+            ? preselectOperator
+            : dedup[0].id;
+          setOperatorId(pre);
+        }
       }
       setLoadingOps(false);
     })();
