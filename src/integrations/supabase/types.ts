@@ -1193,7 +1193,10 @@ export type Database = {
           description: string | null
           due_date: string
           id: string
+          insurance_invoice_period: string | null
+          insurance_invoice_status: string | null
           notes: string | null
+          operator_id: string | null
           paid_date: string | null
           patient_id: string | null
           payment_method: string | null
@@ -1216,7 +1219,10 @@ export type Database = {
           description?: string | null
           due_date: string
           id?: string
+          insurance_invoice_period?: string | null
+          insurance_invoice_status?: string | null
           notes?: string | null
+          operator_id?: string | null
           paid_date?: string | null
           patient_id?: string | null
           payment_method?: string | null
@@ -1239,7 +1245,10 @@ export type Database = {
           description?: string | null
           due_date?: string
           id?: string
+          insurance_invoice_period?: string | null
+          insurance_invoice_status?: string | null
           notes?: string | null
+          operator_id?: string | null
           paid_date?: string | null
           patient_id?: string | null
           payment_method?: string | null
@@ -1260,6 +1269,13 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
             referencedColumns: ["id"]
           },
           {
