@@ -115,7 +115,7 @@ function PhoneInput({ value, onChange, placeholder, id }: {
 /* ─────────────────────────── Profile Section ─────────────────────────── */
 
 function ProfileSection() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, profile, refreshClinics } = useAuth();
   const { account, loading, refetch, patientIds } = usePatientData();
   const photoRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -156,7 +156,7 @@ function ProfileSection() {
       rg: account.rg ?? p.rg ?? '',
       profession: account.profession ?? p.profession ?? '',
       notes: p.notes ?? '',
-      photo_url: p.photo_url ?? '',
+      photo_url: profile?.avatar_url ?? p.photo_url ?? '',
       sms_reminders: p.sms_reminders ?? true,
       emergency_contact_name: p.emergency_contact_name ?? '',
       emergency_contact_phone: p.emergency_contact_phone ?? '',
@@ -174,7 +174,7 @@ function ProfileSection() {
       insurance_number: account.insurance_number ?? p.insurance_number ?? '',
       insurance_holder_cpf: p.insurance_holder_cpf ?? '',
     });
-  }, [account, patientRecord]);
+  }, [account, patientRecord, profile?.avatar_url]);
 
   const set = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -265,11 +265,16 @@ function ProfileSection() {
 
     const ops: any[] = [
       supabase.from('patient_accounts').update(accPatch).eq('id', account.id),
-      supabase.from('profiles').update({ full_name: form.full_name.trim(), phone: form.phone || null }).eq('id', user.id),
+      supabase.from('profiles').update({
+        full_name: form.full_name.trim(),
+        phone: form.phone || null,
+        avatar_url: form.photo_url || null,
+      }).eq('id', user.id),
     ];
     if (patientIds.length > 0) {
-      // Write only to the record the user is currently viewing (patientIds[0])
-      ops.push(supabase.from('patients').update(patientPatch).eq('id', patientIds[0]));
+      // Update every patients row linked to this user so the photo and
+      // personal data stay consistent across clinic records.
+      ops.push(supabase.from('patients').update(patientPatch).eq('patient_user_id', user.id));
     }
 
     const results = await Promise.all(ops);
@@ -278,6 +283,7 @@ function ProfileSection() {
     if (err) return toast.error(err.message);
     toast.success('Perfil atualizado!');
     refetch();
+    refreshClinics();
   };
 
   const initials = (form.full_name || user?.email || 'P')
