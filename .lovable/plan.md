@@ -1,37 +1,21 @@
 Do I know what the issue is? Sim.
 
-O problema não é mais o F5/cache do navegador. A tela `/paciente/configuracoes` está tentando salvar campos que existem no formulário, mas ainda não existem de verdade na tabela `patients` do backend.
+O problema da foto não é F5: a foto foi salva em `patients.photo_url`, mas o cartão lateral do paciente mostra a imagem de `profiles.avatar_url`. No banco, o usuário do Flavio está com `profiles.avatar_url` vazio, então a sidebar cai no fallback das iniciais “FB”. Também há vários registros em `patients` ligados ao mesmo login, então a tela pode ler/salvar foto em um registro diferente dependendo da ordem retornada.
 
-Hoje confirmei que `address_complement`, `address_number` e `neighborhood` já existem. O erro atual aparece em `emergency_contact_name` porque esse é o próximo campo ausente enviado no salvamento. Se eu adicionasse só esse campo, provavelmente apareceria outro erro em seguida, como `landline`, `sms_reminders`, `is_foreign`, `guardian_name`, etc.
+Plano de correção:
 
-Plano de ajuste:
+1. Unificar a fonte da foto do paciente
+   - Quando o paciente alterar a foto em `/paciente/configuracoes`, salvar a URL também em `profiles.avatar_url`, que é o campo usado pela sidebar.
+   - Manter `patients.photo_url` atualizado para compatibilidade com prontuário e áreas clínicas.
 
-1. Corrigir o schema da tabela `patients`
-   - Adicionar todos os campos que a área de Configurações do Paciente já usa:
-     - telefone fixo
-     - lembretes automáticos
-     - paciente estrangeiro
-     - contato de emergência
-     - responsável/guardião
-     - titular/CPF do convênio
-     - origem/categorias usadas no cadastro clínico de pacientes
-   - Usar `ADD COLUMN IF NOT EXISTS` para não quebrar os campos que já foram criados.
-   - Recarregar o schema da API do backend no final da migração.
+2. Evitar divergência entre registros duplicados do mesmo paciente
+   - Ajustar o salvamento para atualizar todos os registros `patients` vinculados ao `patient_user_id` do usuário logado, não apenas o primeiro ID retornado.
+   - Ajustar a leitura para preferir a foto existente em `profiles.avatar_url` e, se não houver, usar `patients.photo_url`.
 
-2. Alinhar o código da tela para evitar novos erros em cascata
-   - Revisar `src/pages/patient/PatientSettings.tsx`.
-   - Garantir que ela só envie campos suportados pela tabela.
-   - Melhorar a mensagem de erro para ficar clara caso algum campo falhe novamente.
+3. Atualizar a sidebar imediatamente após salvar
+   - Depois do salvamento, recarregar os dados do contexto do usuário para a sidebar trocar de “FB” para a foto sem precisar sair e entrar novamente.
 
-3. Alinhar o cadastro/edição de pacientes da clínica
-   - Revisar `src/components/patients/PatientFormDialog.tsx`, porque ele usa quase os mesmos campos.
-   - Assim a correção não fica limitada ao paciente logado e não quebra quando a clínica editar o mesmo paciente.
-
-4. Atualizar os tipos do backend
-   - Depois da migração aprovada/executada, atualizar `src/integrations/supabase/types.ts` para refletir os campos reais.
-
-5. Testar antes de concluir
-   - Confirmar via consulta que os campos existem em `patients`.
-   - Testar a gravação da tela `/paciente/configuracoes` com os campos que estão falhando.
-   - Verificar a requisição de salvamento no preview para garantir que não retorna mais `Could not find column in schema cache`.
-   - Só concluir depois de validar que o salvamento funciona sem esse erro.
+4. Testar antes de concluir
+   - Verificar no banco que `profiles.avatar_url` do Flavio recebeu a URL da foto.
+   - Verificar que os registros `patients` vinculados ao login também ficaram com `photo_url` preenchido.
+   - Testar a tela `/paciente/configuracoes` no preview e confirmar que a foto aparece tanto no formulário quanto na sidebar, sem erro de schema cache.
