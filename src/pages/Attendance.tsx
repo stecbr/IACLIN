@@ -442,40 +442,11 @@ export default function Attendance() {
       if (aptError) throw aptError;
       endSession(appointment.id);
 
-      // Create financial transaction
-      const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
-      let newTransactionId: string | null = null;
-      if (totalAmount > 0) {
-        const { data: txData, error: txError } = await supabase
-          .from('financial_transactions')
-          .insert({
-            patient_id: appointment.patient_id,
-            appointment_id: appointment.id,
-            dentist_id: user.id,
-            clinic_id: currentClinicId ?? null,
-            type: 'income',
-            category: 'consultation',
-            description: `Atendimento - ${(appointment as any).patients?.full_name}`,
-            amount: totalAmount,
-            due_date: format(new Date(), 'yyyy-MM-dd'),
-            status: 'pending',
-          })
-          .select('id')
-          .single();
-        if (txError) throw txError;
-        newTransactionId = txData?.id ?? null;
-      }
-
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
       setFinishedNavigatePending(true);
-
-      if (totalAmount > 0 && newTransactionId) {
-        setCreatedTransactionId(newTransactionId);
-        setShowPaymentDialog(true);
-      } else {
-        setShowSummary(true);
-      }
+      // SEMPRE abrir o modal de forma de pagamento
+      setShowPaymentDialog(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
