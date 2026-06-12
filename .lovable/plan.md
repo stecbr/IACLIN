@@ -1,52 +1,43 @@
-## Objetivo
+## Mudanças solicitadas
 
-1. Na página da operadora (`/operadora/tabela-valores` → aba "Arquivos importados"): adicionar botão de **olho** ao lado do download para visualizar o PDF/arquivo dentro da plataforma, sem precisar baixar.
-2. No painel da clínica (`/clinica/convenios` — "Convênios e Tabelas de Valores"): permitir que dentista/dono/secretária visualize (read-only) os PDFs originais da tabela da operadora credenciada — somente leitura, sem editar.
+### 1. Configurações → Procedimentos: catálogo vazio
 
-## 1. Visualizador inline de PDF/arquivo (componente reutilizável)
+- Apagar todos os 52 procedimentos do catálogo global (`procedures`). O dentista/médico passa a cadastrar manualmente via botão **+ Novo**.
+- Também limpar `clinic_member_procedures` (vínculos profissional↔procedimento) já que os procedimentos referenciados deixarão de existir. - exato porém depois que o dentista/medico adicionar ele tem que pegar as informações adicionandas 
+- A tela `ProceduresCrudSection` já suporta lista vazia (exibe só o botão **+ Novo**) — sem mudança de UI necessária.
 
-Novo componente `src/components/operadora/PriceFileViewerDialog.tsx`:
-- Dialog (fade-only) full-width com header `nome do arquivo + tamanho + data` e ações (Baixar / Fechar).
-- Body: `<iframe src={signedUrl} />` ocupando ~80vh.
-- PDF → renderiza nativo no iframe. XLSX/CSV → mostra aviso "Pré-visualização não disponível para este formato" + botão Baixar (browsers não renderizam planilhas inline).
-- Gera URL assinada via `supabase.storage.from('operator-price-files').createSignedUrl(path, 600)` ao abrir.
+### 2. Remover aba "Feriados" das Configurações
 
-## 2. Botão olho na página da operadora
+- Em `src/pages/SettingsPage.tsx`: remover o item `{ id: 'holidays', label: 'Feriados' }` da lista de seções e o bloco `{activeSection === 'holidays' && <HolidaysSection />}`.
+- Remover o import de `HolidaysSection` e do ícone `CalendarOff` (se não usado em outro lugar).
+- O arquivo `HolidaysSection.tsx` permanece no projeto (não excluir) caso queira religar depois.
 
-Em `OperatorPriceTable.tsx`, na lista `files.map(...)`:
-- Adicionar `<button>` com ícone `Eye` (lucide) **antes** do botão Download.
-- onClick abre `PriceFileViewerDialog` com o registro.
+### 3. Fluxo Credenciamentos → Convênios
 
-## 3. Acesso da clínica aos arquivos
+**Em `/clinica/credenciamentos**` (`ClinicaCredentialings.tsx` → `MyCredentialingSection`):
 
-### 3.1 Backend: RLS no Storage
-Nova política SELECT em `storage.objects` (bucket `operator-price-files`) permitindo membros de clínica com credenciamento aprovado:
+- Cada card de operadora **credenciada** ("Credenciado" verde) ganha um onClick / botão **"Ver tabela de valores"** que navega para `/clinica/convenios?operator=<operator_id>`.
+- Operadoras ainda não credenciadas continuam mostrando só "Solicitar credenciamento" (sem navegação).
 
-```sql
-CREATE POLICY "Credentialed clinic members read price files"
-ON storage.objects FOR SELECT TO authenticated
-USING (
-  bucket_id = 'operator-price-files'
-  AND EXISTS (
-    SELECT 1 FROM operator_credentialings oc
-    JOIN clinic_members cm ON cm.clinic_id = oc.clinic_id
-    WHERE cm.user_id = auth.uid()
-      AND oc.status = 'approved'
-      AND oc.operator_id::text = split_part(objects.name, '/', 2)
-  )
-);
-```
+**Em `/clinica/convenios**` (`ClinicaConvenios.tsx`):
 
-### 3.2 Backend: RLS na tabela `operator_price_files`
-Adicionar policy SELECT idêntica em escopo (clínica credenciada com a operadora dona da tabela). Hoje só operadora lê — clínica não enxerga as linhas.
+- Ler `?operator=` do query string e já pré-selecionar a operadora correspondente ao montar.
+- Adicionar botão **"← Voltar para credenciamentos"** no header da página, ao lado/abaixo do `PageHeader`, que navega para `/clinica/credenciamentos`.
+- Placeholder "Informações de contrato" fica **fora de escopo agora** (anotado para depois, conforme pedido).
 
-### 3.3 Frontend
-Em `src/pages/clinica/ClinicaConvenios.tsx` (já lista tabelas por operadora):
-- Buscar `operator_price_files` da tabela selecionada (`table_id`).
-- Renderizar seção "Arquivos da tabela (somente leitura)" abaixo do seletor de tabela: lista de arquivos com nome, tamanho, data, **botão olho** (abre `PriceFileViewerDialog`) e **botão download**. Sem upload, sem delete.
+### 4. Remover US$ da tela `/clinica/convenios`
+
+- Em `ClinicaConvenios.tsx` linha 405-406: remover o bloco `{it.value_us != null && (<p>US$ ...</p>)}`. A página passa a exibir só `R$` (`value_brl`).
+- A tela da operadora (`OperatorPriceTable.tsx`) **não muda** — lá o campo US$ continua existindo (operadora pode preencher, mas clínica não vê).
 
 ## Fora de escopo
 
-- Editar arquivos pela clínica.
-- Visualizador customizado de planilhas (XLSX/CSV) — só aviso + download.
-- Notificações de novo arquivo enviado pela operadora.
+- Excluir `HolidaysSection.tsx` ou remover a coluna `value_us` do banco.
+- Tela / módulo de informações de contrato dentro de Convênios (fica para depois).
+- Mexer na tela da operadora.
+
+## Detalhes técnicos
+
+- Migration: `DELETE FROM public.clinic_member_procedures; DELETE FROM public.procedures;` (sem FK em procedures — verificado).
+- Navegação: usar `useNavigate()` + `useSearchParams()` do `react-router-dom`.
+- Sem alterações em RLS, types ou edge functions.
