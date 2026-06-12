@@ -1,23 +1,24 @@
-## Causa do erro
+## Causa
 
-O código de "Minhas configurações" do paciente (`PatientSettings.tsx`) tenta gravar `gender`, `rg` e `profession` na tabela `patient_accounts`, mas essas colunas não existem no banco. Por isso o PostgREST retorna `Could not find the 'gender' column of 'patient_accounts' in the schema cache` quando o paciente clica em Salvar (inclusive ao trocar a foto, porque o salvamento é um único upsert com todos os campos).
+A tela "Minhas configurações" do paciente grava `address_complement`, `address_number` e `neighborhood` em `patients`, mas a tabela só tem `address`, `city`, `state`, `zip_code`. Resultado: PostgREST devolve `Could not find the 'address_complement' column of 'patients' in the schema cache` e o salvar quebra (inclusive ao trocar foto, porque é um único upsert).
 
-Hoje `patient_accounts` tem apenas: `id, user_id, cpf, full_name, phone, date_of_birth, insurance_provider, insurance_number, created_at, updated_at`.
+Colunas atuais de `patients` relacionadas a endereço: `address`, `city`, `state`, `zip_code`.
+Faltando: `address_number`, `address_complement`, `neighborhood`.
 
 ## Correção
 
-Migration única adicionando as colunas faltantes usadas pela tela:
+Migration única adicionando as 3 colunas faltantes:
 
 ```sql
-ALTER TABLE public.patient_accounts
-  ADD COLUMN IF NOT EXISTS gender text,
-  ADD COLUMN IF NOT EXISTS rg text,
-  ADD COLUMN IF NOT EXISTS profession text;
+ALTER TABLE public.patients
+  ADD COLUMN IF NOT EXISTS address_number text,
+  ADD COLUMN IF NOT EXISTS address_complement text,
+  ADD COLUMN IF NOT EXISTS neighborhood text;
 ```
 
-Sem mudança de RLS (políticas existentes já cobrem todas as colunas da linha do próprio usuário) e sem mudanças no front — o `PatientAccount` em `usePatientData.ts` já declara esses campos.
+Sem mudança de RLS (políticas existentes já cobrem todas as colunas da linha) e sem alterações no front — o formulário já envia esses campos.
 
 ## Fora de escopo
 
-- Foto do paciente: `photo_url` é salvo em `patients` (não em `patient_accounts`), então não precisa de alteração.
-- Outros campos do formulário (endereço, contato de emergência, etc.) já vão para `patients`, que possui as colunas.
+- `patient_accounts` já recebeu `gender`, `rg`, `profession` na migration anterior.
+- Outros campos do formulário do paciente já existem nas tabelas correspondentes.
