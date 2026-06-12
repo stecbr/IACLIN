@@ -41,6 +41,7 @@ interface AiRequest {
   notes: string | null;
   status: string;
   created_at: string;
+  suggested_dentist_id: string | null;
 }
 
 interface Dentist {
@@ -192,8 +193,12 @@ export function AiAppointmentRequestsPanel({ compact = false }: PanelProps = {})
     setSelected(r);
     setStartTime(toLocalInput(r.requested_at));
     setDurationMin('30');
-    const first = dentistsQuery.data?.[0]?.user_id ?? '';
-    setDentistId(first);
+    const available = dentistsQuery.data ?? [];
+    const suggested = r.suggested_dentist_id &&
+      available.some((d) => d.user_id === r.suggested_dentist_id)
+      ? r.suggested_dentist_id
+      : (available[0]?.user_id ?? '');
+    setDentistId(suggested);
     setApproveOpen(true);
   };
 

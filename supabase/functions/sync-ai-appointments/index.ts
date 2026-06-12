@@ -62,6 +62,9 @@ async function syncOneClinic(admin: any, clinicId: string) {
       status: 'pending',
       source: 'ai_whatsapp',
       external_ref: apt.id,
+      specialty: apt.specialty ?? null,
+      procedure: apt.procedure ?? null,
+      suggested_dentist_id: apt.suggested_dentist_id ?? null,
     });
 
     if (error) { errors.push(`apt ${apt.id}: ${error.message}`); continue; }
