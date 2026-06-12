@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Search, Receipt, Building2, MapPin, CalendarDays, Camera, FileImage,
-  Eye, Loader2, ChevronDown, ChevronRight, Info, FileText, Download,
+  Eye, Loader2, ChevronDown, ChevronRight, Info, FileText, Download, ArrowLeft,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,6 +67,9 @@ const sb = supabase as any; // types não regenerados ainda
 
 export default function ClinicaConvenios() {
   const { currentClinicId } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectOperator = searchParams.get('operator');
 
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [tables, setTables] = useState<PriceTable[]>([]);
@@ -110,7 +114,12 @@ export default function ClinicaConvenios() {
         // dedupe
         const dedup = Array.from(new Map(list.map((o) => [o.id, o])).values());
         setOperators(dedup);
-        if (dedup.length && !operatorId) setOperatorId(dedup[0].id);
+        if (dedup.length && !operatorId) {
+          const pre = preselectOperator && dedup.some((o) => o.id === preselectOperator)
+            ? preselectOperator
+            : dedup[0].id;
+          setOperatorId(pre);
+        }
       }
       setLoadingOps(false);
     })();
@@ -228,6 +237,9 @@ export default function ClinicaConvenios() {
   if (loadingOps) {
     return (
       <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/clinica/credenciamentos')} className="-ml-2">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para credenciamentos
+        </Button>
         <PageHeader title="Convênios e Tabelas de Valores" description="Valores acordados com as operadoras credenciadas." />
         <Card><CardContent className="p-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></CardContent></Card>
       </div>
@@ -237,6 +249,9 @@ export default function ClinicaConvenios() {
   if (operators.length === 0) {
     return (
       <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/clinica/credenciamentos')} className="-ml-2">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para credenciamentos
+        </Button>
         <PageHeader title="Convênios e Tabelas de Valores" description="Valores acordados com as operadoras credenciadas." />
         <Card>
           <CardContent className="p-10 text-center space-y-2">
@@ -251,6 +266,9 @@ export default function ClinicaConvenios() {
 
   return (
     <div className="space-y-6">
+      <Button variant="ghost" size="sm" onClick={() => navigate('/clinica/credenciamentos')} className="-ml-2 w-fit">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar para credenciamentos
+      </Button>
       <PageHeader title="Convênios e Tabelas de Valores" description="Consulte os valores acordados com as operadoras credenciadas." />
 
       {/* Seletor operadora + tabela */}
@@ -402,9 +420,6 @@ export default function ClinicaConvenios() {
                         <div className="flex items-center gap-2 md:justify-end">
                           <div className="text-right">
                             <p className="text-base font-semibold">{brl(it.value_brl)}</p>
-                            {it.value_us != null && (
-                              <p className="text-[10px] text-muted-foreground">US$ {it.value_us}</p>
-                            )}
                           </div>
                           <Button variant="ghost" size="icon" onClick={() => setDetail(it)} title="Detalhes">
                             <Eye className="h-4 w-4" />
