@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 import {
   Plus, Trash2, Upload, FileText, Download, Loader2, MapPin,
   CalendarDays, Table2, FilePlus2, Search, X, CheckSquare, ArrowLeft,
-  Sparkles, ChevronDown, ChevronUp, Check,
+  Sparkles, ChevronDown, ChevronUp, Check, Eye,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { BRAZIL_STATES, stateName } from '@/lib/brazilStates';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { PriceFileViewerDialog, type PriceFileLike } from '@/components/operadora/PriceFileViewerDialog';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface PriceTable {
