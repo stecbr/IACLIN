@@ -21,7 +21,7 @@ import { HypothesesEditor, type Hypothesis } from '@/components/attendance/Hypot
 import { FollowUpBlock } from '@/components/attendance/FollowUpBlock';
 import { RequestsEditor, type RequestItem, type RequestKind } from '@/components/attendance/RequestsEditor';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
-import { ConsultationPaymentDialog } from '@/components/attendance/ConsultationPaymentDialog';
+import { FinishPaymentDialog, type FinishProcedure } from '@/components/attendance/FinishPaymentDialog';
 import { AnthropometryForm, type Anthropometry } from '@/components/attendance/AnthropometryForm';
 import { MealPlanForm, type MealPlan } from '@/components/attendance/MealPlanForm';
 import { SoapSessionForm, type SoapSession } from '@/components/attendance/SoapSessionForm';
@@ -59,7 +59,6 @@ export default function Attendance() {
   const [showSummary, setShowSummary] = useState(false);
   const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [createdTransactionId, setCreatedTransactionId] = useState<string | null>(null);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -443,40 +442,11 @@ export default function Attendance() {
       if (aptError) throw aptError;
       endSession(appointment.id);
 
-      // Create financial transaction
-      const totalAmount = procedures.reduce((sum, p) => sum + p.price, 0);
-      let newTransactionId: string | null = null;
-      if (totalAmount > 0) {
-        const { data: txData, error: txError } = await supabase
-          .from('financial_transactions')
-          .insert({
-            patient_id: appointment.patient_id,
-            appointment_id: appointment.id,
-            dentist_id: user.id,
-            clinic_id: currentClinicId ?? null,
-            type: 'income',
-            category: 'consultation',
-            description: `Atendimento - ${(appointment as any).patients?.full_name}`,
-            amount: totalAmount,
-            due_date: format(new Date(), 'yyyy-MM-dd'),
-            status: 'pending',
-          })
-          .select('id')
-          .single();
-        if (txError) throw txError;
-        newTransactionId = txData?.id ?? null;
-      }
-
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
       setFinishedNavigatePending(true);
-
-      if (totalAmount > 0 && newTransactionId) {
-        setCreatedTransactionId(newTransactionId);
-        setShowPaymentDialog(true);
-      } else {
-        setShowSummary(true);
-      }
+      // SEMPRE abrir o modal de forma de pagamento
+      setShowPaymentDialog(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -812,16 +782,25 @@ export default function Attendance() {
         )}
       </Tabs>
 
-      <ConsultationPaymentDialog
+      <FinishPaymentDialog
         open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
-        transactionId={createdTransactionId}
-        amount={procedures.reduce((s, p) => s + p.price, 0)}
+        appointmentId={appointment.id}
+        patientId={appointment.patient_id}
         patientName={(appointment as any).patients?.full_name ?? 'Paciente'}
-        patientInsuranceProvider={(appointment as any).patients?.insurance_provider ?? null}
-        paymentAccount={paymentAccount}
-        insurancePlans={insurancePlans}
-        onComplete={() => {
+        clinicId={currentClinicId ?? null}
+        procedures={procedures
+          .filter((p) => p.procedure_id)
+          .map<FinishProcedure>((p) => {
+            const cat = proceduresCatalog.find((c: any) => c.id === p.procedure_id);
+            return {
+              procedure_id: p.procedure_id,
+              name: cat?.name ?? 'Procedimento',
+              code: (cat as any)?.code ?? null,
+              price: Number(p.price) || 0,
+            };
+          })}
+        onCompleted={() => {
           setShowPaymentDialog(false);
           setShowSummary(true);
           queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });

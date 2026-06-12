@@ -1,21 +1,69 @@
-Do I know what the issue is? Sim.
+## Objetivo
+Ao clicar em "Finalizar Atendimento", abrir obrigatoriamente um modal de **Forma de Pagamento** com três caminhos: Convênio, Particular agora (Stripe), Particular depois. Bloquear a navegação até o usuário escolher.
 
-O problema da foto não é F5: a foto foi salva em `patients.photo_url`, mas o cartão lateral do paciente mostra a imagem de `profiles.avatar_url`. No banco, o usuário do Flavio está com `profiles.avatar_url` vazio, então a sidebar cai no fallback das iniciais “FB”. Também há vários registros em `patients` ligados ao mesmo login, então a tela pode ler/salvar foto em um registro diferente dependendo da ordem retornada.
+## Mudanças no fluxo (Attendance.tsx)
+- `handleFinish` deixa de criar a transação financeira direto. Em vez disso:
+  1. Marca atendimento como `completed` + atualiza clinical_record.
+  2. Abre `FinishPaymentDialog` (substitui o atual `ConsultationPaymentDialog`) — **não fechável por clique fora / ESC**, só confirmando uma das 3 opções (ou "Registrar depois").
+  3. A transação financeira é criada somente após a escolha, com os campos certos por cenário.
 
-Plano de correção:
+## Modal: 3 opções
 
-1. Unificar a fonte da foto do paciente
-   - Quando o paciente alterar a foto em `/paciente/configuracoes`, salvar a URL também em `profiles.avatar_url`, que é o campo usado pela sidebar.
-   - Manter `patients.photo_url` atualizado para compatibilidade com prontuário e áreas clínicas.
+### 1) Convênio
+- Mostra select de **operadoras em que o médico está credenciado** (`operator_credentialings` com status `approved` para `professional_user_id = user.id`).
+- Lista os procedimentos da consulta. Para cada um, busca o valor em `operator_price_items` da operadora escolhida (tabela vigente). Se item não tiver código mapeado ou não existir na tabela, exibe alerta "procedimento sem valor na tabela da operadora" e impede confirmar até resolver (corrigir código ou trocar operadora).
+- Ao confirmar cria `financial_transactions`:
+  - `type='income'`, `category='insurance'`
+  - `payment_method = 'insurance:<operator_name>'`
+  - `status='pending'`, `due_date = dia 20 do mês seguinte` (data corte da fatura)
+  - `notes` com operadora, plano (se houver) e códigos dos procedimentos
+  - novos campos: `operator_id`, `insurance_invoice_period` (YYYY-MM)
+- Histórico médico-operadora: garantido pela própria transação + `clinical_record_procedures` já existente.
 
-2. Evitar divergência entre registros duplicados do mesmo paciente
-   - Ajustar o salvamento para atualizar todos os registros `patients` vinculados ao `patient_user_id` do usuário logado, não apenas o primeiro ID retornado.
-   - Ajustar a leitura para preferir a foto existente em `profiles.avatar_url` e, se não houver, usar `patients.photo_url`.
+### 2) Particular agora (Stripe Checkout Session)
+- Chama nova edge function `create-consultation-checkout` que:
+  - Recebe `transaction_id` (criado antes como `status='pending'`, `payment_method='stripe'`).
+  - Usa `STRIPE_SECRET_KEY` para criar `checkout.sessions.create` (mode=`payment`) com `line_items` derivados dos procedimentos.
+  - Retorna `url`.
+- Modal mostra QR Code + link copiável. Paciente paga no celular.
+- Webhook (`stripe-webhook` já existente, estender) marca transação como `paid` ao receber `checkout.session.completed`.
 
-3. Atualizar a sidebar imediatamente após salvar
-   - Depois do salvamento, recarregar os dados do contexto do usuário para a sidebar trocar de “FB” para a foto sem precisar sair e entrar novamente.
+### 3) Particular depois ("A combinar")
+- Cria `financial_transactions` com `status='pending'`, `payment_method='particular_pending'`, `notes='A combinar com paciente'`, `due_date` = hoje.
+- Aparece no AR / contas a receber para a secretária cobrar depois.
 
-4. Testar antes de concluir
-   - Verificar no banco que `profiles.avatar_url` do Flavio recebeu a URL da foto.
-   - Verificar que os registros `patients` vinculados ao login também ficaram com `photo_url` preenchido.
-   - Testar a tela `/paciente/configuracoes` no preview e confirmar que a foto aparece tanto no formulário quanto na sidebar, sem erro de schema cache.
+## Nova tela: Faturas a enviar (Convênios)
+Rota: `/financeiro/faturas-convenio`
+- Lista agrupada por `operator_id` + `insurance_invoice_period`.
+- Cada grupo mostra: operadora, mês, total, qtd de consultas, status (`aberta` / `enviada` / `paga`).
+- Ações: ver detalhes (lista de pacientes/data/procedimento/valor), marcar como enviada, marcar como paga (lote — atualiza todas transações do grupo).
+- Banner no dashboard quando dia ≥ 18 do mês: "Você tem X faturas prontas para envio dia 20".
+
+## Banco (migração)
+- `financial_transactions`:
+  - `operator_id uuid null references insurance_operators(id)`
+  - `insurance_invoice_period text null` (formato `YYYY-MM`)
+  - `insurance_invoice_status text null` (`open|sent|paid`)
+- Índice composto `(operator_id, insurance_invoice_period)`.
+- Mantém RLS atual (já filtra por clinic_member).
+
+## Arquivos a criar / editar
+- `src/components/attendance/FinishPaymentDialog.tsx` (novo — substitui `ConsultationPaymentDialog`)
+- `src/pages/Attendance.tsx` (refatorar `handleFinish`)
+- `src/pages/financial/InsuranceInvoices.tsx` (nova tela)
+- Rota em `src/App.tsx`
+- `supabase/functions/create-consultation-checkout/index.ts` (nova)
+- `supabase/functions/stripe-webhook/index.ts` (estender para tratar checkout consulta)
+- Migration única adicionando colunas + índice em `financial_transactions`
+
+## Validação / Testes manuais
+1. Finalizar atendimento sem procedimentos → modal só permite "Registrar depois".
+2. Convênio Unimed: criar credenciamento + tabela com 1 procedimento → finalizar → transação cai em "Faturas a enviar" no mês corrente.
+3. Convênio sem código mapeado → alerta vermelho, botão confirmar desabilitado.
+4. Stripe agora → checkout abre, paga em modo teste → webhook marca `paid`.
+5. Particular depois → vai para contas a receber pendente.
+
+## Fora deste escopo
+- Geração de PDF/CSV da fatura conv (pode entrar depois).
+- Stripe Terminal (maquininha física).
+- Comissão automática por procedimento.

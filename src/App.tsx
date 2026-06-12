@@ -22,6 +22,7 @@ import OpenChart from "./pages/OpenChart";
 import Odontogram from "./pages/Odontogram";
 import ClinicalMapPage from "./components/clinical-map/ClinicalMapPage";
 import Financial from "./pages/Financial";
+import InsuranceInvoices from "./pages/financial/InsuranceInvoices";
 import SettingsPage from "./pages/SettingsPage";
 import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
@@ -288,6 +289,7 @@ const AppRoutes = () => (
     <Route path="/fisio/ferramentas" element={<Navigate to="/ferramentas" replace />} />
     <Route path="/podologia/ferramentas" element={<Navigate to="/ferramentas" replace />} />
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
+    <Route path="/financeiro/faturas-convenio" element={<ProtectedRoute><InsuranceInvoices /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
     <Route path="/secretaria-ia" element={<ProtectedRoute><SecretariaIA /></ProtectedRoute>} />

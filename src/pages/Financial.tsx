@@ -211,6 +211,13 @@ export default function Financial() {
           {currentClinicId ? <Building2 className="h-3 w-3" /> : <UserIcon className="h-3 w-3" />}
           {currentClinicId ? 'Clínica' : 'Pessoal'}
         </Badge>
+        <Button variant="outline" size="sm" className="gap-2" asChild>
+          <a href="/financeiro/faturas-convenio">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Faturas Convênio</span>
+            <span className="sm:hidden">Convênio</span>
+          </a>
+        </Button>
         <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none sm:size-default" onClick={() => setShowImport(true)}>
           <Sparkles className="h-4 w-4" />
           <span className="hidden sm:inline">Importar Extrato (IA)</span>
