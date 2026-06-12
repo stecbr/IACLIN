@@ -747,6 +747,12 @@ export default function OperatorPriceTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PriceFileViewerDialog
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(o) => { if (!o) setPreviewFile(null); }}
+      />
     </div>
   );
 }
