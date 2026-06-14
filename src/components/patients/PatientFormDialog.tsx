@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, X } from 'lucide-react';
 import { CitySelect } from '@/components/address/CitySelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserCheck, Send } from 'lucide-react';
+import { UserCheck, Send, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface PatientFormDialogProps {
   open: boolean;
@@ -147,37 +147,39 @@ export function PatientFormDialog({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(() => emptyForm(patient, initialName));
   const [newCategory, setNewCategory] = useState('');
-  const [cpfCheckState, setCpfCheckState] = useState<
-    | { status: 'idle' | 'checking' }
-    | { status: 'available' }
-    | { status: 'exists' }
-    | { status: 'already_pending' }
-    | { status: 'already_linked' }
-  >({ status: 'idle' });
+  // Stepped flow for "new patient": cpf → exists | new (invite or manual)
+  const [step, setStep] = useState<'cpf' | 'exists' | 'new' | 'sent'>('cpf');
+  const [manualMode, setManualMode] = useState(false);
+  const [checkingCpf, setCheckingCpf] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const [requestingLink, setRequestingLink] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
 
-  // Check CPF whenever it changes (debounced)
-  useEffect(() => {
-    if (isEdit) return;
-    const clean = (form.cpf || '').replace(/\D/g, '');
-    if (clean.length !== 11 || !isValidCPF(clean)) {
-      setCpfCheckState({ status: 'idle' });
+  const handleContinueFromCpf = async () => {
+    if (form.is_foreign) {
+      update('cpf', '');
+      setStep('new');
       return;
     }
-    let cancelled = false;
-    setCpfCheckState({ status: 'checking' });
-    const t = setTimeout(async () => {
+    const clean = (form.cpf || '').replace(/\D/g, '');
+    if (clean.length !== 11 || !isValidCPF(clean)) {
+      toast.error('CPF inválido. Verifique os dígitos.');
+      return;
+    }
+    setCheckingCpf(true);
+    try {
       const { data, error } = await supabase.functions.invoke('request-patient-link', {
         body: { cpf: clean, clinic_id: clinicId, mode: 'check' },
       });
-      if (cancelled) return;
-      if (error) { setCpfCheckState({ status: 'idle' }); return; }
-      if (data?.exists) setCpfCheckState({ status: 'exists' });
-      else setCpfCheckState({ status: 'available' });
-    }, 400);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [form.cpf, clinicId, isEdit]);
+      if (error) throw error;
+      if (data?.exists) setStep('exists');
+      else setStep('new');
+    } catch (e: any) {
+      toast.error(e.message || 'Não foi possível verificar o CPF.');
+    } finally {
+      setCheckingCpf(false);
+    }
+  };
 
   const requestLink = async () => {
     setRequestingLink(true);
@@ -189,13 +191,16 @@ export function PatientFormDialog({
       if (error) throw error;
       if (data?.already_linked) {
         toast.info('Este paciente já está vinculado.');
+        onSuccess?.();
+        onOpenChange(false);
+        return;
       } else if (data?.already_pending) {
-        setCpfCheckState({ status: 'already_pending' });
         toast.info('Já existe uma solicitação pendente para este paciente.');
       } else {
-        setCpfCheckState({ status: 'already_pending' });
         toast.success('Solicitação enviada! O paciente tem 24h para aceitar.');
       }
+      setLinkSent(true);
+      setStep('sent');
       onSuccess?.();
     } catch (e: any) {
       toast.error(e.message);
@@ -206,6 +211,7 @@ export function PatientFormDialog({
 
   const sendInvite = async () => {
     if (!form.email) { toast.error('Informe um e-mail para enviar o convite'); return; }
+    if (!form.full_name.trim()) { toast.error('Informe o nome completo'); return; }
     setSendingInvite(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-new-patient', {
@@ -219,6 +225,8 @@ export function PatientFormDialog({
       });
       if (error) throw error;
       toast.success('Convite enviado por e-mail.');
+      onSuccess?.();
+      onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -229,7 +237,12 @@ export function PatientFormDialog({
 
 
   useEffect(() => {
-    if (open) setForm(emptyForm(patient, initialName));
+    if (open) {
+      setForm(emptyForm(patient, initialName));
+      setStep(isEdit ? 'new' : 'cpf');
+      setManualMode(isEdit);
+      setLinkSent(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -381,6 +394,9 @@ export function PatientFormDialog({
   };
 
   return (
+    (() => {
+      const showFullForm = isEdit || (step === 'new' && manualMode);
+      return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -388,6 +404,147 @@ export function PatientFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* ─── Passo 1: CPF ─── */}
+          {!isEdit && step === 'cpf' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Informe o CPF do paciente. Vamos verificar se ele já possui conta no iClin.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="cpf-step">CPF</Label>
+                <Input
+                  id="cpf-step"
+                  autoFocus
+                  value={form.cpf}
+                  onChange={(e) => update('cpf', e.target.value)}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  disabled={form.is_foreign}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-normal">
+                  <Switch
+                    checked={form.is_foreign}
+                    onCheckedChange={(v) => update('is_foreign', v)}
+                  />
+                  Paciente estrangeiro (sem CPF)
+                </Label>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleContinueFromCpf}
+                  disabled={checkingCpf || (!form.is_foreign && (form.cpf || '').replace(/\D/g, '').length !== 11)}
+                  className="gap-2"
+                >
+                  {checkingCpf && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {checkingCpf ? 'Verificando…' : 'Continuar'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Passo 2A: Paciente já cadastrado ─── */}
+          {!isEdit && step === 'exists' && (
+            <div className="space-y-4">
+              <Alert className="border-primary/40 bg-primary/5">
+                <UserCheck className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  Este paciente já possui conta no iClin. Para acessá-lo, envie uma solicitação
+                  de vinculação. Ele receberá um e-mail e uma notificação na plataforma e
+                  precisará aprovar para aparecer na sua lista.
+                </AlertDescription>
+              </Alert>
+              <div className="flex justify-between gap-2 pt-2 border-t border-border/40">
+                <Button type="button" variant="ghost" onClick={() => setStep('cpf')} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" /> Voltar
+                </Button>
+                <Button type="button" onClick={requestLink} disabled={requestingLink} className="gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  {requestingLink ? 'Enviando…' : 'Solicitar Vinculação'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Estado: solicitação enviada ─── */}
+          {!isEdit && step === 'sent' && (
+            <div className="space-y-4">
+              <Alert className="border-emerald-500/40 bg-emerald-500/5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <AlertDescription className="text-sm">
+                  Solicitação enviada. O paciente tem 24h para aceitar. Quando aprovar,
+                  ele aparecerá automaticamente na sua lista de pacientes.
+                </AlertDescription>
+              </Alert>
+              <div className="flex justify-end pt-2 border-t border-border/40">
+                <Button type="button" onClick={() => onOpenChange(false)}>Fechar</Button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Passo 2B: Convite por e-mail (CPF novo) ─── */}
+          {!isEdit && step === 'new' && !manualMode && (
+            <div className="space-y-4">
+              <Alert>
+                <Send className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  CPF não encontrado. Envie um convite por e-mail para o paciente criar a conta
+                  no iClin — ele será vinculado automaticamente após o cadastro.
+                </AlertDescription>
+              </Alert>
+              <div className="space-y-1.5">
+                <Label>Nome completo *</Label>
+                <Input
+                  autoFocus
+                  value={form.full_name}
+                  onChange={(e) => update('full_name', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>E-mail *</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                  placeholder="paciente@email.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <PhoneInput value={form.phone} onChange={(v) => update('phone', v)} />
+              </div>
+              <div className="flex justify-between gap-2 pt-2 border-t border-border/40 flex-wrap">
+                <Button type="button" variant="ghost" onClick={() => setStep('cpf')} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" /> Voltar
+                </Button>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setManualMode(true)}
+                  >
+                    Cadastrar manualmente
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={sendInvite}
+                    disabled={sendingInvite || !form.full_name.trim() || !form.email}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {sendingInvite ? 'Enviando…' : 'Enviar convite por e-mail'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showFullForm && (<>
           {/* ─── Foto ─── */}
           <div className="flex items-center gap-4">
             <div
@@ -517,25 +674,6 @@ export function PatientFormDialog({
                 placeholder="000.000.000-00"
                 inputMode="numeric"
               />
-              {!isEdit && cpfCheckState.status === 'checking' && (
-                <p className="text-xs text-muted-foreground">Verificando CPF…</p>
-              )}
-              {!isEdit && cpfCheckState.status === 'exists' && (
-                <Alert className="mt-2 border-primary/40 bg-primary/5">
-                  <UserCheck className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    Este CPF já possui conta na iClin. Envie uma solicitação de vinculação —
-                    o paciente precisa aprovar para aparecer na sua lista.
-                  </AlertDescription>
-                </Alert>
-              )}
-              {!isEdit && cpfCheckState.status === 'already_pending' && (
-                <Alert className="mt-2">
-                  <AlertDescription className="text-xs">
-                    Solicitação enviada. Aguardando resposta do paciente (24h).
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
 
             <div className="space-y-1.5">
@@ -767,35 +905,21 @@ export function PatientFormDialog({
 
           {/* ─── Ações ─── */}
           <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            {!isEdit && cpfCheckState.status === 'exists' && (
-              <Button type="button" onClick={requestLink} disabled={requestingLink} className="gap-2">
-                <UserCheck className="h-4 w-4" />
-                {requestingLink ? 'Enviando…' : 'Solicitar Vinculação ao Paciente'}
+            {!isEdit && (
+              <Button type="button" variant="ghost" onClick={() => { setManualMode(false); setStep('cpf'); }} className="mr-auto gap-2">
+                <ArrowLeft className="h-4 w-4" /> Voltar
               </Button>
             )}
-            {!isEdit && cpfCheckState.status === 'already_pending' && (
-              <Button type="button" disabled variant="secondary">Solicitação pendente</Button>
-            )}
-            {(isEdit || cpfCheckState.status !== 'exists') && cpfCheckState.status !== 'already_pending' && (
-              <>
-                {!isEdit && form.email && cpfCheckState.status === 'available' && (
-                  <Button
-                    type="button" variant="outline" onClick={sendInvite} disabled={sendingInvite}
-                    className="gap-2"
-                  >
-                    <Send className="h-4 w-4" />
-                    {sendingInvite ? 'Enviando…' : 'Enviar convite por e-mail'}
-                  </Button>
-                )}
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Cadastrar paciente'}
-                </Button>
-              </>
-            )}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Cadastrar paciente'}
+            </Button>
           </div>
+          </>)}
         </form>
       </DialogContent>
     </Dialog>
+      );
+    })()
   );
 }
