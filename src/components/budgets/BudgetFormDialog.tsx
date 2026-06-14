@@ -146,12 +146,13 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
   const procedureCategory = family.procedureCategory;
 
   const { data: procedures = [] } = useQuery({
-    queryKey: ['procedures-select', procedureCategory],
+    queryKey: ['procedures-select', procedureCategory, currentClinicId],
+    enabled: !!currentClinicId,
     queryFn: async () => {
-      // Try filtered first; fall back to all if the catalog has nothing for this specialty
       const { data: scoped } = await supabase
         .from('procedures')
         .select('id, name, default_price, category, specialty_category')
+        .eq('clinic_id', currentClinicId!)
         .eq('is_active', true)
         .eq('specialty_category', procedureCategory)
         .order('name');
@@ -159,6 +160,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
       const { data } = await supabase
         .from('procedures')
         .select('id, name, default_price, category, specialty_category')
+        .eq('clinic_id', currentClinicId!)
         .eq('is_active', true)
         .order('name');
       return data ?? [];
