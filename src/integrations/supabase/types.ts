@@ -2152,6 +2152,115 @@ export type Database = {
           },
         ]
       }
+      patient_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_user_id: string | null
+          clinic_id: string | null
+          cpf: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          phone: string | null
+          requested_by_user_id: string
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          clinic_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          full_name: string
+          id?: string
+          phone?: string | null
+          requested_by_user_id: string
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_user_id?: string | null
+          clinic_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          requested_by_user_id?: string
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_invites_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_link_requests: {
+        Row: {
+          clinic_id: string | null
+          cpf: string
+          created_at: string
+          expires_at: string
+          id: string
+          patient_user_id: string
+          rejection_reason: string | null
+          requested_by_user_id: string
+          responded_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          cpf: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          patient_user_id: string
+          rejection_reason?: string | null
+          requested_by_user_id: string
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          cpf?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          patient_user_id?: string
+          rejection_reason?: string | null
+          requested_by_user_id?: string
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_link_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_personalizations: {
         Row: {
           color: string | null

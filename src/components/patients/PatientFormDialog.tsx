@@ -20,11 +20,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, X } from 'lucide-react';
 import { CitySelect } from '@/components/address/CitySelect';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { UserCheck, Send } from 'lucide-react';
 
 interface PatientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
   patient?: any;
   clinicId?: string | null;
   initialName?: string;
@@ -145,6 +147,86 @@ export function PatientFormDialog({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(() => emptyForm(patient, initialName));
   const [newCategory, setNewCategory] = useState('');
+  const [cpfCheckState, setCpfCheckState] = useState<
+    | { status: 'idle' | 'checking' }
+    | { status: 'available' }
+    | { status: 'exists' }
+    | { status: 'already_pending' }
+    | { status: 'already_linked' }
+  >({ status: 'idle' });
+  const [requestingLink, setRequestingLink] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
+
+  // Check CPF whenever it changes (debounced)
+  useEffect(() => {
+    if (isEdit) return;
+    const clean = (form.cpf || '').replace(/\D/g, '');
+    if (clean.length !== 11 || !isValidCPF(clean)) {
+      setCpfCheckState({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setCpfCheckState({ status: 'checking' });
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.functions.invoke('request-patient-link', {
+        body: { cpf: clean, clinic_id: clinicId, mode: 'check' },
+      });
+      if (cancelled) return;
+      if (error) { setCpfCheckState({ status: 'idle' }); return; }
+      if (data?.exists) setCpfCheckState({ status: 'exists' });
+      else setCpfCheckState({ status: 'available' });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [form.cpf, clinicId, isEdit]);
+
+  const requestLink = async () => {
+    setRequestingLink(true);
+    try {
+      const clean = form.cpf.replace(/\D/g, '');
+      const { data, error } = await supabase.functions.invoke('request-patient-link', {
+        body: { cpf: clean, clinic_id: clinicId, mode: 'create' },
+      });
+      if (error) throw error;
+      if (data?.already_linked) {
+        toast.info('Este paciente já está vinculado.');
+      } else if (data?.already_pending) {
+        setCpfCheckState({ status: 'already_pending' });
+        toast.info('Já existe uma solicitação pendente para este paciente.');
+      } else {
+        setCpfCheckState({ status: 'already_pending' });
+        toast.success('Solicitação enviada! O paciente tem 24h para aceitar.');
+      }
+      onSuccess?.();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setRequestingLink(false);
+    }
+  };
+
+  const sendInvite = async () => {
+    if (!form.email) { toast.error('Informe um e-mail para enviar o convite'); return; }
+    setSendingInvite(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-new-patient', {
+        body: {
+          full_name: form.full_name,
+          email: form.email,
+          cpf: form.cpf,
+          phone: form.phone,
+          clinic_id: clinicId,
+        },
+      });
+      if (error) throw error;
+      toast.success('Convite enviado por e-mail.');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+
 
   useEffect(() => {
     if (open) setForm(emptyForm(patient, initialName));
@@ -289,7 +371,7 @@ export function PatientFormDialog({
         if (inserted?.id) onPatientCreated?.(inserted.id, form.full_name);
       }
 
-      onSuccess();
+      onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message);
@@ -435,6 +517,25 @@ export function PatientFormDialog({
                 placeholder="000.000.000-00"
                 inputMode="numeric"
               />
+              {!isEdit && cpfCheckState.status === 'checking' && (
+                <p className="text-xs text-muted-foreground">Verificando CPF…</p>
+              )}
+              {!isEdit && cpfCheckState.status === 'exists' && (
+                <Alert className="mt-2 border-primary/40 bg-primary/5">
+                  <UserCheck className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Este CPF já possui conta na iClin. Envie uma solicitação de vinculação —
+                    o paciente precisa aprovar para aparecer na sua lista.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {!isEdit && cpfCheckState.status === 'already_pending' && (
+                <Alert className="mt-2">
+                  <AlertDescription className="text-xs">
+                    Solicitação enviada. Aguardando resposta do paciente (24h).
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -667,9 +768,31 @@ export function PatientFormDialog({
           {/* ─── Ações ─── */}
           <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Cadastrar paciente'}
-            </Button>
+            {!isEdit && cpfCheckState.status === 'exists' && (
+              <Button type="button" onClick={requestLink} disabled={requestingLink} className="gap-2">
+                <UserCheck className="h-4 w-4" />
+                {requestingLink ? 'Enviando…' : 'Solicitar Vinculação ao Paciente'}
+              </Button>
+            )}
+            {!isEdit && cpfCheckState.status === 'already_pending' && (
+              <Button type="button" disabled variant="secondary">Solicitação pendente</Button>
+            )}
+            {(isEdit || cpfCheckState.status !== 'exists') && cpfCheckState.status !== 'already_pending' && (
+              <>
+                {!isEdit && form.email && cpfCheckState.status === 'available' && (
+                  <Button
+                    type="button" variant="outline" onClick={sendInvite} disabled={sendingInvite}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {sendingInvite ? 'Enviando…' : 'Enviar convite por e-mail'}
+                  </Button>
+                )}
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Cadastrar paciente'}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </DialogContent>
