@@ -13,7 +13,6 @@ import {
   CalendarClock,
   Building2,
   Stethoscope,
-  Wallet,
   User as UserIcon,
   ClipboardCheck,
   DoorOpen,
@@ -467,23 +466,6 @@ export function AppSidebar() {
     </SidebarMenuItem>
   );
 
-  const faturamentoItem = (
-    <SidebarMenuItem key="faturamento">
-      <SidebarMenuButton disabled tooltip="Faturamento (em breve)">
-        <div className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-sidebar-foreground/50 cursor-not-allowed w-full">
-          <Wallet className="h-4 w-4 flex-shrink-0" />
-          {!collapsed && (
-            <>
-              <span className="flex-1">Faturamento</span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded">
-                em breve
-              </span>
-            </>
-          )}
-        </div>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -637,7 +619,6 @@ export function AppSidebar() {
                 <NavSection id="financeiro" label="Financeiro" collapsed={collapsed} defaultOpen={false}>
                   <SidebarMenu>
                     {financialItems.map((item) => renderNavItem(item))}
-                    {faturamentoItem}
                   </SidebarMenu>
                 </NavSection>
               )}
@@ -719,7 +700,6 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {renderNavItem({ title: 'Visão Geral', url: '/clinica',        icon: Building2 }, undefined, true)}
                   {renderNavItem({ title: 'Médicos',     url: '/clinica/medicos', icon: Stethoscope }, undefined, true)}
-                  {faturamentoItem}
                 </SidebarMenu>
               </NavSection>
             )}
