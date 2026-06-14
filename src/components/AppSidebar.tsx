@@ -40,6 +40,7 @@ import { ClinicSwitcher } from '@/components/ClinicSwitcher';
 import { useState } from 'react';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
 import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
+import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 
 import {
   AlertDialog,
@@ -176,6 +177,7 @@ export function AppSidebar() {
   const { profile, signOut, user, clinicCategory } = useAuth();
   const { filterNavItems, effectiveRole } = useRoleAccess();
   const { simulatedRole, currentClinicId, isPersonalMode, isClinicOwner, clinicRole } = useAuth();
+  const isClinicSignup = useIsClinicSignup();
   const isDentist = effectiveRole === 'dentist';
   const isAdmin = effectiveRole === 'admin' || isClinicOwner;
   const activeConsultation = useActiveConsultation();
@@ -563,7 +565,7 @@ export function AppSidebar() {
               {filteredPersonalNav.map((item) =>
                 renderNavItem(item, (item.url === '/minha-agenda') ? todayCount : undefined)
               )}
-              {effectiveRole !== 'patient' && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
+              {effectiveRole !== 'patient' && !isClinicSignup && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
             </SidebarMenu>
           </NavSection>
         )}

@@ -19,6 +19,8 @@ type Procedure = {
 interface Props {
   /** clinic_members.id da pessoa cujos procedimentos vamos editar */
   clinicMemberId: string;
+  /** clinic_id ao qual o membro pertence — usado para escopar o catálogo */
+  clinicId?: string | null;
   /** category da clínica para filtrar o catálogo (odonto/medico/...) */
   clinicCategory?: string | null;
   /** Se true, mostra botão "Salvar"; se false, salva no toggle (autosave) */
@@ -33,6 +35,7 @@ interface Props {
  */
 export function MemberProceduresEditor({
   clinicMemberId,
+  clinicId,
   clinicCategory,
   showSaveButton = true,
   onSaved,
@@ -54,6 +57,7 @@ export function MemberProceduresEditor({
         .eq('is_active', true)
         .order('category')
         .order('name');
+      if (clinicId) q = q.eq('clinic_id', clinicId);
       if (clinicCategory) q = q.eq('specialty_category', clinicCategory);
       const { data: procs } = await q;
 
@@ -74,7 +78,7 @@ export function MemberProceduresEditor({
     return () => {
       cancelled = true;
     };
-  }, [clinicMemberId, clinicCategory]);
+  }, [clinicMemberId, clinicId, clinicCategory]);
 
   const grouped = useMemo(() => {
     const term = search.trim().toLowerCase();

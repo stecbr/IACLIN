@@ -85,7 +85,7 @@ export function MyProceduresPerClinic() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MemberProceduresEditor clinicMemberId={m.id} clinicCategory={m.clinic_category} />
+            <MemberProceduresEditor clinicMemberId={m.id} clinicId={m.clinic_id} clinicCategory={m.clinic_category} />
           </CardContent>
         </Card>
       ))}
