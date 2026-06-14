@@ -185,6 +185,7 @@ export default function ProceduresCrudSection() {
           procedure={editingProc}
           specialty={userSpecialty}
           clinicSpecialtyCategory={category}
+          clinicId={currentClinicId}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['procedures-settings'] });
             queryClient.invalidateQueries({ queryKey: ['procedures-list'] });
@@ -195,12 +196,13 @@ export default function ProceduresCrudSection() {
   );
 }
 
-function ProcedureDialog({ open, onOpenChange, procedure, specialty, clinicSpecialtyCategory, onSuccess }: {
+function ProcedureDialog({ open, onOpenChange, procedure, specialty, clinicSpecialtyCategory, clinicId, onSuccess }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   procedure: any;
   specialty?: string;
   clinicSpecialtyCategory?: string;
+  clinicId?: string | null;
   onSuccess: () => void;
 }) {
   const isEdit = !!procedure;
