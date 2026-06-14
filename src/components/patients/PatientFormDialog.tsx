@@ -785,7 +785,7 @@ export function PatientFormDialog({
                     className="gap-2"
                   >
                     <Send className="h-4 w-4" />
-                    {sendingInvite ? 'Enviando…' : 'Cadastrar + Enviar convite'}
+                    {sendingInvite ? 'Enviando…' : 'Enviar convite por e-mail'}
                   </Button>
                 )}
                 <Button type="submit" disabled={loading}>
