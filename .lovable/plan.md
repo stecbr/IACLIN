@@ -1,62 +1,42 @@
-## Ajuste no Modal de Novo Paciente — Fluxo CPF-first
+## Envio funcional do e-mail de convite ao paciente
 
-Reestruturar `PatientFormDialog` (modo "Novo Paciente") em **etapas progressivas**, começando pelo CPF e revelando o restante apenas após a verificação. Edição de paciente existente permanece inalterada.
+Vou usar o sistema **transacional nativo do Lovable** (sem Resend/Mailgun/chave externa). É o caminho recomendado da plataforma e já fica pronto para apresentar ao cliente.
 
-### Fluxo de telas (modo "Novo")
+### Passo 1 — Domínio de envio
+A infra de e-mail precisa de um domínio verificado para realmente entregar mensagens. O projeto já tem `iaclin.test.ia.br` conectado como domínio próprio, então proponho reaproveitá-lo como remetente (`no-reply@iaclin.test.ia.br`).
 
-```
-┌─ Passo 1: CPF ────────────────────────────────┐
-│ [CPF do paciente] ___.___.___-__              │
-│ [ ] Paciente estrangeiro (sem CPF)            │
-│                          [Continuar]          │
-└───────────────────────────────────────────────┘
-            │
-   ┌────────┴────────┐
-   ▼ existe          ▼ não existe / estrangeiro
-┌──────────────────────────┐  ┌─────────────────────────────┐
-│ Passo 2A — Já cadastrado │  │ Passo 2B — Convidar / criar │
-│ "Este paciente já possui │  │ Nome completo *             │
-│  conta no iClin."        │  │ E-mail *                    │
-│ [Solicitar Vinculação]   │  │ Telefone                    │
-│ [Voltar]                 │  │ [Enviar convite por e-mail] │
-│ Estado pós-envio:        │  │ ── ou ──                    │
-│ "Solicitação enviada.    │  │ [Cadastrar sem convite ▾]   │
-│  Aguarde aprovação."     │  │   (abre formulário completo)│
-└──────────────────────────┘  └─────────────────────────────┘
-```
+Se o domínio ainda não estiver configurado para e-mail, o sistema vai abrir o diálogo de setup automaticamente (você adiciona SPF/DKIM/DMARC no DNS e ele verifica). **Esse passo exige permissão de admin do workspace** e é único — depois disso o envio fica permanente.
 
-### Comportamento detalhado
+Se quiser usar outro domínio (ex: `mail.iaclin.com.br`), me avise antes de eu rodar.
 
-**Passo 1 — CPF**
-- Único campo visível inicialmente é o CPF (com máscara) + toggle "Paciente estrangeiro".
-- Botão **Continuar** desabilitado até CPF válido (`isValidCPF`) ou toggle estrangeiro ligado.
-- Ao clicar Continuar: chama `request-patient-link` com `mode: 'check'`. Loading inline.
-- Se estrangeiro → vai direto ao Passo 2B (sem checagem, CPF vazio).
+### Passo 2 — Infra transacional
+Provisionar a infra de envio do Lovable no projeto:
+- Filas pgmq, tabelas de log/suppression/unsubscribe.
+- Edge function `process-email-queue` + cron.
+- Edge function `send-transactional-email` (entrada usada pelo nosso código).
 
-**Passo 2A — CPF já existe**
-- Mensagem clara (Alert com ícone `UserCheck`): "Este paciente já possui conta no iClin. Para acessá-lo, envie uma solicitação de vinculação. O paciente receberá um e-mail e uma notificação na plataforma e deverá aprovar."
-- Botão **Solicitar Vinculação** → chama `request-patient-link` com `mode: 'create'`.
-- Após sucesso: estado "enviado" com mensagem "Solicitação enviada. O paciente tem 24h para aceitar." + botão Fechar.
-- Trata `already_linked` e `already_pending` (já existem no edge function).
-- Botão **Voltar** retorna ao Passo 1.
+Tudo isso é feito por uma chamada única do tooling, sem migrations manuais.
 
-**Passo 2B — CPF novo (ou estrangeiro)**
-- Exibe apenas: Nome completo, E-mail, Telefone (compactos).
-- Ação primária: **Enviar convite por e-mail** → chama `invite-new-patient`. Após sucesso, fecha o modal com toast "Convite enviado".
-- Ação secundária (link discreto): **"Cadastrar manualmente sem convite"** → expande para o formulário completo atual (todos os campos restantes: endereço, responsável, convênio, etc.) e mostra o botão **Salvar** original que cria a linha em `patients` localmente.
-- Botão **Voltar** retorna ao Passo 1.
+### Passo 3 — Reescrever `invite-new-patient`
+Editar `supabase/functions/invite-new-patient/index.ts`:
+1. Continua validando o usuário e inserindo em `patient_invites` exatamente como hoje.
+2. Após criar o convite, busca o nome do solicitante (clínica via `clinic_id` ou `profiles.full_name` do usuário).
+3. Chama `send-transactional-email` com:
+   - `to`: e-mail do paciente.
+   - `from`: `iClin <no-reply@iaclin.test.ia.br>` (ou domínio escolhido).
+   - `subject`: *"Você foi convidado para o iClin"*.
+   - `html`: template responsivo com saudação, frase *"<Clínica/Profissional> deseja adicionar você como paciente no iClin"*, botão **Completar Cadastro** apontando para `https://iaclin.lovable.app/auth?invite=<token>` e o link textual como fallback.
+4. Se o envio falhar, **não derruba o convite** — registra `email_sent: false` no retorno e mantém o `invite_link` no JSON para fallback manual.
+5. Mantém o `console.log` atual do link para debug.
 
-### Mudanças no código
-
-- **`src/components/patients/PatientFormDialog.tsx`** (modo novo apenas):
-  - Adicionar estado `step: 'cpf' | 'exists' | 'new'` e `linkRequestSent: boolean`.
-  - Remover a checagem debounced atual e o botão "Solicitar Vinculação" que aparece junto com o formulário; mover essa lógica para os passos.
-  - Renderização condicional: ocultar foto + todas as `SectionHeader` até `step === 'new'` com modo "manual" ativado. Em `step === 'new'` modo "convite", mostrar apenas mini-form (3 campos).
-  - Resetar `step` para `'cpf'` ao abrir.
-  - Em modo edição (`isEdit`), pular passos: formulário completo direto, igual ao atual.
-
-- **Backend**: nenhuma alteração de schema. Funções `request-patient-link`, `respond-patient-link` e `invite-new-patient` já existem e cobrem o fluxo. Apenas o frontend muda.
+### Passo 4 — Deploy e teste
+- Deploy de `invite-new-patient` (e das funções da infra).
+- Teste pelo modal de Novo Paciente enviando para um e-mail real; conferir entrega + logs com `edge_function_logs`.
 
 ### Fora do escopo
-- Entrega real do e-mail de convite (`invite-new-patient` hoje loga o link; integração de transactional email permanece como passo posterior).
-- Mudanças em `AppointmentFormDialog` / `BudgetFormDialog` (esses já chamam `PatientFormDialog`, herdam o novo fluxo automaticamente).
+- Templates de auth (signup/recovery) — não mexer.
+- E-mails para "vinculação aceita/recusada" e outras notificações — fica como melhoria futura.
+- Mudanças no frontend, schema, RLS, ou no fluxo de auto-aceite do convite.
+
+### Observação importante
+Enquanto o DNS do domínio não terminar de propagar (pode levar minutos a algumas horas), o e-mail fica "enfileirado" mas não sai. Assim que ficar verde em **Cloud → Emails**, o envio começa automaticamente — não precisa redeploy.
