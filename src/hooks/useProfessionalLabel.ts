@@ -13,14 +13,14 @@ const ROLE_BASE_LABEL: Record<string, string> = {
 };
 
 const DENTIST_FAMILY_LABEL: Record<string, string> = {
-  odonto:    'IACLINODONTO',
+  odonto:    'IACLINDENTAL',
   psi:       'Psicólogo(a)',
   aesthetic: 'Esteticista',
   nutrition: 'Nutricionista',
   physio:    'Fisioterapeuta',
   podology:  'Podólogo(a)',
-  medical:   'IACLINMEDICAL',
-  generic:   'IACLINMEDICAL',
+  medical:   'IACLINMEDICO',
+  generic:   'IACLINMEDICO',
 };
 
 export interface ProfessionalLabelResult {
@@ -37,6 +37,10 @@ export function useProfessionalLabel(): ProfessionalLabelResult {
   const roleKey = clinicRole ?? effectiveRole ?? '';
   const isDentist = effectiveRole === 'dentist';
 
+  const meta = (user?.user_metadata as Record<string, unknown> | undefined) ?? {};
+  const userType = meta.user_type as string | undefined;
+  const isProfessionalSignup = userType === 'profissional';
+
   // Same queryKey as AppSidebar — React Query deduplicates the network request
   const { data: memberSpecialty = null } = useQuery({
     queryKey: ['member-specialty', user?.id, currentClinicId],
@@ -50,15 +54,17 @@ export function useProfessionalLabel(): ProfessionalLabelResult {
         .maybeSingle();
       return data?.specialty ?? null;
     },
-    enabled: !!user?.id && !!currentClinicId && isDentist,
+    enabled: !!user?.id && !!currentClinicId && (isDentist || isProfessionalSignup),
   });
 
-  if (isDentist) {
-    const family: SpecialtyFamily = memberSpecialty
-      ? getSpecialtyFamily(memberSpecialty)
-      : (clinicCategory === 'medico' ? 'generic' : 'odonto');
+  if (isDentist || isProfessionalSignup) {
+    const metaSpecialty = meta.specialty as string | undefined;
+    const specialty = memberSpecialty ?? metaSpecialty ?? null;
+    const family: SpecialtyFamily = specialty
+      ? getSpecialtyFamily(specialty)
+      : (clinicCategory === 'medico' || isProfessionalSignup ? 'generic' : 'odonto');
     return {
-      label: DENTIST_FAMILY_LABEL[family] ?? 'Médico',
+      label: DENTIST_FAMILY_LABEL[family] ?? 'IACLINMEDICO',
       family,
       roleKey,
       isOdonto: family === 'odonto',
