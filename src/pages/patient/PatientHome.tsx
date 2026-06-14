@@ -16,6 +16,7 @@ import { usePatientData, appointmentStatusMap, type AppointmentRow } from '@/hoo
 import { AppointmentDetailDrawer } from '@/components/patient/AppointmentDetailDrawer';
 import { PatientTimelineMulti } from '@/components/patient/PatientTimelineMulti';
 import { ShareMyChartDialog } from '@/components/patient/ShareMyChartDialog';
+import { LinkRequestsPanel } from '@/components/patient/LinkRequestsPanel';
 
 export default function PatientHome() {
   const { profile } = useAuth();
@@ -59,6 +60,8 @@ export default function PatientHome() {
         <h1 className="text-2xl font-semibold tracking-tight">{greeting}, {firstName}</h1>
         <p className="text-sm text-muted-foreground mt-1">Acompanhe suas consultas, exames e plano de saúde.</p>
       </motion.div>
+
+      <LinkRequestsPanel />
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => navigate('/paciente/agendar')} className="gap-2">
