@@ -333,7 +333,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Consulta</DialogTitle>
         </DialogHeader>

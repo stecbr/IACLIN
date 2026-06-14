@@ -174,7 +174,6 @@ export default function Budgets() {
           icon={ClipboardList}
           title="Nenhum orçamento ainda"
           description="Crie seu primeiro orçamento clicando no botão acima."
-          illustration="tooth"
         />
         <BudgetFormDialog open={formOpen} onOpenChange={setFormOpen} />
       </div>

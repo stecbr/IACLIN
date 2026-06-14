@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Trash2, Check, ChevronsUpDown, UserPlus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
+import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 
 interface ProcedureOption { id: string; name: string; default_price: number }
 
@@ -112,6 +113,9 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [patientId, setPatientId] = useState(preselectedPatientId ?? '');
+  const [patientComboOpen, setPatientComboOpen] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [showNewPatient, setShowNewPatient] = useState(false);
   const [items, setItems] = useState<PlanItem[]>([
     { procedure_id: '', custom_name: '', tooth_number: '', price: '', notes: '' },
   ]);
@@ -119,7 +123,7 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
   const { data: patients = [] } = useQuery({
     queryKey: ['patients-select', currentClinicId],
     queryFn: async () => {
-      let q = supabase.from('patients').select('id, full_name').eq('is_active', true).order('full_name');
+      let q = supabase.from('patients').select('id, full_name, photo_url, cpf').eq('is_active', true).order('full_name');
       if (currentClinicId) q = q.eq('clinic_id', currentClinicId);
       const { data } = await q;
       return data ?? [];
@@ -253,8 +257,9 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
   });
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Orçamento</DialogTitle>
         </DialogHeader>
@@ -264,16 +269,102 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Paciente *</Label>
-              <Select value={patientId} onValueChange={setPatientId} disabled={!!preselectedPatientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {patients.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover
+                open={patientComboOpen && !preselectedPatientId}
+                onOpenChange={(o) => { if (!preselectedPatientId) { setPatientComboOpen(o); if (!o) setPatientSearch(''); } }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    role="combobox"
+                    disabled={!!preselectedPatientId}
+                    className={cn(
+                      'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50',
+                      !patientId && 'text-muted-foreground'
+                    )}
+                  >
+                    {(() => {
+                      const p = patients.find(p => p.id === patientId);
+                      return p ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar className="h-5 w-5 flex-shrink-0">
+                            <AvatarImage src={(p as any).photo_url ?? undefined} className="object-cover" />
+                            <AvatarFallback className="text-[9px] bg-primary/10 text-primary">
+                              {p.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="truncate">{p.full_name}</span>
+                        </div>
+                      ) : <span className="truncate">Selecione...</span>;
+                    })()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start" sideOffset={4}>
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Buscar paciente..."
+                      value={patientSearch}
+                      onValueChange={setPatientSearch}
+                    />
+                    <CommandList>
+                      {(() => {
+                        const term = patientSearch.toLowerCase();
+                        const filtered = term
+                          ? patients.filter(p => p.full_name.toLowerCase().includes(term) || (p as any).cpf?.includes(term))
+                          : patients;
+                        if (filtered.length === 0) return (
+                          <div className="flex flex-col items-center gap-2 py-4 text-center px-2">
+                            <p className="text-sm text-muted-foreground">Nenhum paciente encontrado.</p>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => { setPatientComboOpen(false); setShowNewPatient(true); }}
+                            >
+                              <UserPlus className="h-4 w-4" />
+                              Cadastrar {patientSearch ? `"${patientSearch}"` : 'novo paciente'}
+                            </button>
+                          </div>
+                        );
+                        return (
+                          <>
+                            <CommandGroup>
+                              {filtered.map(p => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={p.id}
+                                  onSelect={() => { setPatientId(p.id); setPatientSearch(''); setPatientComboOpen(false); }}
+                                >
+                                  <div className="flex items-center gap-2.5 w-full">
+                                    <Avatar className="h-7 w-7 flex-shrink-0">
+                                      <AvatarImage src={(p as any).photo_url ?? undefined} className="object-cover" />
+                                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                        {p.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="flex-1 truncate text-sm">{p.full_name}</span>
+                                    <Check className={cn('h-4 w-4 flex-shrink-0', patientId === p.id ? 'opacity-100' : 'opacity-0')} />
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                            <div className="border-t p-1">
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                onClick={() => { setPatientComboOpen(false); setShowNewPatient(true); }}
+                              >
+                                <UserPlus className="h-4 w-4" />
+                                Cadastrar novo paciente
+                              </button>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           <div className="space-y-1.5">
             <Label>Título *</Label>
@@ -391,5 +482,26 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
         </div>
       </DialogContent>
     </Dialog>
+
+    <PatientFormDialog
+      key={showNewPatient ? patientSearch || 'new' : 'hidden'}
+      open={showNewPatient}
+      onOpenChange={setShowNewPatient}
+      clinicId={currentClinicId}
+      initialName={patientSearch}
+      onPatientCreated={(id, name) => {
+        setPatientId(id);
+        queryClient.setQueryData(
+          ['patients-select', currentClinicId],
+          (old: any[] | undefined) => {
+            const list = old ?? [];
+            if (list.some((p: any) => p.id === id)) return list;
+            return [...list, { id, full_name: name, photo_url: null, cpf: null }]
+              .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
+          }
+        );
+      }}
+    />
+    </>
   );
 }
