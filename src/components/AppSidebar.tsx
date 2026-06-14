@@ -662,7 +662,7 @@ export function AppSidebar() {
             )}
 
             {currentClinicId && (
-              <NavSection id="clinica" label="Clínica" collapsed={collapsed}>
+              <NavSection id="clinica" label="Gestão da Clínica" collapsed={collapsed}>
                 <SidebarMenu>
                   {finalClinicNav.map((item) =>
                     renderNavItem(
@@ -672,17 +672,11 @@ export function AppSidebar() {
                       : undefined,
                     )
                   )}
+                  {prontuarioItem}
                 </SidebarMenu>
               </NavSection>
             )}
 
-            {(effectiveRole === 'admin' || effectiveRole === 'dentist' || effectiveRole === 'secretary') && (
-              <SidebarGroup className="py-0">
-                <SidebarGroupContent>
-                  <SidebarMenu>{prontuarioItem}</SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
 
             {(effectiveRole === 'dentist' || effectiveRole === 'secretary') && currentClinicId && (
               <NavSection id="automacao-dentist" label="Automação" collapsed={collapsed} defaultOpen={false}>
@@ -697,6 +691,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {renderNavItem({ title: 'Visão Geral', url: '/clinica',        icon: Building2 }, undefined, true)}
                   {renderNavItem({ title: 'Médicos',     url: '/clinica/medicos', icon: Stethoscope }, undefined, true)}
+                  {prontuarioItem}
                 </SidebarMenu>
               </NavSection>
             )}
