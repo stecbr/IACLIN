@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 
@@ -47,6 +48,7 @@ const routePermissions: RouteAccess[] = [
 
 export function useRoleAccess() {
   const { clinicRole, isPatient, simulatedRole } = useAuth();
+  const isClinicSignup = useIsClinicSignup();
 
   // Dev simulation wins over everything when set
   // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
@@ -57,6 +59,8 @@ export function useRoleAccess() {
     : (isPatient ? 'patient' : ((normalizedClinicRole as AppRole) ?? 'admin'));
 
   const canAccess = (path: string): boolean => {
+    // Clinic signups don't have a personal "Meu Perfil" — redirect to /settings.
+    if (isClinicSignup && path.startsWith('/perfil')) return false;
     const rule = routePermissions.find((r) => {
       if (r.path === '/') return path === '/';
       return path.startsWith(r.path);

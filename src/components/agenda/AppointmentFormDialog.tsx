@@ -105,13 +105,18 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   });
 
   const { data: procedures = [] } = useQuery({
-    queryKey: ['procedures-list'],
+    queryKey: ['procedures-list', currentClinicId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('procedures').select('*').eq('is_active', true).order('name');
+      const { data, error } = await supabase
+        .from('procedures')
+        .select('*')
+        .eq('clinic_id', currentClinicId!)
+        .eq('is_active', true)
+        .order('name');
       if (error) throw error;
       return data;
     },
-    enabled: open,
+    enabled: open && !!currentClinicId,
   });
 
   const { data: rooms = [] } = useQuery({

@@ -18,6 +18,8 @@ import { useAiSync } from '@/hooks/useAiSync';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
 import { useClinicBranding } from '@/hooks/useClinicBranding';
+import { FirstAccessClinicDialog } from '@/components/FirstAccessClinicDialog';
+import { PublishPendingBanner } from '@/components/PublishPendingBanner';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -168,6 +170,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="flex-1 flex flex-col min-h-0"
               >
+                <PublishPendingBanner />
                 {children}
               </motion.div>
             </AnimatePresence>
@@ -177,6 +180,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <MobileBottomNav />
       <FloatingConsultationButton />
       <WelcomeTour />
+      <FirstAccessClinicDialog />
     </SidebarProvider>
   );
 }

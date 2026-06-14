@@ -944,11 +944,13 @@ export type Database = {
           id: string
           inss_pis: string | null
           invite_code: string | null
+          is_published: boolean
           legal_name: string | null
           logo_url: string | null
           municipal_registration: string | null
           name: string
           neighborhood: string | null
+          onboarding_completed_at: string | null
           owner_id: string | null
           phone: string | null
           responsible_name: string | null
@@ -957,6 +959,7 @@ export type Database = {
           state: string | null
           state_registration: string | null
           updated_at: string
+          welcome_dismissed_at: string | null
           zip_code: string | null
         }
         Insert: {
@@ -984,11 +987,13 @@ export type Database = {
           id?: string
           inss_pis?: string | null
           invite_code?: string | null
+          is_published?: boolean
           legal_name?: string | null
           logo_url?: string | null
           municipal_registration?: string | null
           name: string
           neighborhood?: string | null
+          onboarding_completed_at?: string | null
           owner_id?: string | null
           phone?: string | null
           responsible_name?: string | null
@@ -997,6 +1002,7 @@ export type Database = {
           state?: string | null
           state_registration?: string | null
           updated_at?: string
+          welcome_dismissed_at?: string | null
           zip_code?: string | null
         }
         Update: {
@@ -1024,11 +1030,13 @@ export type Database = {
           id?: string
           inss_pis?: string | null
           invite_code?: string | null
+          is_published?: boolean
           legal_name?: string | null
           logo_url?: string | null
           municipal_registration?: string | null
           name?: string
           neighborhood?: string | null
+          onboarding_completed_at?: string | null
           owner_id?: string | null
           phone?: string | null
           responsible_name?: string | null
@@ -1037,6 +1045,7 @@ export type Database = {
           state?: string | null
           state_registration?: string | null
           updated_at?: string
+          welcome_dismissed_at?: string | null
           zip_code?: string | null
         }
         Relationships: []
@@ -2662,6 +2671,7 @@ export type Database = {
       procedures: {
         Row: {
           category: string
+          clinic_id: string | null
           code: string | null
           color: string
           created_at: string
@@ -2675,6 +2685,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          clinic_id?: string | null
           code?: string | null
           color?: string
           created_at?: string
@@ -2688,6 +2699,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          clinic_id?: string | null
           code?: string | null
           color?: string
           created_at?: string
@@ -2699,7 +2711,15 @@ export type Database = {
           name?: string
           specialty_category?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "procedures_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       professional_availability: {
         Row: {
@@ -2883,6 +2903,7 @@ export type Database = {
           address_complement: string | null
           address_number: string | null
           avatar_url: string | null
+          bio: string | null
           city: string | null
           created_at: string
           full_name: string | null
@@ -2899,6 +2920,7 @@ export type Database = {
           address_complement?: string | null
           address_number?: string | null
           avatar_url?: string | null
+          bio?: string | null
           city?: string | null
           created_at?: string
           full_name?: string | null
@@ -2915,6 +2937,7 @@ export type Database = {
           address_complement?: string | null
           address_number?: string | null
           avatar_url?: string | null
+          bio?: string | null
           city?: string | null
           created_at?: string
           full_name?: string | null

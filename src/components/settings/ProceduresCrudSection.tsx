@@ -19,7 +19,7 @@ import { getSuggestedProcedures, isProcedureCompatible, type SuggestedProcedure 
 const COLORS = ['#3B82F6', '#EF4444', '#22C55E', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
 export default function ProceduresCrudSection() {
-  const { clinicCategory, user } = useAuth();
+  const { clinicCategory, user, currentClinicId } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProc, setEditingProc] = useState<any>(null);
@@ -29,9 +29,15 @@ export default function ProceduresCrudSection() {
   const userSpecialty = (user?.user_metadata as any)?.specialty as string | undefined;
 
   const { data: procedures = [], isLoading } = useQuery({
-    queryKey: ['procedures-settings'],
+    queryKey: ['procedures-settings', currentClinicId],
+    enabled: !!currentClinicId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('procedures').select('*').order('category, name');
+      const { data, error } = await supabase
+        .from('procedures')
+        .select('*')
+        .eq('clinic_id', currentClinicId!)
+        .order('category')
+        .order('name');
       if (error) throw error;
       return data;
     },
@@ -179,6 +185,7 @@ export default function ProceduresCrudSection() {
           procedure={editingProc}
           specialty={userSpecialty}
           clinicSpecialtyCategory={category}
+          clinicId={currentClinicId}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['procedures-settings'] });
             queryClient.invalidateQueries({ queryKey: ['procedures-list'] });
@@ -189,12 +196,13 @@ export default function ProceduresCrudSection() {
   );
 }
 
-function ProcedureDialog({ open, onOpenChange, procedure, specialty, clinicSpecialtyCategory, onSuccess }: {
+function ProcedureDialog({ open, onOpenChange, procedure, specialty, clinicSpecialtyCategory, clinicId, onSuccess }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   procedure: any;
   specialty?: string;
   clinicSpecialtyCategory?: string;
+  clinicId?: string | null;
   onSuccess: () => void;
 }) {
   const isEdit = !!procedure;
@@ -243,6 +251,7 @@ function ProcedureDialog({ open, onOpenChange, procedure, specialty, clinicSpeci
       } else {
         const { error } = await supabase.from('procedures').insert({
           ...payload,
+          clinic_id: clinicId,
           specialty_category: clinicSpecialtyCategory ?? 'medico',
         });
         if (error) throw error;
