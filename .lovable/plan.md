@@ -1,69 +1,139 @@
-## Objetivo
-Ao clicar em "Finalizar Atendimento", abrir obrigatoriamente um modal de **Forma de Pagamento** com três caminhos: Convênio, Particular agora (Stripe), Particular depois. Bloquear a navegação até o usuário escolher.
+## Contexto
 
-## Mudanças no fluxo (Attendance.tsx)
-- `handleFinish` deixa de criar a transação financeira direto. Em vez disso:
-  1. Marca atendimento como `completed` + atualiza clinical_record.
-  2. Abre `FinishPaymentDialog` (substitui o atual `ConsultationPaymentDialog`) — **não fechável por clique fora / ESC**, só confirmando uma das 3 opções (ou "Registrar depois").
-  3. A transação financeira é criada somente após a escolha, com os campos certos por cenário.
+Mudanças aplicam-se **apenas** ao fluxo onde o usuário se cadastra diretamente como Clínica (`user_type = 'clinica'` em `raw_user_meta_data`). O fluxo Médico/Dentista → cria clínica depois permanece intacto.
 
-## Modal: 3 opções
+Detector usado em todo o frontend: `user.user_metadata.user_type === 'clinica'` (já existe em `Auth.tsx`).
 
-### 1) Convênio
-- Mostra select de **operadoras em que o médico está credenciado** (`operator_credentialings` com status `approved` para `professional_user_id = user.id`).
-- Lista os procedimentos da consulta. Para cada um, busca o valor em `operator_price_items` da operadora escolhida (tabela vigente). Se item não tiver código mapeado ou não existir na tabela, exibe alerta "procedimento sem valor na tabela da operadora" e impede confirmar até resolver (corrigir código ou trocar operadora).
-- Ao confirmar cria `financial_transactions`:
-  - `type='income'`, `category='insurance'`
-  - `payment_method = 'insurance:<operator_name>'`
-  - `status='pending'`, `due_date = dia 20 do mês seguinte` (data corte da fatura)
-  - `notes` com operadora, plano (se houver) e códigos dos procedimentos
-  - novos campos: `operator_id`, `insurance_invoice_period` (YYYY-MM)
-- Histórico médico-operadora: garantido pela própria transação + `clinical_record_procedures` já existente.
+---
 
-### 2) Particular agora (Stripe Checkout Session)
-- Chama nova edge function `create-consultation-checkout` que:
-  - Recebe `transaction_id` (criado antes como `status='pending'`, `payment_method='stripe'`).
-  - Usa `STRIPE_SECRET_KEY` para criar `checkout.sessions.create` (mode=`payment`) com `line_items` derivados dos procedimentos.
-  - Retorna `url`.
-- Modal mostra QR Code + link copiável. Paciente paga no celular.
-- Webhook (`stripe-webhook` já existente, estender) marca transação como `paid` ao receber `checkout.session.completed`.
+## 1. Procedimentos compartilhados entre clínicas (bug crítico)
 
-### 3) Particular depois ("A combinar")
-- Cria `financial_transactions` com `status='pending'`, `payment_method='particular_pending'`, `notes='A combinar com paciente'`, `due_date` = hoje.
-- Aparece no AR / contas a receber para a secretária cobrar depois.
+A tabela `procedures` hoje **não tem coluna `clinic_id`**. Por isso ao criar uma nova clínica todos os procedimentos antigos aparecem.
 
-## Nova tela: Faturas a enviar (Convênios)
-Rota: `/financeiro/faturas-convenio`
-- Lista agrupada por `operator_id` + `insurance_invoice_period`.
-- Cada grupo mostra: operadora, mês, total, qtd de consultas, status (`aberta` / `enviada` / `paga`).
-- Ações: ver detalhes (lista de pacientes/data/procedimento/valor), marcar como enviada, marcar como paga (lote — atualiza todas transações do grupo).
-- Banner no dashboard quando dia ≥ 18 do mês: "Você tem X faturas prontas para envio dia 20".
+**Migration:**
+- Adicionar `clinic_id uuid REFERENCES public.clinics(id) ON DELETE CASCADE` em `procedures`.
+- Backfill: associar cada `procedures` existente à clínica do `owner_id` mais antigo do criador (estratégia: atribuir todos os procedimentos atuais à clínica do dono mais antigo que tenha pelo menos uma; alternativa simples acordada — atribuir à primeira clínica criada de cada categoria). Procedimentos sem dono claro ficam `NULL` e serão tratados como "globais legacy" e ocultados da nova UI.
+- Tornar `clinic_id NOT NULL` após backfill.
+- Substituir as policies atuais por policies por `clinic_id` usando `user_belongs_to_clinic(auth.uid(), clinic_id)`.
+- Manter `GRANT SELECT, INSERT, UPDATE, DELETE ON public.procedures TO authenticated` + `GRANT ALL ... TO service_role`.
 
-## Banco (migração)
-- `financial_transactions`:
-  - `operator_id uuid null references insurance_operators(id)`
-  - `insurance_invoice_period text null` (formato `YYYY-MM`)
-  - `insurance_invoice_status text null` (`open|sent|paid`)
-- Índice composto `(operator_id, insurance_invoice_period)`.
-- Mantém RLS atual (já filtra por clinic_member).
+**Código (filtrar/incluir clinic_id em todas as queries):**
+- `ProceduresCrudSection.tsx`: `select(...).eq('clinic_id', currentClinicId)`; no insert incluir `clinic_id: currentClinicId`.
+- `Attendance.tsx`, `AppointmentFormDialog.tsx`, `BudgetFormDialog.tsx`, `MemberProceduresEditor.tsx`, `MyCredentialingSection.tsx`, `useAiSync.ts`, `SettingsPage.tsx` (bloco de sync IA): adicionar `.eq('clinic_id', currentClinicId)`.
 
-## Arquivos a criar / editar
-- `src/components/attendance/FinishPaymentDialog.tsx` (novo — substitui `ConsultationPaymentDialog`)
-- `src/pages/Attendance.tsx` (refatorar `handleFinish`)
-- `src/pages/financial/InsuranceInvoices.tsx` (nova tela)
-- Rota em `src/App.tsx`
-- `supabase/functions/create-consultation-checkout/index.ts` (nova)
-- `supabase/functions/stripe-webhook/index.ts` (estender para tratar checkout consulta)
-- Migration única adicionando colunas + índice em `financial_transactions`
+---
 
-## Validação / Testes manuais
-1. Finalizar atendimento sem procedimentos → modal só permite "Registrar depois".
-2. Convênio Unimed: criar credenciamento + tabela com 1 procedimento → finalizar → transação cai em "Faturas a enviar" no mês corrente.
-3. Convênio sem código mapeado → alerta vermelho, botão confirmar desabilitado.
-4. Stripe agora → checkout abre, paga em modo teste → webhook marca `paid`.
-5. Particular depois → vai para contas a receber pendente.
+## 2. Ocultar aba "Feriados" para usuários do tipo Clínica
 
-## Fora deste escopo
-- Geração de PDF/CSV da fatura conv (pode entrar depois).
-- Stripe Terminal (maquininha física).
-- Comissão automática por procedimento.
+`HolidaysSection.tsx` existe mas não está mais listada em `SettingsPage`. Confirmar que nenhuma aba "Feriados" é renderizada para `isClinicaSignup`. Caso esteja referenciada via rota/menu lateral em outro lugar, ocultar com `if (isClinicaSignup) return null`.
+
+---
+
+## 3. Mover "Especialidades" para fora do `/perfil` quando for Clínica
+
+`Profile.tsx`: remover do array `sections` o item `specialty` quando `user_type === 'clinica'`.
+
+A seção `SpecialtySection` já existe em `SettingsPage`. Mantida lá.
+
+---
+
+## 4. Ocultar "Meu Perfil" no menu lateral para Clínicas
+
+`AppSidebar.tsx`: no rodapé/menu inferior, esconder o link "Meu Perfil" (`/perfil`) quando `user.user_metadata.user_type === 'clinica'`.
+
+`useRoleAccess.ts`: bloquear acesso direto a `/perfil` para esse caso (redireciona para `/settings`).
+
+---
+
+## 5. Reorganização do `/settings` para usuários Clínica
+
+Estrutura final do menu lateral interno de `SettingsPage` quando `isClinicaSignup`:
+
+```
+Clínica            (já existe)
+Perfil do Proprietário   NOVO
+Especialidades     (já existe — SpecialtySection)
+Equipe             (já existe)
+Salas              (já existe)
+Convênios          (já existe)
+Procedimentos      (já existe — agora por clínica)
+Recebimentos       (já existe)
+Segurança          NOVO (mover de Profile.tsx → reaproveitar SecuritySection)
+Aparência          NOVO (mover de Profile.tsx → reaproveitar AppearanceBlock + ThemeCustomizer)
+Assinatura         (já existe)
+```
+
+Para usuários Médico/Dentista que criam clínica depois, manter o array `sections` atual (nada muda).
+
+---
+
+## 6. "Perfil do Proprietário" (nova seção em Configurações)
+
+Novo componente `src/components/settings/OwnerProfileSection.tsx` (apenas para Clínica). Edita `public.profiles` do `owner_id`:
+
+- Avatar (upload em `clinic-assets/profiles/<owner_id>/...`) → grava `profiles.avatar_url`
+- Nome completo (`full_name`)
+- Telefone (`phone`)
+- CRM / CRO (campo `registration_number` em `clinic_members` do owner naquela clínica)
+- Especialidades (reaproveitar lógica de `professional_specialties` + `clinic_member_specialties`)
+- Biografia (`profiles.bio` — adicionar coluna se não existir)
+
+A foto salva em `profiles.avatar_url` já é consumida pelo sidebar (`profile?.avatar_url`), Marketplace (`get_marketplace_doctor_profiles`) e Redes Médicas. Nada extra precisa ser feito além de garantir refresh do `AuthContext`.
+
+---
+
+## 7. Modal de primeiro acesso + gate de publicação
+
+**Migration:**
+- Adicionar em `public.clinics`:
+  - `is_published BOOLEAN NOT NULL DEFAULT false`
+  - `onboarding_completed_at TIMESTAMPTZ`
+  - `welcome_dismissed_at TIMESTAMPTZ`
+
+**Componente `FirstAccessClinicDialog.tsx`:**
+- Disparado em `AppLayout` quando: `user_type === 'clinica'` AND `currentClinic.welcome_dismissed_at IS NULL` AND `onboarding_completed_at IS NULL`.
+- Texto conforme spec do usuário.
+- Botões:
+  - "Ir para Configurações" → `navigate('/settings')` + grava `welcome_dismissed_at = now()`
+  - "Fazer Depois" → fecha + grava `welcome_dismissed_at = now()`
+- Pode fechar (X).
+
+**Aviso visual de pendência:**
+Banner no topo de `/` (Dashboard) e `/settings` quando `is_published = false`, indicando campos obrigatórios faltantes (Nome, CNPJ/CPF, Telefone, Endereço completo, ao menos 1 especialidade, ao menos 1 procedimento, foto do proprietário).
+
+**Publicação:**
+Botão "Salvar" da seção "Clínica" em `/settings` valida campos obrigatórios:
+- Se completos: seta `is_published = true` e `onboarding_completed_at = now()`.
+- Caso contrário: mantém `is_published = false` e exibe lista de pendências.
+
+**Gate em Marketplace / Redes / Agendamento:**
+- `Marketplace.tsx`: filtrar `clinics.is_published = true` no fetch.
+- `get_marketplace_doctor_profiles`: filtrar apenas profissionais cuja clínica esteja publicada.
+- `PatientBooking.tsx`: bloquear agendamento em clínicas não publicadas.
+
+Para clínicas pré-existentes (médicos que já criaram), backfill `is_published = true` na migration para não quebrar nada.
+
+---
+
+## Arquivos novos
+- `src/components/settings/OwnerProfileSection.tsx`
+- `src/components/settings/SecuritySettingsSection.tsx` (extrai de `Profile.tsx`)
+- `src/components/settings/AppearanceSettingsSection.tsx` (extrai de `Profile.tsx`)
+- `src/components/FirstAccessClinicDialog.tsx`
+- `src/components/PublishPendingBanner.tsx`
+- `src/hooks/useIsClinicSignup.ts` (helper único: `user.user_metadata.user_type === 'clinica'`)
+
+## Arquivos editados
+- Migration: `procedures.clinic_id` + RLS, `clinics.is_published / onboarding_completed_at / welcome_dismissed_at`, opcional `profiles.bio`.
+- `src/pages/SettingsPage.tsx` — sections condicionais por tipo de usuário.
+- `src/pages/Profile.tsx` — remover Especialidades quando Clínica; (componentes Security/Appearance ficam como compat — Profile some do menu nesse caso).
+- `src/components/AppSidebar.tsx` — esconder "Meu Perfil" para Clínica.
+- `src/hooks/useRoleAccess.ts` — bloqueio de `/perfil` para Clínica.
+- `src/components/AppLayout.tsx` — montar `FirstAccessClinicDialog` + `PublishPendingBanner`.
+- `src/pages/Marketplace.tsx`, `src/pages/MarketplaceBooking.tsx`, `src/pages/patient/PatientBooking.tsx` — filtrar `is_published`.
+- Todos os arquivos que consultam `procedures` (lista no item 1).
+
+## Fora do escopo
+- Mudanças no fluxo Médico/Dentista (preserva-se inteiro).
+- Edição da função `handle_new_user` (já cria a clínica corretamente).
+- Notificações para operadoras sobre nova clínica publicada.
