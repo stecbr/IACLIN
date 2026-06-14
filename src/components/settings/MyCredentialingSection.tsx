@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, Receipt } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, Receipt, MapPin, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
@@ -155,6 +155,7 @@ export default function MyCredentialingSection() {
   const [busyOp, setBusyOp] = useState<string | null>(null);
   const [openFor, setOpenFor] = useState<Operator | null>(null);
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [addressFromSettings, setAddressFromSettings] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [professionalPhone, setProfessionalPhone] = useState('');
@@ -162,6 +163,8 @@ export default function MyCredentialingSection() {
   const [clinicCnpj, setClinicCnpj] = useState('');
   const [clinicCpf, setClinicCpf] = useState('');
   const [clinicAddress, setClinicAddress] = useState('');
+  const [clinicAddressNumber, setClinicAddressNumber] = useState('');
+  const [clinicAddressComplement, setClinicAddressComplement] = useState('');
   const [clinicCity, setClinicCity] = useState('');
   const [clinicState, setClinicState] = useState('');
   const [clinicZip, setClinicZip] = useState('');
@@ -210,11 +213,18 @@ export default function MyCredentialingSection() {
       setClinicName((clinic as any)?.name ?? '');
       setClinicCnpj((clinic as any)?.cnpj ?? '');
       setClinicCpf((clinic as any)?.cpf ?? '');
-      setClinicAddress((clinic as any)?.address ?? '');
-      setClinicCity((clinic as any)?.city ?? '');
-      setClinicState((clinic as any)?.state ?? '');
-      setClinicZip((clinic as any)?.zip_code ?? '');
+      const addr = (clinic as any)?.address ?? '';
+      const city = (clinic as any)?.city ?? '';
+      const state = (clinic as any)?.state ?? '';
+      const zip = (clinic as any)?.zip_code ?? '';
+      setClinicAddress(addr);
+      setClinicAddressNumber((clinic as any)?.address_number ?? '');
+      setClinicAddressComplement((clinic as any)?.address_complement ?? '');
+      setClinicCity(city);
+      setClinicState(state);
+      setClinicZip(zip);
       setClinicResponsible((clinic as any)?.responsible_name ?? '');
+      setAddressFromSettings(!!(addr || city || state || zip));
       setSchedule(parseSchedule((clinic as any)?.business_hours));
       // Detecção inteligente PF/PJ. Mesmo que o registro tenha entity_type='juridica'
       // legado, se não houver CNPJ tratamos como PF (caso usuário corrija em Configurações).
@@ -347,7 +357,7 @@ export default function MyCredentialingSection() {
         clinic: {
           name: clinicName.trim(),
           cnpj: entityType === 'juridica' ? clinicCnpj.trim() : '',
-          address: clinicAddress.trim(),
+          address: [clinicAddress.trim(), clinicAddressNumber.trim()].filter(Boolean).join(', '),
           city: clinicCity.trim(),
           state: clinicState.trim(),
           zip_code: clinicZip.trim(),
@@ -554,7 +564,7 @@ export default function MyCredentialingSection() {
       </CardContent>
 
       <Dialog open={!!openFor} onOpenChange={(open) => !open && setOpenFor(null)}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Solicitar credenciamento {openFor ? `· ${openFor.name}` : ''}</DialogTitle>
             <DialogDescription>
@@ -572,27 +582,60 @@ export default function MyCredentialingSection() {
 
             <div className="space-y-3">
               <h4 className="text-sm font-semibold">Responsável da clínica</h4>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div><Label>Nome completo</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2"><Label>Nome completo</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
                 <div><Label>Telefone</Label><Input value={professionalPhone} onChange={(e) => setProfessionalPhone(e.target.value)} /></div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                Dados da clínica
-                <Badge variant="outline" className="gap-1 font-normal">
-                  {entityType === 'fisica' ? <><User className="h-3 w-3" /> Pessoa Física</> : <><Building2 className="h-3 w-3" /> Pessoa Jurídica</>}
-                </Badge>
-              </h4>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div><Label>Nome da clínica</Label><Input value={clinicName} onChange={(e) => setClinicName(e.target.value)} /></div>
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  Dados da clínica
+                  <Badge variant="outline" className="gap-1 font-normal">
+                    {entityType === 'fisica' ? <><User className="h-3 w-3" /> Pessoa Física</> : <><Building2 className="h-3 w-3" /> Pessoa Jurídica</>}
+                  </Badge>
+                </h4>
+                {addressFromSettings && (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      <MapPin className="h-3 w-3" /> Endereço pré-preenchido das configurações
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      onClick={async () => {
+                        const { data: clinic } = await supabase.from('clinics').select('address, address_number, address_complement, city, state, zip_code, responsible_name').eq('id', currentClinicId!).maybeSingle();
+                        if (clinic) {
+                          setClinicAddress((clinic as any).address ?? '');
+                          setClinicAddressNumber((clinic as any).address_number ?? '');
+                          setClinicAddressComplement((clinic as any).address_complement ?? '');
+                          setClinicCity((clinic as any).city ?? '');
+                          setClinicState((clinic as any).state ?? '');
+                          setClinicZip((clinic as any).zip_code ?? '');
+                          setClinicResponsible((clinic as any).responsible_name ?? '');
+                          toast.success('Endereço atualizado das configurações');
+                        }
+                      }}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" /> Sincronizar
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2"><Label>Nome da clínica</Label><Input value={clinicName} onChange={(e) => setClinicName(e.target.value)} /></div>
                 {entityType === 'fisica' ? (
                   <div><Label>CPF</Label><Input value={clinicCpf} onChange={(e) => setClinicCpf(e.target.value)} placeholder="000.000.000-00" /></div>
                 ) : (
                   <div><Label>CNPJ</Label><Input value={clinicCnpj} onChange={(e) => setClinicCnpj(e.target.value)} placeholder="00.000.000/0000-00" /></div>
                 )}
-                <div className="sm:col-span-2"><Label>Endereço completo</Label><Input value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} /></div>
+                <div className="sm:col-span-2"><Label>Logradouro</Label><Input value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} placeholder="Rua, Avenida…" /></div>
+                <div><Label>Número</Label><Input value={clinicAddressNumber} onChange={(e) => setClinicAddressNumber(e.target.value)} placeholder="123 / S/N" /></div>
+                <div className="sm:col-span-2"><Label>Complemento</Label><Input value={clinicAddressComplement} onChange={(e) => setClinicAddressComplement(e.target.value)} placeholder="Sala 101, Bloco A…" /></div>
+                <div><Label>CEP</Label><Input value={clinicZip} onChange={(e) => setClinicZip(e.target.value)} /></div>
                 <div>
                   <Label>Estado</Label>
                   <Select value={clinicState} onValueChange={(v) => { setClinicState(v); setClinicCity(''); }}>
@@ -611,8 +654,7 @@ export default function MyCredentialingSection() {
                     placeholder={clinicState ? 'Selecione…' : 'UF primeiro'}
                   />
                 </div>
-                <div><Label>CEP</Label><Input value={clinicZip} onChange={(e) => setClinicZip(e.target.value)} /></div>
-                <div><Label>Responsável</Label><Input value={clinicResponsible} onChange={(e) => setClinicResponsible(e.target.value)} /></div>
+                <div className="sm:col-span-3"><Label>Responsável</Label><Input value={clinicResponsible} onChange={(e) => setClinicResponsible(e.target.value)} /></div>
               </div>
               <div>
                 <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Horários de atendimento</Label>
@@ -680,13 +722,13 @@ export default function MyCredentialingSection() {
               <p className="text-xs text-muted-foreground">
                 Tipo detectado automaticamente conforme o cadastro da sua clínica.
               </p>
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-3 gap-3">
                 <div><Label>Inscrição Estadual</Label><Input value={stateRegistration} onChange={(e) => setStateRegistration(e.target.value)} placeholder="Isento ou número" /></div>
                 <div><Label>Inscrição Municipal</Label><Input value={municipalRegistration} onChange={(e) => setMunicipalRegistration(e.target.value)} placeholder="Número" /></div>
                 <div><Label>CNES</Label><Input value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="0000000" /></div>
-                <div><Label>Certificado de especialização (se houver)</Label><Input value={specialtyCertificate} onChange={(e) => setSpecialtyCertificate(e.target.value)} placeholder="Identificação / número" /></div>
+                <div className="sm:col-span-3"><Label>Certificado de especialização (se houver)</Label><Input value={specialtyCertificate} onChange={(e) => setSpecialtyCertificate(e.target.value)} placeholder="Identificação / número" /></div>
               </div>
-              <div className="grid sm:grid-cols-2 gap-3 pt-1">
+              <div className="grid sm:grid-cols-3 gap-3 pt-1">
                 {(entityType === 'fisica' ? PF_DOC_TYPES : PJ_DOC_TYPES).map((d) => (
                   <div key={d.type} className="rounded-lg border bg-muted/20 p-3 space-y-2">
                     <Label className="text-xs font-medium">{d.label}</Label>
@@ -722,12 +764,10 @@ export default function MyCredentialingSection() {
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <Landmark className="h-4 w-4" /> Dados bancários ({entityType === 'fisica' ? 'PF' : 'PJ'})
               </h4>
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-3 gap-3">
                 <div><Label>Banco</Label><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco do Brasil, Itaú..." /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Agência</Label><Input value={bankAgency} onChange={(e) => setBankAgency(e.target.value)} placeholder="0000" /></div>
-                  <div><Label>Conta</Label><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="00000-0" /></div>
-                </div>
+                <div><Label>Agência</Label><Input value={bankAgency} onChange={(e) => setBankAgency(e.target.value)} placeholder="0000" /></div>
+                <div><Label>Conta</Label><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="00000-0" /></div>
                 <div>
                   <Label>Tipo</Label>
                   <div className="flex gap-2 mt-1">
@@ -735,7 +775,7 @@ export default function MyCredentialingSection() {
                     <Button type="button" size="sm" variant={bankAccountType === 'poupanca' ? 'default' : 'outline'} onClick={() => setBankAccountType('poupanca')}>Poupança</Button>
                   </div>
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <Label>{entityType === 'fisica' ? 'CPF do titular' : 'CNPJ do titular'}</Label>
                   <Input value={bankHolderDocument} onChange={(e) => setBankHolderDocument(e.target.value)} placeholder={entityType === 'fisica' ? '000.000.000-00' : '00.000.000/0000-00'} />
                 </div>

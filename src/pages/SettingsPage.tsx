@@ -364,6 +364,7 @@ function ClinicSection() {
         }
         const { error } = await supabase.from('clinics').update(finalPayload).eq('id', clinic.id);
         if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ['clinic-settings'] });
         // Atualiza imediatamente o backend da Secretária IA com o novo horário.
         try {
           const [procRes, plansRes, roomsRes, membersRes] = await Promise.all([
@@ -570,8 +571,8 @@ function ClinicSection() {
                   city: form.city,
                   state: form.state,
                 }}
-                onChange={(v) => setForm({
-                  ...form,
+                onChange={(v) => setForm((prev) => ({
+                  ...prev,
                   zip_code: v.zipCode,
                   address: v.address,
                   address_number: v.addressNumber,
@@ -579,7 +580,7 @@ function ClinicSection() {
                   neighborhood: v.neighborhood,
                   city: v.city,
                   state: v.state,
-                })}
+                }))}
               />
             </div>
           </div>

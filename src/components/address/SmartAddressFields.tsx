@@ -51,9 +51,16 @@ export function SmartAddressFields({ value, onChange, idPrefix = 'addr', classNa
 
   // ---------- CEP -> ViaCEP ----------
   const [fetchingCep, setFetchingCep] = useState(false);
+  const prevZipRef = useRef('');
   useEffect(() => {
     const digits = value.zipCode.replace(/\D/g, '');
+    // só busca se o CEP mudou por ação do usuário (não na carga inicial com dados já preenchidos)
+    const prevDigits = prevZipRef.current.replace(/\D/g, '');
+    const userChanged = prevDigits !== digits && prevDigits !== '';
+    prevZipRef.current = value.zipCode;
     if (digits.length !== 8) return;
+    // se todos os campos de endereço já estão preenchidos e o CEP não foi alterado pelo usuário, não sobrescreve
+    if (!userChanged && value.address && value.city && value.state) return;
     let cancelled = false;
     setFetchingCep(true);
     fetch(`https://viacep.com.br/ws/${digits}/json/`)
@@ -62,10 +69,11 @@ export function SmartAddressFields({ value, onChange, idPrefix = 'addr', classNa
         if (cancelled || data?.erro) return;
         onChange({
           ...value,
-          address: data.logradouro || value.address,
-          neighborhood: data.bairro || value.neighborhood,
-          city: data.localidade || value.city,
-          state: data.uf || value.state,
+          // só preenche campos que estão vazios, salvo se o CEP foi alterado pelo usuário
+          address: userChanged ? (data.logradouro || value.address) : (value.address || data.logradouro || ''),
+          neighborhood: userChanged ? (data.bairro || value.neighborhood) : (value.neighborhood || data.bairro || ''),
+          city: userChanged ? (data.localidade || value.city) : (value.city || data.localidade || ''),
+          state: userChanged ? (data.uf || value.state) : (value.state || data.uf || ''),
         });
       })
       .catch(() => {})
