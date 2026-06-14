@@ -39,7 +39,7 @@ export function useProfessionalLabel(): ProfessionalLabelResult {
 
   const meta = (user?.user_metadata as Record<string, unknown> | undefined) ?? {};
   const userType = meta.user_type as string | undefined;
-  const isProfessionalSignup = userType === 'profissional';
+  const isProfessionalSignup = typeof userType === 'string' && userType.startsWith('profissional');
 
   // Same queryKey as AppSidebar — React Query deduplicates the network request
   const { data: memberSpecialty = null } = useQuery({
