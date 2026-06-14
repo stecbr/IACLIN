@@ -530,25 +530,6 @@ export function PatientFormDialog({
                 placeholder="000.000.000-00"
                 inputMode="numeric"
               />
-              {!isEdit && cpfCheckState.status === 'checking' && (
-                <p className="text-xs text-muted-foreground">Verificando CPF…</p>
-              )}
-              {!isEdit && cpfCheckState.status === 'exists' && (
-                <Alert className="mt-2 border-primary/40 bg-primary/5">
-                  <UserCheck className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    Este CPF já possui conta na iClin. Envie uma solicitação de vinculação —
-                    o paciente precisa aprovar para aparecer na sua lista.
-                  </AlertDescription>
-                </Alert>
-              )}
-              {!isEdit && cpfCheckState.status === 'already_pending' && (
-                <Alert className="mt-2">
-                  <AlertDescription className="text-xs">
-                    Solicitação enviada. Aguardando resposta do paciente (24h).
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
 
             <div className="space-y-1.5">
