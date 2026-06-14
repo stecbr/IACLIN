@@ -226,6 +226,14 @@ export function PatientFormDialog({
     }
   };
 
+  const saveAndInvite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!form.email) { toast.error('Informe um e-mail para enviar o convite'); return; }
+    const formEl = (e.currentTarget as HTMLElement).closest('form');
+    if (formEl) formEl.requestSubmit();
+    await sendInvite();
+  };
+
   useEffect(() => {
     if (open) setForm(emptyForm(patient, initialName));
     // eslint-disable-next-line react-hooks/exhaustive-deps
