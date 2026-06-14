@@ -24,7 +24,7 @@ import { CitySelect } from '@/components/address/CitySelect';
 interface PatientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
   patient?: any;
   clinicId?: string | null;
   initialName?: string;
@@ -289,7 +289,7 @@ export function PatientFormDialog({
         if (inserted?.id) onPatientCreated?.(inserted.id, form.full_name);
       }
 
-      onSuccess();
+      onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message);
