@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, Wallet, Loader2, MapPin } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, Wallet, Loader2, MapPin, User, KeyRound, Palette } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,10 @@ import ProceduresCrudSection from '@/components/settings/ProceduresCrudSection';
 import SpecialtySection from '@/components/settings/SpecialtySection';
 import SubscriptionSection from '@/components/settings/SubscriptionSection';
 import PaymentAccountSection from '@/components/settings/PaymentAccountSection';
+import OwnerProfileSection from '@/components/settings/OwnerProfileSection';
+import SecuritySettingsSection from '@/components/settings/SecuritySettingsSection';
+import AppearanceSettingsSection from '@/components/settings/AppearanceSettingsSection';
+import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { aiBackend } from '@/lib/aiBackend';
 import { SmartAddressFields } from '@/components/address/SmartAddressFields';
@@ -42,7 +46,7 @@ function formatCpf(v: string) {
     .replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
-const sections = [
+const baseSections = [
   { id: 'clinic', label: 'Clínica', icon: Building2 },
   { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
   { id: 'team', label: 'Equipe', icon: Users },
@@ -55,6 +59,25 @@ const sections = [
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
+  const isClinicSignup = useIsClinicSignup();
+  const sections = useMemo(() => {
+    if (!isClinicSignup) return baseSections;
+    // Para usuários cadastrados como Clínica: inclui Perfil do Proprietário,
+    // Segurança e Aparência (que ficavam em /perfil).
+    return [
+      { id: 'clinic', label: 'Clínica', icon: Building2 },
+      { id: 'owner', label: 'Perfil do Proprietário', icon: User },
+      { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
+      { id: 'team', label: 'Equipe', icon: Users },
+      { id: 'rooms', label: 'Salas', icon: Armchair },
+      { id: 'insurance', label: 'Convênios', icon: Shield },
+      { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
+      { id: 'payments', label: 'Recebimentos', icon: Wallet },
+      { id: 'security', label: 'Segurança', icon: KeyRound },
+      { id: 'appearance', label: 'Aparência', icon: Palette },
+      { id: 'subscription', label: 'Assinatura', icon: Sparkles },
+    ];
+  }, [isClinicSignup]);
   // Permite abrir direto numa seção via ?section=insurance (usado pelos cards da IA)
   const initialSection = sections.some((s) => s.id === searchParams.get('section'))
     ? (searchParams.get('section') as string)
@@ -121,11 +144,14 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0 space-y-6">
           {activeSection === 'specialty' && <SpecialtySection />}
           {activeSection === 'clinic' && <ClinicSection />}
+          {activeSection === 'owner' && <OwnerProfileSection />}
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'procedures' && <ProceduresCrudSection />}
           {activeSection === 'payments' && <PaymentAccountSection />}
+          {activeSection === 'security' && <SecuritySettingsSection />}
+          {activeSection === 'appearance' && <AppearanceSettingsSection />}
           {activeSection === 'subscription' && currentClinicId && (
             <SubscriptionSection entityType="clinic" entityId={currentClinicId} />
           )}
@@ -137,6 +163,7 @@ export default function SettingsPage() {
 
 function ClinicSection() {
   const { user, currentClinicId, refreshClinics } = useAuth();
+  const isClinicSignup = useIsClinicSignup();
   const { isSolo } = useSoloMode();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
@@ -328,7 +355,14 @@ function ClinicSection() {
         appointment_approval_mode: approvalMode,
       };
       if (clinic) {
-        const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
+        const finalPayload: any = { ...payload };
+        // Para clínicas que se cadastraram diretamente: ao salvar pela primeira vez,
+        // marcamos como publicada e concluímos o onboarding.
+        if (isClinicSignup && !(clinic as any).is_published) {
+          finalPayload.is_published = true;
+          finalPayload.onboarding_completed_at = new Date().toISOString();
+        }
+        const { error } = await supabase.from('clinics').update(finalPayload).eq('id', clinic.id);
         if (error) throw error;
         // Atualiza imediatamente o backend da Secretária IA com o novo horário.
         try {

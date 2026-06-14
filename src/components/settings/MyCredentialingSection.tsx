@@ -239,7 +239,9 @@ export default function MyCredentialingSection() {
               .select('id, operator_id, status, rejection_reason, notes, requested_at, updated_at')
               .eq('clinic_id', currentClinicId)
           : Promise.resolve({ data: [], error: null } as any),
-        supabase.from('procedures').select('id, name, specialty_category').eq('is_active', true).order('name'),
+        currentClinicId
+          ? supabase.from('procedures').select('id, name, specialty_category').eq('is_active', true).eq('clinic_id', currentClinicId).order('name')
+          : Promise.resolve({ data: [], error: null } as any),
       ]);
 
       if (opsError || cdsError || procError) {
