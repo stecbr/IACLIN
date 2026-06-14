@@ -163,6 +163,7 @@ export default function SettingsPage() {
 
 function ClinicSection() {
   const { user, currentClinicId, refreshClinics } = useAuth();
+  const isClinicSignup = useIsClinicSignup();
   const { isSolo } = useSoloMode();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
@@ -354,7 +355,14 @@ function ClinicSection() {
         appointment_approval_mode: approvalMode,
       };
       if (clinic) {
-        const { error } = await supabase.from('clinics').update(payload as any).eq('id', clinic.id);
+        const finalPayload: any = { ...payload };
+        // Para clínicas que se cadastraram diretamente: ao salvar pela primeira vez,
+        // marcamos como publicada e concluímos o onboarding.
+        if (isClinicSignup && !(clinic as any).is_published) {
+          finalPayload.is_published = true;
+          finalPayload.onboarding_completed_at = new Date().toISOString();
+        }
+        const { error } = await supabase.from('clinics').update(finalPayload).eq('id', clinic.id);
         if (error) throw error;
         // Atualiza imediatamente o backend da Secretária IA com o novo horário.
         try {
