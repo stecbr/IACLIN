@@ -101,9 +101,15 @@ export default function Attendance() {
 
   // Load procedures catalog
   const { data: proceduresCatalog = [] } = useQuery({
-    queryKey: ['procedures-catalog'],
+    queryKey: ['procedures-catalog', currentClinicId],
+    enabled: !!currentClinicId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('procedures').select('*').eq('is_active', true).order('name');
+      const { data, error } = await supabase
+        .from('procedures')
+        .select('*')
+        .eq('clinic_id', currentClinicId!)
+        .eq('is_active', true)
+        .order('name');
       if (error) throw error;
       return data;
     },
