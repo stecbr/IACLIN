@@ -1,139 +1,73 @@
-## Contexto
+## Vinculação inteligente de pacientes (CPF)
 
-Mudanças aplicam-se **apenas** ao fluxo onde o usuário se cadastra diretamente como Clínica (`user_type = 'clinica'` em `raw_user_meta_data`). O fluxo Médico/Dentista → cria clínica depois permanece intacto.
+Implementar fluxo de detecção de CPF no cadastro de pacientes (Agenda, Orçamentos e Pacientes) com solicitação de vínculo via consentimento do paciente, e convite por e-mail para CPFs não cadastrados.
 
-Detector usado em todo o frontend: `user.user_metadata.user_type === 'clinica'` (já existe em `Auth.tsx`).
+### 1. Banco de dados (migration)
 
----
+**Nova tabela `patient_link_requests`**
+- `id`, `requested_by_user_id`, `clinic_id`, `patient_user_id` (FK auth.users — paciente já existente), `cpf`, `status` (`pending|accepted|rejected|expired|cancelled`), `expires_at` (24h), `responded_at`, `created_at`, `updated_at`.
+- RLS: paciente pode `SELECT/UPDATE` seus próprios pedidos; solicitante (clínica/médico) pode `SELECT/INSERT/UPDATE` os que criou.
+- GRANTS para `authenticated` + `service_role`.
+- Índices em `cpf`, `patient_user_id`, `status`.
 
-## 1. Procedimentos compartilhados entre clínicas (bug crítico)
+**Nova tabela `patient_invites`** (Fluxo 2 — CPF sem conta)
+- `id`, `token` (uuid único), `requested_by_user_id`, `clinic_id`, `full_name`, `cpf`, `phone`, `email`, `status` (`pending|accepted|expired|cancelled`), `expires_at` (7 dias), `accepted_user_id`, `created_at`.
+- RLS: solicitante vê os seus; leitura pública via edge function por token.
 
-A tabela `procedures` hoje **não tem coluna `clinic_id`**. Por isso ao criar uma nova clínica todos os procedimentos antigos aparecem.
+**Trigger:** quando `patient_link_requests.status = 'accepted'`, criar registro em `public.patients` (vinculado à clínica) copiando dados de `patient_accounts` + setar `patient_user_id`. Idempotente (se já existir patient com mesmo CPF + clinic_id, apenas atualiza `patient_user_id`).
 
-**Migration:**
-- Adicionar `clinic_id uuid REFERENCES public.clinics(id) ON DELETE CASCADE` em `procedures`.
-- Backfill: associar cada `procedures` existente à clínica do `owner_id` mais antigo do criador (estratégia: atribuir todos os procedimentos atuais à clínica do dono mais antigo que tenha pelo menos uma; alternativa simples acordada — atribuir à primeira clínica criada de cada categoria). Procedimentos sem dono claro ficam `NULL` e serão tratados como "globais legacy" e ocultados da nova UI.
-- Tornar `clinic_id NOT NULL` após backfill.
-- Substituir as policies atuais por policies por `clinic_id` usando `user_belongs_to_clinic(auth.uid(), clinic_id)`.
-- Manter `GRANT SELECT, INSERT, UPDATE, DELETE ON public.procedures TO authenticated` + `GRANT ALL ... TO service_role`.
+**Trigger no signup (`handle_new_user`):** ao criar `patient_account`, buscar `patient_invites` pendentes com o mesmo CPF/email → marcar `accepted`, criar `patients` na clínica do convite e vincular.
 
-**Código (filtrar/incluir clinic_id em todas as queries):**
-- `ProceduresCrudSection.tsx`: `select(...).eq('clinic_id', currentClinicId)`; no insert incluir `clinic_id: currentClinicId`.
-- `Attendance.tsx`, `AppointmentFormDialog.tsx`, `BudgetFormDialog.tsx`, `MemberProceduresEditor.tsx`, `MyCredentialingSection.tsx`, `useAiSync.ts`, `SettingsPage.tsx` (bloco de sync IA): adicionar `.eq('clinic_id', currentClinicId)`.
+### 2. Edge functions
 
----
+- **`request-patient-link`**: recebe `{ cpf, clinic_id }`. Verifica se existe `patient_accounts` com CPF. Se sim, cria `patient_link_requests` (24h), gera notificação in-app + dispara e-mail. Retorna `{ exists: true, request_id }`. Se não, retorna `{ exists: false }`.
+- **`respond-patient-link`**: paciente autenticado aceita/recusa. Em "accepted" cria `patients` na clínica.
+- **`invite-new-patient`**: cria `patient_invites` + envia e-mail com link `/cadastro?invite=<token>`.
+- **`accept-patient-invite`**: chamada após signup do paciente, valida token e vincula.
 
-## 2. Ocultar aba "Feriados" para usuários do tipo Clínica
+Todas com `verify_jwt = true` exceto `accept-patient-invite` (pode ser pública via token).
 
-`HolidaysSection.tsx` existe mas não está mais listada em `SettingsPage`. Confirmar que nenhuma aba "Feriados" é renderizada para `isClinicaSignup`. Caso esteja referenciada via rota/menu lateral em outro lugar, ocultar com `if (isClinicaSignup) return null`.
+**E-mail:** usar Lovable Emails (transactional). Templates simples com botão "Visualizar Solicitação" → `/notifications` e "Criar Minha Conta" → `/auth?invite=<token>`.
 
----
+### 3. Frontend
 
-## 3. Mover "Especialidades" para fora do `/perfil` quando for Clínica
+**`PatientFormDialog.tsx`** — quando usuário digita CPF válido:
+- Debounce → chama `request-patient-link` em modo "check" (ou nova função `check-patient-cpf` apenas leitura).
+- Se existe conta: substitui botão "Salvar" por **"Solicitar Vinculação ao Paciente"**. Mostra aviso "Este CPF já possui conta na iClin. O paciente precisa aprovar a vinculação." Bloqueia edição de outros campos.
+- Se não existe: mantém fluxo atual de cadastro. Após salvar, se `email` informado, mostra opção "Enviar convite para o paciente criar conta" (chama `invite-new-patient`).
 
-`Profile.tsx`: remover do array `sections` o item `specialty` quando `user_type === 'clinica'`.
+Adicionar também botão **"Solicitar Vinculação"** quando combobox de paciente em Agenda/Orçamentos não encontrar resultados e o usuário digitar um CPF.
 
-A seção `SpecialtySection` já existe em `SettingsPage`. Mantida lá.
+**Página do paciente — Notificações**
+- Em `PatientHome` / `PatientSidebar`: badge para `patient_link_requests` pendentes.
+- Nova seção/dialog `LinkRequestsPanel.tsx` listando solicitações com botões **Aceitar / Recusar**, mostrando clínica/profissional solicitante e prazo.
+- Quando paciente entra com `?invite=<token>` no `/auth`, fluxo de cadastro pré-preenche dados e marca convite como aceito após signup.
 
----
+**Notificação in-app**: aproveitar tabela `notifications` existente (tipo `patient_link_request`).
 
-## 4. Ocultar "Meu Perfil" no menu lateral para Clínicas
+### 4. Segurança
+- RLS em `patients` continua exigindo membership de clínica. Vinculação só é criada após `accepted` (via trigger SECURITY DEFINER).
+- Nenhum endpoint expõe dados do paciente antes do consentimento — `request-patient-link` retorna apenas `{ exists: boolean }`, sem nome/telefone.
+- Expiração automática: solicitação pendente > 24h vira `expired` (filtro nas queries; opcional job cron).
 
-`AppSidebar.tsx`: no rodapé/menu inferior, esconder o link "Meu Perfil" (`/perfil`) quando `user.user_metadata.user_type === 'clinica'`.
+### Arquivos
 
-`useRoleAccess.ts`: bloquear acesso direto a `/perfil` para esse caso (redireciona para `/settings`).
+**Novos**
+- `supabase/migrations/<timestamp>_patient_linking.sql`
+- `supabase/functions/request-patient-link/index.ts`
+- `supabase/functions/respond-patient-link/index.ts`
+- `supabase/functions/invite-new-patient/index.ts`
+- `supabase/functions/accept-patient-invite/index.ts`
+- `src/components/patient/LinkRequestsPanel.tsx`
+- `src/components/patients/RequestLinkButton.tsx`
 
----
+**Editados**
+- `src/components/patients/PatientFormDialog.tsx` (detecção CPF + UI condicional + envio de convite)
+- `src/components/agenda/AppointmentFormDialog.tsx` e `src/components/budgets/BudgetFormDialog.tsx` (atalho de solicitação quando CPF buscado não está na clínica)
+- `src/pages/Auth.tsx` (suporte ao parâmetro `?invite=<token>`)
+- `src/pages/patient/PatientHome.tsx` (mostrar pedidos pendentes)
+- `src/components/NotificationBell.tsx` (novo tipo)
 
-## 5. Reorganização do `/settings` para usuários Clínica
-
-Estrutura final do menu lateral interno de `SettingsPage` quando `isClinicaSignup`:
-
-```
-Clínica            (já existe)
-Perfil do Proprietário   NOVO
-Especialidades     (já existe — SpecialtySection)
-Equipe             (já existe)
-Salas              (já existe)
-Convênios          (já existe)
-Procedimentos      (já existe — agora por clínica)
-Recebimentos       (já existe)
-Segurança          NOVO (mover de Profile.tsx → reaproveitar SecuritySection)
-Aparência          NOVO (mover de Profile.tsx → reaproveitar AppearanceBlock + ThemeCustomizer)
-Assinatura         (já existe)
-```
-
-Para usuários Médico/Dentista que criam clínica depois, manter o array `sections` atual (nada muda).
-
----
-
-## 6. "Perfil do Proprietário" (nova seção em Configurações)
-
-Novo componente `src/components/settings/OwnerProfileSection.tsx` (apenas para Clínica). Edita `public.profiles` do `owner_id`:
-
-- Avatar (upload em `clinic-assets/profiles/<owner_id>/...`) → grava `profiles.avatar_url`
-- Nome completo (`full_name`)
-- Telefone (`phone`)
-- CRM / CRO (campo `registration_number` em `clinic_members` do owner naquela clínica)
-- Especialidades (reaproveitar lógica de `professional_specialties` + `clinic_member_specialties`)
-- Biografia (`profiles.bio` — adicionar coluna se não existir)
-
-A foto salva em `profiles.avatar_url` já é consumida pelo sidebar (`profile?.avatar_url`), Marketplace (`get_marketplace_doctor_profiles`) e Redes Médicas. Nada extra precisa ser feito além de garantir refresh do `AuthContext`.
-
----
-
-## 7. Modal de primeiro acesso + gate de publicação
-
-**Migration:**
-- Adicionar em `public.clinics`:
-  - `is_published BOOLEAN NOT NULL DEFAULT false`
-  - `onboarding_completed_at TIMESTAMPTZ`
-  - `welcome_dismissed_at TIMESTAMPTZ`
-
-**Componente `FirstAccessClinicDialog.tsx`:**
-- Disparado em `AppLayout` quando: `user_type === 'clinica'` AND `currentClinic.welcome_dismissed_at IS NULL` AND `onboarding_completed_at IS NULL`.
-- Texto conforme spec do usuário.
-- Botões:
-  - "Ir para Configurações" → `navigate('/settings')` + grava `welcome_dismissed_at = now()`
-  - "Fazer Depois" → fecha + grava `welcome_dismissed_at = now()`
-- Pode fechar (X).
-
-**Aviso visual de pendência:**
-Banner no topo de `/` (Dashboard) e `/settings` quando `is_published = false`, indicando campos obrigatórios faltantes (Nome, CNPJ/CPF, Telefone, Endereço completo, ao menos 1 especialidade, ao menos 1 procedimento, foto do proprietário).
-
-**Publicação:**
-Botão "Salvar" da seção "Clínica" em `/settings` valida campos obrigatórios:
-- Se completos: seta `is_published = true` e `onboarding_completed_at = now()`.
-- Caso contrário: mantém `is_published = false` e exibe lista de pendências.
-
-**Gate em Marketplace / Redes / Agendamento:**
-- `Marketplace.tsx`: filtrar `clinics.is_published = true` no fetch.
-- `get_marketplace_doctor_profiles`: filtrar apenas profissionais cuja clínica esteja publicada.
-- `PatientBooking.tsx`: bloquear agendamento em clínicas não publicadas.
-
-Para clínicas pré-existentes (médicos que já criaram), backfill `is_published = true` na migration para não quebrar nada.
-
----
-
-## Arquivos novos
-- `src/components/settings/OwnerProfileSection.tsx`
-- `src/components/settings/SecuritySettingsSection.tsx` (extrai de `Profile.tsx`)
-- `src/components/settings/AppearanceSettingsSection.tsx` (extrai de `Profile.tsx`)
-- `src/components/FirstAccessClinicDialog.tsx`
-- `src/components/PublishPendingBanner.tsx`
-- `src/hooks/useIsClinicSignup.ts` (helper único: `user.user_metadata.user_type === 'clinica'`)
-
-## Arquivos editados
-- Migration: `procedures.clinic_id` + RLS, `clinics.is_published / onboarding_completed_at / welcome_dismissed_at`, opcional `profiles.bio`.
-- `src/pages/SettingsPage.tsx` — sections condicionais por tipo de usuário.
-- `src/pages/Profile.tsx` — remover Especialidades quando Clínica; (componentes Security/Appearance ficam como compat — Profile some do menu nesse caso).
-- `src/components/AppSidebar.tsx` — esconder "Meu Perfil" para Clínica.
-- `src/hooks/useRoleAccess.ts` — bloqueio de `/perfil` para Clínica.
-- `src/components/AppLayout.tsx` — montar `FirstAccessClinicDialog` + `PublishPendingBanner`.
-- `src/pages/Marketplace.tsx`, `src/pages/MarketplaceBooking.tsx`, `src/pages/patient/PatientBooking.tsx` — filtrar `is_published`.
-- Todos os arquivos que consultam `procedures` (lista no item 1).
-
-## Fora do escopo
-- Mudanças no fluxo Médico/Dentista (preserva-se inteiro).
-- Edição da função `handle_new_user` (já cria a clínica corretamente).
-- Notificações para operadoras sobre nova clínica publicada.
+### Fora do escopo
+- Permissões granulares por dado (todos os dados visíveis após aceite, conforme PRD).
+- Expiração via cron — usar filtro `expires_at > now()` nas leituras.
