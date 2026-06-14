@@ -394,6 +394,9 @@ export function PatientFormDialog({
   };
 
   return (
+    (() => {
+      const showFullForm = isEdit || (step === 'new' && manualMode);
+      return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -401,6 +404,147 @@ export function PatientFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* ─── Passo 1: CPF ─── */}
+          {!isEdit && step === 'cpf' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Informe o CPF do paciente. Vamos verificar se ele já possui conta no iClin.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="cpf-step">CPF</Label>
+                <Input
+                  id="cpf-step"
+                  autoFocus
+                  value={form.cpf}
+                  onChange={(e) => update('cpf', e.target.value)}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  disabled={form.is_foreign}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-normal">
+                  <Switch
+                    checked={form.is_foreign}
+                    onCheckedChange={(v) => update('is_foreign', v)}
+                  />
+                  Paciente estrangeiro (sem CPF)
+                </Label>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleContinueFromCpf}
+                  disabled={checkingCpf || (!form.is_foreign && (form.cpf || '').replace(/\D/g, '').length !== 11)}
+                  className="gap-2"
+                >
+                  {checkingCpf && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {checkingCpf ? 'Verificando…' : 'Continuar'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Passo 2A: Paciente já cadastrado ─── */}
+          {!isEdit && step === 'exists' && (
+            <div className="space-y-4">
+              <Alert className="border-primary/40 bg-primary/5">
+                <UserCheck className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  Este paciente já possui conta no iClin. Para acessá-lo, envie uma solicitação
+                  de vinculação. Ele receberá um e-mail e uma notificação na plataforma e
+                  precisará aprovar para aparecer na sua lista.
+                </AlertDescription>
+              </Alert>
+              <div className="flex justify-between gap-2 pt-2 border-t border-border/40">
+                <Button type="button" variant="ghost" onClick={() => setStep('cpf')} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" /> Voltar
+                </Button>
+                <Button type="button" onClick={requestLink} disabled={requestingLink} className="gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  {requestingLink ? 'Enviando…' : 'Solicitar Vinculação'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Estado: solicitação enviada ─── */}
+          {!isEdit && step === 'sent' && (
+            <div className="space-y-4">
+              <Alert className="border-emerald-500/40 bg-emerald-500/5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <AlertDescription className="text-sm">
+                  Solicitação enviada. O paciente tem 24h para aceitar. Quando aprovar,
+                  ele aparecerá automaticamente na sua lista de pacientes.
+                </AlertDescription>
+              </Alert>
+              <div className="flex justify-end pt-2 border-t border-border/40">
+                <Button type="button" onClick={() => onOpenChange(false)}>Fechar</Button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Passo 2B: Convite por e-mail (CPF novo) ─── */}
+          {!isEdit && step === 'new' && !manualMode && (
+            <div className="space-y-4">
+              <Alert>
+                <Send className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  CPF não encontrado. Envie um convite por e-mail para o paciente criar a conta
+                  no iClin — ele será vinculado automaticamente após o cadastro.
+                </AlertDescription>
+              </Alert>
+              <div className="space-y-1.5">
+                <Label>Nome completo *</Label>
+                <Input
+                  autoFocus
+                  value={form.full_name}
+                  onChange={(e) => update('full_name', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>E-mail *</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                  placeholder="paciente@email.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <PhoneInput value={form.phone} onChange={(v) => update('phone', v)} />
+              </div>
+              <div className="flex justify-between gap-2 pt-2 border-t border-border/40 flex-wrap">
+                <Button type="button" variant="ghost" onClick={() => setStep('cpf')} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" /> Voltar
+                </Button>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setManualMode(true)}
+                  >
+                    Cadastrar manualmente
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={sendInvite}
+                    disabled={sendingInvite || !form.full_name.trim() || !form.email}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {sendingInvite ? 'Enviando…' : 'Enviar convite por e-mail'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showFullForm && (<>
           {/* ─── Foto ─── */}
           <div className="flex items-center gap-4">
             <div
