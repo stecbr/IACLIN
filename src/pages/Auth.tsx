@@ -401,6 +401,11 @@ export default function Auth() {
               navigate('/', { replace: true });
             }
           } else if (userType === 'profissional') {
+            if (specialty.trim()) {
+              await supabase
+                .from('professional_specialties' as any)
+                .insert({ user_id: signUpData.user!.id, specialty: specialty.trim(), is_primary: true });
+            }
             navigate('/', { replace: true });
           }
         }
