@@ -51,7 +51,7 @@ function formatCpf(v: string) {
 const allSections = [
   { id: 'profile', label: 'Meu Perfil', icon: User },
   { id: 'clinic', label: 'Minha Clínica', icon: Building2 },
-  { id: 'my-clinics', label: 'Clínicas em que atendo', icon: Network },
+  { id: 'my-clinics', label: 'Clínicas Vinculadas', icon: Network },
   { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
   { id: 'team', label: 'Equipe', icon: Users },
   { id: 'rooms', label: 'Salas', icon: Armchair },
