@@ -491,7 +491,7 @@ export function AppSidebar() {
         {!collapsed ? (
           <div
             className="flex items-center gap-3 mt-3 p-2 rounded-xl bg-sidebar-accent/20 border border-sidebar-border cursor-pointer hover:bg-sidebar-accent/30 transition-colors"
-            onClick={() => navigate('/perfil')}
+            onClick={() => navigate('/settings')}
             title="Meu perfil"
           >
             <Avatar className={`h-8 w-8 flex-shrink-0 ring-2 ring-offset-1 ring-offset-sidebar ${roleColor.ring}`}>
@@ -515,7 +515,7 @@ export function AppSidebar() {
         ) : (
           <div
             className="mt-2 mx-auto cursor-pointer"
-            onClick={() => navigate('/perfil')}
+            onClick={() => navigate('/settings')}
             title={profile?.full_name ?? 'Meu perfil'}
           >
             <Avatar className={`h-7 w-7 ring-2 ring-offset-1 ring-offset-sidebar ${roleColor.ring}`}>
@@ -545,7 +545,6 @@ export function AppSidebar() {
               {filteredPersonalNav.map((item) =>
                 renderNavItem(item, (item.url === '/minha-agenda') ? todayCount : undefined)
               )}
-              {effectiveRole !== 'patient' && !isClinicSignup && renderNavItem({ title: 'Meu Perfil', url: '/perfil', icon: UserIcon })}
             </SidebarMenu>
           </NavSection>
         )}

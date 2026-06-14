@@ -28,7 +28,6 @@ import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
-import Profile from "./pages/Profile";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
 import PatientChartRedeem from "./pages/PatientChartRedeem";
@@ -299,7 +298,7 @@ const AppRoutes = () => (
     <Route path="/atendimentos-ia" element={<ProtectedRoute><AtendimentosIA /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/assinatura" element={<Navigate to="/settings" replace />} />
-    <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+    <Route path="/perfil" element={<Navigate to="/settings" replace />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

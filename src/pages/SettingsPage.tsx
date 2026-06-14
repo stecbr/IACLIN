@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, Wallet, Loader2, MapPin, User, KeyRound, Palette } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, Wallet, Loader2, MapPin, User, KeyRound, Palette, Network, ListChecks } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,8 @@ import SecuritySettingsSection from '@/components/settings/SecuritySettingsSecti
 import AppearanceSettingsSection from '@/components/settings/AppearanceSettingsSection';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
+import { ProfileInfoSection, SpecialtiesSection } from '@/pages/Profile';
+import MyClinicsSection from '@/components/settings/MyClinicsSection';
 import { aiBackend } from '@/lib/aiBackend';
 import { SmartAddressFields } from '@/components/address/SmartAddressFields';
 
@@ -46,42 +48,28 @@ function formatCpf(v: string) {
     .replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
-const baseSections = [
-  { id: 'clinic', label: 'Clínica', icon: Building2 },
+const allSections = [
+  { id: 'profile', label: 'Meu Perfil', icon: User },
+  { id: 'clinic', label: 'Minha Clínica', icon: Building2 },
+  { id: 'my-clinics', label: 'Clínicas em que atendo', icon: Network },
   { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
   { id: 'team', label: 'Equipe', icon: Users },
   { id: 'rooms', label: 'Salas', icon: Armchair },
   { id: 'insurance', label: 'Convênios', icon: Shield },
-  { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
+  { id: 'procedures', label: 'Procedimentos', icon: ListChecks },
   { id: 'payments', label: 'Recebimentos', icon: Wallet },
   { id: 'subscription', label: 'Assinatura', icon: Sparkles },
+  { id: 'security', label: 'Segurança', icon: KeyRound },
+  { id: 'appearance', label: 'Aparência', icon: Palette },
 ];
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
-  const isClinicSignup = useIsClinicSignup();
-  const sections = useMemo(() => {
-    if (!isClinicSignup) return baseSections;
-    // Para usuários cadastrados como Clínica: inclui Perfil do Proprietário,
-    // Segurança e Aparência (que ficavam em /perfil).
-    return [
-      { id: 'clinic', label: 'Clínica', icon: Building2 },
-      { id: 'owner', label: 'Perfil do Proprietário', icon: User },
-      { id: 'specialty', label: 'Especialidades', icon: Stethoscope },
-      { id: 'team', label: 'Equipe', icon: Users },
-      { id: 'rooms', label: 'Salas', icon: Armchair },
-      { id: 'insurance', label: 'Convênios', icon: Shield },
-      { id: 'procedures', label: 'Procedimentos', icon: Stethoscope },
-      { id: 'payments', label: 'Recebimentos', icon: Wallet },
-      { id: 'security', label: 'Segurança', icon: KeyRound },
-      { id: 'appearance', label: 'Aparência', icon: Palette },
-      { id: 'subscription', label: 'Assinatura', icon: Sparkles },
-    ];
-  }, [isClinicSignup]);
+  const sections = allSections;
   // Permite abrir direto numa seção via ?section=insurance (usado pelos cards da IA)
   const initialSection = sections.some((s) => s.id === searchParams.get('section'))
     ? (searchParams.get('section') as string)
-    : 'clinic';
+    : 'profile';
   const [activeSection, setActiveSection] = useState(initialSection);
   const { user, currentClinicId, clinicRole } = useAuth();
   const [needsSpecialty, setNeedsSpecialty] = useState(false);
@@ -108,7 +96,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Configurações da Clínica" description="Dados, equipe e preferências desta clínica." />
+      <PageHeader title="Configurações" description="Dados pessoais, da clínica e preferências." />
       {needsSpecialty && activeSection !== 'specialty' && (
         <button
           type="button"
@@ -142,19 +130,20 @@ export default function SettingsPage() {
           ))}
         </nav>
         <div className="flex-1 min-w-0 space-y-6">
-          {activeSection === 'specialty' && <SpecialtySection />}
+          {activeSection === 'profile' && <ProfileInfoSection />}
           {activeSection === 'clinic' && <ClinicSection />}
-          {activeSection === 'owner' && <OwnerProfileSection />}
+          {activeSection === 'my-clinics' && <MyClinicsSection />}
+          {activeSection === 'specialty' && <SpecialtiesSection />}
           {activeSection === 'team' && <TeamSection />}
           {activeSection === 'rooms' && <ClinicRoomsSection />}
           {activeSection === 'insurance' && <InsurancePlansSection />}
           {activeSection === 'procedures' && <ProceduresCrudSection />}
           {activeSection === 'payments' && <PaymentAccountSection />}
-          {activeSection === 'security' && <SecuritySettingsSection />}
-          {activeSection === 'appearance' && <AppearanceSettingsSection />}
           {activeSection === 'subscription' && currentClinicId && (
             <SubscriptionSection entityType="clinic" entityId={currentClinicId} />
           )}
+          {activeSection === 'security' && <SecuritySettingsSection />}
+          {activeSection === 'appearance' && <AppearanceSettingsSection />}
         </div>
       </div>
     </div>

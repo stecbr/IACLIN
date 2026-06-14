@@ -71,7 +71,7 @@ export default function Profile() {
   );
 }
 
-function ProfileInfoSection() {
+export function ProfileInfoSection() {
   const { user, profile, currentClinicId, roles } = useAuth();
   const queryClient = useQueryClient();
 
@@ -389,7 +389,7 @@ function ProfileInfoSection() {
   );
 }
 
-function SpecialtiesSection() {
+export function SpecialtiesSection() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newSpecialty, setNewSpecialty] = useState('');
