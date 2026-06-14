@@ -766,9 +766,31 @@ export function PatientFormDialog({
           {/* ─── Ações ─── */}
           <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Cadastrar paciente'}
-            </Button>
+            {!isEdit && cpfCheckState.status === 'exists' && (
+              <Button type="button" onClick={requestLink} disabled={requestingLink} className="gap-2">
+                <UserCheck className="h-4 w-4" />
+                {requestingLink ? 'Enviando…' : 'Solicitar Vinculação ao Paciente'}
+              </Button>
+            )}
+            {!isEdit && cpfCheckState.status === 'already_pending' && (
+              <Button type="button" disabled variant="secondary">Solicitação pendente</Button>
+            )}
+            {(isEdit || cpfCheckState.status !== 'exists') && cpfCheckState.status !== 'already_pending' && (
+              <>
+                {!isEdit && form.email && cpfCheckState.status === 'available' && (
+                  <Button
+                    type="button" variant="outline" onClick={sendInvite} disabled={sendingInvite}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {sendingInvite ? 'Enviando…' : 'Cadastrar + Enviar convite'}
+                  </Button>
+                )}
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Cadastrar paciente'}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </DialogContent>
