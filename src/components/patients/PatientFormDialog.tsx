@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, X } from 'lucide-react';
 import { CitySelect } from '@/components/address/CitySelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserCheck, Send } from 'lucide-react';
+import { UserCheck, Send, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface PatientFormDialogProps {
   open: boolean;
@@ -147,37 +147,39 @@ export function PatientFormDialog({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(() => emptyForm(patient, initialName));
   const [newCategory, setNewCategory] = useState('');
-  const [cpfCheckState, setCpfCheckState] = useState<
-    | { status: 'idle' | 'checking' }
-    | { status: 'available' }
-    | { status: 'exists' }
-    | { status: 'already_pending' }
-    | { status: 'already_linked' }
-  >({ status: 'idle' });
+  // Stepped flow for "new patient": cpf → exists | new (invite or manual)
+  const [step, setStep] = useState<'cpf' | 'exists' | 'new' | 'sent'>('cpf');
+  const [manualMode, setManualMode] = useState(false);
+  const [checkingCpf, setCheckingCpf] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const [requestingLink, setRequestingLink] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
 
-  // Check CPF whenever it changes (debounced)
-  useEffect(() => {
-    if (isEdit) return;
-    const clean = (form.cpf || '').replace(/\D/g, '');
-    if (clean.length !== 11 || !isValidCPF(clean)) {
-      setCpfCheckState({ status: 'idle' });
+  const handleContinueFromCpf = async () => {
+    if (form.is_foreign) {
+      update('cpf', '');
+      setStep('new');
       return;
     }
-    let cancelled = false;
-    setCpfCheckState({ status: 'checking' });
-    const t = setTimeout(async () => {
+    const clean = (form.cpf || '').replace(/\D/g, '');
+    if (clean.length !== 11 || !isValidCPF(clean)) {
+      toast.error('CPF inválido. Verifique os dígitos.');
+      return;
+    }
+    setCheckingCpf(true);
+    try {
       const { data, error } = await supabase.functions.invoke('request-patient-link', {
         body: { cpf: clean, clinic_id: clinicId, mode: 'check' },
       });
-      if (cancelled) return;
-      if (error) { setCpfCheckState({ status: 'idle' }); return; }
-      if (data?.exists) setCpfCheckState({ status: 'exists' });
-      else setCpfCheckState({ status: 'available' });
-    }, 400);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [form.cpf, clinicId, isEdit]);
+      if (error) throw error;
+      if (data?.exists) setStep('exists');
+      else setStep('new');
+    } catch (e: any) {
+      toast.error(e.message || 'Não foi possível verificar o CPF.');
+    } finally {
+      setCheckingCpf(false);
+    }
+  };
 
   const requestLink = async () => {
     setRequestingLink(true);
@@ -189,13 +191,16 @@ export function PatientFormDialog({
       if (error) throw error;
       if (data?.already_linked) {
         toast.info('Este paciente já está vinculado.');
+        onSuccess?.();
+        onOpenChange(false);
+        return;
       } else if (data?.already_pending) {
-        setCpfCheckState({ status: 'already_pending' });
         toast.info('Já existe uma solicitação pendente para este paciente.');
       } else {
-        setCpfCheckState({ status: 'already_pending' });
         toast.success('Solicitação enviada! O paciente tem 24h para aceitar.');
       }
+      setLinkSent(true);
+      setStep('sent');
       onSuccess?.();
     } catch (e: any) {
       toast.error(e.message);
@@ -206,6 +211,7 @@ export function PatientFormDialog({
 
   const sendInvite = async () => {
     if (!form.email) { toast.error('Informe um e-mail para enviar o convite'); return; }
+    if (!form.full_name.trim()) { toast.error('Informe o nome completo'); return; }
     setSendingInvite(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-new-patient', {
@@ -219,6 +225,8 @@ export function PatientFormDialog({
       });
       if (error) throw error;
       toast.success('Convite enviado por e-mail.');
+      onSuccess?.();
+      onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -229,7 +237,12 @@ export function PatientFormDialog({
 
 
   useEffect(() => {
-    if (open) setForm(emptyForm(patient, initialName));
+    if (open) {
+      setForm(emptyForm(patient, initialName));
+      setStep(isEdit ? 'new' : 'cpf');
+      setManualMode(isEdit);
+      setLinkSent(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
