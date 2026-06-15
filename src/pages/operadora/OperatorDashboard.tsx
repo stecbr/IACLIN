@@ -17,7 +17,8 @@ import {
   BarChart,
   Bar,
   CartesianGrid,
-  Legend,
+  AreaChart,
+  Area,
 } from 'recharts';
 
 export default function OperatorDashboard() {
@@ -188,107 +189,150 @@ export default function OperatorDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k) => (
-          <Card key={k.key} className="rounded-xl p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <div className="text-xs text-muted-foreground">{k.label}</div>
-                <div className="text-2xl font-semibold mt-1">{loading ? '—' : k.value}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+        {kpis.map((k) => {
+          const delta = pctChange(k.value, k.prev);
+          const positive = delta >= 0;
+          const gradId = `kpi-grad-${k.key}`;
+          return (
+            <Card key={k.key} className="rounded-2xl p-4 relative overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground truncate">{k.label}</div>
+                  <div className="text-3xl font-semibold mt-1 tracking-tight">{loading ? '—' : k.value}</div>
+                </div>
+                <div
+                  className="h-9 w-9 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${k.color}15`, color: k.color }}
+                >
+                  <k.icon className="h-4 w-4" />
+                </div>
               </div>
-              <k.icon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-4">
-              <div className="flex-1 h-8">
-                <ResponsiveContainer width="100%" height={32}>
-                  <LineChart data={trend.map((d) => ({ date: d.date.slice(5), value: d.value }))}>
-                    <Line type="monotone" dataKey="value" stroke={k.color} strokeWidth={2} dot={false} />
-                  </LineChart>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-md ${positive ? 'text-emerald-600 bg-emerald-500/10' : 'text-rose-600 bg-rose-500/10'}`}>
+                  {positive ? '↑' : '↓'} {Math.abs(delta)}%
+                </span>
+                <span className="text-[10px] text-muted-foreground">vs. período anterior</span>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 h-12 opacity-70 pointer-events-none">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trend} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={k.color} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={k.color} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="value" stroke={k.color} strokeWidth={2} fill={`url(#${gradId})`} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="text-sm text-muted-foreground text-right">
-                <div className={`${pctChange(k.value, k.prev) >= 0 ? 'text-green-600' : 'text-destructive'}`}> {pctChange(k.value, k.prev) >= 0 ? '+' : ''}{pctChange(k.value, k.prev)}%</div>
-                <div className="text-xs text-muted-foreground">vs. período anterior</div>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="rounded-xl p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-2">
+        <Card className="rounded-2xl p-4 lg:col-span-2">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium">Evolução ({daysRange} dias)</h3>
             <div className="text-xs text-muted-foreground">Tempo médio decisão: {avgDecisionDays === null ? '—' : `${avgDecisionDays} dias`}</div>
           </div>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.06} />
-                <XAxis dataKey="date" tickFormatter={(d) => d.slice(5)} tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={3} dot={{ r: 3 }} />
-              </LineChart>
+              <AreaChart data={trend} margin={{ top: 10, right: 16, left: -16, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="evolGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563EB" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.08} vertical={false} />
+                <XAxis dataKey="date" tickFormatter={(d) => d.slice(5)} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={32} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', fontSize: 12 }} labelFormatter={(d) => String(d).slice(5)} />
+                <Area type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2.5} fill="url(#evolGrad)" dot={{ r: 0 }} activeDot={{ r: 5 }} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        <Card className="rounded-xl p-4">
-          <h3 className="text-sm font-medium mb-2">Top especialidades</h3>
-          <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={topSpecialties} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.06} />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={120} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#0EA5A4" />
-                <Legend />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <Card className="rounded-2xl p-4">
+          <h3 className="text-sm font-medium mb-3">Top especialidades</h3>
+          {topSpecialties.length === 0 ? (
+            <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground">Sem dados no período</div>
+          ) : (
+            <div className="space-y-3 pt-1">
+              {(() => {
+                const max = Math.max(...topSpecialties.map((s) => s.value), 1);
+                return topSpecialties.map((s, i) => (
+                  <div key={s.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="truncate capitalize text-foreground/80" title={s.name}>{s.name}</span>
+                      <span className="font-medium tabular-nums">{s.value}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${(s.value / max) * 100}%`,
+                          backgroundColor: ['#0EA5A4', '#2563EB', '#8B5CF6', '#F59E0B', '#EC4899', '#10B981'][i % 6],
+                        }}
+                      />
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="rounded-xl p-4">
+        <Card className="rounded-2xl p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium">Distribuição por status</h3>
             <div className="text-xs text-muted-foreground">Taxa aprovação: {approvalRate}%</div>
           </div>
-          <div style={{ width: '100%', height: 220 }}>
+          <div style={{ width: '100%', height: 220 }} className="relative">
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={44} outerRadius={74} paddingAngle={2}>
+                <Pie data={statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={56} outerRadius={84} paddingAngle={3} stroke="none">
                   {statusBreakdown.map((entry, index) => (
                     <Cell key={`status-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <div className="text-2xl font-semibold tabular-nums">{totalRequests}</div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</div>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-2">
             {statusBreakdown.map((item) => (
               <div key={item.name} className="rounded-xl border border-border p-2 text-center">
-                <div className="text-[11px] text-muted-foreground">{item.name}</div>
-                <div className="text-sm font-semibold">{item.value}</div>
+                <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+                  {item.name}
+                </div>
+                <div className="text-sm font-semibold mt-0.5">{item.value}</div>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card className="rounded-xl p-4">
+        <Card className="rounded-2xl p-4">
           <h3 className="text-sm font-medium mb-2">Funil de credenciamento</h3>
           <div style={{ width: '100%', height: 220 }}>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={funnelData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.06} />
-                <XAxis dataKey="stage" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              <BarChart data={funnelData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.08} vertical={false} />
+                <XAxis dataKey="stage" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={32} />
+                <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.4)' }} contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', fontSize: 12 }} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   {funnelData.map((item, index) => (
                     <Cell key={`funnel-${index}`} fill={item.fill} />
                   ))}
@@ -301,7 +345,7 @@ export default function OperatorDashboard() {
           </p>
         </Card>
 
-        <Card className="rounded-xl p-4">
+        <Card className="rounded-2xl p-4">
           <h3 className="text-sm font-medium mb-3">Prioridades operacionais</h3>
           <div className="space-y-2">
             <div className="rounded-xl border border-border p-3">
