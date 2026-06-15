@@ -26,6 +26,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { ClinicHealthPanel } from '@/components/finance/ClinicHealthPanel';
 import { CommissionsPanel } from '@/components/finance/CommissionsPanel';
+import { generateCommissionsForTransaction } from '@/lib/commissions';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
@@ -549,7 +550,11 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
       .eq('id', tx.id);
     setApprovingIds((prev) => { const s = new Set(prev); s.delete(tx.id); return s; });
     if (error) toast.error(error.message);
-    else { toast.success('Cobrança aprovada'); onComplete(); }
+    else {
+      try { await generateCommissionsForTransaction(tx.id, 'after_procedure'); } catch (_) {}
+      toast.success('Cobrança aprovada');
+      onComplete();
+    }
   };
 
   const openReject = (tx: any) => {
