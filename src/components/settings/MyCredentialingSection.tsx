@@ -391,7 +391,8 @@ export default function MyCredentialingSection() {
       toast.error('Preencha o endereço completo da clínica.');
       return;
     }
-    if (selectedProcedureIds.length === 0) {
+    const totalSelected = selectedProcedureIds.length + selectedOperatorProcIds.length;
+    if (totalSelected === 0) {
       toast.error('Selecione ao menos um procedimento para esta operadora.');
       return;
     }
@@ -441,7 +442,19 @@ export default function MyCredentialingSection() {
           phone: professionalPhone.trim(),
           email: user.email ?? '',
         }) as any,
-        requested_procedures: selectedProcedureList.map((p) => ({ id: p.id, name: p.name })),
+        requested_procedures: [
+          ...selectedProcedureList.map((p) => ({ id: p.id, name: p.name, source: 'clinic' as const })),
+          ...operatorProcs
+            .filter((p) => selectedOperatorProcIds.includes(p.id))
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              source: 'operator' as const,
+              tuss_code: p.tuss_code,
+              value_brl: p.value_brl,
+              category: p.category,
+            })),
+        ] as any,
         terms: {
           accepted_at: new Date().toISOString(),
         },
