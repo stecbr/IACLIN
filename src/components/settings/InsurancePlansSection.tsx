@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Pencil, Trash2, Shield } from 'lucide-react';
+import { syncClinicConfig } from '@/hooks/useAiSync';
 
 export default function InsurancePlansSection() {
   const { currentClinicId } = useAuth();
@@ -46,6 +47,7 @@ export default function InsurancePlansSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['insurance-plans'] });
       toast.success('Convênio removido');
+      if (currentClinicId) void syncClinicConfig(currentClinicId);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -109,7 +111,10 @@ export default function InsurancePlansSection() {
           onOpenChange={setDialogOpen}
           plan={editingPlan}
           clinicId={currentClinicId!}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['insurance-plans'] })}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['insurance-plans'] });
+            if (currentClinicId) void syncClinicConfig(currentClinicId);
+          }}
         />
       )}
     </Card>
