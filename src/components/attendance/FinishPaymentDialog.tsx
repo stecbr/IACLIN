@@ -364,9 +364,15 @@ export function FinishPaymentDialog({
             <div>
               <Label>Convênio / Operadora</Label>
               {operators.length === 0 ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Nenhum convênio disponível. Cadastre convênios nas Configurações da clínica ou solicite credenciamento pessoal.
-                </p>
+                <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground mt-1 space-y-1">
+                  <p>Nenhum convênio disponível para este atendimento.</p>
+                  <p>Você pode:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    <li>Cadastrar o convênio na ficha do paciente, ou</li>
+                    <li>Cadastrar convênios em Configurações → Convênios da clínica, ou</li>
+                    <li>Finalizar como <b>Particular agora</b> ou <b>A combinar</b>.</li>
+                  </ul>
+                </div>
               ) : (
                 <Select value={operatorId} onValueChange={setOperatorId}>
                   <SelectTrigger><SelectValue placeholder="Selecione o convênio..." /></SelectTrigger>
