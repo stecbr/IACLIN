@@ -38,6 +38,8 @@ import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 interface ProcedureRow {
   tempId: string;
   procedure_id: string;
+  custom_name: string;
+  is_manual: boolean;
   tooth_number: number | null;
   surface: string;
   notes: string;
@@ -90,10 +92,50 @@ export default function Attendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider), procedures(name, color, default_price)')
+        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider, patient_user_id), procedures(name, color, default_price)')
         .eq('id', appointmentId!)
         .single();
       if (error) throw error;
+
+      // If the patient has a linked user account, enrich with the most up-to-date
+      // data from patient_accounts (gender, dob, etc.) and profiles (avatar, address)
+      const patientUserId = (data as any)?.patients?.patient_user_id;
+      if (patientUserId) {
+        const [{ data: acc }, { data: prof }] = await Promise.all([
+          supabase
+            .from('patient_accounts')
+            .select('full_name, phone, date_of_birth, gender, cpf, insurance_provider, insurance_number')
+            .eq('user_id', patientUserId)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('avatar_url, address, zip_code, city, state')
+            .eq('id', patientUserId)
+            .maybeSingle(),
+        ]);
+        const pat = (data as any).patients ?? {};
+        (data as any).patients = {
+          ...pat,
+          ...(acc ? {
+            full_name: acc.full_name ?? pat.full_name,
+            phone: acc.phone ?? pat.phone,
+            date_of_birth: acc.date_of_birth ?? pat.date_of_birth,
+            gender: acc.gender ?? pat.gender,
+            cpf: acc.cpf ?? pat.cpf,
+            insurance_provider: acc.insurance_provider ?? pat.insurance_provider,
+          } : {}),
+          ...(prof ? {
+            photo_url: prof.avatar_url ?? pat.photo_url,
+            address: prof.address ?? pat.address,
+            zip_code: prof.zip_code ?? pat.zip_code,
+            city: prof.city ?? pat.city,
+            state: prof.state ?? pat.state,
+          } : {}),
+          // email is stored in patients.email (set when patient saves their profile)
+          email: pat.email,
+        };
+      }
+
       return data;
     },
     enabled: !!appointmentId,
@@ -181,6 +223,19 @@ export default function Attendance() {
           if (parsed.meal_plan) setMealPlan(parsed.meal_plan);
           if (parsed.soap) setSoap(parsed.soap);
           if (parsed.dental_exam) setDentalExam(parsed.dental_exam);
+          if (Array.isArray(parsed.manual_procedures) && parsed.manual_procedures.length > 0) {
+            const manualRows: ProcedureRow[] = parsed.manual_procedures.map((m: any) => ({
+              tempId: crypto.randomUUID(),
+              procedure_id: '',
+              custom_name: m.custom_name ?? '',
+              is_manual: true,
+              tooth_number: m.tooth_number ?? null,
+              surface: m.surface ?? '',
+              notes: m.notes ?? '',
+              price: Number(m.price) || 0,
+            }));
+            setProcedures((prev) => [...prev, ...manualRows]);
+          }
         } catch { /* ignore */ }
         setClinicalNotes(rawNotes.slice(specMatch[0].length));
       } else {
@@ -208,6 +263,8 @@ export default function Attendance() {
       const procs = (r.clinical_record_procedures ?? []).map((p: any) => ({
         tempId: p.id,
         procedure_id: p.procedure_id,
+        custom_name: '',
+        is_manual: false,
         tooth_number: p.tooth_number,
         surface: p.surface ?? '',
         notes: p.notes ?? '',
@@ -250,7 +307,7 @@ export default function Attendance() {
   const addProcedure = () => {
     setProcedures((prev) => [
       ...prev,
-      { tempId: crypto.randomUUID(), procedure_id: '', tooth_number: null, surface: '', notes: '', price: 0 },
+      { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: proceduresCatalog.length === 0, tooth_number: null, surface: '', notes: '', price: 0 },
     ]);
   };
 
@@ -292,6 +349,16 @@ export default function Attendance() {
       if (Object.values(soap).some((v) => v && String(v).trim() && v !== 'none')) specialtyPayload.soap = soap;
       if ((dentalExam.teeth?.length ?? 0) > 0 || dentalExam.gingiva || dentalExam.plaqueIndex || dentalExam.bleedingIndex) {
         specialtyPayload.dental_exam = dentalExam;
+      }
+      const manualProcs = procedures.filter((p) => p.is_manual && p.custom_name.trim());
+      if (manualProcs.length > 0) {
+        specialtyPayload.manual_procedures = manualProcs.map((p) => ({
+          custom_name: p.custom_name,
+          price: p.price,
+          notes: p.notes || null,
+          tooth_number: p.tooth_number,
+          surface: p.surface || null,
+        }));
       }
       const notesHeader = Object.keys(specialtyPayload).length > 0
         ? `<!--SPECIALTY_DATA:${JSON.stringify(specialtyPayload)}-->\n`
@@ -415,7 +482,7 @@ export default function Attendance() {
     if (!diagnosis.trim() && validHypotheses === 0) {
       errors.push('Informe diagnóstico ou hipótese diagnóstica');
     }
-    const validProcs = procedures.filter((p) => p.procedure_id).length;
+    const validProcs = procedures.filter((p) => p.procedure_id || (p.is_manual && p.custom_name.trim())).length;
     if (validProcs === 0 && !clinicalNotes.trim() && !treatmentPlan.trim()) {
       errors.push('Registre ao menos um procedimento, evolução ou plano de tratamento');
     }
@@ -573,7 +640,7 @@ export default function Attendance() {
 
         {tabKeys.includes('overview') && (
           <TabsContent value="overview">
-            <PatientOverviewTab patient={(appointment as any).patients ?? {}} />
+            <PatientOverviewTab patient={(appointment as any).patients ?? {}} consultationNotes={(appointment as any).notes} />
           </TabsContent>
         )}
 
@@ -697,20 +764,40 @@ export default function Attendance() {
                       <div className="flex items-start gap-3">
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
                           <div className="md:col-span-2 space-y-1">
-                            <Label className="text-xs">Procedimento</Label>
-                            <Select value={proc.procedure_id} onValueChange={(v) => updateProcedure(proc.tempId, 'procedure_id', v)}>
-                              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                {proceduresCatalog.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
-                                      {c.name}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Procedimento</Label>
+                              {proceduresCatalog.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateProcedure(proc.tempId, 'is_manual', !proc.is_manual)}
+                                  className="text-[11px] text-primary hover:underline"
+                                >
+                                  {proc.is_manual ? 'Selecionar do catálogo' : 'Digitar manualmente'}
+                                </button>
+                              )}
+                            </div>
+                            {proc.is_manual || proceduresCatalog.length === 0 ? (
+                              <Input
+                                value={proc.custom_name}
+                                onChange={(e) => updateProcedure(proc.tempId, 'custom_name', e.target.value)}
+                                placeholder="Nome do procedimento"
+                                className="h-9 text-sm"
+                              />
+                            ) : (
+                              <Select value={proc.procedure_id} onValueChange={(v) => updateProcedure(proc.tempId, 'procedure_id', v)}>
+                                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {proceduresCatalog.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
+                                        {c.name}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Valor (R$)</Label>
@@ -796,8 +883,11 @@ export default function Attendance() {
         patientName={(appointment as any).patients?.full_name ?? 'Paciente'}
         clinicId={currentClinicId ?? null}
         procedures={procedures
-          .filter((p) => p.procedure_id)
+          .filter((p) => p.procedure_id || (p.is_manual && p.custom_name.trim()))
           .map<FinishProcedure>((p) => {
+            if (p.is_manual) {
+              return { procedure_id: '', name: p.custom_name, code: null, price: Number(p.price) || 0 };
+            }
             const cat = proceduresCatalog.find((c: any) => c.id === p.procedure_id);
             return {
               procedure_id: p.procedure_id,

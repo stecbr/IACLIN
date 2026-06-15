@@ -223,7 +223,7 @@ export function FinishPaymentDialog({
   const onInteractOutside = (e: Event) => e.preventDefault();
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) return; onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-lg"
         onInteractOutside={onInteractOutside}

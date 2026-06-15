@@ -237,6 +237,7 @@ function ProfileSection() {
     const patientPatch: any = {
       full_name: form.full_name.trim(),
       phone: form.phone || null,
+      email: user?.email || null,
       photo_url: form.photo_url || null,
       landline: form.landline || null,
       date_of_birth: form.date_of_birth || null,
@@ -269,6 +270,10 @@ function ProfileSection() {
         full_name: form.full_name.trim(),
         phone: form.phone || null,
         avatar_url: form.photo_url || null,
+        address: form.address || null,
+        city: form.city || null,
+        state: form.state || null,
+        zip_code: form.zip_code || null,
       }).eq('id', user.id),
     ];
     if (patientIds.length > 0) {

@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -5,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CID10_DATA } from '@/lib/cid10Data';
 
 export interface Hypothesis {
   id: string;
@@ -28,10 +30,129 @@ const SEVERITY_OPTS = [
   { value: 'severe', label: 'Grave', tone: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30' },
 ];
 
+function normalize(s: string) {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+interface Cid10AutocompleteProps {
+  textValue: string;
+  cid10Value: string;
+  onTextChange: (v: string) => void;
+  onCid10Change: (v: string) => void;
+  onSelect: (description: string, code: string) => void;
+  disabled?: boolean;
+}
+
+function Cid10Autocomplete({ textValue, cid10Value, onTextChange, onCid10Change, onSelect, disabled }: Cid10AutocompleteProps) {
+  const [activeField, setActiveField] = useState<'text' | 'cid10' | null>(null);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const query = activeField === 'text' ? textValue : activeField === 'cid10' ? cid10Value : '';
+
+  const results = useMemo(() => {
+    const term = normalize(query.trim());
+    if (!term || term.length < 2) return [];
+    return CID10_DATA.filter(
+      (c) => normalize(c.code).includes(term) || normalize(c.description).includes(term)
+    ).slice(0, 8);
+  }, [query]);
+
+  const showDropdown = activeField !== null && results.length > 0;
+
+  useEffect(() => { setHighlightIndex(0); }, [results]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActiveField(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const pick = (code: string, description: string) => {
+    onSelect(description, code);
+    setActiveField(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const item = results[highlightIndex];
+      if (item) pick(item.code, item.description);
+    } else if (e.key === 'Escape') {
+      setActiveField(null);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative flex-1 grid grid-cols-1 md:grid-cols-[1fr,140px] gap-2">
+      <Input
+        value={textValue}
+        onChange={(e) => { onTextChange(e.target.value); setActiveField('text'); }}
+        onFocus={() => setActiveField('text')}
+        onKeyDown={handleKeyDown}
+        placeholder="Hipótese diagnóstica"
+        className="h-9 text-sm"
+        disabled={disabled}
+        autoComplete="off"
+      />
+      <Input
+        value={cid10Value}
+        onChange={(e) => { onCid10Change(e.target.value); setActiveField('cid10'); }}
+        onFocus={() => setActiveField('cid10')}
+        onKeyDown={handleKeyDown}
+        placeholder="CID-10 (opcional)"
+        className="h-9 text-sm font-mono"
+        disabled={disabled}
+        autoComplete="off"
+      />
+
+      {showDropdown && (
+        <ul
+          ref={listRef}
+          className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg"
+        >
+          {results.map((item, idx) => (
+            <li key={item.code}>
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); pick(item.code, item.description); }}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors',
+                  idx === highlightIndex ? 'bg-primary/10 text-foreground' : 'hover:bg-muted/60'
+                )}
+              >
+                <span className="inline-flex h-5 min-w-[52px] items-center justify-center rounded bg-primary/10 text-primary text-[11px] font-bold tracking-wider px-1.5 flex-shrink-0">
+                  {item.code}
+                </span>
+                <span className="truncate">{item.description}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function HypothesesEditor({ hypotheses, onChange, diagnosis, setDiagnosis, severity, setSeverity, readOnly }: Props) {
   const add = () => onChange([...hypotheses, { id: crypto.randomUUID(), text: '', cid10: '' }]);
   const update = (id: string, field: 'text' | 'cid10', value: string) =>
     onChange(hypotheses.map((h) => (h.id === id ? { ...h, [field]: value } : h)));
+  const select = (id: string, description: string, code: string) =>
+    onChange(hypotheses.map((h) => (h.id === id ? { ...h, text: description, cid10: code } : h)));
   const remove = (id: string) => onChange(hypotheses.filter((h) => h.id !== id));
 
   return (
@@ -53,22 +174,20 @@ export function HypothesesEditor({ hypotheses, onChange, diagnosis, setDiagnosis
             hypotheses.map((h, idx) => (
               <div key={h.id} className="flex gap-2 items-start p-2 rounded-lg border border-border/50">
                 <span className="text-xs text-muted-foreground mt-2.5 w-5 flex-shrink-0 text-center">{idx + 1}.</span>
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr,140px] gap-2">
-                  <Input
-                    value={h.text}
-                    onChange={(e) => update(h.id, 'text', e.target.value)}
-                    placeholder="Hipótese diagnóstica"
-                    className="h-9 text-sm"
-                    disabled={readOnly}
+                {readOnly ? (
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr,140px] gap-2">
+                    <Input value={h.text} placeholder="Hipótese diagnóstica" className="h-9 text-sm" disabled />
+                    <Input value={h.cid10} placeholder="CID-10 (opcional)" className="h-9 text-sm font-mono" disabled />
+                  </div>
+                ) : (
+                  <Cid10Autocomplete
+                    textValue={h.text}
+                    cid10Value={h.cid10}
+                    onTextChange={(v) => update(h.id, 'text', v)}
+                    onCid10Change={(v) => update(h.id, 'cid10', v)}
+                    onSelect={(desc, code) => select(h.id, desc, code)}
                   />
-                  <Input
-                    value={h.cid10}
-                    onChange={(e) => update(h.id, 'cid10', e.target.value)}
-                    placeholder="CID-10 (opcional)"
-                    className="h-9 text-sm"
-                    disabled={readOnly}
-                  />
-                </div>
+                )}
                 {!readOnly && (
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(h.id)}>
                     <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />

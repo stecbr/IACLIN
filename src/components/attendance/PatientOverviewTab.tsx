@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Phone, Mail, Calendar, User, CreditCard, MapPin } from 'lucide-react';
+import { Phone, Mail, Calendar, User, CreditCard, MapPin, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -20,6 +20,7 @@ interface PatientData {
 
 interface PatientOverviewTabProps {
   patient: PatientData;
+  consultationNotes?: string | null;
 }
 
 function getInitials(name: string | null | undefined) {
@@ -49,7 +50,7 @@ function formatGender(gender: string | null | undefined) {
   return map[gender.toLowerCase()] ?? gender;
 }
 
-export function PatientOverviewTab({ patient }: PatientOverviewTabProps) {
+export function PatientOverviewTab({ patient, consultationNotes }: PatientOverviewTabProps) {
   const addressParts = [patient.address, patient.city, patient.state, patient.zip_code].filter(Boolean);
   const address = addressParts.length > 0 ? addressParts.join(', ') : 'Não informado';
 
@@ -76,18 +77,32 @@ export function PatientOverviewTab({ patient }: PatientOverviewTabProps) {
             <p className="text-sm font-semibold text-center leading-tight">{patient.full_name}</p>
           </div>
 
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {fields.map(({ icon: Icon, label, value }) => (
-              <div key={label} className="flex items-start gap-3">
+          <div className="flex-1 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {fields.map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-sm font-medium break-words">{value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {consultationNotes && (
+              <div className="flex items-start gap-3 pt-1 border-t border-border">
                 <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <FileText className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="text-sm font-medium break-words">{value}</p>
+                  <p className="text-xs text-muted-foreground">Motivo da consulta</p>
+                  <p className="text-sm font-medium break-words whitespace-pre-wrap">{consultationNotes}</p>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </CardContent>

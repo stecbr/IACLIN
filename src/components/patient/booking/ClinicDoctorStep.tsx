@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, parseISO, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Building2, MapPin, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { Building2, MapPin, Clock, Calendar as CalendarIcon, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -44,6 +44,7 @@ interface ClinicWithDoctors {
   name: string;
   address: string | null;
   city: string | null;
+  logo: string | null;
   doctors: DoctorWithShifts[];
   bookedSlots: Set<string>; // `${dentistId}|${iso}`
 }
@@ -81,6 +82,7 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
   const [loading, setLoading] = useState(true);
   const [clinics, setClinics] = useState<ClinicWithDoctors[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,7 +190,7 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
 
       const [{ data: profs }, { data: clinicsData }, { data: appts }, { data: reqs }, { data: insPlans }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, avatar_url').in('id', activeUserIds),
-        supabase.from('clinics').select('id, name, address, city').in('id', activeClinicIds),
+        supabase.from('clinics').select('id, name, address, city, logo_url').in('id', activeClinicIds),
         supabase
           .from('appointments')
           .select('dentist_id, start_time, status, clinic_id')
@@ -265,6 +267,7 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
             name: c.name,
             address: c.address,
             city: c.city,
+            logo: (c as any).logo_url ?? null,
             doctors: [],
             bookedSlots: new Set<string>(),
           };
@@ -355,8 +358,21 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
                   className="w-full flex items-center justify-between gap-3 p-4 hover:bg-muted/40 transition-colors text-left"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                      <Building2 className="h-5 w-5" />
+                    <div
+                      className={cn(
+                        "h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 overflow-hidden",
+                        clinic.logo && "cursor-zoom-in"
+                      )}
+                      onClick={(e) => {
+                        if (!clinic.logo) return;
+                        e.stopPropagation();
+                        setLightbox({ src: clinic.logo, label: clinic.name });
+                      }}
+                    >
+                      {clinic.logo
+                        ? <img src={clinic.logo} alt={clinic.name} className="h-full w-full object-contain p-1" />
+                        : <Building2 className="h-5 w-5" />
+                      }
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold truncate">{clinic.name}</p>
@@ -382,7 +398,13 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
                       return (
                         <div key={doctor.id} className="p-4 border-b border-border last:border-0">
                           <div className="flex items-center gap-3 mb-3">
-                            <Avatar className="h-9 w-9">
+                            <Avatar
+                              className={cn("h-9 w-9", doctor.avatar && "cursor-zoom-in")}
+                              onClick={() => {
+                                if (!doctor.avatar) return;
+                                setLightbox({ src: doctor.avatar, label: doctor.name });
+                              }}
+                            >
                               <AvatarImage src={doctor.avatar ?? undefined} />
                               <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                                 {doctor.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
@@ -453,6 +475,30 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
           Continuar
         </Button>
       </div>
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="relative max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute -top-3 -right-3 z-10 h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="rounded-2xl overflow-hidden bg-muted shadow-2xl">
+              <img
+                src={lightbox.src}
+                alt={lightbox.label}
+                className="w-full h-auto max-h-[70vh] object-contain"
+              />
+            </div>
+            <p className="text-center text-sm text-white/80 mt-3 font-medium">{lightbox.label}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
