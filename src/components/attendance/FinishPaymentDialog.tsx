@@ -322,7 +322,11 @@ export function FinishPaymentDialog({
         due_date: format(new Date(), 'yyyy-MM-dd'),
         notes: 'A combinar com paciente',
       });
-      toast.success('Registrado como "A combinar". Cobrança ficará pendente.');
+      toast.success(
+        needsApproval
+          ? 'Consulta finalizada. Cobrança "A combinar" enviada para aprovação.'
+          : 'Registrado como "A combinar". Cobrança ficará pendente.'
+      );
       onCompleted();
     } catch (e: any) {
       toast.error(e.message ?? 'Erro');
