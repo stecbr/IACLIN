@@ -161,6 +161,9 @@ export default function Financial() {
       else patch.paid_date = null;
       const { error } = await supabase.from('financial_transactions').update(patch).eq('id', id);
       if (error) throw error;
+      if (status === 'paid') {
+        try { await generateCommissionsForTransaction(id, 'after_payment'); } catch (_) {}
+      }
     },
     onSuccess: () => {
       toast.success('Status atualizado');
