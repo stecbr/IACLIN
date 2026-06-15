@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { format, addMonths } from 'date-fns';
+import { format, endOfMonth } from 'date-fns';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -223,7 +223,9 @@ export function FinishPaymentDialog({
     try {
       const today = new Date();
       const period = format(today, 'yyyy-MM');
-      const dueDate = format(addMonths(new Date(today.getFullYear(), today.getMonth(), 20), 1), 'yyyy-MM-dd');
+      // due_date = último dia do mês de competência (mesmo período da fatura).
+      // O vencimento real da fatura junto à operadora é definido por ela.
+      const dueDate = format(endOfMonth(today), 'yyyy-MM-dd');
       const notes = `Convênio: ${op?.name} • Procedimentos: ` +
         insuranceLines.map((l) => `${l.name}${l.code ? ` (${l.code})` : ''} - ${brl(l.insuranceValue ?? l.price ?? 0)}`).join('; ');
       await createBaseTx({
@@ -438,7 +440,7 @@ export function FinishPaymentDialog({
                   </div>
                 )}
                 <div className="text-[11px] text-muted-foreground">
-                  Esta consulta será incluída na fatura do mês corrente, com vencimento dia 20 do mês seguinte.
+                  Esta consulta entra na fatura do mês corrente. O vencimento junto à operadora é definido por ela.
                 </div>
               </div>
             )}
