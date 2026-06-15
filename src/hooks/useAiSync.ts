@@ -114,16 +114,14 @@ async function buildConfigSnapshot(clinicId: string) {
       duration_min: p.default_duration ?? 30,
       category: p.category,
     })),
-    // Só envia planos com credenciamento aprovado na operadora correspondente.
-    // Plano sem operator_id ou sem credenciamento NÃO vai pra IA — assim ela
-    // nunca confirma um convênio que a clínica não atende de fato.
-    insurance_plans: (plansRes.data ?? [])
-      .filter((ip: any) => ip.operator_id && credentialedOperators.has(ip.operator_id))
-      .map((ip) => ({
-        id: ip.id,
-        name: ip.name,
-        code: ip.ans_code ?? null,
-      })),
+    // Envia TODOS os convênios ativos da clínica (is_active=true já filtrado na query).
+    // A IA precisa conhecer a lista pra perguntar "particular ou convênio?" e oferecer opções.
+    // Se não houver nenhum, envia [] — IA trata como só-particular.
+    insurance_plans: (plansRes.data ?? []).map((ip: any) => ({
+      id: ip.id,
+      name: ip.name,
+      code: ip.ans_code ?? null,
+    })),
     rooms: (roomsRes.data ?? []).map((r) => ({ id: r.id, name: r.name })),
     doctors,
     handoff,
