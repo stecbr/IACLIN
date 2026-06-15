@@ -36,13 +36,20 @@ function brl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+interface OperatorOption {
+  id: string;          // insurance_operators.id for personal; insurance_plans.id for clinic
+  name: string;
+  source: 'personal' | 'clinic';
+  operatorId?: string; // insurance_operators.id usado para busca de tabela TUSS
+}
+
 export function FinishPaymentDialog({
   open, onOpenChange, appointmentId, patientId, patientName, clinicId, procedures, onCompleted,
 }: Props) {
   const { user } = useAuth();
   const [mode, setMode] = useState<Mode>('');
   const [operatorId, setOperatorId] = useState<string>('');
-  const [operators, setOperators] = useState<Array<{ id: string; name: string }>>([]);
+  const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [priceItems, setPriceItems] = useState<Record<string, number>>({}); // tuss_code -> value_brl
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,36 +70,66 @@ export function FinishPaymentDialog({
   const insuranceTotal = insuranceLines.reduce((s, l) => s + (l.insuranceValue ?? 0), 0);
   const insuranceHasMissing = insuranceLines.some((l) => l.insuranceValue == null);
 
-  // Carregar operadoras em que o profissional está credenciado (aprovadas)
+  // Carregar operadoras: credenciamentos pessoais + convênios da clínica
   useEffect(() => {
     if (!open || !user) return;
     (async () => {
-      const { data } = await supabase
+      // 1. Credenciamentos pessoais aprovados
+      const { data: creds } = await supabase
         .from('operator_credentialings')
         .select('operator_id, insurance_operators(id, name)')
         .eq('professional_user_id', user.id)
         .eq('status', 'approved');
-      const list = (data ?? [])
-        .map((row: any) => row.insurance_operators)
-        .filter(Boolean)
-        .map((o: any) => ({ id: o.id, name: o.name }));
-      // dedup
-      const seen = new Set<string>();
-      const unique = list.filter((o) => (seen.has(o.id) ? false : (seen.add(o.id), true)));
-      setOperators(unique);
-    })();
-  }, [open, user]);
+      const personal: OperatorOption[] = ((creds ?? []) as any[])
+        .filter((r) => r.insurance_operators)
+        .map((r) => ({
+          id: r.insurance_operators.id,
+          name: r.insurance_operators.name,
+          source: 'personal' as const,
+          operatorId: r.insurance_operators.id,
+        }));
 
-  // Carregar tabela de preços vigente da operadora
+      // 2. Convênios ativos da clínica
+      const clinic: OperatorOption[] = [];
+      if (clinicId) {
+        const { data: plans } = await supabase
+          .from('insurance_plans')
+          .select('id, name, operator_id')
+          .eq('clinic_id', clinicId)
+          .eq('is_active', true);
+        for (const p of ((plans ?? []) as any[])) {
+          // Evita duplicata se já coberto por credenciamento pessoal no mesmo operador
+          const alreadyCovered = p.operator_id && personal.some((po) => po.operatorId === p.operator_id);
+          if (!alreadyCovered) {
+            clinic.push({
+              id: p.id,
+              name: p.name,
+              source: 'clinic' as const,
+              operatorId: p.operator_id ?? undefined,
+            });
+          }
+        }
+      }
+
+      const seen = new Set<string>();
+      setOperators([...personal, ...clinic].filter((o) => seen.has(o.id) ? false : (seen.add(o.id), true)));
+    })();
+  }, [open, user, clinicId]);
+
+  // operatorId da opção selecionada (pode diferir do id da opção quando é convênio de clínica)
+  const selectedOption = operators.find((o) => o.id === operatorId);
+  const tussOperatorId = selectedOption?.operatorId;
+
+  // Carregar tabela de preços vigente da operadora (apenas quando há operatorId TUSS)
   useEffect(() => {
-    if (!operatorId) { setPriceItems({}); return; }
+    if (!tussOperatorId) { setPriceItems({}); return; }
     setLoadingPrices(true);
     (async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data: tables } = await supabase
         .from('operator_price_tables')
         .select('id, valid_from, valid_until')
-        .eq('operator_id', operatorId)
+        .eq('operator_id', tussOperatorId)
         .order('valid_from', { ascending: false });
       const currentTable = (tables ?? []).find((t: any) =>
         (!t.valid_from || t.valid_from <= today) && (!t.valid_until || t.valid_until >= today)
@@ -113,7 +150,7 @@ export function FinishPaymentDialog({
       setPriceItems(map);
       setLoadingPrices(false);
     })();
-  }, [operatorId]);
+  }, [tussOperatorId]);
 
   const createBaseTx = async (overrides: Record<string, any>) => {
     const desc = `Atendimento - ${patientName}`;
@@ -136,32 +173,32 @@ export function FinishPaymentDialog({
   };
 
   const handleConfirmInsurance = async () => {
-    if (!operatorId) { toast.error('Selecione a operadora'); return; }
-    if (insuranceHasMissing) {
+    if (!operatorId) { toast.error('Selecione o convênio'); return; }
+    if (tussOperatorId && insuranceHasMissing) {
       toast.error('Há procedimentos sem valor na tabela da operadora');
       return;
     }
-    const op = operators.find((o) => o.id === operatorId);
+    const op = selectedOption;
+    const amount = tussOperatorId ? insuranceTotal : totalParticular;
     setSaving(true);
     try {
       const today = new Date();
-      // Fatura: período = mês corrente; due_date = dia 20 do mês seguinte
       const period = format(today, 'yyyy-MM');
       const dueDate = format(addMonths(new Date(today.getFullYear(), today.getMonth(), 20), 1), 'yyyy-MM-dd');
       const notes = `Convênio: ${op?.name} • Procedimentos: ` +
-        insuranceLines.map((l) => `${l.name}${l.code ? ` (${l.code})` : ''} - ${brl(l.insuranceValue ?? 0)}`).join('; ');
+        insuranceLines.map((l) => `${l.name}${l.code ? ` (${l.code})` : ''} - ${brl(l.insuranceValue ?? l.price ?? 0)}`).join('; ');
       await createBaseTx({
         category: 'insurance',
-        amount: insuranceTotal,
+        amount,
         payment_method: `insurance:${op?.name ?? ''}`,
         status: 'pending',
         due_date: dueDate,
-        operator_id: operatorId,
+        operator_id: tussOperatorId ?? null,
         insurance_invoice_period: period,
         insurance_invoice_status: 'open',
         notes,
       });
-      toast.success(`Registrado na fatura ${op?.name} de ${period}.`);
+      toast.success(`Registrado no convênio ${op?.name} – ${period}.`);
       onCompleted();
     } catch (e: any) {
       toast.error(e.message ?? 'Erro ao registrar');
@@ -286,24 +323,37 @@ export function FinishPaymentDialog({
         {mode === 'insurance' && (
           <div className="space-y-3">
             <div>
-              <Label>Operadora credenciada</Label>
+              <Label>Convênio / Operadora</Label>
               {operators.length === 0 ? (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Você ainda não tem credenciamento aprovado em nenhuma operadora.
+                  Nenhum convênio disponível. Cadastre convênios nas Configurações da clínica ou solicite credenciamento pessoal.
                 </p>
               ) : (
                 <Select value={operatorId} onValueChange={setOperatorId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a operadora..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione o convênio..." /></SelectTrigger>
                   <SelectContent>
-                    {operators.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                    ))}
+                    {operators.filter((o) => o.source === 'personal').length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Credenciamento pessoal</div>
+                        {operators.filter((o) => o.source === 'personal').map((o) => (
+                          <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {operators.filter((o) => o.source === 'clinic').length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Convênios da clínica</div>
+                        {operators.filter((o) => o.source === 'clinic').map((o) => (
+                          <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               )}
             </div>
 
-            {operatorId && (
+            {operatorId && tussOperatorId && (
               <div className="rounded-xl border border-border p-3 space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">
                   Valores conforme tabela vigente da operadora
@@ -339,9 +389,15 @@ export function FinishPaymentDialog({
               </div>
             )}
 
+            {operatorId && !tussOperatorId && (
+              <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                Convênio da clínica sem tabela TUSS vinculada. O atendimento será registrado como convênio sem valor automático.
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-1">
               <Button
-                disabled={!operatorId || insuranceHasMissing || saving}
+                disabled={!operatorId || (!!tussOperatorId && insuranceHasMissing) || saving}
                 onClick={handleConfirmInsurance}
                 className="gap-2"
               >
