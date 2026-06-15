@@ -1,75 +1,78 @@
-## Diagnóstico
+# Fluxo de Comissões e Aprovações — Plano
 
-Verifiquei o atendimento finalizado no banco. A transação **foi gravada** corretamente:
+Hoje o módulo tem duas lacunas que quebram o fluxo:
 
-- `clinic_id`, `dentist_id`, `operator_id` (Unimed), `amount = 50`, `category = 'insurance'`, `insurance_invoice_period = '2026-06'`, `status = 'pending'`, `approval_status = 'approved'`.
-- Porém `due_date = 2026-07-20` (dia 20 do mês seguinte).
+1. **Comissões** ficam só no `localStorage` (banner amarelo na imagem). Não sincronizam entre dispositivos, não geram lançamentos no financeiro e o "Faturado" do profissional ignora atendimentos finalizados por convênio (porque hoje só conta `paid`).
+2. **Aprovações** funcionam para lançamentos criados manualmente no `TransactionDialog`, mas o `FinishPaymentDialog` (botão "Finalizar consulta") insere a receita direto como `approved`, ignorando o gate de dentista em clínica multiusuário. Por isso uma consulta finalizada pelo dentista aparece no financeiro da clínica sem passar pela secretária/admin.
 
-Três problemas distintos impedem que o registro apareça nas telas:
+## O que vai mudar
 
-### 1. Meu Financeiro (Configurações → Meu Financeiro) — vazio
-`DentistFinancialSection` filtra por `due_date` entre `startOfMonth(hoje - N meses)` e `endOfMonth(hoje)`. Com `due_date = 2026-07-20`, o registro **cai fora** do período "Últimos 3 meses" (que termina em 30/jun/2026). Por isso "Recebido", "Pendente" e "Total bruto" mostram R$ 0,00.
+### 1. Persistir regras de comissão no banco
+- Nova tabela `commission_rules` (clinic_id, dentist_id, trigger, type, value, insurance_provider, specialty, created_by).
+- RLS: leitura para membros da clínica; escrita só para admin/secretária (ou modo solo).
+- `CommissionsPanel.tsx` passa a usar a tabela via React Query (remove `localStorage` e o banner amarelo).
 
-### 2. Financeiro da Clínica — vazio
-`src/pages/Financial.tsx` usa exatamente o mesmo filtro por `due_date` (últimos 6 meses até `endOfMonth(hoje)`). Mesma causa: `due_date` no mês seguinte exclui o lançamento dos KPIs Receita / A Receber e da listagem.
+### 2. Geração automática de despesas de comissão
+- Quando uma transação de receita transita para o estado que dispara a regra (`after_procedure` no insert aprovado / `after_payment` ao marcar como `paid`), cria-se uma linha `expense` em `financial_transactions` com `category='commission'`, `dentist_id` do profissional comissionado, `description` referenciando o atendimento.
+- Implementado em utilitário `src/lib/commissions.ts` chamado por:
+  - `FinishPaymentDialog` (após aprovar, quando `after_procedure`).
+  - Aprovação da `ApprovalsList` (quando dentista vira `approved`).
+  - Mutação "marcar como pago" (`after_payment`).
+- Evita duplicidade gravando `appointment_id` + `category='commission'` + `dentist_id` como chave lógica (checa antes de inserir).
 
-### 3. Painel da Operadora → Faturamento — vazio
-`src/pages/operadora/OperatorBilling.tsx` é uma **tela placeholder**: KPIs e lista estão hardcoded em zero, nenhuma consulta ao banco é feita.
+### 3. Aprovação no fechamento de atendimento
+- `FinishPaymentDialog` passa a usar `canManageClinicFinance` igual ao `TransactionDialog`.
+- Se o usuário é dentista numa clínica multiusuário: a transação criada nasce com `approval_status='awaiting_approval'`, `status='pending'`, `approval_requested_by=user.id`. Toast: "Consulta finalizada. Cobrança enviada para aprovação da secretaria/admin."
+- Caso contrário (admin, secretária, solo, pessoal): mantém o comportamento atual (`approved`).
+- A comissão automática só é gerada após a aprovação efetiva (quando `awaiting_approval → approved` na `ApprovalsList`).
 
-Além disso, as RLS atuais de `financial_transactions` só permitem SELECT a membros da clínica ou dono pessoal. **Operadoras não têm permissão de leitura**, então mesmo que a tela consultasse, viria vazio.
+### 4. KPI "Faturado no período" do painel de comissões
+- Passa a considerar transações `approved` no período, com fallback para `status in ('paid','pending')` dependendo do trigger:
+  - `after_payment`: soma só `paid`.
+  - `after_procedure`: soma `approved` (pago + a receber).
+- Mostra também total de comissão já lançada como despesa (linhas `category='commission'`) para conferência.
 
-## Plano de correção
+## Fora do escopo
+- Pagamento efetivo das comissões ao dentista (botão "marcar comissão como paga" continua sendo edição manual da linha de despesa).
+- Regras retroativas: a geração automática só vale para atendimentos finalizados após o deploy.
+- Rateio entre múltiplos profissionais por procedimento.
+- Notificações push/WhatsApp para aprovação (banner do sino existente já cobre).
 
-### A. Alinhar `due_date` ao mês de competência do convênio
-Em `src/components/attendance/FinishPaymentDialog.tsx`, dentro de `handleConfirmInsurance`:
+## Detalhes técnicos
 
-- Trocar `due_date` para o **último dia do mês corrente** (mês de competência igual a `insurance_invoice_period`), em vez do dia 20 do mês seguinte.
-- O texto informativo no card de Valores passa a dizer "Esta consulta entra na fatura do mês <período>. Vencimento da fatura junto à operadora é definido pela operadora."
-- Resultado: a transação passa a aparecer imediatamente em "A Receber" no Financeiro da Clínica e em "Pendente" no Meu Financeiro do médico, dentro do período padrão (mês corrente e últimos 3/6 meses).
-
-Nenhuma outra rota é afetada (Stripe e A combinar já usam `due_date = hoje`).
-
-### B. Tornar o Faturamento da Operadora real
-Reescrever `src/pages/operadora/OperatorBilling.tsx` para consultar `financial_transactions`:
-
-- Usar `operatorId` do `useAuth()`.
-- Buscar transações com `operator_id = operatorId`.
-- KPIs do mês corrente (`insurance_invoice_period = format(hoje, 'yyyy-MM')`):
-  - **A faturar este mês** = soma de `amount` onde `insurance_invoice_status = 'open'` e período = mês corrente.
-  - **Faturado no mês** = soma onde `insurance_invoice_status IN ('closed','paid')` no mesmo período.
-  - **Glosas em análise** = contagem onde `insurance_invoice_status = 'disputed'` (ou similar — manter 0 se a coluna não tiver valores ainda).
-- Abaixo dos KPIs, listar os atendimentos do mês: data, clínica (`clinics.name`), paciente (`patients.full_name`), procedimento (extraído de `notes`/`description`) e valor.
-- Manter o empty state atual apenas quando não houver linhas.
-- Estilo igual ao restante do painel da operadora (cards `rounded-xl`, header já existente).
-
-### C. Permitir que membros da operadora leiam as transações dela
-Criar migration adicionando policy SELECT em `public.financial_transactions`:
-
+**Migração:**
 ```sql
-CREATE POLICY "Operator members can view their insurance transactions"
-ON public.financial_transactions
-FOR SELECT
-TO authenticated
-USING (
-  operator_id IS NOT NULL
-  AND EXISTS (
-    SELECT 1 FROM public.operator_members om
-    WHERE om.operator_id = financial_transactions.operator_id
-      AND om.user_id = auth.uid()
-  )
+create table public.commission_rules (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics(id) on delete cascade,
+  dentist_id uuid not null,
+  trigger text not null check (trigger in ('after_procedure','after_payment')),
+  type text not null check (type in ('percentage','fixed')),
+  value numeric not null check (value > 0),
+  insurance_provider text,
+  specialty text,
+  created_by uuid,
+  created_at timestamptz default now()
 );
+grant select, insert, update, delete on public.commission_rules to authenticated;
+grant all on public.commission_rules to service_role;
+alter table public.commission_rules enable row level security;
+-- policies: select para qualquer clinic_member da clínica; write só admin/secretary/solo
 ```
 
-Sem novos `GRANT` (a tabela já tem grants existentes). Sem alterações de schema.
+**Arquivos editados:**
+- `src/components/finance/CommissionsPanel.tsx` — troca localStorage por React Query + mutations.
+- `src/components/attendance/FinishPaymentDialog.tsx` — aplica gate de aprovação + dispara comissão `after_procedure`.
+- `src/pages/Financial.tsx` (`ApprovalsList`) — dispara comissão ao aprovar.
+- `src/lib/commissions.ts` (novo) — função `generateCommissionForTransaction(txId)`.
+- Migração SQL nova para `commission_rules`.
 
-## Fora de escopo
-- Faturas mensais consolidadas (lote/PDF) e fluxo de glosa — placeholders permanecem; só os números agregados ficam reais.
-- Tela `Financeiro · Faturas Convênio` da clínica (`InsuranceInvoices.tsx`) — não foi citada pelo usuário; manter como está.
-- Stripe, "A combinar", `ConsultationPaymentDialog`, agenda e prontuário.
-
-## Validação após implementar
-1. Finalizar uma nova consulta de convênio (ou simplesmente recarregar). A transação `2026-06-15` deve aparecer:
-   - em **Meu Financeiro** do médico em "Pendente";
-   - em **Financeiro da Clínica** em "A Receber" e na lista de transações;
-   - em **Painel Unimed → Faturamento** no KPI "A faturar este mês" com o atendimento listado.
-2. Confirmar que registros antigos (`due_date` em 2026-07-20) também passam a aparecer após ajuste do filtro? Não — o ajuste é só para novos. Para o registro de teste atual, posso opcionalmente atualizar via SQL após a aprovação para refletir a nova regra.
+**Estados de aprovação resultantes:**
+```text
+Dentista finaliza consulta
+        │
+        ▼
+ awaiting_approval ──► (admin/secretária aprova) ──► approved ──► gera despesa de comissão
+        │
+        └──► (admin/secretária recusa) ──► rejected (não gera comissão)
+```
