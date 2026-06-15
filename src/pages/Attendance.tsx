@@ -34,12 +34,17 @@ import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
 import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
+import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
+import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
 
 interface ProcedureRow {
   tempId: string;
   procedure_id: string;
   custom_name: string;
   is_manual: boolean;
+  is_operator?: boolean;
+  operator_item_id?: string;
+  tuss_code?: string | null;
   tooth_number: number | null;
   surface: string;
   notes: string;
