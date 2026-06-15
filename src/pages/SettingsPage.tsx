@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, Wallet, Loader2, MapPin, User, KeyRound, Palette, Network, ListChecks } from 'lucide-react';
+import { Building2, Stethoscope, Save, Users, Shield, Upload, Camera, Armchair, AlertTriangle, Sparkles, Wallet, Loader2, MapPin, User, KeyRound, Palette, Network, ListChecks, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { isCatalogSpecialty } from '@/components/SpecialtySelect';
 import { ProfileInfoSection, SpecialtiesSection } from '@/pages/Profile';
 import MyClinicsSection from '@/components/settings/MyClinicsSection';
+import DentistFinancialSection from '@/components/settings/DentistFinancialSection';
 import { aiBackend } from '@/lib/aiBackend';
 import { SmartAddressFields } from '@/components/address/SmartAddressFields';
 
@@ -59,6 +60,7 @@ const allSections = [
   { id: 'procedures', label: 'Procedimentos', icon: ListChecks },
   { id: 'payments', label: 'Recebimentos', icon: Wallet },
   { id: 'subscription', label: 'Assinatura', icon: Sparkles },
+  { id: 'my-financial', label: 'Meu Financeiro', icon: TrendingUp },
   { id: 'security', label: 'Segurança', icon: KeyRound },
   { id: 'appearance', label: 'Aparência', icon: Palette },
 ];
@@ -114,7 +116,7 @@ export default function SettingsPage() {
       )}
       <div className="flex flex-col md:flex-row gap-6">
         <nav className="flex md:flex-col gap-1 md:w-48 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
-          {sections.map((s) => (
+          {sections.filter((s) => s.id !== 'my-financial' || clinicRole === 'dentist').map((s) => (
             <button
               key={s.id}
               onClick={() => setActiveSection(s.id)}
@@ -142,6 +144,7 @@ export default function SettingsPage() {
           {activeSection === 'subscription' && currentClinicId && (
             <SubscriptionSection entityType="clinic" entityId={currentClinicId} />
           )}
+          {activeSection === 'my-financial' && <DentistFinancialSection />}
           {activeSection === 'security' && <SecuritySettingsSection />}
           {activeSection === 'appearance' && <AppearanceSettingsSection />}
         </div>
