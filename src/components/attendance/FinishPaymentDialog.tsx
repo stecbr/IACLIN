@@ -70,8 +70,12 @@ export function FinishPaymentDialog({
     });
   }, [procedures, priceItems]);
 
-  const insuranceTotal = insuranceLines.reduce((s, l) => s + (l.insuranceValue ?? 0), 0);
-  const insuranceHasMissing = insuranceLines.some((l) => l.insuranceValue == null);
+  // Fallback: quando a tabela TUSS não tem valor, usa o valor particular do catálogo.
+  const insuranceTotal = insuranceLines.reduce(
+    (s, l) => s + (l.insuranceValue ?? l.price ?? 0),
+    0,
+  );
+  const insuranceHasFallback = insuranceLines.some((l) => l.insuranceValue == null);
 
   // Carregar operadoras: credenciamentos pessoais + convênios da clínica
   useEffect(() => {
@@ -213,10 +217,6 @@ export function FinishPaymentDialog({
 
   const handleConfirmInsurance = async () => {
     if (!operatorId) { toast.error('Selecione o convênio'); return; }
-    if (tussOperatorId && insuranceHasMissing) {
-      toast.error('Há procedimentos sem valor na tabela da operadora');
-      return;
-    }
     const op = selectedOption;
     const amount = tussOperatorId ? insuranceTotal : totalParticular;
     setSaving(true);
