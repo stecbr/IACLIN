@@ -162,6 +162,27 @@ export default function Attendance() {
     },
   });
 
+  // Load clinic state for operator-table state matching
+  const { data: clinicInfo } = useQuery({
+    queryKey: ['clinic-state', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clinics').select('state').eq('id', currentClinicId!).maybeSingle();
+      return data;
+    },
+  });
+
+  // Operator price catalog (if patient has insurance + clinic credentialed)
+  const patientInsurance = (appointment as any)?.patients?.insurance_provider as string | undefined;
+  const { data: operatorCatalog } = useOperatorPriceCatalog({
+    insuranceProviderName: patientInsurance,
+    clinicId: currentClinicId,
+    clinicState: clinicInfo?.state ?? null,
+  });
+  const operatorMode = operatorCatalog?.status === 'operator';
+  const operatorItems: OperatorCatalogItem[] = operatorCatalog?.items ?? [];
+
   // Load existing clinical record for this appointment
   const { data: existingRecord } = useQuery({
     queryKey: ['clinical-record', appointmentId],
