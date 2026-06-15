@@ -189,6 +189,72 @@ export default function MyCredentialingSection() {
   const invitedOperatorId = searchParams.get('cred_op');
   const inviteToken = searchParams.get('invite');
 
+  // Lista de procedimentos da operadora (tabela de valores publicada)
+  type OperatorProc = { id: string; name: string; category: string; tuss_code: string | null; value_brl: number };
+  const [procSource, setProcSource] = useState<'clinic' | 'operator'>('clinic');
+  const [operatorProcs, setOperatorProcs] = useState<OperatorProc[]>([]);
+  const [operatorTableLabel, setOperatorTableLabel] = useState<string | null>(null);
+  const [loadingOperatorProcs, setLoadingOperatorProcs] = useState(false);
+  const [selectedOperatorProcIds, setSelectedOperatorProcIds] = useState<string[]>([]);
+
+  // Carrega a tabela vigente da operadora ao abrir o dossiê
+  useEffect(() => {
+    if (!openFor) {
+      setOperatorProcs([]);
+      setOperatorTableLabel(null);
+      setSelectedOperatorProcIds([]);
+      setProcSource('clinic');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingOperatorProcs(true);
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: tables } = await supabase
+          .from('operator_price_tables')
+          .select('id, name, state, valid_from, valid_until')
+          .eq('operator_id', openFor.id)
+          .lte('valid_from', today);
+        const vigent = (tables ?? []).filter((t: any) => t.valid_until == null || t.valid_until >= today);
+        const uf = (clinicState ?? '').toUpperCase();
+        const picked =
+          vigent.find((t: any) => (t.state ?? '').toUpperCase() === uf && uf.length > 0) ??
+          vigent.find((t: any) => !t.state) ??
+          vigent[0] ?? null;
+        if (!picked) {
+          if (!cancelled) {
+            setOperatorProcs([]);
+            setOperatorTableLabel(null);
+          }
+          return;
+        }
+        const { data: items } = await supabase
+          .from('operator_price_items')
+          .select('id, procedure_name, category, tuss_code, value_brl, sort_order')
+          .eq('table_id', picked.id)
+          .order('category')
+          .order('sort_order')
+          .order('procedure_name');
+        if (cancelled) return;
+        setOperatorTableLabel(`${picked.name}${picked.state ? ` · ${picked.state}` : ' · Nacional'}`);
+        setOperatorProcs(
+          (items ?? []).map((it: any) => ({
+            id: String(it.id),
+            name: String(it.procedure_name),
+            category: String(it.category ?? 'Geral'),
+            tuss_code: it.tuss_code ?? null,
+            value_brl: Number(it.value_brl ?? 0),
+          })),
+        );
+      } finally {
+        if (!cancelled) setLoadingOperatorProcs(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFor?.id, clinicState]);
+
   const load = async () => {
     if (!user || !currentClinicId) return;
     setLoading(true);
@@ -325,7 +391,8 @@ export default function MyCredentialingSection() {
       toast.error('Preencha o endereço completo da clínica.');
       return;
     }
-    if (selectedProcedureIds.length === 0) {
+    const totalSelected = selectedProcedureIds.length + selectedOperatorProcIds.length;
+    if (totalSelected === 0) {
       toast.error('Selecione ao menos um procedimento para esta operadora.');
       return;
     }
@@ -375,7 +442,19 @@ export default function MyCredentialingSection() {
           phone: professionalPhone.trim(),
           email: user.email ?? '',
         }) as any,
-        requested_procedures: selectedProcedureList.map((p) => ({ id: p.id, name: p.name })),
+        requested_procedures: [
+          ...selectedProcedureList.map((p) => ({ id: p.id, name: p.name, source: 'clinic' as const })),
+          ...operatorProcs
+            .filter((p) => selectedOperatorProcIds.includes(p.id))
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              source: 'operator' as const,
+              tuss_code: p.tuss_code,
+              value_brl: p.value_brl,
+              category: p.category,
+            })),
+        ] as any,
         terms: {
           accepted_at: new Date().toISOString(),
         },
@@ -432,6 +511,7 @@ export default function MyCredentialingSection() {
       setAcceptTerms(false);
       setSelectedProcedureIds([]);
       setDocFiles({});
+      setSelectedOperatorProcIds([]);
       await load();
     } catch (e: any) {
       toast.error(`Erro ao enviar pedido: ${e.message ?? 'erro desconhecido'}`);
@@ -696,23 +776,90 @@ export default function MyCredentialingSection() {
 
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Procedimentos para esta operadora</h4>
-              <p className="text-xs text-muted-foreground">Selecione apenas os procedimentos que você quer atender por este convênio.</p>
-              <div className="max-h-48 overflow-y-auto rounded-md border border-border p-2 space-y-1">
-                {procedures.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/40 cursor-pointer">
-                    <Checkbox
-                      checked={selectedProcedureIds.includes(p.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedProcedureIds((prev) =>
-                          checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
-                        );
-                      }}
-                    />
-                    <span className="text-sm">{p.name}</span>
-                    <span className="text-[11px] text-muted-foreground ml-auto">{p.specialty_category}</span>
-                  </label>
-                ))}
+              <p className="text-xs text-muted-foreground">
+                Selecione os procedimentos que você quer atender por este convênio.
+                Você pode usar sua lista da clínica ou puxar os procedimentos diretamente da tabela publicada pela operadora.
+              </p>
+              <div className="inline-flex rounded-md border border-border p-0.5 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setProcSource('clinic')}
+                  className={`px-3 py-1.5 text-xs rounded ${procSource === 'clinic' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'}`}
+                >
+                  Lista da clínica
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProcSource('operator')}
+                  className={`px-3 py-1.5 text-xs rounded ${procSource === 'operator' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'}`}
+                >
+                  Lista da operadora
+                </button>
               </div>
+
+              {procSource === 'clinic' ? (
+                <div className="max-h-48 overflow-y-auto rounded-md border border-border p-2 space-y-1">
+                  {procedures.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-2 py-4 text-center">
+                      Sua clínica ainda não tem procedimentos cadastrados. Cadastre em Configurações ou alterne para a lista da operadora.
+                    </p>
+                  ) : (
+                    procedures.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/40 cursor-pointer">
+                        <Checkbox
+                          checked={selectedProcedureIds.includes(p.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedProcedureIds((prev) =>
+                              checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
+                            );
+                          }}
+                        />
+                        <span className="text-sm">{p.name}</span>
+                        <span className="text-[11px] text-muted-foreground ml-auto">{p.specialty_category}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {operatorTableLabel && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Tabela vigente: <span className="font-medium text-foreground">{operatorTableLabel}</span>
+                    </p>
+                  )}
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-border p-2 space-y-1">
+                    {loadingOperatorProcs ? (
+                      <p className="text-xs text-muted-foreground px-2 py-4 text-center">Carregando lista da operadora...</p>
+                    ) : operatorProcs.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-2 py-4 text-center">
+                        Esta operadora ainda não publicou uma tabela vigente para o seu estado. Use a lista da clínica.
+                      </p>
+                    ) : (
+                      operatorProcs.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/40 cursor-pointer">
+                          <Checkbox
+                            checked={selectedOperatorProcIds.includes(p.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedOperatorProcIds((prev) =>
+                                checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
+                              );
+                            }}
+                          />
+                          <span className="text-sm flex-1 truncate">{p.name}</span>
+                          {p.tuss_code && (
+                            <span className="text-[10px] text-muted-foreground">TUSS {p.tuss_code}</span>
+                          )}
+                          <span className="text-[11px] font-medium ml-2">
+                            {p.value_brl > 0
+                              ? p.value_brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                              : '—'}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
