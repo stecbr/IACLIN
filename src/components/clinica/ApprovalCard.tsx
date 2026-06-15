@@ -3,7 +3,8 @@ import { ptBR } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { User, Stethoscope, Calendar, Clock, CheckCircle2, X, CalendarClock } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Stethoscope, Calendar, Clock, CheckCircle2, X, CalendarClock } from 'lucide-react';
 import { specialtyLabel } from '@/components/SpecialtySelect';
 
 export interface AppointmentRequest {
@@ -19,6 +20,8 @@ export interface AppointmentRequest {
   rejection_reason: string | null;
   created_at: string;
   dentist_name?: string;
+  dentist_avatar_url?: string | null;
+  patient_avatar_url?: string | null;
 }
 
 interface Props {
@@ -29,18 +32,29 @@ interface Props {
   loading?: boolean;
 }
 
+function initials(name?: string) {
+  return (name ?? '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+}
+
 export function ApprovalCard({ request, onApprove, onReschedule, onReject, loading }: Props) {
   const snapshot = request.patient_account_snapshot ?? {};
+  const patientName = snapshot.full_name ?? 'Paciente';
   const isPending = request.status === 'pending';
 
   return (
     <Card className="hover:border-primary/30 transition-colors">
       <CardContent className="p-4 space-y-3">
+        {/* Header: patient */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar className="h-9 w-9 flex-shrink-0">
+              <AvatarImage src={request.patient_avatar_url ?? undefined} />
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                {initials(patientName)}
+              </AvatarFallback>
+            </Avatar>
             <div className="min-w-0">
-              <p className="font-medium truncate">{snapshot.full_name ?? 'Paciente'}</p>
+              <p className="font-medium truncate">{patientName}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {snapshot.phone ?? snapshot.cpf ?? 'Sem contato'}
               </p>
@@ -64,11 +78,18 @@ export function ApprovalCard({ request, onApprove, onReschedule, onReject, loadi
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          {/* Doctor with avatar */}
           <div className="flex items-center gap-1.5">
-            <Stethoscope className="h-3.5 w-3.5" />
+            <Avatar className="h-5 w-5 flex-shrink-0">
+              <AvatarImage src={request.dentist_avatar_url ?? undefined} />
+              <AvatarFallback className="text-[9px] bg-muted">
+                {initials(request.dentist_name)}
+              </AvatarFallback>
+            </Avatar>
             <span className="truncate">{request.dentist_name ?? '—'}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <Stethoscope className="h-3.5 w-3.5" />
             <span className="truncate">{request.specialty ? specialtyLabel(request.specialty) : 'Consulta'}</span>
           </div>
           <div className="flex items-center gap-1.5">

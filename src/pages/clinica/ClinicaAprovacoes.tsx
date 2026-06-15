@@ -41,13 +41,22 @@ export default function ClinicaAprovacoes() {
         .limit(200);
       if (error) throw error;
 
-      // Enrich with dentist names
+      // Enrich with dentist names + avatars
       const dentistIds = Array.from(new Set((data ?? []).map((r) => r.dentist_id)));
-      const { data: profiles } = dentistIds.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', dentistIds)
-        : { data: [] as Array<{ id: string; full_name: string | null }> };
-      const nameMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? '—']));
-      return (data ?? []).map((r) => ({ ...r, dentist_name: nameMap.get(r.dentist_id) ?? '—' })) as AppointmentRequest[];
+      const patientIds = Array.from(new Set((data ?? []).map((r) => r.patient_user_id).filter(Boolean)));
+      const allProfileIds = Array.from(new Set([...dentistIds, ...patientIds]));
+
+      const { data: profiles } = allProfileIds.length
+        ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', allProfileIds)
+        : { data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null }> };
+      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+      return (data ?? []).map((r) => ({
+        ...r,
+        dentist_name: profileMap.get(r.dentist_id)?.full_name ?? '—',
+        dentist_avatar_url: profileMap.get(r.dentist_id)?.avatar_url ?? null,
+        patient_avatar_url: profileMap.get(r.patient_user_id)?.avatar_url ?? null,
+      })) as AppointmentRequest[];
     },
     enabled: !!currentClinicId,
   });
