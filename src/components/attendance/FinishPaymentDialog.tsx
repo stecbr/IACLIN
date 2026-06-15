@@ -70,8 +70,12 @@ export function FinishPaymentDialog({
     });
   }, [procedures, priceItems]);
 
-  const insuranceTotal = insuranceLines.reduce((s, l) => s + (l.insuranceValue ?? 0), 0);
-  const insuranceHasMissing = insuranceLines.some((l) => l.insuranceValue == null);
+  // Fallback: quando a tabela TUSS não tem valor, usa o valor particular do catálogo.
+  const insuranceTotal = insuranceLines.reduce(
+    (s, l) => s + (l.insuranceValue ?? l.price ?? 0),
+    0,
+  );
+  const insuranceHasFallback = insuranceLines.some((l) => l.insuranceValue == null);
 
   // Carregar operadoras: credenciamentos pessoais + convênios da clínica
   useEffect(() => {
@@ -213,10 +217,6 @@ export function FinishPaymentDialog({
 
   const handleConfirmInsurance = async () => {
     if (!operatorId) { toast.error('Selecione o convênio'); return; }
-    if (tussOperatorId && insuranceHasMissing) {
-      toast.error('Há procedimentos sem valor na tabela da operadora');
-      return;
-    }
     const op = selectedOption;
     const amount = tussOperatorId ? insuranceTotal : totalParticular;
     setSaving(true);
@@ -421,8 +421,9 @@ export function FinishPaymentDialog({
                     {l.insuranceValue != null ? (
                       <span className="font-mono">{brl(l.insuranceValue)}</span>
                     ) : (
-                      <span className="text-xs text-destructive flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> sem valor
+                      <span className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">valor particular</span>
+                        <span className="font-mono">{brl(l.price ?? 0)}</span>
                       </span>
                     )}
                   </div>
@@ -431,9 +432,9 @@ export function FinishPaymentDialog({
                   <span>Total convênio</span>
                   <span>{brl(insuranceTotal)}</span>
                 </div>
-                {insuranceHasMissing && (
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-2 text-xs text-amber-700 dark:text-amber-400">
-                    Procedimentos sem valor na tabela. Cadastre o código TUSS na tabela da operadora ou ajuste o código do procedimento.
+                {insuranceHasFallback && (
+                  <div className="rounded-lg bg-muted/50 border border-border p-2 text-xs text-muted-foreground">
+                    Procedimentos sem valor na tabela da operadora foram somados pelo valor particular do catálogo da clínica.
                   </div>
                 )}
                 <div className="text-[11px] text-muted-foreground">
@@ -450,7 +451,7 @@ export function FinishPaymentDialog({
 
             <div className="flex justify-end gap-2 pt-1">
               <Button
-                disabled={!operatorId || (!!tussOperatorId && insuranceHasMissing) || saving}
+                disabled={!operatorId || saving}
                 onClick={handleConfirmInsurance}
                 className="gap-2"
               >
