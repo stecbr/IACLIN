@@ -396,6 +396,8 @@ export default function Attendance() {
           notes: p.notes || null,
           tooth_number: p.tooth_number,
           surface: p.surface || null,
+          tuss_code: p.tuss_code ?? null,
+          is_operator: p.is_operator ? true : undefined,
         }));
       }
       const notesHeader = Object.keys(specialtyPayload).length > 0
