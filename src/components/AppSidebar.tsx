@@ -713,15 +713,13 @@ export function AppSidebar() {
 
         {/* Configurações — sempre no fundo */}
         <div className="flex-1" />
-        {!isDentist && (
-          <SidebarGroup className="py-0 mt-1">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {renderNavItem({ title: 'Configurações', url: '/settings', icon: Settings })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        <SidebarGroup className="py-0 mt-1">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {renderNavItem({ title: 'Configurações', url: '/settings', icon: Settings })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       {/* ── Footer: apenas sair ── */}
