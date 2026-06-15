@@ -28,6 +28,8 @@ interface Props {
   clinicId: string | null;
   procedures: FinishProcedure[];
   onCompleted: () => void;
+  /** Convênio registrado na ficha do paciente (texto livre). */
+  patientInsuranceProvider?: string | null;
 }
 
 type Mode = '' | 'insurance' | 'stripe' | 'later';
@@ -39,12 +41,13 @@ function brl(v: number) {
 interface OperatorOption {
   id: string;          // insurance_operators.id for personal; insurance_plans.id for clinic
   name: string;
-  source: 'personal' | 'clinic';
+  source: 'patient' | 'personal' | 'clinic';
   operatorId?: string; // insurance_operators.id usado para busca de tabela TUSS
 }
 
 export function FinishPaymentDialog({
   open, onOpenChange, appointmentId, patientId, patientName, clinicId, procedures, onCompleted,
+  patientInsuranceProvider,
 }: Props) {
   const { user } = useAuth();
   const [mode, setMode] = useState<Mode>('');
@@ -74,6 +77,9 @@ export function FinishPaymentDialog({
   useEffect(() => {
     if (!open || !user) return;
     (async () => {
+      const normalize = (s: string) =>
+        s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
       // 1. Credenciamentos pessoais aprovados
       const { data: creds } = await supabase
         .from('operator_credentialings')
@@ -111,10 +117,43 @@ export function FinishPaymentDialog({
         }
       }
 
+      // 3. Convênio do paciente (ficha)
+      const patientOpt: OperatorOption[] = [];
+      const provider = (patientInsuranceProvider ?? '').trim();
+      if (provider) {
+        // tenta casar com uma operadora cadastrada para obter operatorId (tabela TUSS)
+        const { data: ops } = await supabase
+          .from('insurance_operators')
+          .select('id, name')
+          .eq('is_active', true);
+        const match = (ops ?? []).find((o: any) => normalize(o.name) === normalize(provider));
+        // evita duplicar com credenciamento pessoal ou convênio da clínica
+        const dup =
+          (match && personal.some((p) => p.operatorId === match.id)) ||
+          (match && clinic.some((c) => c.operatorId === match.id)) ||
+          personal.some((p) => normalize(p.name) === normalize(provider)) ||
+          clinic.some((c) => normalize(c.name) === normalize(provider));
+        if (!dup) {
+          patientOpt.push({
+            id: match?.id ?? `patient:${provider}`,
+            name: match?.name ?? provider,
+            source: 'patient',
+            operatorId: match?.id ?? undefined,
+          });
+        }
+      }
+
       const seen = new Set<string>();
-      setOperators([...personal, ...clinic].filter((o) => seen.has(o.id) ? false : (seen.add(o.id), true)));
+      const merged = [...patientOpt, ...personal, ...clinic].filter((o) =>
+        seen.has(o.id) ? false : (seen.add(o.id), true),
+      );
+      setOperators(merged);
+      // pré-seleciona o convênio do paciente quando disponível
+      if (patientOpt[0]) {
+        setOperatorId((prev) => prev || patientOpt[0].id);
+      }
     })();
-  }, [open, user, clinicId]);
+  }, [open, user, clinicId, patientInsuranceProvider]);
 
   // operatorId da opção selecionada (pode diferir do id da opção quando é convênio de clínica)
   const selectedOption = operators.find((o) => o.id === operatorId);
@@ -332,6 +371,14 @@ export function FinishPaymentDialog({
                 <Select value={operatorId} onValueChange={setOperatorId}>
                   <SelectTrigger><SelectValue placeholder="Selecione o convênio..." /></SelectTrigger>
                   <SelectContent>
+                    {operators.filter((o) => o.source === 'patient').length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Convênio do paciente</div>
+                        {operators.filter((o) => o.source === 'patient').map((o) => (
+                          <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
                     {operators.filter((o) => o.source === 'personal').length > 0 && (
                       <>
                         <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Credenciamento pessoal</div>
