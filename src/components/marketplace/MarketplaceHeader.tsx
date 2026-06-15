@@ -29,7 +29,7 @@ export function MarketplaceHeader({
   return (
     <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <Link to="/marketplace" className="shrink-0">
+        <Link to="/" className="shrink-0">
           <img src={logo} alt="IACLIN" className="h-8 w-auto" />
         </Link>
 

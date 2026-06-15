@@ -17,7 +17,7 @@ export interface ClinicTerms {
 
 const TERMS: Record<ClinicCategory, ClinicTerms> = {
   odonto: {
-    team:             'Equipe Odontológica',
+    team:             'Equipe Médica',
     teamMember:       'Dentista',
     teamMembers:      'Dentistas',
     addMember:        'Adicionar dentista',
@@ -27,7 +27,7 @@ const TERMS: Record<ClinicCategory, ClinicTerms> = {
     namePlaceholder:  'Dr. João Silva',
     inviteMessage:    'Compartilhe com seus dentistas para que entrem na equipe',
     filterAll:        'Todos os dentistas',
-    aiShortcutTeam:   'Abrir Equipe Odontológica',
+    aiShortcutTeam:   'Abrir Equipe Médica',
     categoryLabel:    'Odontologia',
   },
   medico: {
