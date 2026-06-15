@@ -157,6 +157,9 @@ export function PatientDocuments({ patientId }: Props) {
                     onClick={() => openPreview(doc)}
                   >
                     <SignedImage fileUrl={doc.file_url} alt={doc.name} className="w-full h-full object-cover" />
+                    {doc.category === 'patient_exam' && (
+                      <Badge className="absolute top-1 left-1 text-[9px] h-4 px-1.5" variant="secondary">Paciente</Badge>
+                    )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-white" onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc); }}>
                         <Trash2 className="h-4 w-4" />
@@ -178,7 +181,12 @@ export function PatientDocuments({ patientId }: Props) {
                     <div className="flex items-center gap-3">
                       <FileText className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium">{doc.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{doc.name}</p>
+                          {doc.category === 'patient_exam' && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5">Paciente</Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{format(new Date(doc.created_at), 'dd/MM/yyyy')}</p>
                       </div>
                     </div>
