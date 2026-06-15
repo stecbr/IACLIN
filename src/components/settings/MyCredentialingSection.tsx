@@ -511,6 +511,7 @@ export default function MyCredentialingSection() {
       setAcceptTerms(false);
       setSelectedProcedureIds([]);
       setDocFiles({});
+      setSelectedOperatorProcIds([]);
       await load();
     } catch (e: any) {
       toast.error(`Erro ao enviar pedido: ${e.message ?? 'erro desconhecido'}`);
