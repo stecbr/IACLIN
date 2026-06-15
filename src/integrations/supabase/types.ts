@@ -1050,6 +1050,56 @@ export type Database = {
         }
         Relationships: []
       }
+      commission_rules: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          dentist_id: string
+          id: string
+          insurance_provider: string | null
+          specialty: string | null
+          trigger: string
+          type: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          dentist_id: string
+          id?: string
+          insurance_provider?: string | null
+          specialty?: string | null
+          trigger: string
+          type: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          dentist_id?: string
+          id?: string
+          insurance_provider?: string | null
+          specialty?: string | null
+          trigger?: string
+          type?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_rules_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultation_recordings: {
         Row: {
           anamnesis: Json | null

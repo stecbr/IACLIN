@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,19 +20,19 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Trash2, HelpCircle, AlertTriangle } from 'lucide-react';
+import { Settings, Trash2, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CommissionRule {
   id: string;
   trigger: string;
   type: string;
   value: number;
-  insurance?: string;
-  specialty?: string;
+  insurance_provider?: string | null;
+  specialty?: string | null;
+  dentist_id?: string;
 }
-
-type CommissionConfig = Record<string, CommissionRule[]>;
 
 const TRIGGERS = [
   { value: 'after_procedure', label: 'Após finalizar o procedimento' },
@@ -44,36 +44,45 @@ const COMMISSION_TYPES = [
   { value: 'fixed', label: 'Valor fixo (R$)' },
 ];
 
-function loadRules(clinicId: string): CommissionConfig {
-  try {
-    return JSON.parse(
-      localStorage.getItem(`commission_rules_${clinicId}`) ?? '{}'
-    );
-  } catch {
-    return {};
-  }
-}
-
-function saveRules(clinicId: string, rules: CommissionConfig) {
-  localStorage.setItem(`commission_rules_${clinicId}`, JSON.stringify(rules));
-}
-
 interface Props {
   clinicId: string;
   transactions: any[];
 }
 
 export function CommissionsPanel({ clinicId, transactions }: Props) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
   const [editingPro, setEditingPro] = useState<{ id: string; name: string } | null>(null);
-  const [rules, setRules] = useState<CommissionConfig>(() => loadRules(clinicId));
 
   const [draftTrigger, setDraftTrigger] = useState('after_procedure');
   const [draftType, setDraftType] = useState('percentage');
   const [draftValue, setDraftValue] = useState('');
   const [draftInsurance, setDraftInsurance] = useState('');
   const [draftSpecialty, setDraftSpecialty] = useState('');
-  const [localRules, setLocalRules] = useState<CommissionRule[]>([]);
+  const [savingRule, setSavingRule] = useState(false);
+
+  const { data: rulesData = [] } = useQuery({
+    queryKey: ['commission-rules', clinicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('commission_rules')
+        .select('*')
+        .eq('clinic_id', clinicId);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!clinicId,
+  });
+
+  const rulesByDentist = useMemo(() => {
+    const map: Record<string, CommissionRule[]> = {};
+    (rulesData as any[]).forEach((r) => {
+      if (!map[r.dentist_id]) map[r.dentist_id] = [];
+      map[r.dentist_id].push(r as CommissionRule);
+    });
+    return map;
+  }, [rulesData]);
 
   const { data: members = [] } = useQuery({
     queryKey: ['clinic-members-commissions', clinicId],
@@ -127,35 +136,43 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   const professionals = useMemo(() => {
     return members.map((m) => {
       const profile = (profilesData as any[]).find((p) => p.id === m.user_id);
-      const paidByPro = transactions.filter(
+      const incomeByPro = transactions.filter(
         (t) =>
           t.dentist_id === m.user_id &&
           t.type === 'income' &&
-          t.status === 'paid'
+          (!t.approval_status || t.approval_status === 'approved')
       );
-      const earned = paidByPro.reduce((s, t) => s + Number(t.amount), 0);
+      const earned = incomeByPro.reduce((s, t) => s + Number(t.amount), 0);
+      const paidByPro = incomeByPro.filter((t) => t.status === 'paid');
 
-      const proRules = rules[m.user_id] ?? [];
+      const proRules = rulesByDentist[m.user_id] ?? [];
       let commission = 0;
       proRules.forEach((rule) => {
-        // Skip rule if it targets a specific specialty that doesn't match this professional
         if (rule.specialty && m.specialty !== rule.specialty) return;
-
-        // Filter transactions by insurance if the rule specifies one
-        const applicableTx = rule.insurance
-          ? paidByPro.filter(
-              (t) => (t.patients as any)?.insurance_provider === rule.insurance
+        const base = rule.trigger === 'after_payment' ? paidByPro : incomeByPro;
+        const applicableTx = rule.insurance_provider
+          ? base.filter(
+              (t) => (t.patients as any)?.insurance_provider === rule.insurance_provider
             )
-          : paidByPro;
+          : base;
         const applicableEarned = applicableTx.reduce(
           (s, t) => s + Number(t.amount),
           0
         );
-
         if (rule.type === 'percentage')
           commission += applicableEarned * (rule.value / 100);
-        else commission += rule.value;
+        else commission += rule.value * applicableTx.length;
       });
+
+      // Commissions actually posted as expenses (category=commission)
+      const posted = transactions
+        .filter(
+          (t) =>
+            t.dentist_id === m.user_id &&
+            t.type === 'expense' &&
+            t.category === 'commission'
+        )
+        .reduce((s, t) => s + Number(t.amount), 0);
 
       return {
         id: m.user_id,
@@ -163,10 +180,11 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
         specialty: m.specialty as string | null,
         earned,
         commission,
+        posted,
         rulesCount: proRules.length,
       };
     });
-  }, [members, profilesData, transactions, rules]);
+  }, [members, profilesData, transactions, rulesByDentist]);
 
   const fmt = (v: number) =>
     `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -181,7 +199,6 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
 
   const openConfig = (pro: { id: string; name: string }) => {
     setEditingPro(pro);
-    setLocalRules([...(rules[pro.id] ?? [])]);
     setDraftTrigger('after_procedure');
     setDraftType('percentage');
     setDraftValue('');
@@ -190,35 +207,47 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
     setConfigOpen(true);
   };
 
-  const addRule = () => {
+  const proRulesEditing = editingPro
+    ? (rulesByDentist[editingPro.id] ?? [])
+    : [];
+
+  const addRule = async () => {
+    if (!editingPro) return;
     const v = parseFloat(draftValue);
     if (!v || v <= 0) {
       toast.error('Informe um valor válido');
       return;
     }
-    const newRule: CommissionRule = {
-      id: Math.random().toString(36).slice(2),
+    setSavingRule(true);
+    const { error } = await supabase.from('commission_rules').insert({
+      clinic_id: clinicId,
+      dentist_id: editingPro.id,
       trigger: draftTrigger,
       type: draftType,
       value: v,
-      insurance: draftInsurance || undefined,
-      specialty: draftSpecialty || undefined,
-    };
-    setLocalRules((prev) => [...prev, newRule]);
+      insurance_provider: draftInsurance || null,
+      specialty: draftSpecialty || null,
+      created_by: user?.id ?? null,
+    });
+    setSavingRule(false);
+    if (error) {
+      toast.error('Falha ao salvar regra', { description: error.message });
+      return;
+    }
+    toast.success('Regra salva');
     setDraftValue('');
+    setDraftInsurance('');
+    setDraftSpecialty('');
+    queryClient.invalidateQueries({ queryKey: ['commission-rules', clinicId] });
   };
 
-  const removeLocalRule = (id: string) => {
-    setLocalRules((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const saveConfig = () => {
-    if (!editingPro) return;
-    const next = { ...rules, [editingPro.id]: localRules };
-    setRules(next);
-    saveRules(clinicId, next);
-    toast.success('Comissões salvas!');
-    setConfigOpen(false);
+  const removeRule = async (id: string) => {
+    const { error } = await supabase.from('commission_rules').delete().eq('id', id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['commission-rules', clinicId] });
   };
 
   const triggerLabel = (t: string) =>
@@ -226,12 +255,6 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-        <span>
-          As regras de comissão são salvas apenas neste dispositivo/navegador. Reconfigure se acessar de outro dispositivo.
-        </span>
-      </div>
       {professionals.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
           <p className="text-sm text-muted-foreground">
@@ -241,10 +264,11 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
       ) : (
         <div className="space-y-3">
           {/* Summary header */}
-          <div className="hidden sm:grid grid-cols-[1fr_140px_140px_140px] gap-4 px-4 text-xs text-muted-foreground font-medium border-b border-border/40 pb-2">
+          <div className="hidden sm:grid grid-cols-[1fr_140px_140px_140px_140px] gap-4 px-4 text-xs text-muted-foreground font-medium border-b border-border/40 pb-2">
             <span>Profissional</span>
             <span className="text-right">Faturado no período</span>
             <span className="text-right">Comissão calculada</span>
+            <span className="text-right">Comissão lançada</span>
             <span className="text-right">Ações</span>
           </div>
 
@@ -270,10 +294,14 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                     <p className="text-sm font-semibold">{fmt(pro.earned)}</p>
                   </div>
                   <div className="text-right hidden sm:block min-w-[120px]">
-                    <p className="text-xs text-muted-foreground">Comissão</p>
+                    <p className="text-xs text-muted-foreground">Calculada</p>
                     <p className="text-sm font-semibold text-primary">
                       {fmt(pro.commission)}
                     </p>
+                  </div>
+                  <div className="text-right hidden sm:block min-w-[120px]">
+                    <p className="text-xs text-muted-foreground">Lançada</p>
+                    <p className="text-sm font-semibold">{fmt(pro.posted)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {pro.rulesCount > 0 && (
@@ -360,14 +388,14 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
               <div className="space-y-1">
                 <Label className="text-xs">Em qual convênio? (opcional)</Label>
                 <Select
-                  value={draftInsurance}
-                  onValueChange={setDraftInsurance}
+                  value={draftInsurance || '__all__'}
+                  onValueChange={(v) => setDraftInsurance(v === '__all__' ? '' : v)}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="__all__">Todos</SelectItem>
                     {insurances.map((i) => (
                       <SelectItem key={i} value={i}>
                         {i}
@@ -382,14 +410,14 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                   Em qual especialidade? (opcional)
                 </Label>
                 <Select
-                  value={draftSpecialty}
-                  onValueChange={setDraftSpecialty}
+                  value={draftSpecialty || '__all__'}
+                  onValueChange={(v) => setDraftSpecialty(v === '__all__' ? '' : v)}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="__all__">Todas</SelectItem>
                     {specialties.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
@@ -404,9 +432,9 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
               variant="outline"
               className="w-full"
               onClick={addRule}
-              disabled={!draftValue || parseFloat(draftValue) <= 0}
+              disabled={!draftValue || parseFloat(draftValue) <= 0 || savingRule}
             >
-              Salvar regra
+              {savingRule ? 'Salvando...' : 'Adicionar regra'}
             </Button>
 
             <div>
@@ -414,13 +442,13 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                 <p className="text-sm font-medium">Regras criadas</p>
                 <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-              {localRules.length === 0 ? (
+              {proRulesEditing.length === 0 ? (
                 <div className="rounded-lg border border-border/50 p-4 text-xs text-muted-foreground text-center">
                   As regras que você criar serão exibidas aqui.
                 </div>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {localRules.map((rule) => (
+                  {proRulesEditing.map((rule) => (
                     <div
                       key={rule.id}
                       className="flex items-center gap-2 p-2.5 rounded-lg border border-border/50 text-xs"
@@ -435,9 +463,9 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                             · {triggerLabel(rule.trigger)}
                           </span>
                         </p>
-                        {(rule.insurance || rule.specialty) && (
+                        {(rule.insurance_provider || rule.specialty) && (
                           <p className="text-muted-foreground">
-                            {[rule.insurance, rule.specialty]
+                            {[rule.insurance_provider, rule.specialty]
                               .filter(Boolean)
                               .join(' · ')}
                           </p>
@@ -447,7 +475,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                         size="icon"
                         variant="ghost"
                         className="h-6 w-6 flex-shrink-0"
-                        onClick={() => removeLocalRule(rule.id)}
+                        onClick={() => removeRule(rule.id)}
                       >
                         <Trash2 className="h-3 w-3 text-muted-foreground" />
                       </Button>
@@ -459,10 +487,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfigOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={saveConfig}>Salvar</Button>
+            <Button onClick={() => setConfigOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

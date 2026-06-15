@@ -11,6 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Shield, CreditCard, Clock, AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useSoloMode } from '@/hooks/useSoloMode';
+import { canManageClinicFinance } from '@/lib/financePermissions';
+import { generateCommissionsForTransaction } from '@/lib/commissions';
 
 export interface FinishProcedure {
   procedure_id: string;
@@ -50,6 +54,14 @@ export function FinishPaymentDialog({
   patientInsuranceProvider,
 }: Props) {
   const { user } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const { isSolo } = useSoloMode();
+  const canManage = canManageClinicFinance({
+    isSolo,
+    role: effectiveRole as any,
+    hasClinic: !!clinicId,
+  });
+  const needsApproval = !!clinicId && !canManage;
   const [mode, setMode] = useState<Mode>('');
   const [operatorId, setOperatorId] = useState<string>('');
   const [operators, setOperators] = useState<OperatorOption[]>([]);
@@ -204,15 +216,32 @@ export function FinishPaymentDialog({
       clinic_id: clinicId ?? null,
       type: 'income',
       description: desc,
+      approval_status: needsApproval ? 'awaiting_approval' : 'approved',
+      approval_requested_by: needsApproval ? user!.id : null,
+      approval_decided_by: needsApproval ? null : user!.id,
+      approval_decided_at: needsApproval ? null : new Date().toISOString(),
       ...overrides,
     };
+    if (needsApproval) {
+      // Force status pending while awaiting approval
+      payload.status = 'pending';
+    }
     const { data, error } = await supabase
       .from('financial_transactions')
       .insert(payload)
       .select('id')
       .single();
     if (error) throw error;
-    return data!.id as string;
+    const newId = data!.id as string;
+    // If the row was inserted as approved, fire commission generation (after_procedure).
+    if (!needsApproval) {
+      try {
+        await generateCommissionsForTransaction(newId, 'after_procedure');
+      } catch (_) {
+        // do not block flow
+      }
+    }
+    return newId;
   };
 
   const handleConfirmInsurance = async () => {
@@ -239,7 +268,11 @@ export function FinishPaymentDialog({
         insurance_invoice_status: 'open',
         notes,
       });
-      toast.success(`Registrado no convênio ${op?.name} – ${period}.`);
+      toast.success(
+        needsApproval
+          ? `Consulta finalizada. Cobrança do convênio ${op?.name} enviada para aprovação.`
+          : `Registrado no convênio ${op?.name} – ${period}.`
+      );
       onCompleted();
     } catch (e: any) {
       toast.error(e.message ?? 'Erro ao registrar');
@@ -289,7 +322,11 @@ export function FinishPaymentDialog({
         due_date: format(new Date(), 'yyyy-MM-dd'),
         notes: 'A combinar com paciente',
       });
-      toast.success('Registrado como "A combinar". Cobrança ficará pendente.');
+      toast.success(
+        needsApproval
+          ? 'Consulta finalizada. Cobrança "A combinar" enviada para aprovação.'
+          : 'Registrado como "A combinar". Cobrança ficará pendente.'
+      );
       onCompleted();
     } catch (e: any) {
       toast.error(e.message ?? 'Erro');
