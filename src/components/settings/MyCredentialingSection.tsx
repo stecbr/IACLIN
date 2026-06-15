@@ -189,6 +189,72 @@ export default function MyCredentialingSection() {
   const invitedOperatorId = searchParams.get('cred_op');
   const inviteToken = searchParams.get('invite');
 
+  // Lista de procedimentos da operadora (tabela de valores publicada)
+  type OperatorProc = { id: string; name: string; category: string; tuss_code: string | null; value_brl: number };
+  const [procSource, setProcSource] = useState<'clinic' | 'operator'>('clinic');
+  const [operatorProcs, setOperatorProcs] = useState<OperatorProc[]>([]);
+  const [operatorTableLabel, setOperatorTableLabel] = useState<string | null>(null);
+  const [loadingOperatorProcs, setLoadingOperatorProcs] = useState(false);
+  const [selectedOperatorProcIds, setSelectedOperatorProcIds] = useState<string[]>([]);
+
+  // Carrega a tabela vigente da operadora ao abrir o dossiê
+  useEffect(() => {
+    if (!openFor) {
+      setOperatorProcs([]);
+      setOperatorTableLabel(null);
+      setSelectedOperatorProcIds([]);
+      setProcSource('clinic');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingOperatorProcs(true);
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: tables } = await supabase
+          .from('operator_price_tables')
+          .select('id, name, state, valid_from, valid_until')
+          .eq('operator_id', openFor.id)
+          .lte('valid_from', today);
+        const vigent = (tables ?? []).filter((t: any) => t.valid_until == null || t.valid_until >= today);
+        const uf = (clinicState ?? '').toUpperCase();
+        const picked =
+          vigent.find((t: any) => (t.state ?? '').toUpperCase() === uf && uf.length > 0) ??
+          vigent.find((t: any) => !t.state) ??
+          vigent[0] ?? null;
+        if (!picked) {
+          if (!cancelled) {
+            setOperatorProcs([]);
+            setOperatorTableLabel(null);
+          }
+          return;
+        }
+        const { data: items } = await supabase
+          .from('operator_price_items')
+          .select('id, procedure_name, category, tuss_code, value_brl, sort_order')
+          .eq('table_id', picked.id)
+          .order('category')
+          .order('sort_order')
+          .order('procedure_name');
+        if (cancelled) return;
+        setOperatorTableLabel(`${picked.name}${picked.state ? ` · ${picked.state}` : ' · Nacional'}`);
+        setOperatorProcs(
+          (items ?? []).map((it: any) => ({
+            id: String(it.id),
+            name: String(it.procedure_name),
+            category: String(it.category ?? 'Geral'),
+            tuss_code: it.tuss_code ?? null,
+            value_brl: Number(it.value_brl ?? 0),
+          })),
+        );
+      } finally {
+        if (!cancelled) setLoadingOperatorProcs(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFor?.id, clinicState]);
+
   const load = async () => {
     if (!user || !currentClinicId) return;
     setLoading(true);
