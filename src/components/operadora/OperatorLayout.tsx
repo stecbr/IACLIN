@@ -120,16 +120,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               </div>
             )}
             <div className="min-w-0">
-              <div className="flex items-center">
-                      <Badge
-                        variant={op?.is_active ? 'operator' : 'secondary'}
-                        className="text-[8px] uppercase tracking-wide"
-                      >
-                  <ShieldCheck className="h-2 w-2 mr-1" />
-                  {op?.is_active ? 'ATIVA' : 'PENDENTE'}
-                </Badge>
-              </div>
-              <div className="text-base font-semibold text-white truncate mt-1">
+              <div className="text-base font-semibold text-white truncate">
                 {op?.name ?? 'Operadora'}
               </div>
               <div className="text-[11px] text-sidebar-foreground/60 truncate mt-0.5">
