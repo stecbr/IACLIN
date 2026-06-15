@@ -1,38 +1,75 @@
-## Problema
+## Diagnóstico
 
-No modal "Forma de pagamento", quando o paciente tem convênio (ex.: Unimed) mas o procedimento não tem código TUSS ou não está na tabela vigente da operadora, o sistema mostra "sem valor" e **desabilita** o botão "Confirmar convênio". O médico fica travado — não consegue encerrar a consulta mesmo o paciente sendo da clínica e do convênio.
+Verifiquei o atendimento finalizado no banco. A transação **foi gravada** corretamente:
 
-## Correção
+- `clinic_id`, `dentist_id`, `operator_id` (Unimed), `amount = 50`, `category = 'insurance'`, `insurance_invoice_period = '2026-06'`, `status = 'pending'`, `approval_status = 'approved'`.
+- Porém `due_date = 2026-07-20` (dia 20 do mês seguinte).
 
-Arquivo: `src/components/attendance/FinishPaymentDialog.tsx`
+Três problemas distintos impedem que o registro apareça nas telas:
 
-1. **Fallback automático para o valor particular** quando o item não tem valor na tabela TUSS da operadora:
-   - Cada linha passa a exibir o `value_brl` da tabela quando existe; caso contrário, mostra o valor particular do catálogo da clínica com uma tag discreta "valor particular" (no lugar do atual "sem valor" em vermelho).
-   - `insuranceTotal` passa a somar `insuranceValue ?? price` para cada linha (em vez de tratar `null` como zero).
-   - Remover o estado de erro `insuranceHasMissing` que bloqueia o submit.
+### 1. Meu Financeiro (Configurações → Meu Financeiro) — vazio
+`DentistFinancialSection` filtra por `due_date` entre `startOfMonth(hoje - N meses)` e `endOfMonth(hoje)`. Com `due_date = 2026-07-20`, o registro **cai fora** do período "Últimos 3 meses" (que termina em 30/jun/2026). Por isso "Recebido", "Pendente" e "Total bruto" mostram R$ 0,00.
 
-2. **Habilitar o botão "Confirmar convênio"** sempre que houver uma operadora selecionada — não importa se há ou não TUSS cadastrado. A condição passa a ser apenas `!operatorId || saving`.
+### 2. Financeiro da Clínica — vazio
+`src/pages/Financial.tsx` usa exatamente o mesmo filtro por `due_date` (últimos 6 meses até `endOfMonth(hoje)`). Mesma causa: `due_date` no mês seguinte exclui o lançamento dos KPIs Receita / A Receber e da listagem.
 
-3. **Substituir o aviso âmbar** "Procedimentos sem valor na tabela…" por uma nota informativa neutra: "Procedimentos sem valor na tabela usaram o valor particular do catálogo da clínica." Mostrar somente quando ao menos uma linha caiu no fallback.
+### 3. Painel da Operadora → Faturamento — vazio
+`src/pages/operadora/OperatorBilling.tsx` é uma **tela placeholder**: KPIs e lista estão hardcoded em zero, nenhuma consulta ao banco é feita.
 
-4. **Gravar a transação corretamente** em `handleConfirmInsurance`:
-   - `amount` = `insuranceTotal` (que já inclui o fallback particular).
-   - `notes` continua listando cada procedimento com o valor usado (tabela ou particular), para o histórico da clínica/operadora deixar claro de onde veio cada preço.
-   - `operator_id`, `insurance_invoice_period` e `insurance_invoice_status` continuam iguais — assim o atendimento aparece na fatura do mês como hoje.
+Além disso, as RLS atuais de `financial_transactions` só permitem SELECT a membros da clínica ou dono pessoal. **Operadoras não têm permissão de leitura**, então mesmo que a tela consultasse, viria vazio.
 
-5. **Quando o convênio selecionado não tem `operatorId`** (convênio da clínica sem TUSS, ou convênio do paciente não casado com operadora cadastrada), o resumo de procedimentos passa a ser exibido com os valores particulares da clínica (já era assim no `amount`, mas o painel de valores ficava oculto). O painel "Valores" passa a aparecer sempre que `mode === 'insurance'` e `operatorId` está preenchido.
+## Plano de correção
+
+### A. Alinhar `due_date` ao mês de competência do convênio
+Em `src/components/attendance/FinishPaymentDialog.tsx`, dentro de `handleConfirmInsurance`:
+
+- Trocar `due_date` para o **último dia do mês corrente** (mês de competência igual a `insurance_invoice_period`), em vez do dia 20 do mês seguinte.
+- O texto informativo no card de Valores passa a dizer "Esta consulta entra na fatura do mês <período>. Vencimento da fatura junto à operadora é definido pela operadora."
+- Resultado: a transação passa a aparecer imediatamente em "A Receber" no Financeiro da Clínica e em "Pendente" no Meu Financeiro do médico, dentro do período padrão (mês corrente e últimos 3/6 meses).
+
+Nenhuma outra rota é afetada (Stripe e A combinar já usam `due_date = hoje`).
+
+### B. Tornar o Faturamento da Operadora real
+Reescrever `src/pages/operadora/OperatorBilling.tsx` para consultar `financial_transactions`:
+
+- Usar `operatorId` do `useAuth()`.
+- Buscar transações com `operator_id = operatorId`.
+- KPIs do mês corrente (`insurance_invoice_period = format(hoje, 'yyyy-MM')`):
+  - **A faturar este mês** = soma de `amount` onde `insurance_invoice_status = 'open'` e período = mês corrente.
+  - **Faturado no mês** = soma onde `insurance_invoice_status IN ('closed','paid')` no mesmo período.
+  - **Glosas em análise** = contagem onde `insurance_invoice_status = 'disputed'` (ou similar — manter 0 se a coluna não tiver valores ainda).
+- Abaixo dos KPIs, listar os atendimentos do mês: data, clínica (`clinics.name`), paciente (`patients.full_name`), procedimento (extraído de `notes`/`description`) e valor.
+- Manter o empty state atual apenas quando não houver linhas.
+- Estilo igual ao restante do painel da operadora (cards `rounded-xl`, header já existente).
+
+### C. Permitir que membros da operadora leiam as transações dela
+Criar migration adicionando policy SELECT em `public.financial_transactions`:
+
+```sql
+CREATE POLICY "Operator members can view their insurance transactions"
+ON public.financial_transactions
+FOR SELECT
+TO authenticated
+USING (
+  operator_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM public.operator_members om
+    WHERE om.operator_id = financial_transactions.operator_id
+      AND om.user_id = auth.uid()
+  )
+);
+```
+
+Sem novos `GRANT` (a tabela já tem grants existentes). Sem alterações de schema.
 
 ## Fora de escopo
+- Faturas mensais consolidadas (lote/PDF) e fluxo de glosa — placeholders permanecem; só os números agregados ficam reais.
+- Tela `Financeiro · Faturas Convênio` da clínica (`InsuranceInvoices.tsx`) — não foi citada pelo usuário; manter como está.
+- Stripe, "A combinar", `ConsultationPaymentDialog`, agenda e prontuário.
 
-- Nenhuma alteração de schema, RLS ou edge functions.
-- Sem mudanças no `ConsultationPaymentDialog` legado, no fluxo de Stripe ou "A combinar".
-- Sem alterar a lógica de fatura mensal — a transação continua entrando como `pending` na fatura do mês.
-
-## Como testar
-
-1. Paciente com `insurance_provider = "Unimed"`, sem credenciamento pessoal e sem item TUSS cadastrado.
-2. Finalizar consulta → modal abre em "Convênio" com Unimed pré-selecionada.
-3. O painel "Valores conforme tabela vigente" mostra o procedimento com o valor particular (R$ 50,00) e nota "valor particular" ao lado.
-4. **Total convênio: R$ 50,00**.
-5. Botão "Confirmar convênio" está habilitado. Clicar grava a transação como `insurance` pendente, com `operator_id` da Unimed e `notes` listando o procedimento e o preço usado.
-6. Caso a tabela TUSS tenha o item, comportamento permanece igual ao atual (preço da tabela prevalece).
+## Validação após implementar
+1. Finalizar uma nova consulta de convênio (ou simplesmente recarregar). A transação `2026-06-15` deve aparecer:
+   - em **Meu Financeiro** do médico em "Pendente";
+   - em **Financeiro da Clínica** em "A Receber" e na lista de transações;
+   - em **Painel Unimed → Faturamento** no KPI "A faturar este mês" com o atendimento listado.
+2. Confirmar que registros antigos (`due_date` em 2026-07-20) também passam a aparecer após ajuste do filtro? Não — o ajuste é só para novos. Para o registro de teste atual, posso opcionalmente atualizar via SQL após a aprovação para refletir a nova regra.
