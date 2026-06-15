@@ -41,7 +41,7 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
 
   const [clinicQ, membersQ, plansQ, proceduresQ, todayApsQ, weekApsQ, patientsCountQ, finQ,
          finPrevQ, recentApsQ, inactiveQ, birthdaysQ, pendingReqQ, templatesQ, availOverridesQ,
-         blockedQ, busyApsQ] = await Promise.all([
+         blockedQ, busyApsQ, insurancePatientsQ, insuranceApsQ, insuranceFinQ, operatorsQ] = await Promise.all([
     admin.from("clinics").select("name, address, city, state, phone, email, category").eq("id", clinicId).maybeSingle(),
     admin.from("clinic_members").select("user_id, role, specialty, registration_number").eq("clinic_id", clinicId),
     admin.from("insurance_plans").select("name, type, is_active").eq("clinic_id", clinicId).eq("is_active", true),
@@ -68,6 +68,14 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
     admin.from("professional_blocked_dates").select("user_id, blocked_date").or(`clinic_id.eq.${clinicId},clinic_id.is.null`).gte("blocked_date", startToday.slice(0,10)).lte("blocked_date", in7days.slice(0,10)),
     // Consultas ocupando horários nos próximos 7 dias
     admin.from("appointments").select("dentist_id, start_time, end_time").eq("clinic_id", clinicId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled"),
+    // Pacientes com convênio (provedor preenchido)
+    admin.from("patients").select("insurance_provider").eq("clinic_id", clinicId).not("insurance_provider", "is", null).neq("insurance_provider", ""),
+    // Consultas dos últimos 30 dias com convênio do paciente
+    admin.from("appointments").select("id, status, presence_status, patients!inner(insurance_provider)").eq("clinic_id", clinicId).gte("start_time", apptSince30).lt("start_time", startToday),
+    // Faturamento de convênio nos últimos 30 dias
+    admin.from("financial_transactions").select("amount, status, payment_method, operator_id, insurance_invoice_status").eq("clinic_id", clinicId).eq("type", "income").eq("payment_method", "insurance").gte("due_date", since30),
+    // Operadoras (para nomear)
+    admin.from("insurance_operators").select("id, name"),
   ]);
 
   const clinic = clinicQ.data as any;
@@ -125,6 +133,67 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
 
   lines.push(`\n# Convênios aceitos (${plansQ.data?.length ?? 0})`);
   for (const p of plansQ.data ?? []) lines.push(`- ${p.name} (${p.type})`);
+
+  // ===== Pacientes por convênio =====
+  const insurancePatients = (insurancePatientsQ.data ?? []) as any[];
+  const patientsByInsurance = new Map<string, number>();
+  for (const p of insurancePatients) {
+    const k = String(p.insurance_provider).trim();
+    if (!k) continue;
+    patientsByInsurance.set(k, (patientsByInsurance.get(k) ?? 0) + 1);
+  }
+  lines.push(`\n# Pacientes por convênio`);
+  lines.push(`- Particulares: ${Math.max(0, (patientsCountQ.count ?? 0) - insurancePatients.length)}`);
+  lines.push(`- Com convênio: ${insurancePatients.length}`);
+  for (const [name, count] of [...patientsByInsurance.entries()].sort((a, b) => b[1] - a[1])) {
+    lines.push(`  • ${name}: ${count}`);
+  }
+
+  // ===== Atendimentos por convênio (últimos 30 dias) =====
+  const insuranceAps = (insuranceApsQ.data ?? []) as any[];
+  const apsByInsurance = new Map<string, number>();
+  let apsParticulares = 0;
+  let apsConvenio = 0;
+  for (const a of insuranceAps) {
+    const prov = (a as any).patients?.insurance_provider;
+    if (prov && String(prov).trim()) {
+      const k = String(prov).trim();
+      apsByInsurance.set(k, (apsByInsurance.get(k) ?? 0) + 1);
+      apsConvenio++;
+    } else {
+      apsParticulares++;
+    }
+  }
+  lines.push(`\n# Atendimentos por convênio (últimos 30 dias)`);
+  lines.push(`- Total: ${insuranceAps.length}`);
+  lines.push(`- Particulares: ${apsParticulares}`);
+  lines.push(`- Por convênio: ${apsConvenio}`);
+  for (const [name, count] of [...apsByInsurance.entries()].sort((a, b) => b[1] - a[1])) {
+    lines.push(`  • ${name}: ${count}`);
+  }
+
+  // ===== Faturamento de convênio (últimos 30 dias) =====
+  const operatorsMap = new Map<string, string>(((operatorsQ.data ?? []) as any[]).map((o) => [o.id, o.name]));
+  const insuranceFin = (insuranceFinQ.data ?? []) as any[];
+  const billedByOperator = new Map<string, { total: number; paid: number; pending: number }>();
+  let billedTotal = 0;
+  let billedPaid = 0;
+  let billedPending = 0;
+  for (const t of insuranceFin) {
+    const opName = t.operator_id ? (operatorsMap.get(t.operator_id) ?? "Convênio") : "Convênio";
+    const cur = billedByOperator.get(opName) ?? { total: 0, paid: 0, pending: 0 };
+    const amt = Number(t.amount || 0);
+    cur.total += amt;
+    billedTotal += amt;
+    if (t.status === "paid") { cur.paid += amt; billedPaid += amt; }
+    else { cur.pending += amt; billedPending += amt; }
+    billedByOperator.set(opName, cur);
+  }
+  lines.push(`\n# Faturamento por convênio (últimos 30 dias)`);
+  lines.push(`- Total faturado: ${fmtMoney(billedTotal)} (recebido: ${fmtMoney(billedPaid)} · pendente: ${fmtMoney(billedPending)})`);
+  for (const [name, v] of [...billedByOperator.entries()].sort((a, b) => b[1].total - a[1].total)) {
+    lines.push(`  • ${name}: ${fmtMoney(v.total)} (recebido ${fmtMoney(v.paid)} · pendente ${fmtMoney(v.pending)})`);
+  }
 
   lines.push(`\n# Procedimentos cadastrados (${proceduresQ.data?.length ?? 0})`);
   for (const p of (proceduresQ.data ?? []).slice(0, 30) as any[]) lines.push(`- ${p.name} — ${fmtMoney(Number(p.price))}`);
