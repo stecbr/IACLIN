@@ -141,6 +141,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Sync professional_specialties → clinic_member_specialties
+    const { data: memberRow } = await admin
+      .from("clinic_members")
+      .select("id")
+      .eq("clinic_id", clinic.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (memberRow) {
+      const { data: personalSpecs } = await admin
+        .from("professional_specialties")
+        .select("specialty")
+        .eq("user_id", user.id);
+
+      if (personalSpecs && personalSpecs.length > 0) {
+        // Fetch already-existing entries to avoid duplicates
+        const { data: existingSpecs } = await admin
+          .from("clinic_member_specialties")
+          .select("specialty")
+          .eq("clinic_member_id", memberRow.id);
+        const existingSet = new Set(((existingSpecs ?? []) as unknown as { specialty: string }[]).map((r) => r.specialty));
+        const toInsert = (personalSpecs as unknown as { specialty: string }[])
+          .filter((s) => !existingSet.has(s.specialty))
+          .map((s) => ({ clinic_member_id: memberRow.id, specialty: s.specialty }));
+        if (toInsert.length > 0) {
+          await admin.from("clinic_member_specialties").insert(toInsert);
+        }
+      }
+    }
+
     await admin.from("user_roles").insert({ user_id: user.id, role: "dentist" }).select();
 
     return new Response(JSON.stringify({ success: true, clinic_id: clinic.id, clinic_name: clinic.name }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
