@@ -762,23 +762,90 @@ export default function MyCredentialingSection() {
 
             <div className="space-y-2">
               <h4 className="text-sm font-semibold">Procedimentos para esta operadora</h4>
-              <p className="text-xs text-muted-foreground">Selecione apenas os procedimentos que você quer atender por este convênio.</p>
-              <div className="max-h-48 overflow-y-auto rounded-md border border-border p-2 space-y-1">
-                {procedures.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/40 cursor-pointer">
-                    <Checkbox
-                      checked={selectedProcedureIds.includes(p.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedProcedureIds((prev) =>
-                          checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
-                        );
-                      }}
-                    />
-                    <span className="text-sm">{p.name}</span>
-                    <span className="text-[11px] text-muted-foreground ml-auto">{p.specialty_category}</span>
-                  </label>
-                ))}
+              <p className="text-xs text-muted-foreground">
+                Selecione os procedimentos que você quer atender por este convênio.
+                Você pode usar sua lista da clínica ou puxar os procedimentos diretamente da tabela publicada pela operadora.
+              </p>
+              <div className="inline-flex rounded-md border border-border p-0.5 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setProcSource('clinic')}
+                  className={`px-3 py-1.5 text-xs rounded ${procSource === 'clinic' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'}`}
+                >
+                  Lista da clínica
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProcSource('operator')}
+                  className={`px-3 py-1.5 text-xs rounded ${procSource === 'operator' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'}`}
+                >
+                  Lista da operadora
+                </button>
               </div>
+
+              {procSource === 'clinic' ? (
+                <div className="max-h-48 overflow-y-auto rounded-md border border-border p-2 space-y-1">
+                  {procedures.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-2 py-4 text-center">
+                      Sua clínica ainda não tem procedimentos cadastrados. Cadastre em Configurações ou alterne para a lista da operadora.
+                    </p>
+                  ) : (
+                    procedures.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/40 cursor-pointer">
+                        <Checkbox
+                          checked={selectedProcedureIds.includes(p.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedProcedureIds((prev) =>
+                              checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
+                            );
+                          }}
+                        />
+                        <span className="text-sm">{p.name}</span>
+                        <span className="text-[11px] text-muted-foreground ml-auto">{p.specialty_category}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {operatorTableLabel && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Tabela vigente: <span className="font-medium text-foreground">{operatorTableLabel}</span>
+                    </p>
+                  )}
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-border p-2 space-y-1">
+                    {loadingOperatorProcs ? (
+                      <p className="text-xs text-muted-foreground px-2 py-4 text-center">Carregando lista da operadora...</p>
+                    ) : operatorProcs.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-2 py-4 text-center">
+                        Esta operadora ainda não publicou uma tabela vigente para o seu estado. Use a lista da clínica.
+                      </p>
+                    ) : (
+                      operatorProcs.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/40 cursor-pointer">
+                          <Checkbox
+                            checked={selectedOperatorProcIds.includes(p.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedOperatorProcIds((prev) =>
+                                checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
+                              );
+                            }}
+                          />
+                          <span className="text-sm flex-1 truncate">{p.name}</span>
+                          {p.tuss_code && (
+                            <span className="text-[10px] text-muted-foreground">TUSS {p.tuss_code}</span>
+                          )}
+                          <span className="text-[11px] font-medium ml-2">
+                            {p.value_brl > 0
+                              ? p.value_brl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                              : '—'}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
