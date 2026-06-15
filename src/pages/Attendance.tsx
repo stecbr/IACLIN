@@ -34,12 +34,17 @@ import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
 import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
+import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
+import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
 
 interface ProcedureRow {
   tempId: string;
   procedure_id: string;
   custom_name: string;
   is_manual: boolean;
+  is_operator?: boolean;
+  operator_item_id?: string;
+  tuss_code?: string | null;
   tooth_number: number | null;
   surface: string;
   notes: string;
@@ -156,6 +161,27 @@ export default function Attendance() {
       return data;
     },
   });
+
+  // Load clinic state for operator-table state matching
+  const { data: clinicInfo } = useQuery({
+    queryKey: ['clinic-state', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clinics').select('state').eq('id', currentClinicId!).maybeSingle();
+      return data;
+    },
+  });
+
+  // Operator price catalog (if patient has insurance + clinic credentialed)
+  const patientInsurance = (appointment as any)?.patients?.insurance_provider as string | undefined;
+  const { data: operatorCatalog } = useOperatorPriceCatalog({
+    insuranceProviderName: patientInsurance,
+    clinicId: currentClinicId,
+    clinicState: clinicInfo?.state ?? null,
+  });
+  const operatorMode = operatorCatalog?.status === 'operator';
+  const operatorItems: OperatorCatalogItem[] = operatorCatalog?.items ?? [];
 
   // Load existing clinical record for this appointment
   const { data: existingRecord } = useQuery({
@@ -307,7 +333,9 @@ export default function Attendance() {
   const addProcedure = () => {
     setProcedures((prev) => [
       ...prev,
-      { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: proceduresCatalog.length === 0, tooth_number: null, surface: '', notes: '', price: 0 },
+      operatorMode
+        ? { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: true, is_operator: true, operator_item_id: '', tuss_code: null, tooth_number: null, surface: '', notes: '', price: 0 }
+        : { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: proceduresCatalog.length === 0, tooth_number: null, surface: '', notes: '', price: 0 },
     ]);
   };
 
@@ -319,6 +347,16 @@ export default function Attendance() {
         if (field === 'procedure_id') {
           const cat = proceduresCatalog.find((c) => c.id === value);
           if (cat) updated.price = Number(cat.default_price);
+        }
+        if (field === 'operator_item_id') {
+          const it = operatorItems.find((c) => c.id === value);
+          if (it) {
+            updated.custom_name = it.procedure_name;
+            updated.price = Number(it.value_brl) || 0;
+            updated.tuss_code = it.tuss_code;
+            updated.is_manual = true;
+            updated.is_operator = true;
+          }
         }
         return updated;
       })
@@ -358,6 +396,8 @@ export default function Attendance() {
           notes: p.notes || null,
           tooth_number: p.tooth_number,
           surface: p.surface || null,
+          tuss_code: p.tuss_code ?? null,
+          is_operator: p.is_operator ? true : undefined,
         }));
       }
       const notesHeader = Object.keys(specialtyPayload).length > 0
@@ -752,6 +792,35 @@ export default function Attendance() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
+              {operatorCatalog?.status === 'operator' && operatorCatalog.operator && operatorCatalog.table && (
+                <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-emerald-700 dark:text-emerald-400">
+                      Convênio {operatorCatalog.operator.name}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Tabela "{operatorCatalog.table.name}" {operatorCatalog.table.state ? `· ${operatorCatalog.table.state}` : '· cobertura nacional'} — preços travados pela operadora.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {operatorCatalog?.status === 'no-table' && operatorCatalog.operator && (
+                <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span className="text-muted-foreground">
+                    {operatorCatalog.operator.name} não possui tabela vigente para {clinicInfo?.state ?? 'este estado'}. Cobrando como particular.
+                  </span>
+                </div>
+              )}
+              {operatorCatalog?.status === 'not-covered' && operatorCatalog.operator && (
+                <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span className="text-muted-foreground">
+                    Clínica não credenciada à {operatorCatalog.operator.name}. Cobrando como particular.
+                  </span>
+                </div>
+              )}
               {procedures.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
                   <p>Nenhum procedimento adicionado.</p>
@@ -765,8 +834,23 @@ export default function Attendance() {
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
                           <div className="md:col-span-2 space-y-1">
                             <div className="flex items-center justify-between">
-                              <Label className="text-xs">Procedimento</Label>
-                              {proceduresCatalog.length > 0 && (
+                              <Label className="text-xs flex items-center gap-1.5">
+                                Procedimento
+                                {proc.is_operator && (
+                                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] gap-0.5">
+                                    <ShieldCheck className="h-2.5 w-2.5" /> Operadora
+                                  </Badge>
+                                )}
+                              </Label>
+                              {operatorMode ? (
+                                <button
+                                  type="button"
+                                  onClick={() => updateProcedure(proc.tempId, 'is_operator', !proc.is_operator)}
+                                  className="text-[11px] text-primary hover:underline"
+                                >
+                                  {proc.is_operator ? 'Fora da tabela (particular)' : 'Voltar à tabela da operadora'}
+                                </button>
+                              ) : proceduresCatalog.length > 0 && (
                                 <button
                                   type="button"
                                   onClick={() => updateProcedure(proc.tempId, 'is_manual', !proc.is_manual)}
@@ -776,7 +860,22 @@ export default function Attendance() {
                                 </button>
                               )}
                             </div>
-                            {proc.is_manual || proceduresCatalog.length === 0 ? (
+                            {proc.is_operator ? (
+                              <Select value={proc.operator_item_id ?? ''} onValueChange={(v) => updateProcedure(proc.tempId, 'operator_item_id', v)}>
+                                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione da tabela da operadora" /></SelectTrigger>
+                                <SelectContent className="max-h-[60vh]">
+                                  {operatorItems.map((it) => (
+                                    <SelectItem key={it.id} value={it.id}>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{it.category}</span>
+                                        <span>{it.procedure_name}</span>
+                                        {it.tuss_code && <span className="text-[10px] text-muted-foreground">TUSS {it.tuss_code}</span>}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : proc.is_manual || proceduresCatalog.length === 0 ? (
                               <Input
                                 value={proc.custom_name}
                                 onChange={(e) => updateProcedure(proc.tempId, 'custom_name', e.target.value)}
@@ -798,14 +897,21 @@ export default function Attendance() {
                                 </SelectContent>
                               </Select>
                             )}
+                            {proc.is_operator && proc.tuss_code && (
+                              <p className="text-[10px] text-muted-foreground">TUSS {proc.tuss_code}</p>
+                            )}
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Valor (R$)</Label>
+                            <Label className="text-xs flex items-center gap-1">
+                              Valor (R$)
+                              {proc.is_operator && <Lock className="h-3 w-3 text-muted-foreground" />}
+                            </Label>
                             <Input
                               type="number"
                               value={proc.price}
                               onChange={(e) => updateProcedure(proc.tempId, 'price', Number(e.target.value))}
                               className="h-9 text-sm"
+                              disabled={proc.is_operator}
                             />
                           </div>
                         </div>
