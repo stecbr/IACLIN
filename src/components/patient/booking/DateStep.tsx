@@ -155,7 +155,7 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }:
             mode="single"
             selected={date}
             onSelect={handleSelect}
-            disabled={(d) => d < today || d.getDay() === 0}
+            disabled={(d) => d < today}
             initialFocus
             locale={ptBR}
             className="pointer-events-auto"
@@ -204,7 +204,7 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }:
                 Selecione uma data no calendário ao lado.
               </p>
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Domingos e datas passadas indisponíveis.
+                Datas passadas indisponíveis.
               </p>
             </Card>
           )}
