@@ -333,7 +333,9 @@ export default function Attendance() {
   const addProcedure = () => {
     setProcedures((prev) => [
       ...prev,
-      { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: proceduresCatalog.length === 0, tooth_number: null, surface: '', notes: '', price: 0 },
+      operatorMode
+        ? { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: true, is_operator: true, operator_item_id: '', tuss_code: null, tooth_number: null, surface: '', notes: '', price: 0 }
+        : { tempId: crypto.randomUUID(), procedure_id: '', custom_name: '', is_manual: proceduresCatalog.length === 0, tooth_number: null, surface: '', notes: '', price: 0 },
     ]);
   };
 
@@ -345,6 +347,16 @@ export default function Attendance() {
         if (field === 'procedure_id') {
           const cat = proceduresCatalog.find((c) => c.id === value);
           if (cat) updated.price = Number(cat.default_price);
+        }
+        if (field === 'operator_item_id') {
+          const it = operatorItems.find((c) => c.id === value);
+          if (it) {
+            updated.custom_name = it.procedure_name;
+            updated.price = Number(it.value_brl) || 0;
+            updated.tuss_code = it.tuss_code;
+            updated.is_manual = true;
+            updated.is_operator = true;
+          }
         }
         return updated;
       })
