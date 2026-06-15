@@ -539,7 +539,13 @@ export default function SecretariaIA() {
               qc.invalidateQueries({ queryKey: ['ai-conversations', currentClinicId] });
               setShouldAutoAdvanceToTraining(true);
               toast.success('WhatsApp conectado!');
+              return;
             }
+            // CRÍTICO: o QR do WhatsApp expira a cada ~20s e a Evolution gera um
+            // novo. Re-buscamos o QR atualizado para o usuário sempre escanear o
+            // válido (antes ficava o 1º QR fixo, já expirado → "gera mas não lê").
+            const fresh = await aiBackend.connectWhatsApp(currentClinicId!);
+            if (fresh.qr_code) setQrCode(fresh.qr_code);
           } catch {
             // ignora erros transitórios durante o polling
           }
