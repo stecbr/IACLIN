@@ -988,6 +988,7 @@ export default function Attendance() {
         patientId={appointment.patient_id}
         patientName={(appointment as any).patients?.full_name ?? 'Paciente'}
         clinicId={currentClinicId ?? null}
+        patientInsuranceProvider={(appointment as any).patients?.insurance_provider ?? null}
         procedures={procedures
           .filter((p) => p.procedure_id || (p.is_manual && p.custom_name.trim()))
           .map<FinishProcedure>((p) => {
