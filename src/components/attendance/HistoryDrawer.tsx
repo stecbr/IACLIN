@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { History, FileText, Pill, Stethoscope, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react';
+import { History, FileText, Pill, Stethoscope, ClipboardList, ChevronDown, ChevronRight, Image as ImageIcon, Download, User } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -15,6 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { getSignedFileUrl } from '@/lib/storageSignedUrl';
+import { SignedImage } from '@/components/patients/SignedImage';
+import { toast } from 'sonner';
 
 interface Props {
   patientId: string;
@@ -44,6 +47,28 @@ export function HistoryDrawer({ patientId, currentAppointmentId }: Props) {
     },
   });
 
+  const { data: documents = [], isLoading: docsLoading } = useQuery({
+    queryKey: ['attendance-documents', patientId],
+    enabled: open && !!patientId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('documents')
+        .select('id, name, file_url, file_type, category, created_at, uploaded_by')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      return data ?? [];
+    },
+  });
+
+  const openDoc = async (doc: any) => {
+    const url = await getSignedFileUrl(doc.file_url, { expiresIn: 3600 });
+    if (!url) { toast.error('Não foi possível abrir o arquivo'); return; }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const patientUploads = documents.filter((d: any) => d.category === 'patient_exam').length;
+
   const filtered = records.filter((r: any) => r.appointment_id !== currentAppointmentId);
   const allRequests = filtered.flatMap((r: any) =>
     (r.clinical_record_requests ?? []).map((req: any) => ({ ...req, _date: r.created_at }))
@@ -69,10 +94,16 @@ export function HistoryDrawer({ patientId, currentAppointmentId }: Props) {
         </SheetHeader>
 
         <Tabs defaultValue="visits" className="flex-1 flex flex-col">
-          <TabsList className="mx-6 mt-3 grid grid-cols-3">
+          <TabsList className="mx-6 mt-3 grid grid-cols-4">
             <TabsTrigger value="visits">Consultas</TabsTrigger>
             <TabsTrigger value="prescriptions">Prescrições</TabsTrigger>
             <TabsTrigger value="procedures">Procedimentos</TabsTrigger>
+            <TabsTrigger value="documents" className="gap-1">
+              Documentos
+              {patientUploads > 0 && (
+                <Badge variant="secondary" className="ml-0.5 h-4 px-1 text-[10px]">{patientUploads}</Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <ScrollArea className="flex-1 px-6 py-4">
@@ -177,11 +208,74 @@ export function HistoryDrawer({ patientId, currentAppointmentId }: Props) {
                     </div>
                   ))}
                 </TabsContent>
+
+                <TabsContent value="documents" className="mt-0 space-y-2">
+                  {docsLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Carregando…</p>
+                  ) : documents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Nenhum documento ou exame.</p>
+                  ) : (
+                    <>
+                      {documents.some((d: any) => d.category === 'patient_exam') && (
+                        <div className="mb-2">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
+                            <User className="h-3 w-3" /> Enviados pelo paciente
+                          </p>
+                          <div className="space-y-2">
+                            {documents.filter((d: any) => d.category === 'patient_exam').map((d: any) => (
+                              <DocItem key={d.id} doc={d} onOpen={openDoc} highlight />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {documents.some((d: any) => d.category !== 'patient_exam') && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Da clínica</p>
+                          <div className="space-y-2">
+                            {documents.filter((d: any) => d.category !== 'patient_exam').map((d: any) => (
+                              <DocItem key={d.id} doc={d} onOpen={openDoc} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </TabsContent>
               </>
             )}
           </ScrollArea>
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function DocItem({ doc, onOpen, highlight }: { doc: any; onOpen: (d: any) => void; highlight?: boolean }) {
+  const isImage = (doc.file_type ?? '').startsWith('image/');
+  return (
+    <button
+      onClick={() => onOpen(doc)}
+      className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-colors ${
+        highlight ? 'border-primary/30 bg-primary/5 hover:bg-primary/10' : 'border-border/50 hover:bg-muted/40'
+      }`}
+    >
+      {isImage ? (
+        <div className="h-10 w-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
+          <SignedImage fileUrl={doc.file_url} alt={doc.name} className="w-full h-full object-cover" />
+        </div>
+      ) : (
+        <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{doc.name}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {format(parseISO(doc.created_at), "dd/MM/yyyy", { locale: ptBR })}
+          {doc.file_type ? ` · ${doc.file_type}` : ''}
+        </p>
+      </div>
+      <Download className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+    </button>
   );
 }

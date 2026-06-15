@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileText, Download, Loader2, Pill, MessageCircle, ClipboardList, FlaskConical } from 'lucide-react';
+import { FileText, Download, Loader2, Pill, MessageCircle, ClipboardList, FlaskConical, Upload, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,9 @@ import { usePatientData, type DocumentRow } from '@/hooks/usePatientData';
 import { generatePrescriptionPdf } from '@/lib/generatePrescriptionPdf';
 import { registrationLabelForSpecialty } from '@/components/SpecialtySelect';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
-const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame']);
+const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame', 'patient_exam']);
 const PRESCRIPTION_CATEGORIES = new Set(['prescription', 'receita']);
 
 interface RxItemPayload {
@@ -54,6 +55,63 @@ interface PrescriptionFromRecord {
 
 export default function PatientExams() {
   const { documents, patientIds, loading } = usePatientData();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const targetPatientId = patientIds[0];
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length || !user || !targetPatientId) {
+      if (!targetPatientId) toast.error('Você ainda não está vinculado a uma clínica.');
+      return;
+    }
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error(`"${file.name}" excede o limite de 20 MB`);
+          continue;
+        }
+        const ext = file.name.split('.').pop();
+        const path = `${targetPatientId}/patient-uploads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('patient-files')
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        const { error: dbErr } = await supabase.from('documents').insert({
+          patient_id: targetPatientId,
+          name: file.name,
+          file_url: path,
+          file_type: file.type,
+          category: 'patient_exam',
+          uploaded_by: user.id,
+        });
+        if (dbErr) throw dbErr;
+      }
+      toast.success('Exame enviado para sua clínica.');
+      queryClient.invalidateQueries({ queryKey: ['patient-data', user.id] });
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao enviar o arquivo.');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const handleDelete = async (doc: DocumentRow) => {
+    try {
+      const path = doc.file_url;
+      await supabase.storage.from('patient-files').remove([path]);
+      const { error } = await supabase.from('documents').delete().eq('id', doc.id);
+      if (error) throw error;
+      toast.success('Arquivo removido.');
+      queryClient.invalidateQueries({ queryKey: ['patient-data', user?.id] });
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao remover.');
+    }
+  };
 
   const { data: rxFromRecords = [], isLoading: rxLoading } = useQuery({
     queryKey: ['patient-rx-from-records', patientIds.join(',')],
@@ -173,11 +231,25 @@ export default function PatientExams() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Meus Documentos</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Exames, receitas e documentos enviados pela sua clínica.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Meus Documentos</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Exames, receitas e documentos enviados pela sua clínica.
+          </p>
+        </div>
+        <Button size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()} disabled={uploading || !targetPatientId}>
+          <Upload className="h-3.5 w-3.5" />
+          {uploading ? 'Enviando…' : 'Enviar exame'}
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf"
+          className="hidden"
+          onChange={handleUpload}
+        />
       </div>
 
       <Tabs defaultValue={totalRx > 0 && exams.length === 0 ? 'receitas' : 'exames'}>
@@ -198,9 +270,16 @@ export default function PatientExams() {
 
         <TabsContent value="exames" className="mt-4 space-y-2">
           {exams.length === 0 ? (
-            <EmptyTab icon={FlaskConical} title="Nenhum exame ainda" desc="Quando a clínica enviar exames ou laudos, eles aparecerão aqui." />
+            <EmptyTab icon={FlaskConical} title="Nenhum exame ainda" desc="Envie seus exames pelo botão acima ou aguarde a clínica anexar." />
           ) : (
-            exams.map((d) => <DocumentItem key={d.id} doc={d} onDownload={downloadDoc} />)
+            exams.map((d) => (
+              <DocumentItem
+                key={d.id}
+                doc={d}
+                onDownload={downloadDoc}
+                onDelete={d.category === 'patient_exam' ? handleDelete : undefined}
+              />
+            ))
           )}
         </TabsContent>
 
@@ -229,25 +308,33 @@ export default function PatientExams() {
   );
 }
 
-function DocumentItem({ doc, onDownload, accent }: { doc: DocumentRow; onDownload: (d: DocumentRow) => void; accent?: 'rx' }) {
+function DocumentItem({ doc, onDownload, onDelete, accent }: { doc: DocumentRow; onDownload: (d: DocumentRow) => void; onDelete?: (d: DocumentRow) => void; accent?: 'rx' }) {
   const Icon = accent === 'rx' ? Pill : FileText;
+  const isPatientUpload = doc.category === 'patient_exam';
   return (
-    <button
-      onClick={() => onDownload(doc)}
-      className="w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/40 transition-colors text-left"
-    >
-      <div className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${accent === 'rx' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{doc.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {format(parseISO(doc.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          {doc.file_type && ` · ${doc.file_type}`}
-        </p>
-      </div>
-      <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-    </button>
+    <div className="w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/40 transition-colors">
+      <button onClick={() => onDownload(doc)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+        <div className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${accent === 'rx' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium truncate">{doc.name}</p>
+            {isPatientUpload && <Badge variant="outline" className="text-[10px] h-4 px-1.5">Enviado por você</Badge>}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {format(parseISO(doc.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+            {doc.file_type && ` · ${doc.file_type}`}
+          </p>
+        </div>
+        <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      </button>
+      {onDelete && (
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive flex-shrink-0" onClick={() => onDelete(doc)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
   );
 }
 
