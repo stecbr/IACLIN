@@ -220,14 +220,14 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           to={item.to}
                           end={item.end}
                           className={({ isActive }) =>
-                            `grid place-items-center h-10 w-10 rounded-xl transition-colors ${
+                            `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
                               isActive
-                                ? "bg-sidebar-primary/20 text-sidebar-primary ring-1 ring-sidebar-primary/40"
-                                : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
+                                ? "bg-sidebar-primary/15 text-sidebar-primary"
+                                : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
                             }`
                           }
                         >
-                          <item.icon size={18} strokeWidth={2} className="shrink-0" />
+                          <item.icon size={18} strokeWidth={2} className="block shrink-0" />
                         </NavLink>
                       </TooltipTrigger>
                       <TooltipContent side="right">{item.label}</TooltipContent>
@@ -246,14 +246,14 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     <NavLink
                       to={item.to}
                       className={({ isActive }) =>
-                        `grid place-items-center h-10 w-10 rounded-xl transition-colors ${
+                        `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
                           isActive
-                            ? "bg-sidebar-primary/20 text-sidebar-primary ring-1 ring-sidebar-primary/40"
-                            : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
+                            ? "bg-sidebar-primary/15 text-sidebar-primary"
+                            : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
                         }`
                       }
                     >
-                      <item.icon size={18} strokeWidth={2} className="shrink-0" />
+                      <item.icon size={18} strokeWidth={2} className="block shrink-0" />
                     </NavLink>
                   </TooltipTrigger>
                   <TooltipContent side="right">{item.label}</TooltipContent>
