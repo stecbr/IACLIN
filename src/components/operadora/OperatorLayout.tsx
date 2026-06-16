@@ -25,6 +25,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { NotificationBell } from "@/components/NotificationBell";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
+import iaclinDefaultLogo from "@/assets/iaclin-default-logo.png.asset.json";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -107,11 +108,13 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         {/* Operator brand block: logo, status badge above name, and description */}
         <div className="px-5 py-5 border-sidebar-border">
           <div className="flex items-center gap-3 min-w-0">
-            {op?.logo_url && (
-              <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
-                <img src={op.logo_url} alt={op.name ?? "Operadora"} className="h-full w-full object-cover" />
-              </div>
-            )}
+            <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
+              <img
+                src={op?.logo_url || iaclinDefaultLogo.url}
+                alt={op?.name ?? "Operadora"}
+                className="h-full w-full object-contain"
+              />
+            </div>
             <div className="min-w-0">
               <div className="text-base font-semibold text-white truncate">{op?.name ?? "Operadora"}</div>
               <div className="text-[11px] text-sidebar-foreground/60 truncate">Gestão de Operadora</div>
@@ -201,11 +204,11 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                 </button>
               </div>
               <div className="md:hidden h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center overflow-hidden">
-                {op?.logo_url ? (
-                  <img src={op.logo_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <Building2 className="h-4 w-4 text-primary" />
-                )}
+                <img
+                  src={op?.logo_url || iaclinDefaultLogo.url}
+                  alt=""
+                  className="h-full w-full object-contain"
+                />
               </div>
             </div>
 
