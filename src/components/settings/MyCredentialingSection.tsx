@@ -156,6 +156,7 @@ export default function MyCredentialingSection() {
   const [openFor, setOpenFor] = useState<Operator | null>(null);
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [addressFromSettings, setAddressFromSettings] = useState(false);
+  const [clinicCategory, setClinicCategory] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState('');
   const [professionalPhone, setProfessionalPhone] = useState('');
