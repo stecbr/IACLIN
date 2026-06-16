@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
+import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
 
 export default function OperatorSettings() {
   const { operatorId, user } = useAuth();
@@ -59,6 +60,14 @@ export default function OperatorSettings() {
     toast.success('Logo atualizada');
   };
 
+  const removeLogo = async () => {
+    if (!operatorId) return;
+    const { error } = await supabase.from('insurance_operators').update({ logo_url: null }).eq('id', operatorId);
+    if (error) return toast.error('Erro ao remover logo');
+    setOp({ ...op, logo_url: null });
+    toast.success('Logo removida — usando padrão IACLIN');
+  };
+
   if (!op) return <Card className="p-8 text-sm text-muted-foreground">Carregando...</Card>;
 
   const typeLabel = (t?: string) =>
@@ -95,27 +104,37 @@ export default function OperatorSettings() {
           <Card className="p-6 rounded-xl">
             <Label className="mb-3 block">Logo da operadora</Label>
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-md border border-border bg-muted flex items-center justify-center overflow-hidden">
-                {op.logo_url ? (
-                  <img src={op.logo_url} alt="Logo" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs text-muted-foreground">Sem logo</span>
+              <div className="h-20 w-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
+                <img
+                  src={op.logo_url || iaclinDefaultLogo.url}
+                  alt="Logo"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+                  />
+                  <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
+                    <Upload className="h-4 w-4" />
+                    {op.logo_url ? 'Substituir logo' : 'Enviar logo'}
+                  </span>
+                </label>
+                {op.logo_url && (
+                  <Button variant="outline" size="sm" onClick={removeLogo} className="rounded-xl">
+                    Remover e voltar para IACLIN
+                  </Button>
                 )}
               </div>
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
-                />
-                <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
-                  <Upload className="h-4 w-4" /> Enviar logo
-                </span>
-              </label>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              A logo aparece no topo da sidebar e no cabeçalho do painel.
+              {op.logo_url
+                ? 'A logo enviada aparece no topo da sidebar e no cabeçalho do painel.'
+                : 'Usando a logo padrão IACLIN. Envie uma imagem para personalizar.'}
             </p>
           </Card>
 
