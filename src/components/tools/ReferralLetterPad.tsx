@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileDown, MessageCircle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,18 @@ const URGENCY: Array<{ value: 'rotina' | 'prioritario' | 'emergencia'; label: st
   { value: 'emergencia', label: 'Emergência' },
 ];
 
-export function ReferralLetterPad() {
+interface ReferralLetterPadProps {
+  patientId?: string;
+}
+
+export function ReferralLetterPad({ patientId: initialPatientId }: ReferralLetterPadProps = {}) {
   const { user, currentClinicId } = useAuth();
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState(initialPatientId ?? '');
   const [toSpecialty, setToSpecialty] = useState('');
+
+  useEffect(() => {
+    if (initialPatientId) setPatientId(initialPatientId);
+  }, [initialPatientId]);
   const [reason, setReason] = useState('');
   const [summary, setSummary] = useState('');
   const [urgency, setUrgency] = useState<'rotina' | 'prioritario' | 'emergencia'>('rotina');

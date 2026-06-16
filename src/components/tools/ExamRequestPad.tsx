@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileDown, MessageCircle, User, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,10 +22,18 @@ const TEMPLATES: Array<{ id: string; name: string; exams: string[] }> = [
   { id: 'imagem-coluna', name: 'Imagem de coluna', exams: ['Raio-X coluna lombossacra (AP e perfil)', 'Ressonância magnética de coluna lombar'] },
 ];
 
-export function ExamRequestPad() {
+interface ExamRequestPadProps {
+  patientId?: string;
+}
+
+export function ExamRequestPad({ patientId: initialPatientId }: ExamRequestPadProps = {}) {
   const { user, currentClinicId } = useAuth();
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState(initialPatientId ?? '');
   const [exams, setExams] = useState<string[]>(['']);
+
+  useEffect(() => {
+    if (initialPatientId) setPatientId(initialPatientId);
+  }, [initialPatientId]);
   const [indication, setIndication] = useState('');
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);

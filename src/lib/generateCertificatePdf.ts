@@ -50,67 +50,100 @@ function loadDataUrl(url: string): Promise<string> {
 export async function generateCertificatePdf(data: CertificatePdfData) {
   const { mode, patient, dentist, clinic, notes, cid } = data;
   const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-  const logoHtml = clinic?.logo_url ? `<img src="${await loadDataUrl(clinic.logo_url)}" style="max-height:60px;max-width:180px;object-fit:contain;" />` : '';
-  const sigHtml = dentist.signature_url ? `<img src="${await loadDataUrl(dentist.signature_url)}" style="max-height:60px;object-fit:contain;" />` : '';
+  const city = clinic?.city ?? '';
+  const state = clinic?.state ?? '';
+  const location = [city, state].filter(Boolean).join('/');
 
-  let body = '';
+  const logoHtml = clinic?.logo_url
+    ? `<img src="${await loadDataUrl(clinic.logo_url)}" style="max-height:56px;max-width:160px;object-fit:contain;" />`
+    : '';
+  const sigHtml = dentist.signature_url
+    ? `<img src="${await loadDataUrl(dentist.signature_url)}" style="max-height:56px;object-fit:contain;display:block;margin:0 auto 4px;" />`
+    : '';
+
+  const regLabel = dentist.registration_number
+    ? `${registrationLabelForSpecialty(dentist.specialty)} ${dentist.registration_number}`
+    : '';
+
+  const title = mode === 'attendance' ? 'Atestado de Comparecimento' : 'Atestado Médico';
+
+  let bodyText = '';
   if (mode === 'attendance') {
-    const dt = data.attendanceDate ? format(new Date(`${data.attendanceDate}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : today;
-    body = `Atesto, para os devidos fins, que o(a) paciente <strong>${patient.full_name}</strong>${patient.cpf ? `, portador(a) do CPF <strong>${patient.cpf}</strong>,` : ''} esteve em atendimento odontológico em <strong>${dt}</strong>${data.startTime && data.endTime ? `, das <strong>${data.startTime}</strong> às <strong>${data.endTime}</strong>` : ''}.`;
+    const dt = data.attendanceDate
+      ? format(new Date(`${data.attendanceDate}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+      : today;
+    const period = data.startTime && data.endTime ? `, das <strong>${data.startTime}</strong> às <strong>${data.endTime}</strong>` : '';
+    bodyText = `Atesto, para os devidos fins, que o(a) paciente <strong>${patient.full_name}</strong>${patient.cpf ? `, portador(a) do CPF <strong>${patient.cpf}</strong>,` : ''} esteve em atendimento nesta clínica no dia <strong>${dt}</strong>${period}.`;
   } else {
-    const start = data.leaveStartDate ? format(new Date(`${data.leaveStartDate}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : today;
-    body = `Atesto, para os devidos fins, que o(a) paciente <strong>${patient.full_name}</strong>${patient.cpf ? `, portador(a) do CPF <strong>${patient.cpf}</strong>,` : ''} necessita afastamento de suas atividades laborais por <strong>${data.leaveDays ?? 1} dia(s)</strong>, a partir de <strong>${start}</strong>, devido a tratamento odontológico.`;
+    const start = data.leaveStartDate
+      ? format(new Date(`${data.leaveStartDate}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+      : today;
+    bodyText = `Atesto, para os devidos fins, que o(a) paciente <strong>${patient.full_name}</strong>${patient.cpf ? `, portador(a) do CPF <strong>${patient.cpf}</strong>,` : ''} necessita afastar-se de suas atividades laborais pelo período de <strong>${data.leaveDays ?? 1} dia(s)</strong>, a contar de <strong>${start}</strong>, em virtude de tratamento de saúde.`;
   }
 
-  const title = mode === 'attendance' ? 'ATESTADO DE COMPARECIMENTO' : 'ATESTADO MÉDICO-ODONTOLÓGICO';
-
   const html = `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><title>${title} - ${patient.full_name}</title>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>${title} — ${patient.full_name}</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;font-size:14px;line-height:1.7;padding:50px}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;padding-bottom:16px;border-bottom:2px solid #2563eb}
-  .clinic-info h1{font-size:18px;color:#1e40af;margin-bottom:4px}
-  .clinic-info p{font-size:11px;color:#6b7280}
-  .title{text-align:center;margin:40px 0 32px;font-size:20px;letter-spacing:2px;color:#1e40af;font-weight:700}
-  .body{font-size:14px;text-align:justify;margin:0 auto;max-width:520px}
-  .cid{margin-top:18px;font-size:12px;color:#6b7280}
-  .notes{margin-top:18px;font-size:12px;color:#4b5563;font-style:italic}
-  .signature{margin-top:80px;text-align:center}
-  .signature .sig-img{margin-bottom:-10px;height:60px}
-  .signature hr{border:none;border-top:1px solid #1a1a1a;width:320px;margin:0 auto 6px}
-  .signature p{font-size:12px;font-weight:600}
-  .signature .reg{font-size:11px;color:#6b7280;font-weight:400}
-  .footer{margin-top:30px;text-align:center;font-size:11px;color:#6b7280}
-  @media print{body{padding:30px}}
-</style></head><body>
+  @page { size: A4; margin: 0 }
+  * { margin: 0; padding: 0; box-sizing: border-box }
+  body { font-family: 'Times New Roman', Times, serif; color: #111; font-size: 13px; line-height: 1.65; background: #fff }
+  .page { width: 210mm; min-height: 297mm; padding: 20mm 22mm 20mm 22mm; display: flex; flex-direction: column }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #1a1a6e; margin-bottom: 10px }
+  .clinic-name { font-size: 15px; font-weight: 700; color: #1a1a6e }
+  .clinic-sub { font-size: 10px; color: #555; margin-top: 2px; line-height: 1.4 }
+
+  .title-strip { text-align: center; margin: 20px 0 28px; }
+  .title-strip h1 { font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #1a1a6e; padding-bottom: 6px; border-bottom: 2px solid #1a1a6e; display: inline-block; padding: 4px 32px 6px }
+
+  .body-text { font-size: 13.5px; line-height: 2; text-align: justify; max-width: 480px; margin: 0 auto }
+
+  .cid-line { margin-top: 18px; font-size: 11px; color: #555; text-align: center }
+  .notes-box { margin-top: 16px; padding: 8px 14px; border-left: 3px solid #1a1a6e; background: #f5f5fb; font-size: 11px; font-style: italic; color: #444 }
+
+  .sig-area { margin-top: 72px; text-align: center }
+  .sig-line { border-top: 1px solid #333; width: 300px; margin: 0 auto 5px }
+  .sig-name { font-size: 12px; font-weight: 700 }
+  .sig-reg { font-size: 10px; color: #666; margin-top: 2px }
+
+  .footer { margin-top: 32px; padding-top: 8px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 9px; color: #999; font-family: Arial, sans-serif }
+
+  @media print { html, body { width: 210mm } .page { padding: 16mm 20mm } }
+</style></head>
+<body><div class="page">
+
   <div class="header">
-    <div class="clinic-info">
-      <h1>${clinic?.name ?? 'Clínica'}</h1>
-      ${clinic?.cnpj ? `<p>CNPJ: ${clinic.cnpj}</p>` : ''}
-      ${clinic?.address ? `<p>${clinic.address}${clinic.city ? ` - ${clinic.city}` : ''}${clinic.state ? `/${clinic.state}` : ''}</p>` : ''}
-      ${clinic?.phone ? `<p>Tel: ${clinic.phone}</p>` : ''}
+    <div>
+      <div class="clinic-name">${clinic?.name ?? 'Clínica'}</div>
+      <div class="clinic-sub">
+        ${clinic?.cnpj ? `CNPJ: ${clinic.cnpj}<br>` : ''}
+        ${clinic?.address ? `${clinic.address}${clinic.city ? ` — ${clinic.city}` : ''}${clinic.state ? `/${clinic.state}` : ''}<br>` : ''}
+        ${clinic?.phone ? `Tel: ${clinic.phone}` : ''}
+      </div>
     </div>
     <div>${logoHtml}</div>
   </div>
 
-  <div class="title">${title}</div>
+  <div class="title-strip"><h1>${title}</h1></div>
 
-  <div class="body">
-    <p>${body}</p>
-    ${cid ? `<p class="cid">CID-10: <strong>${cid}</strong></p>` : ''}
-    ${notes ? `<p class="notes">${notes}</p>` : ''}
+  <div class="body-text"><p>${bodyText}</p></div>
+
+  ${cid ? `<div class="cid-line">CID-10: <strong>${cid}</strong></div>` : ''}
+  ${notes ? `<div class="notes-box">${notes}</div>` : ''}
+
+  <div class="sig-area">
+    ${sigHtml}
+    <div class="sig-line"></div>
+    <div class="sig-name">${dentist.full_name}</div>
+    <div class="sig-reg">${[regLabel, dentist.specialty].filter(Boolean).join('  ·  ')}</div>
   </div>
 
-  <div class="signature">
-    ${sigHtml ? `<div class="sig-img">${sigHtml}</div>` : ''}
-    <hr/>
-    <p>${dentist.full_name}</p>
-    <p class="reg">${dentist.registration_number ? `${registrationLabelForSpecialty(dentist.specialty)} ${dentist.registration_number}` : ''}${dentist.specialty ? ` · ${dentist.specialty}` : ''}</p>
+  <div class="footer">
+    <span>${location ? `${location}, ${today}` : today}</span>
+    <span>Documento gerado eletronicamente</span>
   </div>
 
-  <div class="footer">${clinic?.city ?? ''}${clinic?.city && clinic?.state ? '/' : ''}${clinic?.state ?? ''}, ${today}</div>
-</body></html>`;
+</div></body></html>`;
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');

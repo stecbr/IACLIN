@@ -48,75 +48,126 @@ function loadDataUrl(url: string): Promise<string> {
 export async function generatePrescriptionPdf(data: PrescriptionPdfData) {
   const { items, patient, dentist, clinic, notes } = data;
   const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const city = clinic?.city ?? '';
+  const state = clinic?.state ?? '';
+  const location = [city, state].filter(Boolean).join('/');
 
-  const logoHtml = clinic?.logo_url ? `<img src="${await loadDataUrl(clinic.logo_url)}" style="max-height:60px;max-width:180px;object-fit:contain;" />` : '';
-  const sigHtml = dentist.signature_url ? `<img src="${await loadDataUrl(dentist.signature_url)}" style="max-height:60px;object-fit:contain;" />` : '';
+  const logoHtml = clinic?.logo_url
+    ? `<img src="${await loadDataUrl(clinic.logo_url)}" style="max-height:56px;max-width:160px;object-fit:contain;" />`
+    : '';
+  const sigHtml = dentist.signature_url
+    ? `<img src="${await loadDataUrl(dentist.signature_url)}" style="max-height:56px;object-fit:contain;display:block;margin:0 auto 4px;" />`
+    : '';
+
+  const regLabel = dentist.registration_number
+    ? `${registrationLabelForSpecialty(dentist.specialty)} ${dentist.registration_number}`
+    : '';
 
   const html = `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><title>Receita - ${patient.full_name}</title>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>Receituário — ${patient.full_name}</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;font-size:13px;line-height:1.6;padding:40px}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #2563eb}
-  .clinic-info h1{font-size:18px;color:#1e40af;margin-bottom:4px}
-  .clinic-info p{font-size:11px;color:#6b7280}
-  .title{text-align:center;margin:24px 0;font-size:22px;letter-spacing:2px;color:#1e40af;font-weight:700}
-  .patient-block{background:#f9fafb;padding:14px 18px;border-radius:8px;margin-bottom:20px}
-  .patient-block label{font-size:10px;text-transform:uppercase;color:#9ca3af;letter-spacing:0.5px}
-  .patient-block .name{font-size:15px;font-weight:600}
-  .item{padding:14px 0;border-bottom:1px dashed #e5e7eb}
-  .item:last-child{border-bottom:none}
-  .item-num{display:inline-block;width:26px;height:26px;border-radius:50%;background:#1e40af;color:#fff;text-align:center;line-height:26px;font-weight:700;font-size:12px;margin-right:10px}
-  .item-med{font-size:14px;font-weight:600;display:inline-block}
-  .item-detail{margin-left:36px;color:#4b5563;font-size:13px;margin-top:4px}
-  .item-instr{margin-left:36px;color:#6b7280;font-size:12px;font-style:italic;margin-top:4px}
-  .notes{margin-top:24px;padding:14px;background:#fff7ed;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px}
-  .signature{margin-top:60px;text-align:center}
-  .signature .sig-img{margin-bottom:-10px;height:60px}
-  .signature hr{border:none;border-top:1px solid #1a1a1a;width:300px;margin:0 auto 6px}
-  .signature p{font-size:12px;font-weight:600}
-  .signature .reg{font-size:11px;color:#6b7280;font-weight:400}
-  .footer{margin-top:24px;text-align:center;font-size:10px;color:#9ca3af}
-  @media print{body{padding:20px}}
-</style></head><body>
+  @page { size: A4; margin: 0 }
+  * { margin: 0; padding: 0; box-sizing: border-box }
+  body { font-family: 'Times New Roman', Times, serif; color: #111; font-size: 13px; line-height: 1.55; background: #fff }
+  .page { width: 210mm; min-height: 297mm; padding: 18mm 20mm 18mm 20mm; display: flex; flex-direction: column }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #1a1a6e; margin-bottom: 10px }
+  .clinic-name { font-size: 15px; font-weight: 700; color: #1a1a6e; letter-spacing: 0.3px }
+  .clinic-sub { font-size: 10px; color: #555; margin-top: 2px; line-height: 1.4 }
+
+  /* Title strip */
+  .title-strip { text-align: center; margin: 12px 0; padding: 6px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc }
+  .title-strip h1 { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #1a1a6e }
+
+  /* Patient */
+  .patient-row { display: flex; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ddd }
+  .patient-field { flex: 1 }
+  .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #888; font-family: Arial, sans-serif }
+  .field-value { font-size: 13px; font-weight: 600; margin-top: 1px }
+  .field-value-sm { font-size: 11px; margin-top: 1px; color: #444 }
+
+  /* Items */
+  .items { flex: 1 }
+  .item { padding: 9px 0; border-bottom: 1px dashed #ddd }
+  .item:last-child { border-bottom: none }
+  .item-header { display: flex; align-items: baseline; gap: 8px }
+  .item-num { font-size: 12px; font-weight: 700; color: #1a1a6e; min-width: 18px }
+  .item-med { font-size: 13px; font-weight: 700 }
+  .item-dose { font-size: 12px; color: #333; margin-left: 26px; margin-top: 2px }
+  .item-instr { font-size: 11px; color: #666; font-style: italic; margin-left: 26px; margin-top: 2px }
+
+  /* Notes */
+  .notes-box { margin-top: 14px; padding: 8px 12px; border-left: 3px solid #1a1a6e; background: #f5f5fb; font-size: 11px; color: #333 }
+
+  /* Signature */
+  .sig-area { margin-top: 48px; text-align: center }
+  .sig-line { border-top: 1px solid #333; width: 280px; margin: 0 auto 5px }
+  .sig-name { font-size: 12px; font-weight: 700 }
+  .sig-reg { font-size: 10px; color: #666; margin-top: 2px }
+
+  /* Footer */
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 9px; color: #999; font-family: Arial, sans-serif }
+
+  @media print { html, body { width: 210mm } .page { padding: 14mm 18mm } }
+</style></head>
+<body><div class="page">
+
   <div class="header">
-    <div class="clinic-info">
-      <h1>${clinic?.name ?? 'Clínica'}</h1>
-      ${clinic?.cnpj ? `<p>CNPJ: ${clinic.cnpj}</p>` : ''}
-      ${clinic?.address ? `<p>${clinic.address}${clinic.city ? ` - ${clinic.city}` : ''}${clinic.state ? `/${clinic.state}` : ''}</p>` : ''}
-      ${clinic?.phone ? `<p>Tel: ${clinic.phone}</p>` : ''}
+    <div>
+      <div class="clinic-name">${clinic?.name ?? 'Clínica'}</div>
+      <div class="clinic-sub">
+        ${clinic?.cnpj ? `CNPJ: ${clinic.cnpj}<br>` : ''}
+        ${clinic?.address ? `${clinic.address}${clinic.city ? ` — ${clinic.city}` : ''}${clinic.state ? `/${clinic.state}` : ''}<br>` : ''}
+        ${clinic?.phone ? `Tel: ${clinic.phone}` : ''}${clinic?.email ? ` · ${clinic.email}` : ''}
+      </div>
     </div>
     <div>${logoHtml}</div>
   </div>
 
-  <div class="title">RECEITUÁRIO</div>
+  <div class="title-strip"><h1>Receituário</h1></div>
 
-  <div class="patient-block">
-    <label>Paciente</label>
-    <p class="name">${patient.full_name}</p>
-    ${patient.cpf ? `<p style="font-size:11px;color:#6b7280;margin-top:2px">CPF: ${patient.cpf}</p>` : ''}
+  <div class="patient-row">
+    <div class="patient-field">
+      <div class="field-label">Paciente</div>
+      <div class="field-value">${patient.full_name}</div>
+    </div>
+    ${patient.cpf ? `<div class="patient-field" style="max-width:160px"><div class="field-label">CPF</div><div class="field-value-sm">${patient.cpf}</div></div>` : ''}
+    <div class="patient-field" style="max-width:130px">
+      <div class="field-label">Data</div>
+      <div class="field-value-sm">${today}</div>
+    </div>
   </div>
 
-  <div>
+  <div class="items">
     ${items.map((it, i) => `
       <div class="item">
-        <div><span class="item-num">${i + 1}</span><span class="item-med">${it.medication}</span></div>
-        <div class="item-detail">${[it.dosage, it.frequency, it.duration ? `por ${it.duration}` : ''].filter(s => s && s.trim()).join(' — ')}</div>
-        ${it.instructions ? `<div class="item-instr">${it.instructions}</div>` : ''}
+        <div class="item-header">
+          <span class="item-num">${i + 1}.</span>
+          <span class="item-med">${it.medication}</span>
+        </div>
+        ${[it.dosage, it.frequency, it.duration ? `por ${it.duration}` : ''].filter(s => s?.trim()).length > 0
+          ? `<div class="item-dose">${[it.dosage, it.frequency, it.duration ? `por ${it.duration}` : ''].filter(s => s?.trim()).join('  ·  ')}</div>`
+          : ''}
+        ${it.instructions ? `<div class="item-instr">→ ${it.instructions}</div>` : ''}
       </div>`).join('')}
   </div>
 
-  ${notes ? `<div class="notes"><strong>Observações:</strong> ${notes}</div>` : ''}
+  ${notes ? `<div class="notes-box"><strong>Observações:</strong> ${notes}</div>` : ''}
 
-  <div class="signature">
-    ${sigHtml ? `<div class="sig-img">${sigHtml}</div>` : ''}
-    <hr/>
-    <p>${dentist.full_name}</p>
-    <p class="reg">${dentist.registration_number ? `${registrationLabelForSpecialty(dentist.specialty)} ${dentist.registration_number}` : ''}${dentist.specialty ? ` · ${dentist.specialty}` : ''}</p>
+  <div class="sig-area">
+    ${sigHtml}
+    <div class="sig-line"></div>
+    <div class="sig-name">${dentist.full_name}</div>
+    <div class="sig-reg">${[regLabel, dentist.specialty].filter(Boolean).join('  ·  ')}</div>
   </div>
 
-  <div class="footer">${clinic?.city ?? ''}${clinic?.city && clinic?.state ? '/' : ''}${clinic?.state ?? ''}, ${today}</div>
-</body></html>`;
+  <div class="footer">
+    <span>${location ? `${location}, ${today}` : today}</span>
+    <span>Documento gerado eletronicamente</span>
+  </div>
+
+</div></body></html>`;
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');

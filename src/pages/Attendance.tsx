@@ -34,6 +34,7 @@ import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
 import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
 import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
+import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
 import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
 
@@ -1031,6 +1032,12 @@ export default function Attendance() {
                 </Link>
               </div>
             </div>
+          </TabsContent>
+        )}
+
+        {tabKeys.includes('documents') && (
+          <TabsContent value="documents">
+            <DocumentsTab patientId={appointment.patient_id} />
           </TabsContent>
         )}
       </Tabs>
