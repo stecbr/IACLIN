@@ -356,7 +356,15 @@ export default function MyCredentialingSection() {
     return map;
   }, [creds]);
 
-  const filtered = operators.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = operators.filter((o) => {
+    if (!o.name.toLowerCase().includes(query.toLowerCase())) return false;
+    const opType = (o.type ?? '').toLowerCase();
+    if (opType === 'ambos' || opType === '') return true;
+    if (clinicCategory === 'odonto') return opType === 'odonto';
+    if (clinicCategory === 'medico') return opType === 'medico';
+    // estetica / outro / unknown → allow all
+    return true;
+  });
 
   useEffect(() => {
     if (!invitedOperatorId || operators.length === 0) return;
