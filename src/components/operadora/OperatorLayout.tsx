@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -24,6 +24,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import { NotificationBell } from '@/components/NotificationBell';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -88,18 +90,22 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const { resolved, setTheme } = useTheme();
   const { signOut, profile, operatorId, user } = useAuth();
-  const [op, setOp] = useState<OperatorInfo | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  useEffect(() => {
-    if (!operatorId) return;
-    supabase
-      .from('insurance_operators')
-      .select('name, cnpj, logo_url, is_active')
-      .eq('id', operatorId)
-      .single()
-      .then(({ data }) => data && setOp(data as OperatorInfo));
-  }, [operatorId]);
+  const { data: op } = useQuery<OperatorInfo | null>({
+    queryKey: ['operator-info', operatorId],
+    enabled: !!operatorId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('insurance_operators')
+        .select('name, cnpj, logo_url, is_active')
+        .eq('id', operatorId!)
+        .single();
+      return (data as OperatorInfo) ?? null;
+    },
+  });
+
+  const displayLogo = op?.logo_url || iaclinDefaultLogo.url;
 
   const initials = (op?.name ?? 'OP')
     .split(' ')
@@ -114,11 +120,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         {/* Operator brand block: logo, status badge above name, and description */}
         <div className="px-5 py-5 border-sidebar-border">
           <div className="flex items-center gap-3 min-w-0">
-            {op?.logo_url && (
-              <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
-                <img src={op.logo_url} alt={op.name ?? 'Operadora'} className="h-full w-full object-cover" />
-              </div>
-            )}
+            <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
+              <img src={displayLogo} alt={op?.name ?? 'Operadora'} className="h-full w-full object-contain" />
+            </div>
             <div className="min-w-0">
               <div className="text-base font-semibold text-white truncate">
                 {op?.name ?? 'Operadora'}
@@ -213,11 +217,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               </button>
             </div>
             <div className="md:hidden h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center overflow-hidden">
-              {op?.logo_url ? (
-                <img src={op.logo_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Building2 className="h-4 w-4 text-primary" />
-              )}
+              <img src={displayLogo} alt="" className="h-full w-full object-contain" />
             </div>
           </div>
 
