@@ -222,13 +222,13 @@ export default function OperatorNetwork() {
         <p className="text-sm text-muted-foreground">Clínicas credenciadas e médicos vinculados</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por clínica, médico, especialidade, cidade..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="pl-9"
+            className="pl-9 w-full rounded-xl"
           />
         </div>
         {operatorType === 'ambos' && (
