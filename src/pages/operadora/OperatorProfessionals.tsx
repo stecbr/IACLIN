@@ -216,6 +216,7 @@ export default function OperatorProfessionals() {
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
   const { resolved } = useTheme();
 
   // Init map once
@@ -264,6 +265,11 @@ export default function OperatorProfessionals() {
     (async () => {
       const next = new Map(coords);
       const pending = rows.filter((r) => !next.has(r.clinic_id));
+      if (pending.length === 0) {
+        setMapLoading(false);
+        return;
+      }
+      setMapLoading(true);
       const results = await Promise.allSettled(
         pending.map((r) =>
           geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood).then((c) => ({
@@ -281,6 +287,7 @@ export default function OperatorProfessionals() {
         }
       }
       if (changed) setCoords(next);
+      setMapLoading(false);
     })();
     return () => {
       cancelled = true;
