@@ -372,6 +372,16 @@ export default function OperatorProfessionals() {
       {/* Map */}
       <div ref={mapContainerRef} className="rede-busca-map absolute inset-0 z-0" />
 
+      {/* Loading overlay while geocoding clinics */}
+      {mapLoading && (
+        <div className="absolute inset-0 z-[400] flex items-center justify-center bg-background/20 backdrop-blur-[2px] transition-opacity duration-500">
+          <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-lg backdrop-blur">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm font-medium text-foreground">Carregando clínicas…</span>
+          </div>
+        </div>
+      )}
+
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
         <div className="mx-auto max-w-4xl space-y-2">
