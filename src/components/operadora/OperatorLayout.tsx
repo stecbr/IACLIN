@@ -206,7 +206,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </div>
         <TooltipProvider delayDuration={100}>
           <nav
-            className="flex-1 w-full py-2 space-y-1 overflow-y-auto overflow-x-hidden"
+            className="flex-1 w-full py-2 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {navGroups
@@ -220,9 +220,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           to={item.to}
                           end={item.end}
                           className={({ isActive }) =>
-                            `relative left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-xl transition-colors ${
+                            `mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                               isActive
-                                ? "bg-sidebar-accent/80 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
+                                ? "bg-sidebar-accent/70 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
                                 : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                             }`
                           }
@@ -246,9 +246,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     <NavLink
                       to={item.to}
                       className={({ isActive }) =>
-                        `relative left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-xl transition-colors ${
+                        `mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                           isActive
-                            ? "bg-sidebar-accent/80 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
+                            ? "bg-sidebar-accent/70 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
                             : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                         }`
                       }
