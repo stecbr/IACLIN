@@ -213,31 +213,29 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               .filter((g) => g.label !== "Conta")
               .map((group, gi, arr) => (
                 <div key={group.label} className="w-full flex flex-col items-center gap-1">
-                  {group.items.map((item) => (
-                    (() => {
-                      const active = item.end
-                        ? location.pathname === item.to
-                        : location.pathname === item.to || location.pathname.startsWith(item.to + "/");
-                      return (
-                        <Tooltip key={item.to}>
-                          <TooltipTrigger asChild>
-                            <NavLink
-                              to={item.to}
-                              end={item.end}
-                              className={`flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
-                                active
-                                  ? "bg-sidebar-accent text-sidebar-primary"
-                                  : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
-                              }`}
-                            >
-                              <item.icon size={18} strokeWidth={2} className="block shrink-0" />
-                            </NavLink>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">{item.label}</TooltipContent>
-                        </Tooltip>
-                      );
-                    })()
-                  )}
+                  {group.items.map((item) => {
+                    const active = item.end
+                      ? location.pathname === item.to
+                      : location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+                    return (
+                      <Tooltip key={item.to}>
+                        <TooltipTrigger asChild>
+                          <NavLink
+                            to={item.to}
+                            end={item.end}
+                            className={`flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
+                              active
+                                ? "bg-sidebar-accent text-sidebar-primary"
+                                : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
+                            }`}
+                          >
+                            <item.icon size={18} strokeWidth={2} className="block shrink-0" />
+                          </NavLink>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{item.label}</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
                   {gi < arr.length - 1 && <div className="h-px w-6 bg-sidebar-border my-1" />}
                 </div>
               ))}
