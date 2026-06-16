@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Send, MessageCircle, X, Mail, Phone, MapPin } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { geocodeAddress } from '@/lib/geocode';
@@ -215,6 +216,7 @@ export default function OperatorProfessionals() {
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
   const { resolved } = useTheme();
 
   // Init map once
@@ -263,6 +265,11 @@ export default function OperatorProfessionals() {
     (async () => {
       const next = new Map(coords);
       const pending = rows.filter((r) => !next.has(r.clinic_id));
+      if (pending.length === 0) {
+        setMapLoading(false);
+        return;
+      }
+      setMapLoading(true);
       const results = await Promise.allSettled(
         pending.map((r) =>
           geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood).then((c) => ({
@@ -280,6 +287,7 @@ export default function OperatorProfessionals() {
         }
       }
       if (changed) setCoords(next);
+      setMapLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -363,6 +371,16 @@ export default function OperatorProfessionals() {
       `}</style>
       {/* Map */}
       <div ref={mapContainerRef} className="rede-busca-map absolute inset-0 z-0" />
+
+      {/* Loading overlay while geocoding clinics */}
+      {mapLoading && (
+        <div className="absolute inset-0 z-[400] flex items-center justify-center bg-background/20 backdrop-blur-[2px] transition-opacity duration-500">
+          <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-lg backdrop-blur">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm font-medium text-foreground">Carregando clínicas…</span>
+          </div>
+        </div>
+      )}
 
       {/* Floating filters */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
