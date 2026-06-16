@@ -248,12 +248,15 @@ const URGENCY_OPTS = [
 ] as const;
 
 // ── Componente principal ────────────────────────────────────────────────────
+const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
+
 interface DocumentsTabProps {
   patientId: string;
   hypotheses?: Hypothesis[];
+  clinicalRecordId?: string;
 }
 
-export function DocumentsTab({ patientId, hypotheses }: DocumentsTabProps) {
+export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: DocumentsTabProps) {
   const { user, currentClinicId } = useAuth();
   const [step, setStep] = useState(0);
   const [printing, setPrinting] = useState(false);
@@ -383,12 +386,6 @@ export function DocumentsTab({ patientId, hypotheses }: DocumentsTabProps) {
           cid: certCid.trim() || undefined,
           notes: certNotes || undefined,
         }));
-        await supabase.from('documents').insert({
-          patient_id: patientId,
-          name: `Atestado ${certMode === 'attendance' ? 'comparecimento' : 'afastamento'} - ${new Date().toLocaleDateString('pt-BR')}`,
-          file_url: 'generated://certificate', file_type: 'application/pdf',
-          category: 'medical_certificate', uploaded_by: user.id,
-        });
       }
 
       // Combine all HTML strings into a single print window
@@ -411,6 +408,34 @@ export function DocumentsTab({ patientId, hypotheses }: DocumentsTabProps) {
       w.onload = () => setTimeout(() => w.print(), 400);
 
       toast.success(`${filledCount} documento${filledCount > 1 ? 's' : ''} enviado${filledCount > 1 ? 's' : ''} para impressão.`);
+
+      // Persist documents to patient portal via clinical_record_requests
+      if (clinicalRecordId) {
+        const { data: existing } = await supabase
+          .from('clinical_record_requests')
+          .select('id')
+          .eq('clinical_record_id', clinicalRecordId)
+          .in('kind', DOC_KINDS);
+        if ((existing ?? []).length > 0) {
+          await supabase.from('clinical_record_requests').delete().in('id', (existing ?? []).map((r: any) => r.id));
+        }
+        const toInsert: any[] = [];
+        if (hasData[0]) {
+          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_exam_request', payload: { exams: exams.filter(e => e.trim()), indication: examIndication || null } });
+        }
+        if (hasData[1]) {
+          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_prescription', payload: { items: rxItems.filter(it => it.medication.trim()), notes: rxNotes || null } });
+        }
+        if (hasData[2]) {
+          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_referral', payload: { toSpecialty: refSpecialty, reason: refReason, summary: refSummary || null, urgency: refUrgency } });
+        }
+        if (hasData[3]) {
+          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_certificate', payload: { mode: certMode, date: certDate, startTime: certStart || null, endTime: certEnd || null, leaveStartDate: leaveStart, leaveDays, cid: certCid.trim() || null, notes: certNotes || null } });
+        }
+        if (toInsert.length > 0) {
+          await supabase.from('clinical_record_requests').insert(toInsert);
+        }
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar documentos.');
     } finally {

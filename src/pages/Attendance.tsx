@@ -489,13 +489,15 @@ export default function Attendance() {
           .eq('id', recordId);
         if (error) throw error;
 
-        // Capture old procedure/request IDs so we can delete them AFTER inserting new ones
+        // Capture old procedure/request IDs so we can delete them AFTER inserting new ones.
+        // Exclude doc_* kinds — those are owned by DocumentsTab and managed independently.
+        const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
         const [{ data: oldProcs }, { data: oldReqs }] = await Promise.all([
           supabase.from('clinical_record_procedures').select('id').eq('clinical_record_id', recordId),
-          supabase.from('clinical_record_requests').select('id').eq('clinical_record_id', recordId),
+          supabase.from('clinical_record_requests').select('id, kind').eq('clinical_record_id', recordId),
         ]);
         oldProcIds = (oldProcs ?? []).map((p: any) => p.id);
-        oldReqIds = (oldReqs ?? []).map((r: any) => r.id);
+        oldReqIds = (oldReqs ?? []).filter((r: any) => !DOC_KINDS.includes(r.kind)).map((r: any) => r.id);
       } else {
         // Create new
         const { data, error } = await supabase
@@ -1037,7 +1039,7 @@ export default function Attendance() {
 
         {tabKeys.includes('documents') && (
           <TabsContent value="documents">
-            <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} />
+            <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />
           </TabsContent>
         )}
       </Tabs>
