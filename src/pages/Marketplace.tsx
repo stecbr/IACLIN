@@ -26,6 +26,7 @@ export default function Marketplace() {
   const [searchName, setSearchName] = useState("");
   const [searchCity, setSearchCity] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [selectedInsurance, setSelectedInsurance] = useState<string | null>(null);
   const [showMapMobile, setShowMapMobile] = useState(false);
   const [clinicCoords, setClinicCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
