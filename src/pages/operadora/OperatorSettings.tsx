@@ -102,40 +102,42 @@ export default function OperatorSettings() {
         {/* ── Dados ── */}
         <TabsContent value="dados" className="space-y-6">
           <Card className="p-6 rounded-xl">
-            <Label className="mb-3 block">Logo da operadora</Label>
-            <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
+            <div>
+              <Label className="block">Logo da operadora</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                {op.logo_url
+                  ? 'A logo enviada aparece no topo da sidebar e no cabeçalho do painel.'
+                  : 'Usando a logo padrão IACLIN. Envie uma imagem para personalizar.'}
+              </p>
+            </div>
+            <div className="flex justify-center my-6">
+              <div className="h-28 w-28 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
                 <img
                   src={op.logo_url || iaclinDefaultLogo.url}
                   alt="Logo"
                   className="h-full w-full object-contain"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
-                  />
-                  <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
-                    <Upload className="h-4 w-4" />
-                    {op.logo_url ? 'Substituir logo' : 'Enviar logo'}
-                  </span>
-                </label>
-                {op.logo_url && (
-                  <Button variant="outline" size="sm" onClick={removeLogo} className="rounded-xl">
-                    Remover e voltar para IACLIN
-                  </Button>
-                )}
-              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {op.logo_url
-                ? 'A logo enviada aparece no topo da sidebar e no cabeçalho do painel.'
-                : 'Usando a logo padrão IACLIN. Envie uma imagem para personalizar.'}
-            </p>
+            <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-border">
+              {op.logo_url && (
+                <Button variant="outline" size="sm" onClick={removeLogo} className="rounded-xl">
+                  Remover e voltar para IACLIN
+                </Button>
+              )}
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+                />
+                <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
+                  <Upload className="h-4 w-4" />
+                  {op.logo_url ? 'Substituir logo' : 'Enviar logo'}
+                </span>
+              </label>
+            </div>
           </Card>
 
           <Card className="p-6 space-y-5 rounded-xl">
