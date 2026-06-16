@@ -167,20 +167,27 @@ export default function OperatorNetwork() {
     load();
   }, [operatorId]);
 
+  useEffect(() => {
+    if (!operatorId) return;
+    supabase.from('insurance_operators').select('type').eq('id', operatorId).maybeSingle()
+      .then(({ data }: any) => setOperatorType(data?.type ?? null));
+  }, [operatorId]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((r) =>
-      [
+    return rows.filter((r) => {
+      if (categoryFilter !== 'all' && (r.clinic_category ?? '') !== categoryFilter) return false;
+      if (!term) return true;
+      return [
         r.clinic_name,
         r.clinic_city,
         r.clinic_cnpj,
         ...(r.doctors ?? []).flatMap((d) => [d.name, d.specialty, d.registration_number]),
       ]
         .filter(Boolean)
-        .some((s) => String(s).toLowerCase().includes(term))
-    );
-  }, [rows, q]);
+        .some((s) => String(s).toLowerCase().includes(term));
+    });
+  }, [rows, q, categoryFilter]);
 
   const revokeCredentialing = async () => {
     if (!revoking || !operatorId) return;
