@@ -26,6 +26,7 @@ export default function Marketplace() {
   const [searchName, setSearchName] = useState("");
   const [searchCity, setSearchCity] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [selectedInsurance, setSelectedInsurance] = useState<string | null>(null);
   const [showMapMobile, setShowMapMobile] = useState(false);
   const [clinicCoords, setClinicCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
@@ -169,6 +170,12 @@ export default function Marketplace() {
         selectedSpecialties.length === 0 ||
         (d.specialty && selectedSpecialties.includes(d.specialty));
 
+      const insMatch =
+        !selectedInsurance ||
+        (d.insurancePlans ?? []).some(
+          (p) => p.toLowerCase() === selectedInsurance.toLowerCase(),
+        );
+
       // Map bounds filter
       let boundsMatch = true;
       if (mapBounds) {
@@ -184,9 +191,9 @@ export default function Marketplace() {
         }
       }
 
-      return nameMatch && cityMatch && specMatch && boundsMatch;
+      return nameMatch && cityMatch && specMatch && insMatch && boundsMatch;
     });
-  }, [doctors, searchName, searchCity, selectedSpecialties, mapBounds, clinicCoords]);
+  }, [doctors, searchName, searchCity, selectedSpecialties, selectedInsurance, mapBounds, clinicCoords]);
 
   const clinicsGeo = useMemo(() => {
     const seen = new Set<string>();
@@ -239,6 +246,8 @@ export default function Marketplace() {
       <MarketplaceFilters
         selectedSpecialties={selectedSpecialties}
         onToggleSpecialty={handleToggleSpecialty}
+        selectedInsurance={selectedInsurance}
+        onChangeInsurance={setSelectedInsurance}
       />
 
       {/* Map bounds active badge */}
