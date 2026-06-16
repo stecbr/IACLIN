@@ -48,6 +48,11 @@ const BR_STATES = [
   'SP', 'SE', 'TO',
 ];
 
+const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const DARK_MAP_FILTER = 'brightness(0.28) contrast(1.25) sepia(1) saturate(3.6) hue-rotate(172deg)';
+const DARK_MAP_BACKGROUND = '#061936';
+const DARK_LOGO_BACKGROUND = '#0f2f63';
+
 export default function OperatorProfessionals() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -232,18 +237,13 @@ export default function OperatorProfessionals() {
       attributionControl: false,
     });
     L.control.zoom({ position: 'topright' }).addTo(map);
-    tileLayerRef.current = L.tileLayer(
-      resolved === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      { maxZoom: 20 },
-    ).addTo(map);
-    // Tint tiles dark-blue in dark mode
+    tileLayerRef.current = L.tileLayer(MAP_TILE_URL, { maxZoom: 20 }).addTo(map);
     const tilePane = map.getPane('tilePane');
     if (tilePane) {
       tilePane.style.filter = resolved === 'dark'
-        ? 'hue-rotate(200deg) saturate(1.4) brightness(0.85)'
+        ? DARK_MAP_FILTER
         : '';
+      tilePane.style.backgroundColor = resolved === 'dark' ? DARK_MAP_BACKGROUND : '';
     }
     mapInstanceRef.current = map;
     return () => {
@@ -261,17 +261,13 @@ export default function OperatorProfessionals() {
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
     }
-    tileLayerRef.current = L.tileLayer(
-      resolved === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      { maxZoom: 20 },
-    ).addTo(map);
+    tileLayerRef.current = L.tileLayer(MAP_TILE_URL, { maxZoom: 20 }).addTo(map);
     const tilePane = map.getPane('tilePane');
     if (tilePane) {
       tilePane.style.filter = resolved === 'dark'
-        ? 'hue-rotate(200deg) saturate(1.4) brightness(0.85)'
+        ? DARK_MAP_FILTER
         : '';
+      tilePane.style.backgroundColor = resolved === 'dark' ? DARK_MAP_BACKGROUND : '';
     }
   }, [resolved]);
 
@@ -369,7 +365,7 @@ export default function OperatorProfessionals() {
       const latlng = L.latLng(lat, lng);
       bounds.push(latlng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
-      const logoBg = resolved === 'dark' ? '#1e3a8a' : '#fff';
+      const logoBg = resolved === 'dark' ? DARK_LOGO_BACKGROUND : '#fff';
       const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: '',
