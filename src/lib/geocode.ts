@@ -1,6 +1,12 @@
 const cache = new Map<string, { lat: number; lng: number } | null>();
 const inflight = new Map<string, Promise<{ lat: number; lng: number } | null>>();
-const LS_KEY = "geocode-cache-v1";
+// v2: previous version persisted null results, which permanently hid clinics
+// whose first geocode attempt failed (rate-limit, transient network). v2 only
+// persists successful coords; nulls live in-memory for this session only.
+const LS_KEY = "geocode-cache-v2";
+try {
+  if (typeof window !== "undefined") window.localStorage.removeItem("geocode-cache-v1");
+} catch { /* ignore */ }
 
 // Hydrate from localStorage (persistent across sessions — dramatically speeds repeat visits)
 try {
@@ -22,8 +28,8 @@ function scheduleFlush() {
   flushTimer = setTimeout(() => {
     flushTimer = null;
     try {
-      const obj: Record<string, { lat: number; lng: number } | null> = {};
-      cache.forEach((v, k) => { obj[k] = v; });
+      const obj: Record<string, { lat: number; lng: number }> = {};
+      cache.forEach((v, k) => { if (v) obj[k] = v; });
       window.localStorage.setItem(LS_KEY, JSON.stringify(obj));
     } catch {
       // quota — ignore
