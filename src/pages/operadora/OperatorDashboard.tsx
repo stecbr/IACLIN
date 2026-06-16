@@ -214,19 +214,6 @@ export default function OperatorDashboard() {
                 </span>
                 <span className="text-[10px] text-muted-foreground">vs. período anterior</span>
               </div>
-              <div className="absolute inset-x-0 bottom-0 h-12 opacity-70 pointer-events-none">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trend} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={k.color} stopOpacity={0.35} />
-                        <stop offset="100%" stopColor={k.color} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <Area type="monotone" dataKey="value" stroke={k.color} strokeWidth={2} fill={`url(#${gradId})`} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
             </Card>
           );
         })}
