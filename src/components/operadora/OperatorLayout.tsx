@@ -206,7 +206,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </div>
         <TooltipProvider delayDuration={100}>
           <nav
-            className="flex-1 w-full px-3 py-2 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden"
+            className="flex-1 w-full px-2 py-2 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {navGroups
@@ -222,7 +222,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           className={({ isActive }) =>
                             `flex h-10 w-full items-center justify-center rounded-xl transition-colors ${
                               isActive
-                                ? "bg-sidebar-accent/70 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
+                                ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] font-medium"
                                 : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                             }`
                           }
@@ -230,14 +230,16 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           <item.icon className="h-4 w-4" />
                         </NavLink>
                       </TooltipTrigger>
-                      <TooltipContent side="right">{item.label}</TooltipContent>
+                       <TooltipContent side="right" sideOffset={12} className="whitespace-nowrap">
+                         {item.label}
+                       </TooltipContent>
                     </Tooltip>
                   ))}
                   {gi < arr.length - 1 && <div className="h-px w-6 bg-sidebar-border my-2 mx-auto" />}
                 </div>
               ))}
           </nav>
-          <div className="w-full px-3 py-3 border-t border-sidebar-border space-y-2">
+          <div className="w-full px-2 py-3 border-t border-sidebar-border space-y-2">
             {navGroups
               .find((g) => g.label === "Conta")
               ?.items.map((item) => (
@@ -248,7 +250,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                       className={({ isActive }) =>
                         `flex h-10 w-full items-center justify-center rounded-xl transition-colors ${
                           isActive
-                            ? "bg-sidebar-accent/70 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] font-medium"
                             : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                         }`
                       }
@@ -256,7 +258,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                       <item.icon className="h-4 w-4" />
                     </NavLink>
                   </TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
+                   <TooltipContent side="right" sideOffset={12} className="whitespace-nowrap">
+                     {item.label}
+                   </TooltipContent>
                 </Tooltip>
               ))}
             <Avatar className="h-8 w-8 mx-auto">
