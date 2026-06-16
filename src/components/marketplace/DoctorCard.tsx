@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, ChevronRight, Sparkles, Stethoscope, Building2 } from "lucide-react";
+import { MapPin, Phone, ChevronRight, Sparkles, Stethoscope, Building2, ShieldCheck } from "lucide-react";
 
 interface Appointment {
   start_time: string;
@@ -42,6 +42,7 @@ export interface DoctorData {
   profileNeighborhood: string | null;
   shifts: AvailabilityShift[];
   appointments: Appointment[];
+  insurancePlans?: string[];
 }
 
 function generateSlotsForDate(
@@ -200,6 +201,25 @@ export function DoctorCard({ doctor, onShowOnMap, onHover, highlighted }: Doctor
               <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                 <Phone className="h-3 w-3 shrink-0" />
                 <span>{displayPhone}</span>
+              </div>
+            )}
+            {doctor.insurancePlans && doctor.insurancePlans.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-600" />
+                {doctor.insurancePlans.slice(0, 3).map((plan) => (
+                  <Badge
+                    key={plan}
+                    variant="outline"
+                    className="h-4 px-1.5 py-0 text-[10px] border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/30"
+                  >
+                    {plan}
+                  </Badge>
+                ))}
+                {doctor.insurancePlans.length > 3 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    +{doctor.insurancePlans.length - 3} convênios
+                  </span>
+                )}
               </div>
             )}
             {nextSlot && (

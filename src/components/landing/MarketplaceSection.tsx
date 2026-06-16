@@ -71,7 +71,7 @@ export function MarketplaceSection() {
       const clinicIds = [...new Set(members.map((m) => m.clinic_id))];
       const today = startOfDay(new Date());
 
-      const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }] =
+      const [{ data: profiles }, { data: clinics }, { data: templates }, { data: appointments }, { data: insurancePlansData }] =
         await Promise.all([
           supabase.rpc("get_marketplace_doctor_profiles", { _user_ids: userIds }),
           supabase.from("clinics").select("id, name, city, state, phone, address, address_number, neighborhood, zip_code").in("id", clinicIds),
@@ -84,10 +84,17 @@ export function MarketplaceSection() {
             .gte("start_time", today.toISOString())
             .lte("start_time", addDays(today, 7).toISOString())
             .neq("status", "cancelled"),
+          supabase.from("insurance_plans").select("clinic_id, name").in("clinic_id", clinicIds).eq("is_active", true),
         ]);
 
       const profileMap = new Map(((profiles ?? []) as any[]).map((p: any) => [p.id, p]));
       const clinicMap  = new Map((clinics  ?? []).map((c) => [c.id, c]));
+      const clinicInsuranceMap = new Map<string, string[]>();
+      for (const plan of (insurancePlansData ?? []) as any[]) {
+        const arr = clinicInsuranceMap.get(plan.clinic_id) ?? [];
+        arr.push(plan.name);
+        clinicInsuranceMap.set(plan.clinic_id, arr);
+      }
 
       const availMap = new Map<string, { date: string; start: string; end: string }[]>();
       for (const t of (templates ?? []) as any[]) {
@@ -139,6 +146,7 @@ export function MarketplaceSection() {
               end_time: a.end_time,
               status: a.status,
             })),
+            insurancePlans: clinicInsuranceMap.get(m.clinic_id) ?? [],
           });
           return acc;
         }, []);
