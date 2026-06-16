@@ -13,6 +13,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { geocodeAddress } from '@/lib/geocode';
 import { useTheme } from '@/components/ThemeProvider';
+import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -354,15 +355,8 @@ export default function OperatorProfessionals() {
       }
       const latlng = L.latLng(lat, lng);
       bounds.push(latlng);
-      const initials = clinic.clinic_name
-        .split(' ')
-        .map((w) => w[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
-      const inner = clinic.logo_url
-        ? `<img src="${clinic.logo_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9999px"/>`
-        : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:hsl(var(--primary));color:#fff;border-radius:9999px;font-weight:700;font-size:13px;">${initials}</div>`;
+      const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
+      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:#fff;" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: '',
         html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:#fff;border:3px solid hsl(var(--primary));box-shadow:0 8px 18px rgba(0,0,0,.35);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
