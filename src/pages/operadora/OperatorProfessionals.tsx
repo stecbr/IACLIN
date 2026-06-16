@@ -218,6 +218,7 @@ export default function OperatorProfessionals() {
   const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
+  const [geocodeProgress, setGeocodeProgress] = useState({ done: 0, total: 0 });
   const { resolved } = useTheme();
 
   // Init map once
@@ -266,14 +267,17 @@ export default function OperatorProfessionals() {
     (async () => {
       if (!searched) {
         setMapLoading(false);
+        setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
       const pending = filtered.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
+        setGeocodeProgress({ done: filtered.length, total: filtered.length });
         return;
       }
       setMapLoading(true);
+      setGeocodeProgress({ done: filtered.length - pending.length, total: filtered.length });
 
       // Stream results: update map progressively, with a small concurrency cap to be nice to Nominatim
       // and to avoid blocking the UI on the slowest clinic.
@@ -303,11 +307,10 @@ export default function OperatorProfessionals() {
           const r = pending[i];
           const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
           if (cancelled) return;
+          setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
           if (c) {
             buffer.push([r.clinic_id, c]);
             scheduleFlush();
-            // Hide the overlay as soon as we have anything to show
-            setMapLoading(false);
           }
         }
       };
@@ -332,10 +335,24 @@ export default function OperatorProfessionals() {
     markersRef.current.clear();
 
     const bounds: L.LatLng[] = [];
+    // Track positions to jitter overlapping markers (clinics geocoded to same city centroid)
+    const seenKeys = new Map<string, number>();
     filtered.forEach((clinic) => {
       const c = coords.get(clinic.clinic_id);
       if (!c) return;
-      const latlng = L.latLng(c.lat, c.lng);
+      const key = `${c.lat.toFixed(4)}|${c.lng.toFixed(4)}`;
+      const seen = seenKeys.get(key) ?? 0;
+      seenKeys.set(key, seen + 1);
+      // Apply spiral offset for duplicates so stacked pins are visible
+      let lat = c.lat;
+      let lng = c.lng;
+      if (seen > 0) {
+        const angle = (seen * 137.5) * (Math.PI / 180); // golden angle
+        const radius = 0.004 * Math.sqrt(seen); // ~400m per step
+        lat += Math.cos(angle) * radius;
+        lng += Math.sin(angle) * radius;
+      }
+      const latlng = L.latLng(lat, lng);
       bounds.push(latlng);
       const initials = clinic.clinic_name
         .split(' ')
@@ -361,7 +378,8 @@ export default function OperatorProfessionals() {
     });
 
     if (bounds.length > 0 && !selectedId) {
-      map.fitBounds(L.latLngBounds(bounds).pad(0.2), { animate: false });
+      const b = L.latLngBounds(bounds).pad(0.3);
+      map.fitBounds(b, { animate: false, maxZoom: 14 });
     }
     setTimeout(() => map.invalidateSize(), 50);
   }, [filtered, coords]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -418,7 +436,10 @@ export default function OperatorProfessionals() {
         <div className="absolute inset-0 z-[400] flex items-center justify-center bg-background/20 backdrop-blur-[2px] transition-opacity duration-500">
           <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-lg backdrop-blur">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span className="text-sm font-medium text-foreground">Carregando clínicas…</span>
+            <span className="text-sm font-medium text-foreground">
+              Carregando clínicas
+              {geocodeProgress.total > 0 ? ` (${geocodeProgress.done}/${geocodeProgress.total})` : ''}…
+            </span>
           </div>
         </div>
       )}
