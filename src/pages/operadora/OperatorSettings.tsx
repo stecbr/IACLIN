@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Upload, Settings, KeyRound, CheckCircle2, Loader2 } from 'lucide-react';
+import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import SubscriptionSection from '@/components/settings/SubscriptionSection';
 
@@ -19,6 +19,8 @@ export default function OperatorSettings() {
   const { operatorId, user } = useAuth();
   const [op, setOp] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState<any>(null);
 
   useEffect(() => {
     if (!operatorId) return;
@@ -26,15 +28,22 @@ export default function OperatorSettings() {
       .then(({ data }) => setOp(data));
   }, [operatorId]);
 
+  const openEdit = () => {
+    setDraft({ ...op });
+    setEditOpen(true);
+  };
+
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.from('insurance_operators').update({
-      name: op.name, legal_name: op.legal_name, cnpj: op.cnpj, ans_code: op.ans_code,
-      type: op.type, brand_color: op.brand_color, contact_email: op.contact_email,
-      contact_phone: op.contact_phone, responsible_name: op.responsible_name,
+      name: draft.name, legal_name: draft.legal_name, cnpj: draft.cnpj, ans_code: draft.ans_code,
+      type: draft.type, brand_color: draft.brand_color, contact_email: draft.contact_email,
+      contact_phone: draft.contact_phone, responsible_name: draft.responsible_name,
     }).eq('id', operatorId);
     setSaving(false);
     if (error) return toast.error('Erro: ' + error.message);
+    setOp({ ...op, ...draft });
+    setEditOpen(false);
     toast.success('Salvo');
   };
 
@@ -52,6 +61,18 @@ export default function OperatorSettings() {
   };
 
   if (!op) return <Card className="p-8 text-sm text-muted-foreground">Carregando...</Card>;
+
+  const typeLabel = (t?: string) =>
+    t === 'odonto' ? 'Odontológica' : t === 'medico' ? 'Médica' : t === 'ambos' ? 'Médica e odontológica' : '—';
+
+  const InfoRow = ({ label, value, mono }: { label: string; value?: React.ReactNode; mono?: boolean }) => (
+    <div className="space-y-1">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`text-sm ${mono ? 'font-mono' : ''} ${!value ? 'text-muted-foreground italic' : ''}`}>
+        {value || 'Não informado'}
+      </p>
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -99,28 +120,73 @@ export default function OperatorSettings() {
             </p>
           </Card>
 
-          <Card className="p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><Label>Nome fantasia</Label><Input value={op.name ?? ''} onChange={(e) => setOp({ ...op, name: e.target.value })} /></div>
-              <div><Label>Razão social</Label><Input value={op.legal_name ?? ''} onChange={(e) => setOp({ ...op, legal_name: e.target.value })} /></div>
-              <div><Label>CNPJ</Label><Input value={op.cnpj ?? ''} onChange={(e) => setOp({ ...op, cnpj: e.target.value })} /></div>
-              <div><Label>Código ANS</Label><Input value={op.ans_code ?? ''} onChange={(e) => setOp({ ...op, ans_code: e.target.value })} /></div>
+          <Card className="p-6 space-y-5">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <Label>Tipo</Label>
-                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  value={op.type} onChange={(e) => setOp({ ...op, type: e.target.value })}>
-                  <option value="medico">Médica</option>
-                  <option value="odonto">Odontológica</option>
-                  <option value="ambos">Médica e odontológica</option>
-                </select>
+                <h2 className="text-base font-semibold">Informações da operadora</h2>
+                <p className="text-xs text-muted-foreground">Dados cadastrais e de contato</p>
               </div>
-              <div><Label>Cor da marca</Label><Input type="color" value={op.brand_color ?? '#3B82F6'} onChange={(e) => setOp({ ...op, brand_color: e.target.value })} /></div>
-              <div><Label>E-mail</Label><Input value={op.contact_email ?? ''} onChange={(e) => setOp({ ...op, contact_email: e.target.value })} /></div>
-              <div><Label>Telefone</Label><Input value={op.contact_phone ?? ''} onChange={(e) => setOp({ ...op, contact_phone: e.target.value })} /></div>
-              <div className="sm:col-span-2"><Label>Responsável</Label><Input value={op.responsible_name ?? ''} onChange={(e) => setOp({ ...op, responsible_name: e.target.value })} /></div>
+              <Button variant="outline" size="sm" onClick={openEdit} className="gap-2">
+                <Pencil className="h-4 w-4" /> Editar
+              </Button>
             </div>
-            <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+              <InfoRow label="Nome fantasia" value={op.name} />
+              <InfoRow label="Razão social" value={op.legal_name} />
+              <InfoRow label="CNPJ" value={op.cnpj} mono />
+              <InfoRow label="Código ANS" value={op.ans_code} mono />
+              <InfoRow label="Tipo" value={typeLabel(op.type)} />
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Cor da marca</p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-5 w-5 rounded border border-border"
+                    style={{ backgroundColor: op.brand_color ?? '#3B82F6' }}
+                  />
+                  <span className="text-sm font-mono">{op.brand_color ?? '#3B82F6'}</span>
+                </div>
+              </div>
+              <InfoRow label="E-mail" value={op.contact_email} />
+              <InfoRow label="Telefone" value={op.contact_phone} />
+              <div className="sm:col-span-2">
+                <InfoRow label="Responsável" value={op.responsible_name} />
+              </div>
+            </div>
           </Card>
+
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Editar informações da operadora</DialogTitle>
+                <DialogDescription>Atualize os dados cadastrais e de contato.</DialogDescription>
+              </DialogHeader>
+              {draft && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+                  <div><Label>Nome fantasia</Label><Input value={draft.name ?? ''} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></div>
+                  <div><Label>Razão social</Label><Input value={draft.legal_name ?? ''} onChange={(e) => setDraft({ ...draft, legal_name: e.target.value })} /></div>
+                  <div><Label>CNPJ</Label><Input value={draft.cnpj ?? ''} onChange={(e) => setDraft({ ...draft, cnpj: e.target.value })} /></div>
+                  <div><Label>Código ANS</Label><Input value={draft.ans_code ?? ''} onChange={(e) => setDraft({ ...draft, ans_code: e.target.value })} /></div>
+                  <div>
+                    <Label>Tipo</Label>
+                    <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
+                      <option value="medico">Médica</option>
+                      <option value="odonto">Odontológica</option>
+                      <option value="ambos">Médica e odontológica</option>
+                    </select>
+                  </div>
+                  <div><Label>Cor da marca</Label><Input type="color" value={draft.brand_color ?? '#3B82F6'} onChange={(e) => setDraft({ ...draft, brand_color: e.target.value })} /></div>
+                  <div><Label>E-mail</Label><Input value={draft.contact_email ?? ''} onChange={(e) => setDraft({ ...draft, contact_email: e.target.value })} /></div>
+                  <div><Label>Telefone</Label><Input value={draft.contact_phone ?? ''} onChange={(e) => setDraft({ ...draft, contact_phone: e.target.value })} /></div>
+                  <div className="sm:col-span-2"><Label>Responsável</Label><Input value={draft.responsible_name ?? ''} onChange={(e) => setDraft({ ...draft, responsible_name: e.target.value })} /></div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
+                <Button onClick={save} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {operatorId && <SubscriptionSection entityType="operator" entityId={operatorId} />}
         </TabsContent>
