@@ -482,10 +482,10 @@ export default function OperatorPriceTable() {
                   <TableHeader>
                     <TableRow className="bg-muted/40">
                       <TableHead className="text-xs">Procedimento</TableHead>
-                      <TableHead className="text-xs w-32">Cód. TUSS</TableHead>
-                      <TableHead className="text-xs w-32">Cobrança</TableHead>
-                      <TableHead className="text-xs w-28 text-right">Valor base (US)</TableHead>
-                      <TableHead className="text-xs w-32 text-right">Valor R$</TableHead>
+                      <TableHead className="text-xs min-w-[112px]">Cód. TUSS</TableHead>
+                      <TableHead className="text-xs min-w-[110px]">Cobrança</TableHead>
+                      <TableHead className="text-xs min-w-[100px] text-right">Valor base (US)</TableHead>
+                      <TableHead className="text-xs min-w-[110px] text-right">Valor R$</TableHead>
                       <TableHead className="w-8" />
                     </TableRow>
                   </TableHeader>
@@ -767,7 +767,7 @@ function InlineText({ value, placeholder, onCommit, className }: { value: string
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className={`w-full text-left rounded px-1 -mx-1 hover:bg-muted/60 truncate ${className ?? ''}`}
+        className={`w-full text-left rounded px-1 -mx-1 hover:bg-muted/60 whitespace-normal break-words ${className ?? ''}`}
       >
         {value || <span className="text-muted-foreground">{placeholder ?? '—'}</span>}
       </button>

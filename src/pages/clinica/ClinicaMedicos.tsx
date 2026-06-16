@@ -196,7 +196,7 @@ export default function ClinicaMedicos() {
                         {m.clinic_specialties && m.clinic_specialties.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {m.clinic_specialties.map((s) => (
-                              <Badge key={s} variant="secondary" className="text-[10px]">
+                              <Badge key={s} variant="secondary" className="text-xs uppercase tracking-wide">
                                 {specialtyLabel(s)}
                               </Badge>
                             ))}
