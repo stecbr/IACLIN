@@ -221,14 +221,38 @@ export default function OperatorNetwork() {
         <h1 className="text-2xl font-semibold">Rede credenciada</h1>
         <p className="text-sm text-muted-foreground">Clínicas credenciadas e médicos vinculados</p>
       </div>
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por clínica, médico, especialidade, cidade..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por clínica, médico, especialidade, cidade..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {operatorType === 'ambos' && (
+          <div className="inline-flex rounded-xl border border-border bg-card p-1 text-xs">
+            {([
+              { v: 'all',    label: 'Todas' },
+              { v: 'medico', label: 'Médicas' },
+              { v: 'odonto', label: 'Odontológicas' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.v}
+                onClick={() => setCategoryFilter(opt.v)}
+                className={
+                  'px-3 py-1.5 rounded-lg transition-colors ' +
+                  (categoryFilter === opt.v
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground')
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <Card className="rounded-xl p-0 overflow-hidden">
         {loading ? (
