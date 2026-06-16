@@ -1,37 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { FileDown, MessageCircle, User, FileText } from 'lucide-react';
+import { FileDown, MessageCircle, User, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import {
-  generateCertificatePdf,
-  ODONTO_CIDS,
-} from '@/lib/generateCertificatePdf';
-import {
-  fetchClinicForDocs,
-  fetchDentistForDocs,
-  whatsappLink,
-} from '@/lib/clinicalDocsHelpers';
+import { generateCertificatePdf } from '@/lib/generateCertificatePdf';
+import { fetchClinicForDocs, fetchDentistForDocs, whatsappLink } from '@/lib/clinicalDocsHelpers';
 
 interface CertificateGeneratorProps {
   patientId?: string;
+  hypotheses?: Array<{ text: string; cid10: string }>;
 }
 
-export function CertificateGenerator({ patientId: initialPatientId }: CertificateGeneratorProps = {}) {
+function cidsFromHypotheses(hypotheses?: Array<{ text: string; cid10: string }>) {
+  if (!hypotheses) return '';
+  return hypotheses.map((h) => h.cid10?.trim()).filter(Boolean).join(', ');
+}
+
+export function CertificateGenerator({ patientId: initialPatientId, hypotheses }: CertificateGeneratorProps = {}) {
   const { user, currentClinicId } = useAuth();
   const [patientId, setPatientId] = useState<string>(initialPatientId ?? '');
   const [mode, setMode] = useState<'attendance' | 'leave'>('attendance');
@@ -44,12 +37,35 @@ export function CertificateGenerator({ patientId: initialPatientId }: Certificat
 
   const [leaveStartDate, setLeaveStartDate] = useState(today);
   const [leaveDays, setLeaveDays] = useState('1');
-  const [cid, setCid] = useState<string>('none');
+
+  // CID-10: auto-filled from hypotheses, allows manual override
+  const [cid, setCid] = useState(() => cidsFromHypotheses(hypotheses));
+  const [cidUserEdited, setCidUserEdited] = useState(false);
+
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (initialPatientId) setPatientId(initialPatientId);
   }, [initialPatientId]);
+
+  // Sync CID from hypotheses when they change (unless user already manually edited)
+  useEffect(() => {
+    if (cidUserEdited) return;
+    const auto = cidsFromHypotheses(hypotheses);
+    setCid(auto);
+  }, [hypotheses, cidUserEdited]);
+
+  const handleCidChange = (v: string) => {
+    setCid(v);
+    setCidUserEdited(true);
+  };
+
+  const resyncCid = () => {
+    setCid(cidsFromHypotheses(hypotheses));
+    setCidUserEdited(false);
+  };
+
+  const autoCid = cidsFromHypotheses(hypotheses);
 
   const { data: patients = [] } = useQuery({
     queryKey: ['cert-patients', currentClinicId],
@@ -69,7 +85,7 @@ export function CertificateGenerator({ patientId: initialPatientId }: Certificat
 
   const patient = patients.find((p) => p.id === patientId);
 
-  // Auto-fill from today's appointment
+  // Auto-fill attendance time from today's appointment
   useEffect(() => {
     if (!patientId || !user) return;
     const fetchToday = async () => {
@@ -119,7 +135,7 @@ export function CertificateGenerator({ patientId: initialPatientId }: Certificat
         endTime: mode === 'attendance' ? endTime : undefined,
         leaveStartDate: mode === 'leave' ? leaveStartDate : undefined,
         leaveDays: mode === 'leave' ? parseInt(leaveDays, 10) || 1 : undefined,
-        cid: cid !== 'none' ? cid : undefined,
+        cid: cid.trim() || undefined,
         notes: notes || undefined,
       });
       await supabase.from('documents').insert({
@@ -205,20 +221,30 @@ export function CertificateGenerator({ patientId: initialPatientId }: Certificat
       </Tabs>
 
       <div className="space-y-2">
-        <Label className="text-sm">CID-10 (opcional)</Label>
-        <Select value={cid} onValueChange={setCid}>
-          <SelectTrigger>
-            <SelectValue placeholder="Sem CID" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sem CID</SelectItem>
-            {ODONTO_CIDS.map((c) => (
-              <SelectItem key={c.code} value={c.code}>
-                {c.code} — {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm">CID-10 (opcional)</Label>
+          {autoCid && cidUserEdited && (
+            <button
+              type="button"
+              onClick={resyncCid}
+              className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Restaurar das hipóteses
+            </button>
+          )}
+        </div>
+        <Input
+          value={cid}
+          onChange={(e) => handleCidChange(e.target.value)}
+          placeholder="Ex: J45.0"
+          className="font-mono"
+        />
+        {autoCid && !cidUserEdited && (
+          <p className="text-[11px] text-muted-foreground">
+            Preenchido automaticamente das hipóteses diagnósticas
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

@@ -5,9 +5,11 @@ import { PrescriptionPad } from '@/components/dentist/tools/PrescriptionPad';
 import { CertificateGenerator } from '@/components/dentist/tools/CertificateGenerator';
 import { ReferralLetterPad } from '@/components/tools/ReferralLetterPad';
 import { ExamRequestPad } from '@/components/tools/ExamRequestPad';
+import type { Hypothesis } from '@/components/attendance/HypothesesEditor';
 
 interface DocumentsTabProps {
   patientId: string;
+  hypotheses?: Hypothesis[];
 }
 
 const DOCS = [
@@ -43,7 +45,7 @@ const DOCS = [
 
 type DocId = (typeof DOCS)[number]['id'];
 
-export function DocumentsTab({ patientId }: DocumentsTabProps) {
+export function DocumentsTab({ patientId, hypotheses }: DocumentsTabProps) {
   const [active, setActive] = useState<DocId>('prescription');
 
   return (
@@ -77,7 +79,7 @@ export function DocumentsTab({ patientId }: DocumentsTabProps) {
       {/* Content */}
       <div className="rounded-xl border border-border/60 bg-card p-4">
         {active === 'prescription' && <PrescriptionPad patientId={patientId} />}
-        {active === 'certificate' && <CertificateGenerator patientId={patientId} />}
+        {active === 'certificate' && <CertificateGenerator patientId={patientId} hypotheses={hypotheses} />}
         {active === 'referral' && <ReferralLetterPad patientId={patientId} />}
         {active === 'exams' && <ExamRequestPad patientId={patientId} />}
       </div>

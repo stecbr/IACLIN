@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -12,13 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, X } from 'lucide-react';
 import { CitySelect } from '@/components/address/CitySelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserCheck, Send, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
@@ -58,11 +55,6 @@ function isValidCPF(cpf: string): boolean {
   if (check2 >= 10) check2 = 0;
   return check2 === parseInt(digits[10]);
 }
-
-const PREDEFINED_CATEGORIES = [
-  'VIP', 'Convênio', 'Particular', 'Criança', 'Idoso',
-  'Gestante', 'Risco', 'Recall', 'Inativo',
-];
 
 const BR_STATES = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO',
@@ -142,11 +134,8 @@ export function PatientFormDialog({
   const isEdit = !!patient;
   const { user, isPersonalMode } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [fetchingCep, setFetchingCep] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(() => emptyForm(patient, initialName));
-  const [newCategory, setNewCategory] = useState('');
   // Stepped flow for "new patient": cpf → exists | new (invite or manual)
   const [step, setStep] = useState<'cpf' | 'exists' | 'new' | 'sent'>('cpf');
   const [manualMode, setManualMode] = useState(false);
@@ -263,22 +252,6 @@ export function PatientFormDialog({
   const update = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const toggleCategory = (cat: string) => {
-    setForm((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(cat)
-        ? prev.categories.filter((c) => c !== cat)
-        : [...prev.categories, cat],
-    }));
-  };
-
-  const addCustomCategory = () => {
-    const cat = newCategory.trim();
-    if (!cat || form.categories.includes(cat)) { setNewCategory(''); return; }
-    setForm((prev) => ({ ...prev, categories: [...prev.categories, cat] }));
-    setNewCategory('');
-  };
-
   const handleCepBlur = async () => {
     const clean = form.zip_code.replace(/\D/g, '');
     if (clean.length !== 8) return;
@@ -299,27 +272,6 @@ export function PatientFormDialog({
       toast.error('Não foi possível buscar o CEP. Verifique o número e tente novamente.');
     } finally {
       setFetchingCep(false);
-    }
-  };
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingPhoto(true);
-    try {
-      const ext = file.name.split('.').pop();
-      const path = `patients/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('patient-files')
-        .upload(path, file, { upsert: true });
-      if (uploadErr) throw uploadErr;
-      const { data: { publicUrl } } = supabase.storage.from('patient-files').getPublicUrl(path);
-      update('photo_url', publicUrl);
-      toast.success('Foto enviada!');
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setUploadingPhoto(false);
     }
   };
 
@@ -408,7 +360,7 @@ export function PatientFormDialog({
           {!isEdit && step === 'cpf' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Informe o CPF do paciente. Vamos verificar se ele já possui conta no iClin.
+                Informe o CPF do paciente. Vamos verificar se ele já possui conta no IaClin.
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="cpf-step">CPF</Label>
@@ -454,7 +406,7 @@ export function PatientFormDialog({
               <Alert className="border-primary/40 bg-primary/5">
                 <UserCheck className="h-4 w-4" />
                 <AlertDescription className="text-sm">
-                  Este paciente já possui conta no iClin. Para acessá-lo, envie uma solicitação
+                  Este paciente já possui conta no Iaclin. Para acessá-lo, envie uma solicitação
                   de vinculação. Ele receberá um e-mail e uma notificação na plataforma e
                   precisará aprovar para aparecer na sua lista.
                 </AlertDescription>
@@ -494,7 +446,7 @@ export function PatientFormDialog({
                 <Send className="h-4 w-4" />
                 <AlertDescription className="text-sm">
                   CPF não encontrado. Envie um convite por e-mail para o paciente criar a conta
-                  no iClin — ele será vinculado automaticamente após o cadastro.
+                  no Iaclin — ele será vinculado automaticamente após o cadastro.
                 </AlertDescription>
               </Alert>
               <div className="space-y-1.5">
@@ -545,43 +497,6 @@ export function PatientFormDialog({
           )}
 
           {showFullForm && (<>
-          {/* ─── Foto ─── */}
-          <div className="flex items-center gap-4">
-            <div
-              className="relative group cursor-pointer flex-shrink-0"
-              onClick={() => photoInputRef.current?.click()}
-            >
-              <Avatar className="h-20 w-20 border-2 border-border">
-                {form.photo_url && <AvatarImage src={form.photo_url} alt="Foto" className="object-cover" />}
-                <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
-                  {form.full_name
-                    ? form.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-                    : '?'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Camera className="h-5 w-5 text-white" />
-              </div>
-              {uploadingPhoto && (
-                <div className="absolute inset-0 rounded-full bg-background/80 flex items-center justify-center">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium">Foto do paciente</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Clique para adicionar ou alterar</p>
-              <Button
-                type="button" variant="outline" size="sm" className="mt-2 gap-2"
-                onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
-              >
-                <Camera className="h-3.5 w-3.5" />
-                {form.photo_url ? 'Alterar foto' : 'Adicionar foto'}
-              </Button>
-            </div>
-            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-          </div>
-
           {/* ─── Dados Pessoais ─── */}
           <SectionHeader title="Dados pessoais" />
 
@@ -627,15 +542,6 @@ export function PatientFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Profissão</Label>
-              <Input
-                value={form.profession}
-                onChange={(e) => update('profession', e.target.value)}
-                placeholder="Ex: Engenheiro, Professor…"
-              />
             </div>
 
             <div className="space-y-1.5">
@@ -695,59 +601,6 @@ export function PatientFormDialog({
               />
             </div>
 
-            <div className="col-span-2 space-y-1.5">
-              <Label>Categorias</Label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {PREDEFINED_CATEGORIES.map((cat) => (
-                  <Badge
-                    key={cat}
-                    variant={form.categories.includes(cat) ? 'default' : 'outline'}
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleCategory(cat)}
-                  >
-                    {cat}
-                  </Badge>
-                ))}
-              </div>
-              {form.categories.filter((c) => !PREDEFINED_CATEGORIES.includes(c)).map((cat) => (
-                <Badge key={cat} variant="secondary" className="gap-1 mr-1">
-                  {cat}
-                  <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => toggleCategory(cat)} />
-                </Badge>
-              ))}
-              <div className="flex gap-2 mt-1">
-                <Input
-                  placeholder="Nova categoria…"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); } }}
-                  className="h-8 text-xs"
-                />
-                <Button type="button" size="sm" variant="outline" onClick={addCustomCategory} className="h-8 px-3 text-xs">
-                  Adicionar
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* ─── Contato de Emergência ─── */}
-          <SectionHeader title="Contato de emergência" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Nome</Label>
-              <Input
-                value={form.emergency_contact_name}
-                onChange={(e) => update('emergency_contact_name', e.target.value)}
-                placeholder="Nome do contato"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Telefone</Label>
-              <PhoneInput
-                value={form.emergency_contact_phone}
-                onChange={(v) => update('emergency_contact_phone', v)}
-              />
-            </div>
           </div>
 
           {/* ─── Endereço ─── */}
@@ -811,36 +664,6 @@ export function PatientFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          {/* ─── Responsável ─── */}
-          <SectionHeader title="Responsável" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2 space-y-1.5">
-              <Label>Nome do responsável</Label>
-              <Input
-                value={form.guardian_name}
-                onChange={(e) => update('guardian_name', e.target.value)}
-                placeholder="Nome completo do responsável"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>CPF do responsável</Label>
-              <Input
-                value={form.guardian_cpf}
-                onChange={(e) => update('guardian_cpf', e.target.value)}
-                placeholder="000.000.000-00"
-                inputMode="numeric"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Data de nascimento</Label>
-              <Input
-                type="date"
-                value={form.guardian_date_of_birth}
-                onChange={(e) => update('guardian_date_of_birth', e.target.value)}
-              />
             </div>
           </div>
 

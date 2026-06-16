@@ -1037,7 +1037,7 @@ export default function Attendance() {
 
         {tabKeys.includes('documents') && (
           <TabsContent value="documents">
-            <DocumentsTab patientId={appointment.patient_id} />
+            <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} />
           </TabsContent>
         )}
       </Tabs>
