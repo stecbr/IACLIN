@@ -238,6 +238,13 @@ export default function OperatorProfessionals() {
         : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
       { maxZoom: 20 },
     ).addTo(map);
+    // Tint tiles dark-blue in dark mode
+    const tilePane = map.getPane('tilePane');
+    if (tilePane) {
+      tilePane.style.filter = resolved === 'dark'
+        ? 'hue-rotate(200deg) saturate(1.4) brightness(0.85)'
+        : '';
+    }
     mapInstanceRef.current = map;
     return () => {
       map.remove();
@@ -260,6 +267,12 @@ export default function OperatorProfessionals() {
         : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
       { maxZoom: 20 },
     ).addTo(map);
+    const tilePane = map.getPane('tilePane');
+    if (tilePane) {
+      tilePane.style.filter = resolved === 'dark'
+        ? 'hue-rotate(200deg) saturate(1.4) brightness(0.85)'
+        : '';
+    }
   }, [resolved]);
 
   // Geocode all clinics once loaded
