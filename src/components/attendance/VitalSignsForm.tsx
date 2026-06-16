@@ -31,6 +31,39 @@ function classifyBmi(bmi: number): { label: string; tone: string } {
   return { label: 'Obesidade III', tone: 'bg-red-600/20 text-red-700 dark:text-red-300' };
 }
 
+// Defined outside VitalSignsForm to avoid recreating on every render (which causes focus loss)
+interface FieldProps {
+  fieldKey: keyof VitalSigns;
+  label: string;
+  suffix?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+  readOnly?: boolean;
+}
+
+function VitalField({ fieldKey: _fieldKey, label, suffix, placeholder, value, onChange, readOnly }: FieldProps) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      <div className="relative">
+        <Input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="h-9 text-sm pr-12"
+          disabled={readOnly}
+        />
+        {suffix && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">{suffix}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function VitalSignsForm({ value, onChange, readOnly }: Props) {
   const set = (k: keyof VitalSigns, v: string) => onChange({ ...value, [k]: v });
 
@@ -45,26 +78,6 @@ export function VitalSignsForm({ value, onChange, readOnly }: Props) {
 
   const bmiClass = bmi ? classifyBmi(bmi) : null;
 
-  const Field = ({ k, label, suffix, placeholder }: { k: keyof VitalSigns; label: string; suffix?: string; placeholder?: string }) => (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      <div className="relative">
-        <Input
-          type="text"
-          inputMode="decimal"
-          value={value[k] ?? ''}
-          onChange={(e) => set(k, e.target.value)}
-          placeholder={placeholder}
-          className="h-9 text-sm pr-12"
-          disabled={readOnly}
-        />
-        {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">{suffix}</span>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-3">
@@ -74,26 +87,26 @@ export function VitalSignsForm({ value, onChange, readOnly }: Props) {
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Pressão arterial</p>
           <div className="grid grid-cols-2 gap-3 max-w-xs">
-            <Field k="bp_sys" label="Sistólica" suffix="mmHg" placeholder="120" />
-            <Field k="bp_dia" label="Diastólica" suffix="mmHg" placeholder="80" />
+            <VitalField fieldKey="bp_sys" label="Sistólica" suffix="mmHg" placeholder="120" value={value.bp_sys ?? ''} onChange={(v) => set('bp_sys', v)} readOnly={readOnly} />
+            <VitalField fieldKey="bp_dia" label="Diastólica" suffix="mmHg" placeholder="80" value={value.bp_dia ?? ''} onChange={(v) => set('bp_dia', v)} readOnly={readOnly} />
           </div>
         </div>
 
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Vitais</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Field k="hr" label="FC" suffix="bpm" placeholder="72" />
-            <Field k="rr" label="FR" suffix="rpm" placeholder="16" />
-            <Field k="temp" label="Temp." suffix="°C" placeholder="36.5" />
-            <Field k="spo2" label="SpO₂" suffix="%" placeholder="98" />
+            <VitalField fieldKey="hr" label="FC" suffix="bpm" placeholder="72" value={value.hr ?? ''} onChange={(v) => set('hr', v)} readOnly={readOnly} />
+            <VitalField fieldKey="rr" label="FR" suffix="rpm" placeholder="16" value={value.rr ?? ''} onChange={(v) => set('rr', v)} readOnly={readOnly} />
+            <VitalField fieldKey="temp" label="Temp." suffix="°C" placeholder="36.5" value={value.temp ?? ''} onChange={(v) => set('temp', v)} readOnly={readOnly} />
+            <VitalField fieldKey="spo2" label="SpO₂" suffix="%" placeholder="98" value={value.spo2 ?? ''} onChange={(v) => set('spo2', v)} readOnly={readOnly} />
           </div>
         </div>
 
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Antropometria</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
-            <Field k="weight" label="Peso" suffix="kg" placeholder="70" />
-            <Field k="height" label="Altura" suffix="cm" placeholder="170" />
+            <VitalField fieldKey="weight" label="Peso" suffix="kg" placeholder="70" value={value.weight ?? ''} onChange={(v) => set('weight', v)} readOnly={readOnly} />
+            <VitalField fieldKey="height" label="Altura" suffix="cm" placeholder="170" value={value.height ?? ''} onChange={(v) => set('height', v)} readOnly={readOnly} />
             <div className="space-y-1">
               <Label className="text-xs">IMC</Label>
               <div className="h-9 px-3 rounded-md border border-border/50 bg-muted/30 flex items-center gap-2">
@@ -113,7 +126,7 @@ export function VitalSignsForm({ value, onChange, readOnly }: Props) {
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Outros</p>
           <div className="max-w-[160px]">
-            <Field k="glycemia" label="Glicemia capilar" suffix="mg/dL" placeholder="90" />
+            <VitalField fieldKey="glycemia" label="Glicemia capilar" suffix="mg/dL" placeholder="90" value={value.glycemia ?? ''} onChange={(v) => set('glycemia', v)} readOnly={readOnly} />
           </div>
         </div>
       </CardContent>

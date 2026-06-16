@@ -99,11 +99,16 @@ export default function Budgets() {
   });
 
   const columnData = useMemo(() => {
+    const sorted = [...plans].sort((a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    const numberMap = new Map(sorted.map((p: any, i: number) => [p.id, i + 1]));
+
     const result: Record<string, any[]> = {};
     COLUMNS.forEach(c => { result[c.id] = []; });
     plans.forEach((p: any) => {
       const col = result[p.status] ?? result['pending'];
-      col.push(p);
+      col.push({ ...p, sequential_number: numberMap.get(p.id) });
     });
     return result;
   }, [plans]);
@@ -277,6 +282,7 @@ function KanbanColumn({ id, label, barClass, total, items, onCardClick, onOpenCh
                 dentistName={plan.dentist_name}
                 procedureNames={plan.procedure_names}
                 patientId={plan.patients?.id}
+                sequentialNumber={plan.sequential_number}
                 onOpenChart={plan.patients?.id ? () => onOpenChart(plan.patients.id, plan.id) : undefined}
                 onClick={() => onCardClick(plan.id)}
               />

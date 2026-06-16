@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, Receipt, MapPin, RefreshCw } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, MapPin, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
@@ -618,13 +618,13 @@ export default function MyCredentialingSection() {
                         <>
                           <Button
                             size="sm"
-                            variant="default"
-                            className="w-full md:w-auto gap-1"
+                            variant="outline"
+                            className="w-full md:w-auto"
                             onClick={() => navigate(`/clinica/convenios?operator=${op.id}`)}
                           >
-                            <Receipt className="h-3.5 w-3.5" /> Ver tabela de valores
+                            Ver tabela de valores
                           </Button>
-                          <Button size="sm" variant="destructive" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
+                          <Button size="sm" variant="outline" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
                             Cancelar credenciamento
                           </Button>
                         </>

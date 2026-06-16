@@ -18,6 +18,7 @@ interface BudgetCardProps {
   dentistName?: string | null;
   procedureNames?: string[];
   patientId?: string | null;
+  sequentialNumber?: number;
   onOpenChart?: () => void;
   onClick?: () => void;
 }
@@ -33,7 +34,7 @@ function initialsOf(name: string) {
   return name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-export function BudgetCard({ id, title, patientName, totalCost, itemCount, createdAt, status, dentistName, procedureNames = [], patientId, onOpenChart, onClick }: BudgetCardProps) {
+export function BudgetCard({ id, title, patientName, totalCost, itemCount, createdAt, status, dentistName, procedureNames = [], patientId, sequentialNumber, onOpenChart, onClick }: BudgetCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
@@ -43,8 +44,6 @@ export function BudgetCard({ id, title, patientName, totalCost, itemCount, creat
   };
 
   const patientInitials = initialsOf(patientName);
-  const dentistInitials = dentistName ? initialsOf(dentistName) : '';
-  const shortId = id.slice(0, 6);
   const visibleProcs = procedureNames.slice(0, 2);
   const extraProcs = procedureNames.length - visibleProcs.length;
 
@@ -61,8 +60,8 @@ export function BudgetCard({ id, title, patientName, totalCost, itemCount, creat
         ${isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
     >
       <div className="flex items-center justify-between text-[10px] text-muted-foreground/80 font-mono">
-        <span>#{shortId}</span>
-        <time>{format(new Date(createdAt), "dd MMM", { locale: ptBR })}</time>
+        {sequentialNumber != null && <span>Orçamento #{sequentialNumber}</span>}
+        <time className="ml-auto">{format(new Date(createdAt), "dd MMM", { locale: ptBR })}</time>
       </div>
 
       <p className="mt-1 text-sm font-medium text-foreground line-clamp-2 leading-snug">{title}</p>
