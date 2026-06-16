@@ -13,7 +13,6 @@ import {
 import { toast } from 'sonner';
 import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
-import SubscriptionSection from '@/components/settings/SubscriptionSection';
 
 export default function OperatorSettings() {
   const { operatorId, user } = useAuth();
