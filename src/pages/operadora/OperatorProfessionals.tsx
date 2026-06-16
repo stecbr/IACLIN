@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Send, MessageCircle, X, Mail, Phone, MapPin } from 'lucide-react';
+import { Search, Send, MessageCircle, X, Mail, Phone, MapPin, ArrowLeft, SlidersHorizontal } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -57,6 +57,7 @@ export default function OperatorProfessionals() {
   const [professionalType, setProfessionalType] = useState<'all' | 'medico' | 'dentista'>('all');
   const [specialtyFilter, setSpecialtyFilter] = useState('all');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -263,7 +264,11 @@ export default function OperatorProfessionals() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const pending = rows.filter((r) => !coords.has(r.clinic_id));
+      if (!searched) {
+        setMapLoading(false);
+        return;
+      }
+      const pending = filtered.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
         return;
@@ -315,7 +320,7 @@ export default function OperatorProfessionals() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows]);
+  }, [rows, searched, filtered.length]);
 
   // Render markers when filtered or coords change
   useEffect(() => {
@@ -382,6 +387,20 @@ export default function OperatorProfessionals() {
     }
   };
 
+  const handleSubmitSearch = () => {
+    setSearchOpen(false);
+    setSelectedId(null);
+    setSearched(true);
+  };
+
+  const handleBackToSearch = () => {
+    setSearched(false);
+    setSelectedId(null);
+    setMapLoading(false);
+  };
+
+  const noResults = searched && !mapLoading && filtered.length === 0;
+
   return (
     <div className="-m-4 md:-m-8 relative h-[calc(100vh-0rem)] md:h-screen overflow-hidden">
       {/* Center Leaflet zoom controls vertically on the right */}
@@ -394,8 +413,8 @@ export default function OperatorProfessionals() {
       {/* Map */}
       <div ref={mapContainerRef} className="rede-busca-map absolute inset-0 z-0" />
 
-      {/* Loading overlay while geocoding clinics */}
-      {mapLoading && (
+      {/* Loading overlay while geocoding clinics (only after a search) */}
+      {searched && mapLoading && (
         <div className="absolute inset-0 z-[400] flex items-center justify-center bg-background/20 backdrop-blur-[2px] transition-opacity duration-500">
           <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-lg backdrop-blur">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -404,9 +423,109 @@ export default function OperatorProfessionals() {
         </div>
       )}
 
-      {/* Floating filters */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
-        <div className="mx-auto max-w-4xl space-y-2">
+      {/* Centered search panel (before search) */}
+      {!searched && (
+        <div className="absolute inset-0 z-[600] flex items-center justify-center p-4 bg-background/40 backdrop-blur-sm">
+          <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md">
+            <div className="flex items-center gap-2 mb-1">
+              <SlidersHorizontal className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Buscar rede credenciada</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              Selecione os filtros para localizar clínicas no mapa.
+            </p>
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Nome da clínica, profissional, CNPJ..."
+                  className="pl-10 h-11 rounded-2xl"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitSearch(); }}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
+                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent className="z-[1000]">
+                    <SelectItem value="all">Todos os tipos</SelectItem>
+                    <SelectItem value="medico">Médicos</SelectItem>
+                    <SelectItem value="dentista">Dentistas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="Especialidade" /></SelectTrigger>
+                  <SelectContent className="z-[1000]">
+                    <SelectItem value="all">Todas especialidades</SelectItem>
+                    {specialtyOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={stateFilter} onValueChange={(v) => { setStateFilter(v); setCityFilter('all'); }}>
+                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="UF" /></SelectTrigger>
+                  <SelectContent className="z-[1000]">
+                    <SelectItem value="all">Todas UFs</SelectItem>
+                    {stateOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={cityFilter} onValueChange={setCityFilter}>
+                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="Cidade" /></SelectTrigger>
+                  <SelectContent className="z-[1000]">
+                    <SelectItem value="all">Todas cidades</SelectItem>
+                    {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                className="w-full h-11 rounded-2xl mt-2"
+                onClick={handleSubmitSearch}
+                disabled={loading}
+              >
+                {loading ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando…</>
+                ) : (
+                  <><Search className="h-4 w-4 mr-2" /> Buscar clínicas</>
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Floating back button (after search) */}
+      {searched && (
+        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550]">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleBackToSearch}
+            className="rounded-full shadow-xl border border-border/60 bg-background/90 backdrop-blur-md h-10 px-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Nova busca
+          </Button>
+        </div>
+      )}
+
+      {/* No results message */}
+      {noResults && (
+        <div className="absolute inset-0 z-[500] flex items-center justify-center p-4 pointer-events-none">
+          <Card className="pointer-events-auto rounded-2xl border border-border/60 bg-background/95 p-6 shadow-2xl backdrop-blur-md text-center max-w-sm">
+            <MapPin className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <div className="font-semibold mb-1">Nenhuma clínica encontrada</div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Não há clínicas que correspondam aos filtros selecionados.
+            </p>
+            <Button size="sm" onClick={handleBackToSearch} className="rounded-xl">
+              <ArrowLeft className="h-4 w-4 mr-1.5" /> Ajustar filtros
+            </Button>
+          </Card>
+        </div>
+      )}
+
+      {/* Floating quick search after results (kept for in-map refinement) */}
+      {searched && !noResults && (
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4 pl-[140px] md:pl-[160px]">
+        <div className="mx-auto max-w-3xl">
           {/* Full-width floating search */}
           <div className="pointer-events-auto relative">
             <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
@@ -450,49 +569,9 @@ export default function OperatorProfessionals() {
               </div>
             )}
           </div>
-
-          {/* Individually floating filter buttons */}
-          <div className="flex flex-wrap gap-2 w-full">
-            <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[120px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent className="z-[1000]">
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="medico">Médicos</SelectItem>
-                <SelectItem value="dentista">Dentistas</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[140px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
-                <SelectValue placeholder="Especialidade" />
-              </SelectTrigger>
-              <SelectContent className="z-[1000]">
-                <SelectItem value="all">Todas especialidades</SelectItem>
-                {specialtyOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[100px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
-                <SelectValue placeholder="UF" />
-              </SelectTrigger>
-              <SelectContent className="z-[1000]">
-                <SelectItem value="all">Todas UFs</SelectItem>
-                {stateOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="pointer-events-auto h-10 flex-1 min-w-[130px] rounded-2xl border border-border/60 bg-background/85 shadow-xl backdrop-blur-md">
-                <SelectValue placeholder="Cidade" />
-              </SelectTrigger>
-              <SelectContent className="z-[1000]">
-                <SelectItem value="all">Todas cidades</SelectItem>
-                {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
+      )}
 
       {/* Bottom info panel */}
       {selected && (
