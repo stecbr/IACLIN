@@ -229,7 +229,7 @@ export default function Marketplace() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       <MarketplaceHeader
         searchName={searchName}
         searchCity={searchCity}
