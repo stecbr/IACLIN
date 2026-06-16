@@ -156,6 +156,7 @@ export default function MyCredentialingSection() {
   const [openFor, setOpenFor] = useState<Operator | null>(null);
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [addressFromSettings, setAddressFromSettings] = useState(false);
+  const [clinicCategory, setClinicCategory] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState('');
   const [professionalPhone, setProfessionalPhone] = useState('');
@@ -267,7 +268,7 @@ export default function MyCredentialingSection() {
           .eq('clinic_id', currentClinicId)
           .maybeSingle(),
         supabase.from('profiles').select('full_name, phone').eq('id', user.id).maybeSingle(),
-        supabase.from('clinics').select('name, cnpj, cpf, entity_type, address, city, state, zip_code, responsible_name, business_hours, logo_url').eq('id', currentClinicId).maybeSingle(),
+        supabase.from('clinics').select('name, cnpj, cpf, entity_type, address, city, state, zip_code, responsible_name, business_hours, logo_url, category').eq('id', currentClinicId).maybeSingle(),
       ]);
 
       const mId = (member as any)?.id ?? null;
@@ -291,6 +292,7 @@ export default function MyCredentialingSection() {
       setClinicZip(zip);
       setClinicResponsible((clinic as any)?.responsible_name ?? '');
       setAddressFromSettings(!!(addr || city || state || zip));
+      setClinicCategory((clinic as any)?.category ?? null);
       setSchedule(parseSchedule((clinic as any)?.business_hours));
       // Detecção inteligente PF/PJ. Mesmo que o registro tenha entity_type='juridica'
       // legado, se não houver CNPJ tratamos como PF (caso usuário corrija em Configurações).
@@ -354,7 +356,15 @@ export default function MyCredentialingSection() {
     return map;
   }, [creds]);
 
-  const filtered = operators.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = operators.filter((o) => {
+    if (!o.name.toLowerCase().includes(query.toLowerCase())) return false;
+    const opType = (o.type ?? '').toLowerCase();
+    if (opType === 'ambos' || opType === '') return true;
+    if (clinicCategory === 'odonto') return opType === 'odonto';
+    if (clinicCategory === 'medico') return opType === 'medico';
+    // estetica / outro / unknown → allow all
+    return true;
+  });
 
   useEffect(() => {
     if (!invitedOperatorId || operators.length === 0) return;
