@@ -161,15 +161,15 @@ export default function OperatorTickets() {
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="inline-flex rounded-lg bg-muted p-1 flex-wrap">
         {TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setStatusFilter(tab.value)}
-            className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`relative px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
               statusFilter === tab.value
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.label}
