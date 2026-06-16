@@ -64,7 +64,7 @@ export default function Marketplace() {
           .select("dentist_id, start_time, end_time, status")
           .in("dentist_id", userIds)
           .gte("start_time", today.toISOString())
-          .lte("start_time", addDays(today, 7).toISOString())
+          .lte("start_time", addDays(today, 30).toISOString())
           .neq("status", "cancelled"),
         supabase.from("insurance_plans").select("clinic_id, name").in("clinic_id", clinicIds).eq("is_active", true),
       ]);
