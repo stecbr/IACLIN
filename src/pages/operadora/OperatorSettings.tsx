@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
 
 export default function OperatorSettings() {
   const { operatorId, user } = useAuth();
+  const queryClient = useQueryClient();
   const [op, setOp] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -44,6 +45,7 @@ export default function OperatorSettings() {
     if (error) return toast.error('Erro: ' + error.message);
     setOp({ ...op, ...draft });
     setEditOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['operator-info', operatorId] });
     toast.success('Salvo');
   };
 
@@ -57,6 +59,7 @@ export default function OperatorSettings() {
     const { error } = await supabase.from('insurance_operators').update({ logo_url: pub.publicUrl }).eq('id', operatorId);
     if (error) return toast.error('Erro ao salvar logo');
     setOp({ ...op, logo_url: pub.publicUrl });
+    queryClient.invalidateQueries({ queryKey: ['operator-info', operatorId] });
     toast.success('Logo atualizada');
   };
 
@@ -65,6 +68,7 @@ export default function OperatorSettings() {
     const { error } = await supabase.from('insurance_operators').update({ logo_url: null }).eq('id', operatorId);
     if (error) return toast.error('Erro ao remover logo');
     setOp({ ...op, logo_url: null });
+    queryClient.invalidateQueries({ queryKey: ['operator-info', operatorId] });
     toast.success('Logo removida — usando padrão IACLIN');
   };
 
