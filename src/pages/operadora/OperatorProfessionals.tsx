@@ -263,30 +263,52 @@ export default function OperatorProfessionals() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const next = new Map(coords);
-      const pending = rows.filter((r) => !next.has(r.clinic_id));
+      const pending = rows.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
         return;
       }
       setMapLoading(true);
-      const results = await Promise.allSettled(
-        pending.map((r) =>
-          geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood).then((c) => ({
-            id: r.clinic_id,
-            c,
-          })),
-        ),
-      );
-      if (cancelled) return;
-      let changed = false;
-      for (const res of results) {
-        if (res.status === 'fulfilled' && res.value.c) {
-          next.set(res.value.id, res.value.c);
-          changed = true;
+
+      // Stream results: update map progressively, with a small concurrency cap to be nice to Nominatim
+      // and to avoid blocking the UI on the slowest clinic.
+      const CONCURRENCY = 4;
+      let cursor = 0;
+      let buffer: Array<[string, { lat: number; lng: number }]> = [];
+      let flushTimer: ReturnType<typeof setTimeout> | null = null;
+      const flush = () => {
+        if (buffer.length === 0 || cancelled) return;
+        const batch = buffer;
+        buffer = [];
+        setCoords((prev) => {
+          const next = new Map(prev);
+          for (const [id, c] of batch) next.set(id, c);
+          return next;
+        });
+      };
+      const scheduleFlush = () => {
+        if (flushTimer) return;
+        flushTimer = setTimeout(() => { flushTimer = null; flush(); }, 150);
+      };
+
+      const worker = async () => {
+        while (!cancelled) {
+          const i = cursor++;
+          if (i >= pending.length) return;
+          const r = pending[i];
+          const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
+          if (cancelled) return;
+          if (c) {
+            buffer.push([r.clinic_id, c]);
+            scheduleFlush();
+            // Hide the overlay as soon as we have anything to show
+            setMapLoading(false);
+          }
         }
-      }
-      if (changed) setCoords(next);
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker));
+      if (cancelled) return;
+      flush();
       setMapLoading(false);
     })();
     return () => {
