@@ -193,9 +193,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
       {/* Collapsed icon rail */}
       <aside
-        className={`hidden ${!sidebarOpen ? "md:flex" : "md:hidden"} w-16 flex-col items-center bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen overflow-hidden`}
+        className={`hidden ${!sidebarOpen ? "md:flex" : "md:hidden"} w-16 flex-col items-center bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen`}
       >
-        <div className="py-4 flex justify-center w-full">
+        <div className="py-4 w-full flex items-center justify-center">
           <div className="h-10 w-10 rounded-xl overflow-hidden ring-1 ring-sidebar-border bg-sidebar-accent">
             <img
               src={op?.logo_url || iaclinDefaultLogo.url}
@@ -205,11 +205,14 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           </div>
         </div>
         <TooltipProvider delayDuration={100}>
-          <nav className="flex-1 overflow-y-auto w-full py-2 flex flex-col items-center gap-1">
+          <nav
+            className="flex-1 w-full py-2 flex flex-col items-center gap-1 overflow-y-auto"
+            style={{ scrollbarWidth: "none" }}
+          >
             {navGroups
               .filter((g) => g.label !== "Conta")
               .map((group, gi, arr) => (
-                <div key={group.label} className="flex flex-col items-center gap-1">
+                <div key={group.label} className="w-full flex flex-col items-center gap-1">
                   {group.items.map((item) => (
                     <Tooltip key={item.to}>
                       <TooltipTrigger asChild>
@@ -219,7 +222,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           className={({ isActive }) =>
                             `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
                               isActive
-                                ? "bg-sidebar-primary/20 text-sidebar-primary"
+                                ? "bg-primary/15 text-primary"
                                 : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                             }`
                           }
@@ -245,7 +248,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                       className={({ isActive }) =>
                         `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
                           isActive
-                            ? "bg-sidebar-primary/20 text-sidebar-primary"
+                            ? "bg-primary/15 text-primary"
                             : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                         }`
                       }
