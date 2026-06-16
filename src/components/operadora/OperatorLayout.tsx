@@ -206,7 +206,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </div>
         <TooltipProvider delayDuration={100}>
           <nav
-            className="flex-1 w-full py-2 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden"
+            className="flex-1 w-full px-3 py-2 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {navGroups
@@ -220,7 +220,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           to={item.to}
                           end={item.end}
                           className={({ isActive }) =>
-                            `mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                            `flex h-10 w-full items-center justify-center rounded-xl transition-colors ${
                               isActive
                                 ? "bg-sidebar-accent/70 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
                                 : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
@@ -237,7 +237,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                 </div>
               ))}
           </nav>
-          <div className="w-full py-3 border-t border-sidebar-border space-y-2">
+          <div className="w-full px-3 py-3 border-t border-sidebar-border space-y-2">
             {navGroups
               .find((g) => g.label === "Conta")
               ?.items.map((item) => (
@@ -246,7 +246,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     <NavLink
                       to={item.to}
                       className={({ isActive }) =>
-                        `mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                        `flex h-10 w-full items-center justify-center rounded-xl transition-colors ${
                           isActive
                             ? "bg-sidebar-accent/70 text-sidebar-accent-foreground ring-1 ring-sidebar-border font-medium"
                             : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
