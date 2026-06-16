@@ -317,9 +317,15 @@ export function LiveMessagesPanel({
               <Skeleton className="h-20 w-full" />
             </div>
           ) : (
-            <div className={`flex ${selected ? 'divide-x' : ''}`}>
+            <div className={`flex ${selected ? 'sm:divide-x' : ''}`}>
               {/* Lista de conversas */}
-              <div className={selected ? 'w-[42%] min-w-[260px]' : 'w-full'}>
+              <div
+                className={
+                  selected
+                    ? 'hidden sm:block sm:w-[42%] sm:min-w-[260px]'
+                    : 'w-full'
+                }
+              >
                 {filtered.length === 0 ? (
                   <div className="flex h-[420px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground p-4">
                     <Clock className="h-6 w-6 opacity-40" />
@@ -360,7 +366,7 @@ export function LiveMessagesPanel({
 
               {/* Painel lateral — histórico da conversa selecionada */}
               {selected && (
-                <div className="flex flex-1 flex-col">
+                <div className="flex flex-1 flex-col min-w-0">
                   <ConversationThread
                     clinicId={clinicId}
                     conversation={selected}
