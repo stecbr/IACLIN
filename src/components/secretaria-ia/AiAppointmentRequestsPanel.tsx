@@ -219,8 +219,8 @@ export function AiAppointmentRequestsPanel({ compact = false }: PanelProps = {})
   return (
     <>
       <Card className={compact ? 'rounded-xl border-primary/30 bg-primary/5 shadow-sm' : 'rounded-xl shadow-sm'}>
-        <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <div>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <CardTitle className="text-lg">
               {compact ? `Pedidos de agendamento (${requests.length})` : 'Pedidos de Agendamento da IA'}
             </CardTitle>
@@ -236,7 +236,7 @@ export function AiAppointmentRequestsPanel({ compact = false }: PanelProps = {})
               variant="outline"
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending || !currentClinicId}
-              className="gap-2"
+              className="gap-2 self-start shrink-0"
             >
               {syncMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
