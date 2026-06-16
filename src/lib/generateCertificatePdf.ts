@@ -47,7 +47,7 @@ function loadDataUrl(url: string): Promise<string> {
   });
 }
 
-export async function generateCertificatePdf(data: CertificatePdfData) {
+export async function buildCertificateHtml(data: CertificatePdfData): Promise<string> {
   const { mode, patient, dentist, clinic, notes, cid } = data;
   const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   const city = clinic?.city ?? '';
@@ -145,6 +145,11 @@ export async function generateCertificatePdf(data: CertificatePdfData) {
 
 </div></body></html>`;
 
+  return html;
+}
+
+export async function generateCertificatePdf(data: CertificatePdfData) {
+  const html = await buildCertificateHtml(data);
   const printWindow = window.open('', '_blank');
   if (!printWindow) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');
   printWindow.document.write(html);

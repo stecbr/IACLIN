@@ -53,7 +53,7 @@ const URGENCY_COLOR: Record<NonNullable<ReferralPdfData['urgency']>, string> = {
   emergencia: '#991b1b',
 };
 
-export async function generateReferralPdf(data: ReferralPdfData) {
+export async function buildReferralHtml(data: ReferralPdfData): Promise<string> {
   const { toSpecialty, reason, summary, urgency, patient, doctor, clinic } = data;
   const today = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   const city = clinic?.city ?? '';
@@ -174,6 +174,11 @@ export async function generateReferralPdf(data: ReferralPdfData) {
 
 </div></body></html>`;
 
+  return html;
+}
+
+export async function generateReferralPdf(data: ReferralPdfData) {
+  const html = await buildReferralHtml(data);
   const w = window.open('', '_blank');
   if (!w) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');
   w.document.write(html);
