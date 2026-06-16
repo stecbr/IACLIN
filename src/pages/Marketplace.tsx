@@ -191,9 +191,9 @@ export default function Marketplace() {
         }
       }
 
-      return nameMatch && cityMatch && specMatch && boundsMatch;
+      return nameMatch && cityMatch && specMatch && insMatch && boundsMatch;
     });
-  }, [doctors, searchName, searchCity, selectedSpecialties, mapBounds, clinicCoords]);
+  }, [doctors, searchName, searchCity, selectedSpecialties, selectedInsurance, mapBounds, clinicCoords]);
 
   const clinicsGeo = useMemo(() => {
     const seen = new Set<string>();
