@@ -170,6 +170,12 @@ export default function Marketplace() {
         selectedSpecialties.length === 0 ||
         (d.specialty && selectedSpecialties.includes(d.specialty));
 
+      const insMatch =
+        !selectedInsurance ||
+        (d.insurancePlans ?? []).some(
+          (p) => p.toLowerCase() === selectedInsurance.toLowerCase(),
+        );
+
       // Map bounds filter
       let boundsMatch = true;
       if (mapBounds) {
