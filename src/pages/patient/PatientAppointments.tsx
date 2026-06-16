@@ -91,7 +91,7 @@ export default function PatientAppointments() {
           <h1 className="text-2xl font-semibold tracking-tight">Minhas Consultas</h1>
           <p className="text-sm text-muted-foreground mt-1">Suas consultas próximas e histórico.</p>
         </div>
-        <Button onClick={() => navigate('/marketplace')} className="gap-2">
+        <Button onClick={() => navigate('/paciente/agendar')} className="gap-2">
           <Plus className="h-4 w-4" /> Agendar consulta
         </Button>
       </div>
@@ -152,7 +152,7 @@ export default function PatientAppointments() {
               title="Nenhuma consulta futura"
               description="Encontre profissionais e marque sua próxima consulta."
               actionLabel="Agendar agora"
-              onAction={() => navigate('/marketplace')}
+              onAction={() => navigate('/paciente/agendar')}
             />
           ) : (
             upcoming.map((a) => <AppointmentItem key={a.id} a={a} onClick={() => open(a)} />)
