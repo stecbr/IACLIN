@@ -70,10 +70,17 @@ export default function OperatorAgenda() {
     queryFn: async () => {
       const { data } = await supabase
         .from('operator_credentialings')
-        .select('clinic_id, professional_user_id, clinics(id, name), profiles:professional_user_id(id, full_name)')
+        .select('clinic_id, professional_user_id, clinics(id, name)')
         .eq('operator_id', operatorId!)
         .eq('status', 'approved');
-      return (data ?? []) as any[];
+      const rows = (data ?? []) as any[];
+      const ids = Array.from(new Set(rows.map((r) => r.professional_user_id).filter(Boolean)));
+      let profMap = new Map<string, string>();
+      if (ids.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        (profs ?? []).forEach((p: any) => profMap.set(p.id, p.full_name));
+      }
+      return rows.map((r) => ({ ...r, profile_name: profMap.get(r.professional_user_id) ?? null }));
     },
   });
 
@@ -85,7 +92,7 @@ export default function OperatorAgenda() {
 
   const doctors = useMemo(() => {
     const m = new Map<string, string>();
-    creds.forEach((c: any) => c.profiles && m.set(c.profiles.id, c.profiles.full_name));
+    creds.forEach((c: any) => c.professional_user_id && m.set(c.professional_user_id, c.profile_name ?? '—'));
     return Array.from(m, ([id, name]) => ({ id, name }));
   }, [creds]);
 
