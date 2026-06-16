@@ -247,15 +247,16 @@ export function LiveMessagesPanel({
 
       <Card className="rounded-xl shadow-sm">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Conversas ao vivo</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <MessageSquare className="h-4 w-4 text-primary shrink-0" />
+              <CardTitle className="text-base truncate">Conversas ao vivo</CardTitle>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="gap-1.5 whitespace-nowrap">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Atualizando a cada 5s
+                <span className="hidden sm:inline">Atualizando a cada 5s</span>
+                <span className="sm:hidden">Ao vivo</span>
               </Badge>
               <Button
                 size="sm"
@@ -292,7 +293,7 @@ export function LiveMessagesPanel({
                 </button>
               )}
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {(['all', 'ai', 'human', 'scheduled'] as FilterStatus[]).map((f) => (
                 <Button
                   key={f}
