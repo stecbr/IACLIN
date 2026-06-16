@@ -131,16 +131,6 @@ export default function OperatorSettings() {
               <InfoRow label="CNPJ" value={op.cnpj} mono />
               <InfoRow label="Código ANS" value={op.ans_code} mono />
               <InfoRow label="Tipo" value={typeLabel(op.type)} />
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Cor da marca</p>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-5 w-5 rounded border border-border"
-                    style={{ backgroundColor: op.brand_color ?? '#3B82F6' }}
-                  />
-                  <span className="text-sm font-mono">{op.brand_color ?? '#3B82F6'}</span>
-                </div>
-              </div>
               <InfoRow label="E-mail" value={op.contact_email} />
               <InfoRow label="Telefone" value={op.contact_phone} />
               <div className="sm:col-span-2">
@@ -175,7 +165,6 @@ export default function OperatorSettings() {
                       <option value="ambos">Médica e odontológica</option>
                     </select>
                   </div>
-                  <div><Label>Cor da marca</Label><Input type="color" value={draft.brand_color ?? '#3B82F6'} onChange={(e) => setDraft({ ...draft, brand_color: e.target.value })} /></div>
                   <div><Label>E-mail</Label><Input value={draft.contact_email ?? ''} onChange={(e) => setDraft({ ...draft, contact_email: e.target.value })} /></div>
                   <div><Label>Telefone</Label><Input value={draft.contact_phone ?? ''} onChange={(e) => setDraft({ ...draft, contact_phone: e.target.value })} /></div>
                   <div className="sm:col-span-2"><Label>Responsável</Label><Input value={draft.responsible_name ?? ''} onChange={(e) => setDraft({ ...draft, responsible_name: e.target.value })} /></div>
@@ -188,7 +177,6 @@ export default function OperatorSettings() {
             </DialogContent>
           </Dialog>
 
-          {operatorId && <SubscriptionSection entityType="operator" entityId={operatorId} />}
         </TabsContent>
 
         {/* ── Segurança ── */}
