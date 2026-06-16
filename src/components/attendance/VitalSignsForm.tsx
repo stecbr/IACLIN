@@ -50,7 +50,7 @@ export function VitalSignsForm({ value, onChange, readOnly }: Props) {
       <Label className="text-xs">{label}</Label>
       <div className="relative">
         <Input
-          type="number"
+          type="text"
           inputMode="decimal"
           value={value[k] ?? ''}
           onChange={(e) => set(k, e.target.value)}
