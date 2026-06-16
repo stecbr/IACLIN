@@ -214,25 +214,30 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               .map((group, gi, arr) => (
                 <div key={group.label} className="w-full flex flex-col items-center gap-1">
                   {group.items.map((item) => (
-                    <Tooltip key={item.to}>
-                      <TooltipTrigger asChild>
-                        <NavLink
-                          to={item.to}
-                          end={item.end}
-                          className={({ isActive }) =>
-                            `flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
-                              isActive
-                                ? "bg-sidebar-accent text-sidebar-primary"
-                                : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
-                            }`
-                          }
-                        >
-                          <item.icon size={18} strokeWidth={2} className="block shrink-0" />
-                        </NavLink>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">{item.label}</TooltipContent>
-                    </Tooltip>
-                  ))}
+                    (() => {
+                      const active = item.end
+                        ? location.pathname === item.to
+                        : location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+                      return (
+                        <Tooltip key={item.to}>
+                          <TooltipTrigger asChild>
+                            <NavLink
+                              to={item.to}
+                              end={item.end}
+                              className={`flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
+                                active
+                                  ? "bg-sidebar-accent text-sidebar-primary"
+                                  : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
+                              }`}
+                            >
+                              <item.icon size={18} strokeWidth={2} className="block shrink-0" />
+                            </NavLink>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">{item.label}</TooltipContent>
+                        </Tooltip>
+                      );
+                    })()
+                  )}
                   {gi < arr.length - 1 && <div className="h-px w-6 bg-sidebar-border my-1" />}
                 </div>
               ))}
@@ -240,25 +245,27 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           <div className="w-full py-3 border-t border-sidebar-border flex flex-col items-center gap-2">
             {navGroups
               .find((g) => g.label === "Conta")
-              ?.items.map((item) => (
-                <Tooltip key={item.to}>
-                  <TooltipTrigger asChild>
-                    <NavLink
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
-                          isActive
+              ?.items.map((item) => {
+                const active =
+                  location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+                return (
+                  <Tooltip key={item.to}>
+                    <TooltipTrigger asChild>
+                      <NavLink
+                        to={item.to}
+                        className={`flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
+                          active
                             ? "bg-sidebar-accent text-sidebar-primary"
                             : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
-                        }`
-                      }
-                    >
-                      <item.icon size={18} strokeWidth={2} className="block shrink-0" />
-                    </NavLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                </Tooltip>
-              ))}
+                        }`}
+                      >
+                        <item.icon size={18} strokeWidth={2} className="block shrink-0" />
+                      </NavLink>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{item.label}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
                 {profile?.full_name
