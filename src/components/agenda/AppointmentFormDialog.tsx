@@ -528,6 +528,11 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             }}>
               <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
               <SelectContent>
+                {procedures.length === 0 && (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    Nenhum procedimento cadastrado no catálogo.
+                  </div>
+                )}
                 {procedures.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     <div className="flex items-center gap-2">
