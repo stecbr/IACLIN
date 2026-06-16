@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -90,6 +90,57 @@ export default function Attendance() {
   const { profile: specialtyProfile } = useSpecialtyProfile();
   const tabKeys = specialtyProfile.attendanceTabs;
   const showToothProcedures = specialtyProfile.showToothProcedures;
+
+  // Draft persistence: survives navigation within the same session
+  const DRAFT_KEY = `attendance_draft_${appointmentId}`;
+  const restoredFromStorage = useRef(false);
+
+  // Restore draft from sessionStorage on mount (before DB query resolves)
+  useEffect(() => {
+    if (!appointmentId) return;
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      restoredFromStorage.current = true;
+      if (d.clinicalNotes !== undefined) setClinicalNotes(d.clinicalNotes);
+      if (d.diagnosis !== undefined) setDiagnosis(d.diagnosis);
+      if (d.chiefComplaint !== undefined) setChiefComplaint(d.chiefComplaint);
+      if (d.hpi !== undefined) setHpi(d.hpi);
+      if (d.durationValue !== undefined) setDurationValue(d.durationValue);
+      if (d.durationUnit !== undefined) setDurationUnit(d.durationUnit);
+      if (d.physicalExam !== undefined) setPhysicalExam(d.physicalExam);
+      if (d.vitalSigns !== undefined) setVitalSigns(d.vitalSigns);
+      if (d.hypotheses !== undefined) setHypotheses(d.hypotheses);
+      if (d.severity !== undefined) setSeverity(d.severity);
+      if (d.treatmentPlan !== undefined) setTreatmentPlan(d.treatmentPlan);
+      if (d.followUpDate !== undefined) setFollowUpDate(d.followUpDate);
+      if (d.followUpReason !== undefined) setFollowUpReason(d.followUpReason);
+      if (d.requests !== undefined) setRequests(d.requests);
+      if (d.anthropometry !== undefined) setAnthropometry(d.anthropometry);
+      if (d.mealPlan !== undefined) setMealPlan(d.mealPlan);
+      if (d.soap !== undefined) setSoap(d.soap);
+      if (d.dentalExam !== undefined) setDentalExam(d.dentalExam);
+      if (Array.isArray(d.procedures) && d.procedures.length > 0) setProcedures(d.procedures);
+    } catch { /* ignore corrupt draft */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save draft to sessionStorage whenever state changes (debounced 600ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        clinicalNotes, diagnosis, chiefComplaint, hpi, durationValue, durationUnit,
+        physicalExam, vitalSigns, hypotheses, severity, treatmentPlan,
+        followUpDate, followUpReason, requests, anthropometry, mealPlan, soap, dentalExam, procedures,
+      }));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [DRAFT_KEY, clinicalNotes, diagnosis, chiefComplaint, hpi, durationValue, durationUnit,
+    physicalExam, vitalSigns, hypotheses, severity, treatmentPlan, followUpDate, followUpReason,
+    requests, anthropometry, mealPlan, soap, dentalExam, procedures]);
+
+  const clearDraft = () => sessionStorage.removeItem(DRAFT_KEY);
 
   // Load appointment
   const { data: appointment, isLoading: loadingApt } = useQuery({
@@ -234,11 +285,12 @@ export default function Attendance() {
     enabled: !!currentClinicId,
   });
 
-  // Populate form with existing record
+  // Populate form with existing record (skips form fields if draft was restored from sessionStorage)
   useEffect(() => {
     if (existingRecord) {
       const r = existingRecord as any;
-      setClinicalRecordId(existingRecord.id);
+      setClinicalRecordId(existingRecord.id); // always capture the DB record ID
+      if (restoredFromStorage.current) return; // draft takes priority over DB data
       // Parse specialty-specific JSON header from notes if present
       const rawNotes: string = existingRecord.notes ?? '';
       const specMatch = rawNotes.match(/^<!--SPECIALTY_DATA:(.*?)-->\n?/s);
@@ -504,6 +556,7 @@ export default function Attendance() {
         if (delReqErr) throw delReqErr;
       }
 
+      clearDraft();
       toast.success('Atendimento salvo!');
       return true;
     } catch (err: any) {
@@ -554,6 +607,7 @@ export default function Attendance() {
         .eq('id', appointment.id);
       if (aptError) throw aptError;
       endSession(appointment.id);
+      clearDraft();
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
