@@ -277,13 +277,15 @@ export default function OperatorRequests() {
         <h1 className="text-2xl font-semibold">Pedidos de credenciamento</h1>
         <p className="text-sm text-muted-foreground">Aprove ou recuse profissionais que querem entrar na sua rede</p>
       </div>
-      <div className="flex gap-2 border-b border-border">
+      <div className="inline-flex rounded-lg bg-muted p-1">
         {(['pending', 'all'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm border-b-2 transition-colors ${
-              tab === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              tab === t
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {t === 'pending' ? `Pendentes (${reqs.filter((r) => r.status === 'pending').length})` : 'Todos'}
