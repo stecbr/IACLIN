@@ -1,4 +1,35 @@
-const cache = new Map<string, { lat: number; lng: number }>();
+const cache = new Map<string, { lat: number; lng: number } | null>();
+const inflight = new Map<string, Promise<{ lat: number; lng: number } | null>>();
+const LS_KEY = "geocode-cache-v1";
+
+// Hydrate from localStorage (persistent across sessions — dramatically speeds repeat visits)
+try {
+  if (typeof window !== "undefined") {
+    const raw = window.localStorage.getItem(LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, { lat: number; lng: number } | null>;
+      for (const [k, v] of Object.entries(parsed)) cache.set(k, v);
+    }
+  }
+} catch {
+  // ignore
+}
+
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleFlush() {
+  if (typeof window === "undefined") return;
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    try {
+      const obj: Record<string, { lat: number; lng: number } | null> = {};
+      cache.forEach((v, k) => { obj[k] = v; });
+      window.localStorage.setItem(LS_KEY, JSON.stringify(obj));
+    } catch {
+      // quota — ignore
+    }
+  }, 1000);
+}
 
 async function fetchNominatim(params: Record<string, string>): Promise<{ lat: number; lng: number } | null> {
   try {
@@ -29,37 +60,28 @@ export async function geocodeAddress(
     : null;
   const key = [street, neighborhood, city, state, zipCode].filter(Boolean).join(", ");
   if (!key) return null;
-  if (cache.has(key)) return cache.get(key)!;
+  if (cache.has(key)) return cache.get(key) ?? null;
+  const existing = inflight.get(key);
+  if (existing) return existing;
 
-  // 1. Structured search
-  const structured: Record<string, string> = {};
-  if (street) structured.street = street;
-  if (city) structured.city = city;
-  if (state) structured.state = state;
-  if (zipCode) structured.postalcode = zipCode;
-
-  let coords = await fetchNominatim(structured);
-
-  // 1b. Try with neighborhood as suburb if first attempt failed
-  if (!coords && neighborhood) {
-    const withSuburb: Record<string, string> = { ...structured, suburb: neighborhood };
-    coords = await fetchNominatim(withSuburb);
+  const task = (async () => {
+    // Single best-shot strategy: free-text combined search; if it fails, fall back to city/state only.
+    // This caps requests at 2/clinic instead of up to 4 to drastically reduce total geocoding time
+    // (Nominatim is rate-limited and each request adds 200-800ms).
+    let coords = await fetchNominatim({ q: key });
+    if (!coords && city) {
+      const cityParams: Record<string, string> = { city };
+      if (state) cityParams.state = state;
+      coords = await fetchNominatim(cityParams);
+    }
+    cache.set(key, coords ?? null);
+    scheduleFlush();
+    return coords;
+  })();
+  inflight.set(key, task);
+  try {
+    return await task;
+  } finally {
+    inflight.delete(key);
   }
-
-  // 2. Free-text fallback
-  if (!coords) {
-    coords = await fetchNominatim({ q: key });
-  }
-
-  // 3. City + state fallback
-  if (!coords && city) {
-    const cityParams: Record<string, string> = { city };
-    if (state) cityParams.state = state;
-    coords = await fetchNominatim(cityParams);
-  }
-
-  if (coords) {
-    cache.set(key, coords);
-  }
-  return coords;
 }
