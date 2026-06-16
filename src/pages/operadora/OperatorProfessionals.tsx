@@ -584,14 +584,6 @@ export default function OperatorProfessionals() {
         </div>
       )}
 
-      {/* Loading overlay */}
-      {loading && (
-        <div className="absolute inset-0 z-[400] flex items-center justify-center pointer-events-none">
-          <div className="bg-background/80 backdrop-blur px-4 py-2 rounded-xl text-sm text-muted-foreground border border-border/60">
-            Carregando rede de clínicas...
-          </div>
-        </div>
-      )}
     </div>
   );
 }
