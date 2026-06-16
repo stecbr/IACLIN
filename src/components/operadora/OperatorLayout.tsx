@@ -9,7 +9,7 @@ import {
   Settings,
   LogOut,
   ArrowRight,
-  ChevronLeft,
+  PanelLeft,
   Sun,
   Moon,
   Building2,
@@ -102,6 +102,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
   return (
     <div className={`operator-scope ${resolved === "dark" ? "dark" : ""} min-h-screen flex w-full bg-background`}>
+      {/* Full sidebar */}
       <aside
         className={`hidden ${sidebarOpen ? "md:flex" : "md:hidden"} w-72 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen overflow-hidden`}
       >
@@ -190,6 +191,85 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </div>
       </aside>
 
+      {/* Collapsed icon rail */}
+      <aside
+        className={`hidden ${!sidebarOpen ? "md:flex" : "md:hidden"} w-16 flex-col items-center bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen overflow-hidden`}
+      >
+        <div className="py-4">
+          <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border bg-sidebar-accent">
+            <img
+              src={op?.logo_url || iaclinDefaultLogo.url}
+              alt={op?.name ?? "Operadora"}
+              className="h-full w-full object-contain"
+            />
+          </div>
+        </div>
+        <TooltipProvider delayDuration={100}>
+          <nav className="flex-1 overflow-y-auto w-full px-2 py-2 flex flex-col items-center gap-1">
+            {navGroups
+              .filter((g) => g.label !== "Conta")
+              .map((group, gi, arr) => (
+                <div key={group.label} className="w-full flex flex-col items-center gap-1">
+                  {group.items.map((item) => (
+                    <Tooltip key={item.to}>
+                      <TooltipTrigger asChild>
+                        <NavLink
+                          to={item.to}
+                          end={item.end}
+                          className={({ isActive }) =>
+                            `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
+                              isActive
+                                ? "bg-sidebar-accent/70 text-sidebar-accent-foreground"
+                                : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
+                            }`
+                          }
+                        >
+                          <item.icon className="h-4 w-4" />
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                  {gi < arr.length - 1 && <div className="h-px w-6 bg-sidebar-border my-1" />}
+                </div>
+              ))}
+          </nav>
+          <div className="w-full px-2 py-3 border-t border-sidebar-border flex flex-col items-center gap-1">
+            {navGroups
+              .find((g) => g.label === "Conta")
+              ?.items.map((item) => (
+                <Tooltip key={item.to}>
+                  <TooltipTrigger asChild>
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
+                          isActive
+                            ? "bg-sidebar-accent/70 text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
+                        }`
+                      }
+                    >
+                      <item.icon className="h-4 w-4" />
+                    </NavLink>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                </Tooltip>
+              ))}
+            <Avatar className="h-8 w-8 mt-1">
+              <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
+                {profile?.full_name
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase() ?? "U"}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </TooltipProvider>
+      </aside>
+
       <div className="flex-1 flex flex-col min-w-0">
         {location.pathname !== "/operadora/profissionais" && (
           <header className="h-16 flex items-center justify-between border-b border-border px-4 md:px-6 bg-card sticky top-0 z-10">
@@ -197,10 +277,10 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               <div className="hidden md:flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen((s) => !s)}
-                  className="p-2 rounded-md text-muted-foreground hover:bg-muted/5 transition-colors"
-                  aria-label="Fechar sidebar"
+                  className="p-2 rounded-xl text-muted-foreground hover:bg-muted/5 transition-colors"
+                  aria-label="Alternar sidebar"
                 >
-                  <ChevronLeft className={`h-4 w-4 transition-transform ${sidebarOpen ? "" : "rotate-180"}`} />
+                  <PanelLeft className="h-4 w-4" />
                 </button>
               </div>
               <div className="md:hidden h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center overflow-hidden">
@@ -213,9 +293,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
             </div>
 
             <div className="flex-1 px-4">
-              <div className="max-w-[720px] mx-auto">
-                <Input placeholder="Buscar na operadora..." className="w-full h-9" />
-              </div>
+              <Input placeholder="Buscar na operadora..." className="w-full h-9 rounded-xl" />
             </div>
 
             <div className="flex items-center gap-1">
