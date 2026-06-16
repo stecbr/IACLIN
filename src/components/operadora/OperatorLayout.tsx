@@ -206,13 +206,13 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </div>
         <TooltipProvider delayDuration={100}>
           <nav
-            className="flex-1 w-full py-2 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            className="flex-1 w-full py-2 flex flex-col items-center gap-1 overflow-y-auto"
+            style={{ scrollbarWidth: "none" }}
           >
             {navGroups
               .filter((g) => g.label !== "Conta")
               .map((group, gi, arr) => (
-                <div key={group.label} className="w-full space-y-1">
+                <div key={group.label} className="w-full flex flex-col items-center gap-1">
                   {group.items.map((item) => (
                     <Tooltip key={item.to}>
                       <TooltipTrigger asChild>
@@ -220,26 +220,24 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           to={item.to}
                           end={item.end}
                           className={({ isActive }) =>
-                            `ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                            `grid place-items-center h-10 w-10 rounded-xl transition-colors ${
                               isActive
-                                ? "bg-sidebar-accent/90 text-sidebar-accent-foreground border border-sidebar-border shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] font-medium"
+                                ? "bg-sidebar-primary/20 text-sidebar-primary ring-1 ring-sidebar-primary/40"
                                 : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                             }`
                           }
                         >
-                          <item.icon className="h-4 w-4" />
+                          <item.icon size={18} strokeWidth={2} className="shrink-0" />
                         </NavLink>
                       </TooltipTrigger>
-                       <TooltipContent side="right" sideOffset={12} className="whitespace-nowrap">
-                         {item.label}
-                       </TooltipContent>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
                     </Tooltip>
                   ))}
-                  {gi < arr.length - 1 && <div className="h-px w-6 bg-sidebar-border my-2 mx-auto" />}
+                  {gi < arr.length - 1 && <div className="h-px w-6 bg-sidebar-border my-1" />}
                 </div>
               ))}
           </nav>
-          <div className="w-full py-3 border-t border-sidebar-border space-y-2">
+          <div className="w-full py-3 border-t border-sidebar-border flex flex-col items-center gap-2">
             {navGroups
               .find((g) => g.label === "Conta")
               ?.items.map((item) => (
@@ -248,22 +246,20 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     <NavLink
                       to={item.to}
                       className={({ isActive }) =>
-                        `ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                        `grid place-items-center h-10 w-10 rounded-xl transition-colors ${
                           isActive
-                            ? "bg-sidebar-accent/90 text-sidebar-accent-foreground border border-sidebar-border shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] font-medium"
+                            ? "bg-sidebar-primary/20 text-sidebar-primary ring-1 ring-sidebar-primary/40"
                             : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
                         }`
                       }
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon size={18} strokeWidth={2} className="shrink-0" />
                     </NavLink>
                   </TooltipTrigger>
-                   <TooltipContent side="right" sideOffset={12} className="whitespace-nowrap">
-                     {item.label}
-                   </TooltipContent>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
                 </Tooltip>
               ))}
-            <Avatar className="h-8 w-8 mx-auto">
+            <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
                 {profile?.full_name
                   ?.split(" ")
