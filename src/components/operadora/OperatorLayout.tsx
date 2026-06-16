@@ -220,9 +220,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           to={item.to}
                           end={item.end}
                           className={({ isActive }) =>
-                            `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
+                            `flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
                               isActive
-                                ? "bg-sidebar-primary/15 text-sidebar-primary"
+                                ? "bg-sidebar-accent text-sidebar-primary"
                                 : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
                             }`
                           }
@@ -246,9 +246,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     <NavLink
                       to={item.to}
                       className={({ isActive }) =>
-                        `flex items-center justify-center h-10 w-10 rounded-xl transition-colors ${
+                        `flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
                           isActive
-                            ? "bg-sidebar-primary/15 text-sidebar-primary"
+                            ? "bg-sidebar-accent text-sidebar-primary"
                             : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
                         }`
                       }
