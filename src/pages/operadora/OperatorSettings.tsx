@@ -109,7 +109,7 @@ export default function OperatorSettings() {
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
                 />
-                <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-input hover:bg-muted transition">
+                <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
                   <Upload className="h-4 w-4" /> Enviar logo
                 </span>
               </label>
