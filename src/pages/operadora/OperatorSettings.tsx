@@ -93,7 +93,7 @@ export default function OperatorSettings() {
 
         {/* ── Dados ── */}
         <TabsContent value="dados" className="space-y-6">
-          <Card className="p-6">
+          <Card className="p-6 rounded-xl">
             <Label className="mb-3 block">Logo da operadora</Label>
             <div className="flex items-center gap-4">
               <div className="h-20 w-20 rounded-md border border-border bg-muted flex items-center justify-center overflow-hidden">
@@ -120,15 +120,10 @@ export default function OperatorSettings() {
             </p>
           </Card>
 
-          <Card className="p-6 space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold">Informações da operadora</h2>
-                <p className="text-xs text-muted-foreground">Dados cadastrais e de contato</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={openEdit} className="gap-2">
-                <Pencil className="h-4 w-4" /> Editar
-              </Button>
+          <Card className="p-6 space-y-5 rounded-xl">
+            <div>
+              <h2 className="text-base font-semibold">Informações da operadora</h2>
+              <p className="text-xs text-muted-foreground">Dados cadastrais e de contato</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
               <InfoRow label="Nome fantasia" value={op.name} />
@@ -151,6 +146,11 @@ export default function OperatorSettings() {
               <div className="sm:col-span-2">
                 <InfoRow label="Responsável" value={op.responsible_name} />
               </div>
+            </div>
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button variant="outline" size="sm" onClick={openEdit} className="gap-2 rounded-xl mt-3">
+                <Pencil className="h-4 w-4" /> Editar
+              </Button>
             </div>
           </Card>
 
