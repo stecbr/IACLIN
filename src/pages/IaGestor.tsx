@@ -468,7 +468,7 @@ function ChatView({ threadId, clinicId, initialMessages, onOpenMenu }: { threadI
               <div className="mt-4 flex flex-wrap justify-center gap-2 px-1">
                 {['Quantos pacientes temos?', 'Quais consultas são amanhã?', 'Faturamento dos últimos 30 dias', 'Crie um post para o Instagram'].map((s) => (
                   <button key={s} onClick={() => { setInput(s); inputRef.current?.focus(); }}
-                    className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                    className="text-xs min-h-11 px-4 py-2 rounded-full bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
                     {s}
                   </button>
                 ))}
