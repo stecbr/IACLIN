@@ -240,6 +240,8 @@ export default function Marketplace() {
       <MarketplaceFilters
         selectedSpecialties={selectedSpecialties}
         onToggleSpecialty={handleToggleSpecialty}
+        selectedInsurance={selectedInsurance}
+        onChangeInsurance={setSelectedInsurance}
       />
 
       {/* Map bounds active badge */}
