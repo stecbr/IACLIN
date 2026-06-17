@@ -240,7 +240,7 @@ export function GettingStartedChecklist() {
   }
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 z-40 pointer-events-none">
+    <div className="fixed bottom-20 md:bottom-6 right-4 z-40 pointer-events-none">
       <motion.div
         layout
         initial={{ opacity: 0, y: 12 }}
