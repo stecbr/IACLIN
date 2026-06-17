@@ -40,6 +40,7 @@ import { useActiveConsultation } from '@/hooks/useActiveConsultation';
 import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { useViewMode } from '@/hooks/useViewMode';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 
 import {
   AlertDialog,
@@ -74,7 +75,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-type Role = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
+type Role = 'admin' | 'dentist' | 'secretary' | 'auxiliary' | 'patient' | 'operator';
 const ALL_CATEGORIES = ['odonto', 'medico', 'estetica', 'outro'];
 
 
@@ -83,6 +84,7 @@ const ROLE_COLOR: Record<string, { ring: string; badge: string; dot: string }> =
   dentist:        { ring: 'ring-blue-500',    badge: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-blue-500/30',             dot: 'bg-blue-500' },
   'dentist-odonto': { ring: 'ring-cyan-500',  badge: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 ring-cyan-500/30',             dot: 'bg-cyan-500' },
   secretary:      { ring: 'ring-teal-500',    badge: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 ring-teal-500/30',             dot: 'bg-teal-500' },
+  auxiliary:      { ring: 'ring-cyan-400',    badge: 'bg-cyan-400/15 text-cyan-700 dark:text-cyan-300 ring-cyan-400/30',              dot: 'bg-cyan-400' },
   owner:          { ring: 'ring-indigo-500',  badge: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',    dot: 'bg-indigo-500' },
   operator:       { ring: 'ring-orange-500',  badge: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 ring-orange-500/30',    dot: 'bg-orange-500' },
   patient:        { ring: 'ring-emerald-500', badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', dot: 'bg-emerald-500' },
@@ -97,18 +99,18 @@ const personalNav: Array<{ title: string; url: string; icon: typeof LayoutDashbo
 ];
 
 const operationNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
-  { title: 'Agenda',        url: '/agenda',        icon: Calendar,  allowedRoles: ['admin', 'secretary'] },
-  { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen, allowedRoles: ['admin', 'secretary'] },
+  { title: 'Agenda',        url: '/agenda',          icon: Calendar,  allowedRoles: ['admin', 'secretary', 'auxiliary'] },
+  { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen,  allowedRoles: ['admin', 'secretary', 'auxiliary'] },
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
   { title: 'Pacientes do Dia',  url: '/pacientes-do-dia',   icon: CalendarDays,   categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
-  { title: 'Pacientes',         url: '/patients',            icon: Users,          categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { title: 'Aprovações',        url: '/clinica/aprovacoes',  icon: ClipboardCheck, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
+  { title: 'Pacientes',         url: '/patients',            icon: Users,          categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
+  { title: 'Aprovações',        url: '/clinica/aprovacoes',  icon: ClipboardCheck, categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { title: 'Credenciamentos',   url: '/clinica/credenciamentos', icon: Building2,  categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
   { title: 'Convênios',         url: '/clinica/convenios',   icon: Receipt,        categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Odontograma',       url: '/odontogram',          icon: FileHeart,      categories: ['odonto'],      allowedRoles: ['admin', 'dentist'] },
-  { title: 'Financeiro',        url: '/financial',           icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary'] },
+  { title: 'Financeiro',        url: '/financial',           icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { title: 'Orçamentos',        url: '/budgets',             icon: ClipboardList,  categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Secretária IA',     url: '/secretaria-ia',       icon: Bot,            categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
 ];
@@ -180,6 +182,7 @@ export function AppSidebar() {
   const isConsultMode = viewMode === 'consult';
   const isDentist = effectiveRole === 'dentist';
   const isAdmin = effectiveRole === 'admin' || isClinicOwner;
+  const { isStaff, permissions: staffPerms } = useStaffPermissions();
   const activeConsultation = useActiveConsultation();
   const navigate = useNavigate();
   const [logoutBlocked, setLogoutBlocked] = useState(false);
@@ -221,7 +224,9 @@ export function AppSidebar() {
       .filter((item) => !blockProfessional || !PROFESSIONAL_ONLY_URLS.includes(item.url))
   );
   const filteredOperationNav = filterNavItems(
-    operationNav.filter((item) => item.allowedRoles.includes(effectiveRole))
+    operationNav
+      .filter((item) => item.allowedRoles.includes(effectiveRole))
+      .filter((item) => !isStaff || staffPerms?.agenda !== false || (item.url !== '/agenda' && item.url !== '/sala-de-espera'))
   );
   const filteredClinicNav = filterNavItems(
     clinicNav
@@ -230,6 +235,8 @@ export function AppSidebar() {
       .filter((item) => !(isDentist && item.url === '/odontogram'))
       .filter((item) => !(item.url === '/odontogram' && !isOdonto))
       .filter((item) => !(isPsi && item.url === '/budgets'))
+      .filter((item) => !isStaff || staffPerms?.pacientes !== false || (item.url !== '/patients' && item.url !== '/clinica/aprovacoes'))
+      .filter((item) => !isStaff || staffPerms?.financeiro !== false || item.url !== '/financial')
       .map((item) => item.url === '/ferramentas' && toolsUrl !== '/ferramentas' ? { ...item, url: toolsUrl } : item)
   );
 
@@ -689,7 +696,7 @@ export function AppSidebar() {
             )}
 
 
-            {(effectiveRole === 'dentist' || effectiveRole === 'secretary') && currentClinicId && (
+            {(effectiveRole === 'dentist' || effectiveRole === 'secretary' || effectiveRole === 'auxiliary') && currentClinicId && (!isStaff || staffPerms?.ia !== false) && (
               <NavSection id="automacao-dentist" label="Automação" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
@@ -708,7 +715,7 @@ export function AppSidebar() {
             )}
 
             {/* SUPORTE */}
-            {(isDentist || isAdmin) && (
+            {(isDentist || isAdmin || (isStaff && staffPerms?.chamados !== false)) && (
               <NavSection id="suporte" label="Suporte" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>{chamadosItem}</SidebarMenu>
               </NavSection>

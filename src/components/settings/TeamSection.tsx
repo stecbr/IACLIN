@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Crown, ListChecks } from 'lucide-react';
+import { Plus, Trash2, Crown, ListChecks, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,28 +13,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MemberProceduresDialog } from './MemberProceduresDialog';
+import { StaffPermissionsDialog, type StaffPermissions } from './StaffPermissionsDialog';
 
 const roleLabels: Record<string, string> = {
-  admin: 'Administrador',
-  dentist: 'Profissional',
+  admin:     'Administrador',
+  dentist:   'Profissional',
   secretary: 'Secretária',
+  auxiliary: 'Auxiliar Adm',
 };
 
 const roleColors: Record<string, string> = {
-  admin: 'default',
-  dentist: 'secondary',
+  admin:     'default',
+  dentist:   'secondary',
   secretary: 'outline',
+  auxiliary: 'outline',
 };
 
 export default function TeamSection() {
   const { user, currentClinicId, isClinicOwner } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: '', full_name: '', password: '', role: 'dentist' });
+  const [form, setForm] = useState({ email: '', full_name: '', password: '', role: 'secretary' });
   const [saving, setSaving] = useState(false);
   const [procEditor, setProcEditor] = useState<{ id: string; name: string } | null>(null);
+  const [permEditor, setPermEditor] = useState<{
+    id: string;
+    name: string;
+    role: string;
+    permissions: StaffPermissions | null;
+  } | null>(null);
 
-  // Categoria da clínica para filtrar o catálogo de procedimentos
   const { data: clinicCategory } = useQuery({
     queryKey: ['clinic-category', currentClinicId],
     queryFn: async () => {
@@ -49,23 +57,20 @@ export default function TeamSection() {
     queryKey: ['clinic-members', currentClinicId],
     queryFn: async () => {
       if (!currentClinicId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('clinic_members')
-        .select('id, user_id, role, is_owner, created_at')
+        .select('id, user_id, role, is_owner, created_at, permissions')
         .eq('clinic_id', currentClinicId);
       if (error) throw error;
 
-      // Fetch profiles for all members
-      const userIds = (data ?? []).map(m => m.user_id);
+      const userIds = (data ?? []).map((m: any) => m.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name')
         .in('id', userIds);
+      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
-      const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
-
-      // Conta procedimentos por membro
-      const memberIds = (data ?? []).map((m) => m.id);
+      const memberIds = (data ?? []).map((m: any) => m.id);
       const { data: procCounts } = memberIds.length
         ? await supabase
             .from('clinic_member_procedures' as any)
@@ -77,7 +82,7 @@ export default function TeamSection() {
         procCountMap.set(r.clinic_member_id, (procCountMap.get(r.clinic_member_id) ?? 0) + 1);
       }
 
-      return (data ?? []).map(m => ({
+      return (data ?? []).map((m: any) => ({
         ...m,
         full_name: profileMap.get(m.user_id)?.full_name ?? 'Sem nome',
         procedure_count: procCountMap.get(m.id) ?? 0,
@@ -96,7 +101,7 @@ export default function TeamSection() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success(`${form.full_name} adicionado(a) com sucesso!`);
-      setForm({ email: '', full_name: '', password: '', role: 'dentist' });
+      setForm({ email: '', full_name: '', password: '', role: 'secretary' });
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
     } catch (err: any) {
@@ -132,6 +137,8 @@ export default function TeamSection() {
     );
   }
 
+  const isStaffRole = (role: string) => role === 'secretary' || role === 'auxiliary';
+
   return (
     <Card className="shadow-card border-border/50">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -149,35 +156,53 @@ export default function TeamSection() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Adicionar Membro</DialogTitle>
+                <DialogTitle>Adicionar Funcionário</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <Label>Nome completo</Label>
-                  <Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder="Dr. Maria Silva" />
+                  <Input
+                    value={form.full_name}
+                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                    placeholder="Maria Silva"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>E-mail</Label>
-                  <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="maria@clinica.com" />
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="maria@clinica.com"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Senha temporária</Label>
-                  <Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 6 caracteres" />
+                  <Input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="Mínimo 6 caracteres"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Papel</Label>
-                  <Select value={form.role} onValueChange={v => setForm({ ...form, role: v })}>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="dentist">Dentista</SelectItem>
                       <SelectItem value="secretary">Secretária</SelectItem>
+                      <SelectItem value="auxiliary">Auxiliar Adm</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleAdd} disabled={saving || !form.email || !form.full_name || !form.password} className="w-full">
-                  {saving ? 'Cadastrando...' : 'Cadastrar Membro'}
+                <Button
+                  onClick={handleAdd}
+                  disabled={saving || !form.email || !form.full_name || !form.password}
+                  className="w-full"
+                >
+                  {saving ? 'Cadastrando...' : 'Cadastrar Funcionário'}
                 </Button>
               </div>
             </DialogContent>
@@ -202,7 +227,7 @@ export default function TeamSection() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((m) => (
+              {members.map((m: any) => (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -221,8 +246,8 @@ export default function TeamSection() {
                         onClick={() => setProcEditor({ id: m.id, name: m.full_name })}
                       >
                         <ListChecks className="h-3.5 w-3.5" />
-                        {(m as any).procedure_count > 0
-                          ? `${(m as any).procedure_count} procedimento(s)`
+                        {m.procedure_count > 0
+                          ? `${m.procedure_count} procedimento(s)`
                           : 'Adicionar'}
                       </button>
                     ) : (
@@ -230,11 +255,36 @@ export default function TeamSection() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {isClinicOwner && !m.is_owner && (
-                      <Button variant="ghost" size="icon" onClick={() => handleRemove(m.id, m.user_id)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {isClinicOwner && !m.is_owner && isStaffRole(m.role) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Permissões"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() =>
+                            setPermEditor({
+                              id: m.id,
+                              name: m.full_name,
+                              role: m.role,
+                              permissions: (m.permissions as StaffPermissions | null) ?? null,
+                            })
+                          }
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {isClinicOwner && !m.is_owner && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemove(m.id, m.user_id)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -242,12 +292,23 @@ export default function TeamSection() {
           </Table>
         )}
       </CardContent>
+
       <MemberProceduresDialog
         open={!!procEditor}
         onOpenChange={(o) => !o && setProcEditor(null)}
         clinicMemberId={procEditor?.id ?? null}
         clinicCategory={clinicCategory ?? null}
         memberName={procEditor?.name}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ['clinic-members'] })}
+      />
+
+      <StaffPermissionsDialog
+        open={!!permEditor}
+        onOpenChange={(o) => !o && setPermEditor(null)}
+        memberId={permEditor?.id ?? null}
+        memberName={permEditor?.name}
+        memberRole={permEditor?.role}
+        currentPermissions={permEditor?.permissions}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ['clinic-members'] })}
       />
     </Card>

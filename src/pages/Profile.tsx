@@ -321,22 +321,20 @@ export function ProfileInfoSection() {
           </Avatar>
           <div className="text-sm text-muted-foreground space-y-2">
             <p>{user?.email}</p>
-            {isProfessionalProfile && (
-              <label className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md border border-input cursor-pointer hover:bg-muted transition">
-                <Upload className="h-3.5 w-3.5" />
-                {uploadingAvatar ? 'Enviando foto...' : 'Enviar foto de perfil'}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  disabled={uploadingAvatar}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void uploadAvatar(file);
-                  }}
-                />
-              </label>
-            )}
+            <label className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md border border-input cursor-pointer hover:bg-muted transition">
+              <Upload className="h-3.5 w-3.5" />
+              {uploadingAvatar ? 'Enviando foto...' : 'Enviar foto de perfil'}
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                disabled={uploadingAvatar}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadAvatar(file);
+                }}
+              />
+            </label>
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">

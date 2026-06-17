@@ -4,7 +4,7 @@ import { getViewMode } from '@/lib/viewMode';
 import { useEffect, useState } from 'react';
 import { VIEW_MODE_EVENT } from '@/lib/viewMode';
 
-type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
+type AppRole = 'admin' | 'dentist' | 'secretary' | 'auxiliary' | 'patient' | 'operator';
 
 interface RouteAccess {
   path: string;
@@ -13,18 +13,18 @@ interface RouteAccess {
 
 // Define which roles can access which routes
 const routePermissions: RouteAccess[] = [
-  { path: '/', allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { path: '/agenda', allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { path: '/', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
+  { path: '/agenda', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
   { path: '/minha-agenda', allowedRoles: ['admin', 'dentist'] },
   { path: '/disponibilidade', allowedRoles: ['admin', 'dentist'] },
-  { path: '/sala-de-espera', allowedRoles: ['admin', 'secretary'] },
+  { path: '/sala-de-espera', allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { path: '/pacientes-do-dia', allowedRoles: ['admin', 'dentist'] },
-  { path: '/patients', allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { path: '/patients', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
   { path: '/clinica', allowedRoles: ['admin'] },
   { path: '/clinica/medicos', allowedRoles: ['admin'] },
   { path: '/clinica/credenciamentos', allowedRoles: ['admin'] },
-  { path: '/clinica/convenios', allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { path: '/clinica/aprovacoes', allowedRoles: ['admin', 'secretary'] },
+  { path: '/clinica/convenios', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
+  { path: '/clinica/aprovacoes', allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { path: '/odontogram', allowedRoles: ['admin', 'dentist'] },
   { path: '/ferramentas', allowedRoles: ['admin', 'dentist'] },
   { path: '/psi/ferramentas', allowedRoles: ['admin', 'dentist'] },
@@ -35,11 +35,12 @@ const routePermissions: RouteAccess[] = [
   { path: '/podologia/ferramentas', allowedRoles: ['admin', 'dentist'] },
   { path: '/atendimento', allowedRoles: ['admin', 'dentist'] },
   { path: '/budgets', allowedRoles: ['admin', 'dentist'] },
-  { path: '/financial', allowedRoles: ['admin', 'secretary'] },
+  { path: '/financial', allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { path: '/secretaria-ia', allowedRoles: ['admin'] },
-  { path: '/ia-gestor', allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { path: '/settings', allowedRoles: ['admin', 'dentist', 'secretary'] },
-  { path: '/perfil', allowedRoles: ['admin', 'dentist', 'secretary'] },
+  { path: '/ia-gestor', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
+  { path: '/chamados', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
+  { path: '/settings', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
+  { path: '/perfil', allowedRoles: ['admin', 'dentist', 'secretary', 'auxiliary'] },
   { path: '/paciente', allowedRoles: ['patient'] },
   { path: '/paciente/plano', allowedRoles: ['patient'] },
   { path: '/paciente/agendas', allowedRoles: ['patient'] },

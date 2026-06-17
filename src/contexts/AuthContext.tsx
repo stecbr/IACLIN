@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isDevEmail, SimulatedRole, SIMULATED_ROLE_STORAGE_KEY } from '@/lib/devAccess';
 import { endSession } from '@/lib/consultationSession';
 
-type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
+type AppRole = 'admin' | 'dentist' | 'secretary' | 'auxiliary' | 'patient' | 'operator';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
 
 /** E-mail do administrador geral da plataforma IACLIN */
