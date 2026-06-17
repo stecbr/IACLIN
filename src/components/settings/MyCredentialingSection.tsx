@@ -16,6 +16,7 @@ import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landma
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
+import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
 
 type Operator = {
   id: string;
