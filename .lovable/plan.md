@@ -1,34 +1,45 @@
-## Contas a deletar (8 encontradas)
+## Objetivo
 
+Criar planos para o segmento **Clínica** com limite de profissionais incluídos e cobrança por profissional excedente.
 
-| Email                                                               | ID        |
-| ------------------------------------------------------------------- | --------- |
-| [lucasferreiraceara@gmail.com](mailto:lucasferreiraceara@gmail.com) | b3fecef9… |
-| [flavio@gmail.com](mailto:flavio@gmail.com)                         | ac0fa8af… |
-| [joel@gmail.com](mailto:joel@gmail.com)                             | a2c363f0… |
-| [sampa@gmail.com](mailto:sampa@gmail.com)                           | a4be98a6… |
-| [erivaldo@gmail.com](mailto:erivaldo@gmail.com)                     | 00cf4226… |
-| [go@gmail.com](mailto:go@gmail.com)                                 | fc61c674… |
-| [lucasferreira@unifor.br](mailto:lucasferreira@unifor.br)           | 21ca553e… |
-| [erasmo@unifor.br](mailto:erasmo@unifor.br)                         | 20465317… |
+## 1. Mudança no banco (migration)
 
+Adicionar 2 colunas em `public.platform_plans`:
 
-Observação: `joel@gmai.com` (sem "l") e `erasmo@gmail.com` não existem no banco — só achei `joel@gmail.com` e `erasmo@unifor.br`. Vou considerar esses como os pretendidos.
+- `max_professionals` (integer, nullable) — quantidade de profissionais incluídos no plano. `NULL` = ilimitado.
+- `extra_professional_price_cents` (integer, nullable) — valor cobrado por profissional adicional acima do limite. `NULL` = não permite excedente.
 
-## O que será apagado
+Sem mudanças em RLS (a tabela já tem políticas de superadmin).
 
-Para cada um dos 8 usuários, em uma única migração transacional:
+## 2. Planos iniciais (segmento Clínica, mensal)
 
-1. **Clínicas** onde o usuário é `owner_id` → deletar a clínica inteira (cascata leva junto: membros, pacientes, agendamentos, prontuários, financeiro, documentos, anamneses, odontogramas, orçamentos, salas, convênios, transações, notificações, ai_tenants, etc.).
-2. **Operadoras** (`insurance_operators`) onde é `owner_id` → deletar (cascata leva beneficiários, credenciamentos, tabelas de preço, membros da operadora).
-3. **Pacientes** (`patients`) onde `patient_user_id` é o usuário ou `dentist_id` é o usuário (modo pessoal).
-4. **Vínculos avulsos**: `clinic_members`, `operator_members`, `patient_accounts`, `user_roles`, `profiles`, `patient_invites`, `patient_link_requests`, `clinic_invites`, `notifications`, `support_tickets`, `ia_gestor_*`, `consultation_recordings`, `professional_*`, `user_consents`, `ai_tenants` pessoais, `platform_subscriptions` do tipo doctor.
-5. **Arquivos de storage**: remover linhas em `storage.objects` referentes a `clinic-assets`, `patient-files`, `clinic-documents`, `consultation-audio`, `statements`, `operator-price-files` cujos donos sejam esses usuários (best-effort por `owner` em `storage.objects`).
-6. `**auth.users**`: deletar os 8 registros (remove sessions/identities por cascata).
+| Plano       | Profissionais inclusos | Mensalidade   | Excedente por profissional |
+| ----------- | ---------------------- | ------------- | -------------------------- |
+| Essencial   | 10                     | R$ 599,00     | R$ 100,00                  |
+| Plus        | 15                     | R$ 849,00     | R$ 100,00                  |
+| Pro         | 20                     | R$ 1.099,00   | R$ 100,00                  |
+| Avançado    | 30                     | R$ 1.499,00   | R$ 100,00                  |
+| Enterprise  | 50                     | R$ 2.199,00   | R$ 100,00                  |
 
-Tudo dentro de um `BEGIN ... COMMIT` — se algo falhar, nada é apagado.
+Recursos listados em todos: agenda, prontuário, financeiro, WhatsApp, marketplace etc. (replicados via `features`).
 
-## Aviso
+**Confirma esses preços?** Se quiser outros valores eu ajusto antes de aplicar a migração.
 
-- `lucasferreiraceara@gmail.com` está na whitelist de DEV (`src/lib/devAccess.ts`). A conta será removida, mas o e-mail continuará na whitelist do código — me avise se quiser que eu remova de lá também. - pode remover tambem
-- Operação **irreversível**. Confirma que posso prosseguir?
+## 3. UI — SuperAdmin → Planos
+
+**`PlanFormDialog`**: adicionar 2 campos quando o segmento for "Clínica":
+- "Profissionais incluídos" (numérico, vazio = ilimitado)
+- "Valor por profissional excedente (R$)" (numérico, vazio = não permite excedente)
+
+**`SuperAdminPlans.tsx`** (lista de planos): cada card mostra um badge "10 profissionais · +R$ 100/extra".
+
+## 4. Fora de escopo agora
+
+- Cobrança automática do excedente (apenas exibido; faturamento real fica para depois).
+- Planos para médico/dentista solo e operadora (usuário pediu só clínica).
+- Mudanças em assinaturas existentes ou fluxo de checkout Stripe (o `stripe-sync-plan` continua sincronizando preço base; excedente fica como item separado depois).
+
+## 5. Detalhes técnicos
+
+- Seed via `INSERT ... ON CONFLICT DO NOTHING` usando `name + segment + billing_cycle` (vou criar índice único auxiliar).
+- Tipos do Supabase regerados após a migração; depois ajusto `src/types/superadmin.ts` para incluir os 2 novos campos.
