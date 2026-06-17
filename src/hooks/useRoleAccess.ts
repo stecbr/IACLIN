@@ -1,5 +1,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
+import { getViewMode } from '@/lib/viewMode';
+import { useEffect, useState } from 'react';
+import { VIEW_MODE_EVENT } from '@/lib/viewMode';
 
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 
@@ -47,16 +50,49 @@ const routePermissions: RouteAccess[] = [
 ];
 
 export function useRoleAccess() {
-  const { clinicRole, isPatient, simulatedRole } = useAuth();
+  const { clinicRole, isPatient, simulatedRole, user, currentClinicId, isClinicOwner } = useAuth();
   const isClinicSignup = useIsClinicSignup();
 
   // Dev simulation wins over everything when set
   // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
   const normalizedClinicRole = (clinicRole as string) === 'owner' ? 'admin' : clinicRole;
 
+  // React to view-mode changes (manager <-> consult) from the toggle.
+  const [viewModeTick, setViewModeTick] = useState(0);
+  useEffect(() => {
+    const onChange = () => setViewModeTick((n) => n + 1);
+    window.addEventListener(VIEW_MODE_EVENT, onChange);
+    window.addEventListener('storage', onChange);
+    return () => {
+      window.removeEventListener(VIEW_MODE_EVENT, onChange);
+      window.removeEventListener('storage', onChange);
+    };
+  }, []);
+
+  const stored = getViewMode(user?.id, currentClinicId);
+  // Default: admins/owners start in manager mode; dentists start in consult mode.
+  const canSwitch = !!currentClinicId && (
+    normalizedClinicRole === 'admin' || (normalizedClinicRole === 'dentist' && isClinicOwner)
+  );
+  const defaultMode = normalizedClinicRole === 'dentist' ? 'consult' : 'manager';
+  const viewMode = canSwitch ? (stored ?? defaultMode) : null;
+
+  // When the owner switches to "consult", show them the professional UI.
+  // When a dentist-owner switches back to "manager", show them the admin UI.
+  const roleAfterView: AppRole | null = (() => {
+    if (!viewMode) return null;
+    if (viewMode === 'consult') return 'dentist';
+    if (viewMode === 'manager' && isClinicOwner) return 'admin';
+    return null;
+  })();
+
   const effectiveRole: AppRole = simulatedRole
     ? (simulatedRole as AppRole)
-    : (isPatient ? 'patient' : ((normalizedClinicRole as AppRole) ?? 'admin'));
+    : (isPatient
+        ? 'patient'
+        : (roleAfterView ?? ((normalizedClinicRole as AppRole) ?? 'admin')));
+  // Touch the tick so eslint doesn't strip the effect dependency-free var.
+  void viewModeTick;
 
   const canAccess = (path: string): boolean => {
     // Clinic signups don't have a personal "Meu Perfil" — redirect to /settings.
