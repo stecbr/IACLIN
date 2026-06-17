@@ -622,6 +622,7 @@ export type Database = {
           clinic_id: string
           created_at: string
           id: string
+          is_active: boolean
           is_owner: boolean
           permissions: Json | null
           registration_number: string | null
@@ -633,6 +634,7 @@ export type Database = {
           clinic_id: string
           created_at?: string
           id?: string
+          is_active?: boolean
           is_owner?: boolean
           permissions?: Json | null
           registration_number?: string | null
@@ -644,6 +646,7 @@ export type Database = {
           clinic_id?: string
           created_at?: string
           id?: string
+          is_active?: boolean
           is_owner?: boolean
           permissions?: Json | null
           registration_number?: string | null
