@@ -100,7 +100,7 @@ export default function SettingsPage() {
       ]);
       if (cancelled) return;
       const memberSpec = (memberRes.data as any)?.specialty as string | null;
-      const personalList = ((personalRes.data ?? []) as Array<{ specialty: string }>).map((r) => r.specialty);
+        const personalList = ((personalRes.data ?? []) as unknown as Array<{ specialty: string }>).map((r) => r.specialty);
       const hasCatalog =
         (memberSpec && isCatalogSpecialty(memberSpec)) ||
         personalList.some((s) => isCatalogSpecialty(s));
