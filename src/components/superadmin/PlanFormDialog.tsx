@@ -35,6 +35,14 @@ export function PlanFormDialog({ open, onClose, plan }: Props) {
   const [priceBrl, setPriceBrl] = useState(plan ? (plan.price_cents / 100).toFixed(2) : '');
   const [features, setFeatures] = useState((plan?.features ?? []).join('\n'));
   const [isActive, setIsActive] = useState(plan?.is_active ?? true);
+  const [maxPros, setMaxPros] = useState(
+    plan?.max_professionals != null ? String(plan.max_professionals) : ''
+  );
+  const [extraPriceBrl, setExtraPriceBrl] = useState(
+    plan?.extra_professional_price_cents != null
+      ? (plan.extra_professional_price_cents / 100).toFixed(2)
+      : ''
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -42,10 +50,19 @@ export function PlanFormDialog({ open, onClose, plan }: Props) {
     try {
       const price_cents = Math.round(parseFloat(priceBrl.replace(',', '.')) * 100) || 0;
       const featuresArr = features.split('\n').map(s => s.trim()).filter(Boolean);
-      const payload = {
+      const payload: any = {
         name, description: description || null, segment, billing_cycle: cycle,
         price_cents, features: featuresArr, is_active: isActive,
       };
+      if (segment === 'clinic') {
+        payload.max_professionals = maxPros.trim() === '' ? null : Math.max(0, parseInt(maxPros, 10) || 0);
+        payload.extra_professional_price_cents = extraPriceBrl.trim() === ''
+          ? null
+          : Math.round(parseFloat(extraPriceBrl.replace(',', '.')) * 100) || 0;
+      } else {
+        payload.max_professionals = null;
+        payload.extra_professional_price_cents = null;
+      }
       let savedId = plan?.id;
       if (isEdit) {
         const { error } = await (supabase as any).from('platform_plans').update(payload).eq('id', plan!.id);
@@ -136,6 +153,33 @@ export function PlanFormDialog({ open, onClose, plan }: Props) {
             <Label>Recursos (um por linha)</Label>
             <Textarea rows={4} value={features} onChange={e => setFeatures(e.target.value)} placeholder={'Agenda ilimitada\nProntuário eletrônico\nWhatsApp integrado'} />
           </div>
+
+          {segment === 'clinic' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Profissionais inclusos</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={maxPros}
+                  onChange={e => setMaxPros(e.target.value)}
+                  placeholder="Ex: 10 (vazio = ilimitado)"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Excedente / profissional (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                  <Input
+                    className="pl-9"
+                    value={extraPriceBrl}
+                    onChange={e => setExtraPriceBrl(e.target.value)}
+                    placeholder="100,00"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>

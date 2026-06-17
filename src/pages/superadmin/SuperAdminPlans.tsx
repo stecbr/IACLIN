@@ -78,6 +78,14 @@ export default function SuperAdminPlans() {
                             <h3 className="font-semibold">{p.name}</h3>
                             <Badge variant="outline">{CYCLE_LABELS[p.billing_cycle]}</Badge>
                             {!p.is_active && <Badge variant="secondary">Inativo</Badge>}
+                            {p.segment === 'clinic' && p.max_professionals != null && (
+                              <Badge variant="secondary">
+                                {p.max_professionals} profissionais
+                                {p.extra_professional_price_cents
+                                  ? ` · +${formatBRL(p.extra_professional_price_cents)}/extra`
+                                  : ''}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-2xl font-bold mt-1 tabular-nums">{formatBRL(p.price_cents)}</p>
                           {p.description && <p className="text-xs text-muted-foreground mt-1">{p.description}</p>}

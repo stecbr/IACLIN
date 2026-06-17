@@ -2650,9 +2650,11 @@ export type Database = {
           created_at: string
           currency: string
           description: string | null
+          extra_professional_price_cents: number | null
           features: Json
           id: string
           is_active: boolean
+          max_professionals: number | null
           name: string
           price_cents: number
           segment: Database["public"]["Enums"]["plan_segment"]
@@ -2666,9 +2668,11 @@ export type Database = {
           created_at?: string
           currency?: string
           description?: string | null
+          extra_professional_price_cents?: number | null
           features?: Json
           id?: string
           is_active?: boolean
+          max_professionals?: number | null
           name: string
           price_cents?: number
           segment: Database["public"]["Enums"]["plan_segment"]
@@ -2682,9 +2686,11 @@ export type Database = {
           created_at?: string
           currency?: string
           description?: string | null
+          extra_professional_price_cents?: number | null
           features?: Json
           id?: string
           is_active?: boolean
+          max_professionals?: number | null
           name?: string
           price_cents?: number
           segment?: Database["public"]["Enums"]["plan_segment"]
