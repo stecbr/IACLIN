@@ -62,7 +62,7 @@ export function GettingStartedChecklist() {
   const canSee =
     !!currentClinicId &&
     !isPersonalMode &&
-    (effectiveRole === 'admin' || effectiveRole === 'owner') &&
+    effectiveRole === 'admin' &&
     !onHiddenRoute;
 
   const { data: progress } = useQuery({
@@ -85,7 +85,7 @@ export function GettingStartedChecklist() {
           .select('id', { count: 'exact', head: true })
           .eq('clinic_id', currentClinicId!),
         supabase
-          .from('budgets')
+          .from('treatment_plans')
           .select('id', { count: 'exact', head: true })
           .eq('clinic_id', currentClinicId!),
         supabase
