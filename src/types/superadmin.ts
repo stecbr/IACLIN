@@ -53,6 +53,8 @@ export interface PlatformPlan {
   stripe_price_id: string | null;
   is_active: boolean;
   sort_order: number;
+  max_professionals: number | null;
+  extra_professional_price_cents: number | null;
   created_at: string;
   updated_at: string;
 }
