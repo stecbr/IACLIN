@@ -39,10 +39,21 @@ Deno.serve(async (req) => {
     const callerId = caller.id;
 
     // Parse body
-    const { email, full_name, password, role, clinic_id, specialty, registration_number } = await req.json();
+    const body = await req.json();
+    const email: string = (body.email ?? '').trim().toLowerCase();
+    const full_name: string = (body.full_name ?? '').trim();
+    const password: string = body.password ?? '';
+    const { role, clinic_id, specialty, registration_number } = body;
 
     if (!email || !full_name || !password || !role || !clinic_id) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (password.length < 6) {
+      return new Response(JSON.stringify({ error: "A senha precisa ter ao menos 6 caracteres." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -69,6 +80,16 @@ Deno.serve(async (req) => {
     if (!ownerCheck) {
       return new Response(JSON.stringify({ error: "Only clinic owners can add members" }), {
         status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check if a user with this email already exists
+    const { data: existingList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const existing = existingList?.users?.find((u: any) => (u.email ?? '').toLowerCase() === email);
+    if (existing) {
+      return new Response(JSON.stringify({ error: "Já existe um usuário com este e-mail." }), {
+        status: 409,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
