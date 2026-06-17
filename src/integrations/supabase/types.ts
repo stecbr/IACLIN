@@ -623,6 +623,7 @@ export type Database = {
           created_at: string
           id: string
           is_owner: boolean
+          permissions: Json | null
           registration_number: string | null
           role: Database["public"]["Enums"]["app_role"]
           specialty: string | null
@@ -633,6 +634,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_owner?: boolean
+          permissions?: Json | null
           registration_number?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           specialty?: string | null
@@ -643,6 +645,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_owner?: boolean
+          permissions?: Json | null
           registration_number?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           specialty?: string | null
@@ -3616,7 +3619,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "dentist" | "secretary" | "patient" | "operator"
+      app_role:
+        | "admin"
+        | "dentist"
+        | "secretary"
+        | "patient"
+        | "operator"
+        | "auxiliary"
       billing_cycle: "monthly" | "yearly"
       clinic_category:
         | "odonto"
@@ -3757,7 +3766,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "dentist", "secretary", "patient", "operator"],
+      app_role: [
+        "admin",
+        "dentist",
+        "secretary",
+        "patient",
+        "operator",
+        "auxiliary",
+      ],
       billing_cycle: ["monthly", "yearly"],
       clinic_category: ["odonto", "medico", "estetica", "veterinario", "outro"],
       discount_type: ["percent", "fixed"],
