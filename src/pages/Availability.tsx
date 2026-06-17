@@ -1,5 +1,7 @@
 import { CalendarOff, CalendarRange, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,7 +9,10 @@ import { WeeklyTemplateTab } from '@/components/availability/WeeklyTemplateTab';
 import { DurationSettingsTab } from '@/components/availability/DurationSettingsTab';
 
 export default function Availability() {
+  const isClinicSignup = useIsClinicSignup();
   const { user, currentClinicId, isPersonalMode } = useAuth();
+
+  if (isClinicSignup) return <Navigate to="/" replace />;
   const hasScope = !!currentClinicId || isPersonalMode;
 
   if (!user || !hasScope) {

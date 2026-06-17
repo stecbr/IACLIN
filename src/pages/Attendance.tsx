@@ -32,6 +32,8 @@ import { ConsultationTimer } from '@/components/attendance/ConsultationTimer';
 import { computeElapsedSeconds, endSession, getSession, startSession } from '@/lib/consultationSession';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
 import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
+import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
+import { Navigate } from 'react-router-dom';
 import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
 import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
@@ -53,10 +55,14 @@ interface ProcedureRow {
 }
 
 export default function Attendance() {
+  const isClinicSignup = useIsClinicSignup();
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const { user, currentClinicId } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Clinic-only accounts (not individual professionals) cannot perform attendance
+  if (isClinicSignup) return <Navigate to="/" replace />;
 
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [diagnosis, setDiagnosis] = useState('');

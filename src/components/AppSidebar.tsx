@@ -207,8 +207,13 @@ export function AppSidebar() {
   const isOdonto     = familyConfig?.family === 'odonto';
   const toolsUrl     = familyConfig?.toolsRoute ?? '/ferramentas';
 
+  // URLs that only make sense for individual professionals (not pure clinic admins)
+  const PROFESSIONAL_ONLY_URLS = ['/minha-agenda', '/disponibilidade'];
+
   const filteredPersonalNav = filterNavItems(
-    personalNav.filter((item) => item.allowedRoles.includes(effectiveRole))
+    personalNav
+      .filter((item) => item.allowedRoles.includes(effectiveRole))
+      .filter((item) => !isClinicSignup || !PROFESSIONAL_ONLY_URLS.includes(item.url))
   );
   const filteredOperationNav = filterNavItems(
     operationNav.filter((item) => item.allowedRoles.includes(effectiveRole))
@@ -216,6 +221,7 @@ export function AppSidebar() {
   const filteredClinicNav = filterNavItems(
     clinicNav
       .filter((item) => item.categories.includes(clinicCategory) && item.allowedRoles.includes(effectiveRole))
+      .filter((item) => !isClinicSignup || item.url !== '/pacientes-do-dia')
       .filter((item) => !(isDentist && item.url === '/odontogram'))
       .filter((item) => !(item.url === '/odontogram' && !isOdonto))
       .filter((item) => !(isPsi && item.url === '/budgets'))

@@ -6,6 +6,8 @@ import { CalendarDays, Users, Play, CheckCircle2, RefreshCw } from 'lucide-react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
+import { Navigate } from 'react-router-dom';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
 import { startSession } from '@/lib/consultationSession';
 import { PageHeader } from '@/components/PageHeader';
@@ -25,8 +27,11 @@ import {
 } from '@/components/patients-of-day/DayAppointmentRow';
 
 export default function PatientsOfDay() {
+  const isClinicSignup = useIsClinicSignup();
   const { currentClinicId, user } = useAuth();
   const { effectiveRole } = useRoleAccess();
+
+  if (isClinicSignup) return <Navigate to="/" replace />;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const active = useActiveConsultation();
