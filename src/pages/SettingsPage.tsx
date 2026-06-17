@@ -86,15 +86,25 @@ export default function SettingsPage() {
       return;
     }
     (async () => {
-      const { data } = await supabase
-        .from('clinic_members')
-        .select('specialty')
-        .eq('user_id', user.id)
-        .eq('clinic_id', currentClinicId)
-        .maybeSingle();
+      const [memberRes, personalRes] = await Promise.all([
+        supabase
+          .from('clinic_members')
+          .select('specialty')
+          .eq('user_id', user.id)
+          .eq('clinic_id', currentClinicId)
+          .maybeSingle(),
+        supabase
+          .from('professional_specialties' as any)
+          .select('specialty')
+          .eq('user_id', user.id),
+      ]);
       if (cancelled) return;
-      const v = (data as any)?.specialty as string | null;
-      setNeedsSpecialty(!v || !isCatalogSpecialty(v));
+      const memberSpec = (memberRes.data as any)?.specialty as string | null;
+        const personalList = ((personalRes.data ?? []) as unknown as Array<{ specialty: string }>).map((r) => r.specialty);
+      const hasCatalog =
+        (memberSpec && isCatalogSpecialty(memberSpec)) ||
+        personalList.some((s) => isCatalogSpecialty(s));
+      setNeedsSpecialty(!hasCatalog);
     })();
     return () => { cancelled = true; };
   }, [user, currentClinicId, clinicRole]);
