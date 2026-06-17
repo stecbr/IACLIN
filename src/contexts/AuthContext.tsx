@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { isDevEmail, SimulatedRole, SIMULATED_ROLE_STORAGE_KEY } from '@/lib/devAccess';
+import { endSession } from '@/lib/consultationSession';
 
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'patient' | 'operator';
 type ClinicCategory = 'odonto' | 'medico' | 'estetica' | 'veterinario' | 'outro';
@@ -180,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(LEGACY_CLINIC_STORAGE_KEY);
       localStorage.removeItem(LEGACY_SCOPE_STORAGE_KEY);
     }
+    endSession();
     setSimulatedRoleState(null);
     await supabase.auth.signOut();
   };

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
   computeElapsedSeconds,
+  endSession,
   getSession,
   startSession,
   subscribeSession,
@@ -38,6 +39,26 @@ export function useActiveConsultation() {
     const id = setInterval(() => force((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [session]);
+
+  // Validate existing local session against DB — clears stale sessions from deleted/switched accounts.
+  useQuery({
+    queryKey: ['active-consultation-validate', user?.id, session?.appointmentId],
+    enabled: !!user && !!session,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('id, status, dentist_id')
+        .eq('id', session!.appointmentId)
+        .maybeSingle();
+      const valid = data && data.status === 'in_progress' && data.dentist_id === user!.id;
+      if (!valid) {
+        endSession();
+        setSessionState(null);
+      }
+      return valid;
+    },
+  });
 
   // Server hydration: if no local session, look for any in_progress appt for this user.
   useQuery({
