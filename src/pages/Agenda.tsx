@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, Navigate } from 'react-router-dom';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
+import { useViewMode } from '@/hooks/useViewMode';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO } from 'date-fns';
@@ -31,6 +32,7 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function Agenda() {
   const isClinicSignup = useIsClinicSignup();
+  const { viewMode } = useViewMode();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<View>('week');
   const [showForm, setShowForm] = useState(false);
@@ -42,8 +44,8 @@ export default function Agenda() {
   const location = useLocation();
   const isMineOnly = location.pathname.startsWith('/minha-agenda');
 
-  // Clinic-only accounts don't have a personal schedule
-  if (isClinicSignup && isMineOnly) return <Navigate to="/agenda" replace />;
+  // Clinic-only accounts need Modo Consulta for personal schedule
+  if (isClinicSignup && viewMode !== 'consult' && isMineOnly) return <Navigate to="/agenda" replace />;
   const restrictToSelf = isDentist || isMineOnly;
   const gridRef = useRef<HTMLDivElement>(null);
   const [doctorFilter, setDoctorFilter] = useState<DoctorFilterValue>(() =>

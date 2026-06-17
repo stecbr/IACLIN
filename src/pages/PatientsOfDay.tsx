@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
+import { useViewMode } from '@/hooks/useViewMode';
 import { Navigate } from 'react-router-dom';
 import { useActiveConsultation } from '@/hooks/useActiveConsultation';
 import { startSession } from '@/lib/consultationSession';
@@ -28,10 +29,11 @@ import {
 
 export default function PatientsOfDay() {
   const isClinicSignup = useIsClinicSignup();
+  const { viewMode } = useViewMode();
   const { currentClinicId, user } = useAuth();
   const { effectiveRole } = useRoleAccess();
 
-  if (isClinicSignup) return <Navigate to="/" replace />;
+  if (isClinicSignup && viewMode !== 'consult') return <Navigate to="/" replace />;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const active = useActiveConsultation();
