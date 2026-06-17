@@ -37,7 +37,8 @@ export type PatientTabKey =
   | 'timeline'
   | 'sessions'
   | 'evolution'
-  | 'mealplans';
+  | 'mealplans'
+  | 'odontogram';
 
 export interface SpecialtyProfile {
   family: SpecialtyFamily;
@@ -55,7 +56,7 @@ export interface SpecialtyProfile {
 const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'config'>> = {
   odonto: {
     attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes', 'odontogram', 'documents'],
-    patientTabs: ['info', 'anamnese', 'appointments', 'budgets', 'documents', 'files', 'financial', 'timeline'],
+    patientTabs: ['info', 'anamnese', 'odontogram', 'appointments', 'budgets', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: true,
     showBudgets: true,
   },
@@ -139,4 +140,5 @@ export const PATIENT_TAB_LABELS: Record<PatientTabKey, string> = {
   sessions: 'Sessões',
   evolution: 'Evolução',
   mealplans: 'Planos Alimentares',
+  odontogram: 'Odontograma',
 };

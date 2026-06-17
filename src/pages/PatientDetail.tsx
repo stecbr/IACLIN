@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette, MoreHorizontal, FolderOpen } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette, MoreHorizontal, FolderOpen, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import ClinicalMapPage from '@/components/clinical-map/ClinicalMapPage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
@@ -165,6 +166,7 @@ export default function PatientDetail() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
           <Avatar className="h-14 w-14 shrink-0">
+            {patient.photo_url && <AvatarImage src={patient.photo_url} alt={patient.full_name} className="object-cover" />}
             <AvatarFallback className="bg-primary/10 text-primary text-lg font-medium">{initials}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
@@ -313,6 +315,7 @@ export default function PatientDetail() {
               sessions: <Brain className="h-3.5 w-3.5" />,
               evolution: <Activity className="h-3.5 w-3.5" />,
               mealplans: <Utensils className="h-3.5 w-3.5" />,
+              odontogram: <Smile className="h-3.5 w-3.5" />,
             };
             return (
               <TabsTrigger key={tab} value={tab} className="gap-1.5">
@@ -544,6 +547,10 @@ export default function PatientDetail() {
             </div>
           )}
         </TabsContent>
+        <TabsContent value="odontogram">
+          <ClinicalMapPage forceMapType="tooth" patientId={id} embedded />
+        </TabsContent>
+
         <TabsContent value="timeline">
           <PatientTimeline patientId={id!} />
         </TabsContent>
