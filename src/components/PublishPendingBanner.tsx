@@ -46,7 +46,7 @@ export function PublishPendingBanner() {
           Credenciamento pendente
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Preencha as informações obrigatórias em Configurações para publicar sua clínica e ficar disponível no Marketplace.
+          Preencha as informações obrigatórias em Configurações para publicar sua clínica e ficar disponível na Redes Medicas.
         </p>
       </div>
       <ArrowRight className="h-4 w-4 text-muted-foreground" />
