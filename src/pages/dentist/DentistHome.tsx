@@ -14,6 +14,7 @@ import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
+import { ViewModeToggle } from '@/components/ViewModeToggle';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { SoloModeBanner } from '@/components/dashboard/SoloModeBanner';
@@ -257,7 +258,9 @@ export default function DentistHome() {
       <PageHeader
         title={`${getGreeting()}, Dr(a). ${firstName}`}
         description={`Seja bem-vindo(a)${specialtyName ? ` · ${specialtyName}` : ''} — Aqui está o resumo do seu dia.`}
-      />
+      >
+        <ViewModeToggle />
+      </PageHeader>
       <SoloModeBanner />
 
       {/* ── KPIs ────────────────────────────────────────────────────── */}

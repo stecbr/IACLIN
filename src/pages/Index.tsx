@@ -42,6 +42,7 @@ import NutritionHome from "@/pages/nutrition/NutritionHome";
 import PsiHome from "@/pages/psi/PsiHome";
 import { useSpecialtyProfile } from "@/hooks/useSpecialtyProfile";
 import { SoloModeBanner } from "@/components/dashboard/SoloModeBanner";
+import { ViewModeToggle } from "@/components/ViewModeToggle";
 
 export default function IndexRouter() {
   const { effectiveRole } = useRoleAccess();
@@ -306,7 +307,9 @@ function AdminHome() {
       <PageHeader
         title={`${getGreeting()}, ${firstName}`}
         description="Seja bem-vindo(a)! Aqui está o resumo da sua clínica hoje."
-      />
+      >
+        <ViewModeToggle />
+      </PageHeader>
       <SoloModeBanner />
 
       {/* KPIs */}
