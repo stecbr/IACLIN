@@ -696,7 +696,7 @@ export function AppSidebar() {
             )}
 
 
-            {(effectiveRole === 'dentist' || effectiveRole === 'secretary' || effectiveRole === 'auxiliary') && currentClinicId && (!isStaff || staffPerms?.ia !== false) && (
+            {(effectiveRole === 'dentist' || effectiveRole === 'secretary' || effectiveRole === 'auxiliary') && currentClinicId && (!isStaff || staffPerms?.iaGestor !== false) && (
               <NavSection id="automacao-dentist" label="Automação" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
