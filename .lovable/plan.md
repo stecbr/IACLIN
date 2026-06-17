@@ -1,51 +1,34 @@
-## Diagnóstico atual
+## Contas a deletar (8 encontradas)
 
-- **Prontuário (`PatientDetail`)**: aba "Documentos" já existe (`PatientDocuments`) — médico vê tudo. ✅
-- **Atendimento (`HistoryDrawer`)**: não há nenhuma seção de documentos/exames hoje. ❌
-- **App do paciente (`PatientExams`)**: somente leitura. Não há botão de upload, e a RLS de `documents` não tem policy de INSERT para o paciente. ❌
-- **Storage `patient-files`**: bucket privado. Hoje só clinic_members fazem upload.
 
-## O que vai ser feito
+| Email                                                               | ID        |
+| ------------------------------------------------------------------- | --------- |
+| [lucasferreiraceara@gmail.com](mailto:lucasferreiraceara@gmail.com) | b3fecef9… |
+| [flavio@gmail.com](mailto:flavio@gmail.com)                         | ac0fa8af… |
+| [joel@gmail.com](mailto:joel@gmail.com)                             | a2c363f0… |
+| [sampa@gmail.com](mailto:sampa@gmail.com)                           | a4be98a6… |
+| [erivaldo@gmail.com](mailto:erivaldo@gmail.com)                     | 00cf4226… |
+| [go@gmail.com](mailto:go@gmail.com)                                 | fc61c674… |
+| [lucasferreira@unifor.br](mailto:lucasferreira@unifor.br)           | 21ca553e… |
+| [erasmo@unifor.br](mailto:erasmo@unifor.br)                         | 20465317… |
 
-### 1. Permitir o paciente enviar exames
 
-**Migration** (RLS + Storage):
-- `documents`: novas policies para o paciente, escopadas a `patients.patient_user_id = auth.uid()`:
-  - INSERT permitido apenas com `category = 'patient_exam'` e `uploaded_by = auth.uid()`.
-  - DELETE permitido apenas no que ele mesmo enviou (`uploaded_by = auth.uid()` + `category = 'patient_exam'`).
-- `storage.objects` no bucket `patient-files`: policies de INSERT/DELETE/SELECT para o paciente quando o `name` começar com `<patient_id>/patient-uploads/...` e o `patients.patient_user_id = auth.uid()`.
+Observação: `joel@gmai.com` (sem "l") e `erasmo@gmail.com` não existem no banco — só achei `joel@gmail.com` e `erasmo@unifor.br`. Vou considerar esses como os pretendidos.
 
-**UI — `src/pages/patient/PatientExams.tsx`**:
-- Botão "Enviar exame" no topo da aba "Exames".
-- Suporta múltiplos arquivos (imagem e PDF), 20 MB cada.
-- Upload em `patient-files/<patient_id>/patient-uploads/<timestamp>-<rand>.<ext>`, com registro em `documents` (`category: 'patient_exam'`, `uploaded_by: user.id`, nome original do arquivo).
-- Lista combinada continua usando a aba "Exames" — adicionar `'patient_exam'` ao set `EXAM_CATEGORIES` e um pequeno badge "Enviado por você" quando `uploaded_by === user.id`.
-- Permitir excluir somente os arquivos do próprio paciente.
+## O que será apagado
 
-### 2. Médico ver documentos durante o atendimento
+Para cada um dos 8 usuários, em uma única migração transacional:
 
-**`src/components/attendance/HistoryDrawer.tsx`**:
-- Adicionar nova aba/seção "Documentos" (lendo `documents` por `patient_id`, ordenado por `created_at desc`).
-- Destacar visualmente os exames enviados pelo paciente (`category = 'patient_exam'`, badge "Paciente").
-- Cada item abre via `getSignedFileUrl` (lightbox para imagem, nova aba para PDF/outros) — mesmo padrão de `PatientDocuments`.
-- Mostrar contador no botão de Histórico quando houver documentos novos desde a última consulta finalizada (opcional, leve).
+1. **Clínicas** onde o usuário é `owner_id` → deletar a clínica inteira (cascata leva junto: membros, pacientes, agendamentos, prontuários, financeiro, documentos, anamneses, odontogramas, orçamentos, salas, convênios, transações, notificações, ai_tenants, etc.).
+2. **Operadoras** (`insurance_operators`) onde é `owner_id` → deletar (cascata leva beneficiários, credenciamentos, tabelas de preço, membros da operadora).
+3. **Pacientes** (`patients`) onde `patient_user_id` é o usuário ou `dentist_id` é o usuário (modo pessoal).
+4. **Vínculos avulsos**: `clinic_members`, `operator_members`, `patient_accounts`, `user_roles`, `profiles`, `patient_invites`, `patient_link_requests`, `clinic_invites`, `notifications`, `support_tickets`, `ia_gestor_*`, `consultation_recordings`, `professional_*`, `user_consents`, `ai_tenants` pessoais, `platform_subscriptions` do tipo doctor.
+5. **Arquivos de storage**: remover linhas em `storage.objects` referentes a `clinic-assets`, `patient-files`, `clinic-documents`, `consultation-audio`, `statements`, `operator-price-files` cujos donos sejam esses usuários (best-effort por `owner` em `storage.objects`).
+6. `**auth.users**`: deletar os 8 registros (remove sessions/identities por cascata).
 
-### 3. Detalhes técnicos
+Tudo dentro de um `BEGIN ... COMMIT` — se algo falhar, nada é apagado.
 
-- Reusar `getSignedFileUrl` de `src/lib/storageSignedUrl.ts`.
-- Categoria nova `patient_exam` (não conflita; `PatientExams` já trata categorias por set).
-- Sem mudanças em `PatientDocuments` no prontuário — ele já consome `documents` por `patient_id` e exibirá os arquivos do paciente automaticamente.
-- Sem edge function: upload direto do client, RLS garante o escopo.
+## Aviso
 
-## Arquivos afetados
-
-- **novo**: `supabase/migrations/<ts>_patient_upload_exams.sql` (policies em `documents` e `storage.objects`).
-- **editado**: `src/pages/patient/PatientExams.tsx` (upload + delete próprio).
-- **editado**: `src/components/attendance/HistoryDrawer.tsx` (aba Documentos).
-- **editado**: `src/components/patients/PatientDocuments.tsx` (badge "Enviado pelo paciente" quando `category = 'patient_exam'`).
-
-## Fora de escopo
-
-- Notificação automática ao médico/clínica no upload do paciente.
-- OCR/IA sobre o exame.
-- Compartilhamento entre clínicas dos exames do paciente.
+- `lucasferreiraceara@gmail.com` está na whitelist de DEV (`src/lib/devAccess.ts`). A conta será removida, mas o e-mail continuará na whitelist do código — me avise se quiser que eu remova de lá também. - pode remover tambem
+- Operação **irreversível**. Confirma que posso prosseguir?
