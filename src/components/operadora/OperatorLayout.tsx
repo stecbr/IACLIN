@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useLocation, Outlet } from "react-router-dom";
+import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import {
   LayoutDashboard,
   Users,
@@ -330,6 +331,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           </AnimatePresence>
         </main>
       </div>
+      <GettingStartedChecklist />
     </div>
   );
 }
