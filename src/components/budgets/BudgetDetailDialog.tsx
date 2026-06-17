@@ -36,6 +36,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
+import { Download, Loader2 } from 'lucide-react';
+import { generateBudgetPdf, fetchClinicForPdf } from '@/lib/generateBudgetPdf';
 
 interface BudgetDetailDialogProps {
   planId: string | null;
@@ -64,6 +66,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
   const { effectiveRole } = useRoleAccess();
   const { isSolo } = useSoloMode();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: plan, isLoading } = useQuery({
     queryKey: ['treatment-plan-detail', planId],
@@ -72,7 +75,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
       const { data, error } = await supabase
         .from('treatment_plans')
         .select(
-          '*, patients(id, full_name), treatment_plan_items(id, tooth_number, price, notes, custom_procedure_name, procedures(name))'
+          '*, patients(id, full_name, cpf, phone, email), treatment_plan_items(id, tooth_number, price, notes, custom_procedure_name, procedures(name))'
         )
         .eq('id', planId!)
         .single();
@@ -80,6 +83,46 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
       return data;
     },
   });
+
+  const handleGeneratePdf = async () => {
+    if (!plan) return;
+    setGeneratingPdf(true);
+    try {
+      const clinic = await fetchClinicForPdf((plan as any).clinic_id ?? null);
+      const p = (plan as any).patients ?? {};
+      const items = ((plan as any).treatment_plan_items ?? []).map((it: any) => ({
+        id: it.id,
+        procedure_id: it.procedure_id,
+        price: Number(it.price) || 0,
+        tooth_number: it.tooth_number ?? null,
+        notes: it.notes ?? null,
+        procedures: { name: it.procedures?.name ?? it.custom_procedure_name ?? 'Procedimento' },
+      }));
+      await generateBudgetPdf({
+        plan: {
+          id: plan.id,
+          title: plan.title ?? 'Orçamento',
+          description: (plan as any).description ?? null,
+          status: plan.status ?? 'pending',
+          total_cost: Number((plan as any).total_cost) || 0,
+          created_at: plan.created_at,
+          treatment_plan_items: items,
+        },
+        patient: {
+          full_name: p.full_name ?? 'Paciente',
+          cpf: p.cpf ?? null,
+          phone: p.phone ?? null,
+          email: p.email ?? null,
+        },
+        clinic: clinic ?? null,
+      });
+      toast.success('PDF gerado. Use a janela de impressão para salvar.');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao gerar PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const updateStatus = useMutation({
     mutationFn: async (status: string) => {
@@ -286,6 +329,18 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
             >
               <Trash2 className="h-4 w-4 mr-1.5" />
               Excluir
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleGeneratePdf}
+              disabled={!plan || generatingPdf}
+            >
+              {generatingPdf ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-1.5" />
+              )}
+              {generatingPdf ? 'Gerando...' : 'Gerar PDF'}
             </Button>
             <Button
               variant="outline"
