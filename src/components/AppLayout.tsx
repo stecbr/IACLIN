@@ -21,6 +21,7 @@ import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
 import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { FirstAccessClinicDialog } from '@/components/FirstAccessClinicDialog';
 import { PublishPendingBanner } from '@/components/PublishPendingBanner';
+import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -223,6 +224,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <FloatingConsultationButton />
       <WelcomeTour />
       <FirstAccessClinicDialog />
+      <GettingStartedChecklist />
     </SidebarProvider>
   );
 }
