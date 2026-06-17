@@ -3,6 +3,8 @@ import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { getViewMode } from '@/lib/viewMode';
 import { useEffect, useState } from 'react';
 import { VIEW_MODE_EVENT } from '@/lib/viewMode';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
+import type { StaffPermissions } from '@/components/settings/StaffPermissionsDialog';
 
 type AppRole = 'admin' | 'dentist' | 'secretary' | 'auxiliary' | 'patient' | 'operator';
 
@@ -53,6 +55,7 @@ const routePermissions: RouteAccess[] = [
 export function useRoleAccess() {
   const { clinicRole, isPatient, simulatedRole, user, currentClinicId, isClinicOwner } = useAuth();
   const isClinicSignup = useIsClinicSignup();
+  const { isStaff, permissions: staffPerms } = useStaffPermissions();
 
   // Dev simulation wins over everything when set
   // Patient role takes precedence; default to admin if no clinic role (owner / solo user)
@@ -98,6 +101,27 @@ export function useRoleAccess() {
   const canAccess = (path: string): boolean => {
     // Clinic signups don't have a personal "Meu Perfil" — redirect to /settings.
     if (isClinicSignup && path.startsWith('/perfil')) return false;
+    if (isStaff && staffPerms) {
+      const map: Array<[string, keyof StaffPermissions]> = [
+        ['/agenda',                 'agenda'],
+        ['/sala-de-espera',         'salaEspera'],
+        ['/clinica/aprovacoes',     'aprovacoes'],
+        ['/clinica/convenios',      'convenios'],
+        ['/patients',               'pacientes'],
+        ['/financial',              'financeiro'],
+        ['/ia-gestor',              'iaGestor'],
+        ['/secretaria-ia',          'secretariaIa'],
+        ['/chamados',               'chamados'],
+        ['/settings',               'settings'],
+      ];
+      for (const [prefix, key] of map) {
+        if (path === prefix || path.startsWith(`${prefix}/`)) {
+          if (staffPerms[key] === false) return false;
+          break;
+        }
+      }
+      if (path === '/' && staffPerms.dashboard === false) return false;
+    }
     const rule = routePermissions.find((r) => {
       if (r.path === '/') return path === '/';
       return path.startsWith(r.path);

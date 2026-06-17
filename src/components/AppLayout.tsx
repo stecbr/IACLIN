@@ -16,6 +16,7 @@ import logoDark from '@/assets/logo-dark.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiSync } from '@/hooks/useAiSync';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import { useProfessionalLabel } from '@/hooks/useProfessionalLabel';
 import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { FirstAccessClinicDialog } from '@/components/FirstAccessClinicDialog';
@@ -36,7 +37,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
   const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile } = useAuth();
-  const { effectiveRole } = useRoleAccess();
+  const { effectiveRole, canAccess } = useRoleAccess();
+  const { isStaff } = useStaffPermissions();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
 
   const dentistChip = isOdonto
@@ -117,6 +119,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  const blockedByPermission = isStaff && !canAccess(location.pathname);
+
   return (
     <SidebarProvider>
       <div className={`flex w-full ${isFixedHeightPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
@@ -194,7 +198,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 className="flex-1 flex flex-col min-h-0"
               >
                 <PublishPendingBanner />
-                {children}
+                {blockedByPermission ? (
+                  <div className="flex flex-1 items-center justify-center">
+                    <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 text-center shadow-card">
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <Shield className="h-6 w-6" />
+                      </div>
+                      <h1 className="text-lg font-semibold mb-2">Acesso não liberado</h1>
+                      <p className="text-sm text-muted-foreground">
+                        Esta área não foi liberada pelo administrador da clínica. Peça para o
+                        responsável habilitar a permissão em <strong>Configurações &gt; Equipe</strong>.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  children
+                )}
               </motion.div>
             </AnimatePresence>
           </main>

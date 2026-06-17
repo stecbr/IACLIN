@@ -1,56 +1,79 @@
-## Problema 1 — Secretária não consegue logar
+## Problema observado
 
-A função `invite-member` cria o usuário com `email_confirm: true` via Admin API, então a conta deveria existir. As causas mais prováveis do "não existe":
-
-1. **Senha fraca** (Supabase devolve erro como "Invalid login credentials" ou similar quando há validação HIBP / mínimo de caracteres). O formulário pede `min 6` mas não valida no servidor antes de chamar `createUser`.
-2. O `createUser` falhou silenciosamente para o usuário (mensagem ficou só no toast técnico) e a Maria nunca foi realmente criada no Auth — só apareceu na listagem porque o `profiles` foi gravado em outra tentativa anterior. Hoje o front mostra "adicionado com sucesso" mesmo quando há condição de corrida.
-3. O e-mail digitado tem espaço/maiúsculas — `signInWithPassword` é case-sensitive em alguns providers de Auth, e não fazemos `email.trim().toLowerCase()` nem na criação nem no login.
-
-### Correções
-
-**Backend (`supabase/functions/invite-member/index.ts`):**
-- Normalizar `email = email.trim().toLowerCase()`.
-- Antes de criar, checar com `adminClient.auth.admin.listUsers` se já existe um usuário com esse e-mail → devolver erro claro "E-mail já cadastrado".
-- Validar `password.length >= 6` no servidor.
-- Em caso de falha no `createUser`, devolver a mensagem real do Supabase (ex.: "Password should be at least 6 characters", "User already registered").
-
-**Frontend (`Auth.tsx`):**
-- No `handleSubmit` do login, fazer `email.trim().toLowerCase()` antes de `signInWithPassword`.
-- Traduzir "Invalid login credentials" para uma mensagem mais clara em PT-BR ("E-mail ou senha incorretos").
-
-**Frontend (`TeamSection.tsx` dialog de adicionar):**
-- Após adicionar com sucesso, mostrar um toast informativo: "Peça que **{nome}** acesse /auth e use o e-mail e a senha que você definiu".
-
-## Problema 2 — Toggle de acesso (ativar/desativar membro)
-
-Hoje só existe o botão de **Permissões** (ícone escudo) e **Remover** (lixeira). O usuário quer um **switch rápido** na linha para bloquear/liberar o acesso da Maria sem precisar remover.
-
-### Implementação
-
-**Migration:**
-```sql
-ALTER TABLE public.clinic_members
-  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+Nos logs do Auth aparece:
+```
+POST /admin/users → 422 email_exists
+"A user with this email address has already been registered"
 ```
 
-**Backend:**
-- `useRoleAccess` / `AuthContext` passam a considerar `is_active = false` como "sem acesso à clínica" (redireciona para tela de "Seu acesso foi suspenso pelo administrador").
-- `useStaffPermissions` retorna todas as permissões como `false` quando `is_active = false`.
+Ou seja, **o e-mail que o dono digitou já existe no Auth** (pode ter sido criado numa tentativa anterior, ou é o próprio e-mail do dono / de outro paciente). Hoje a função `invite-member`:
 
-**UI (`TeamSection.tsx`):**
-- Nova coluna **"Ativo"** na tabela, com um `<Switch>` ao lado do nome (visível apenas para o dono, e nunca para si mesmo).
-- Ao alternar: `update clinic_members set is_active = ? where id = ?` + toast "Acesso liberado/suspenso".
-- Linha do membro inativo fica com `opacity-60` e badge cinza "Suspenso".
+1. Faz `adminClient.auth.admin.listUsers({ page: 1, perPage: 200 })` e procura o e-mail — se a base passar de 200 usuários, o duplicado **não é detectado** e o `createUser` falha com 422 sem mensagem clara no front.
+2. Quando o `createUser` devolve erro, a mensagem real do Supabase (`"A user with this email address has already been registered"`) chega no toast, mas em inglês e sem orientar o dono ("use outro e-mail" / "esse e-mail já é de outro usuário do sistema").
 
-**Bloqueio em tempo de login:**
-- Em `AuthContext`, ao carregar `currentClinicId`, se o `clinic_members` do usuário estiver `is_active = false`, mostrar tela bloqueando navegação com mensagem "Seu acesso a esta clínica foi suspenso. Fale com o administrador." e botão de Sair.
+## Plano
+
+### 1. Detectar e-mail duplicado de forma confiável (`supabase/functions/invite-member/index.ts`)
+
+- Trocar o `listUsers({ perPage: 200 })` por uma checagem paginada **ou** pela query direta no schema `auth.users` via service role:
+  ```ts
+  const { data: existing } = await adminClient
+    .from('auth.users' as any)            // via service role
+    .select('id, email')
+    .eq('email', email)
+    .maybeSingle();
+  ```
+  (alternativa: paginar `listUsers` até achar ou acabar).
+- Se já existir, devolver 409 com mensagem PT-BR clara:
+  > "Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário, ou peça que ele entre pela tela de login com a senha atual."
+- Em qualquer outro erro do `createUser`, traduzir a mensagem (ex.: "Password should be at least 6 characters" → "A senha precisa ter ao menos 6 caracteres.").
+
+### 2. Mostrar o erro de forma amigável no diálogo de adicionar (`TeamSection.tsx`)
+
+- Hoje o toast mostra a mensagem técnica. Passar a exibir a mensagem traduzida vinda da função e, em caso de "e-mail já cadastrado", manter o diálogo aberto com o campo de e-mail destacado em vermelho para o dono corrigir.
+
+### 3. Ampliar a tela de permissões por funcionário (`StaffPermissionsDialog.tsx`)
+
+Hoje o diálogo tem 5 itens (Agenda, Pacientes, Financeiro, IA, Chamados). O usuário quer poder marcar/desmarcar tela por tela. Vou expandir para esta lista, mantendo o mesmo padrão visual (switch + ícone + descrição curta):
+
+| Permissão                | Rotas controladas                              |
+| ------------------------ | ---------------------------------------------- |
+| Dashboard                | `/`                                            |
+| Agenda                   | `/agenda`                                      |
+| Sala de espera           | `/sala-de-espera`                              |
+| Aprovações               | `/clinica/aprovacoes`                          |
+| Pacientes                | `/patients`                                    |
+| Convênios                | `/clinica/convenios`                           |
+| Financeiro               | `/financial`                                   |
+| IA Gestor                | `/ia-gestor`                                   |
+| Secretária IA            | `/secretaria-ia` (só dono pode liberar)        |
+| Chamados / Suporte       | `/chamados`                                    |
+| Configurações da clínica | `/settings`                                    |
+
+- `STAFF_PERMISSION_DEFAULTS` ganha defaults por papel:
+  - **secretary**: tudo `true` exceto `secretariaIa` e `settings`.
+  - **auxiliary**: só `dashboard`, `agenda`, `salaEspera`, `pacientes`, `chamados` por padrão.
+- O diálogo abre clicando na **linha inteira do funcionário** na tabela (não apenas no ícone de escudo) — mais intuitivo, como o usuário pediu.
+
+### 4. Aplicar as permissões no roteamento (`useRoleAccess.ts` + `useStaffPermissions.ts`)
+
+Hoje `useRoleAccess` libera todas as rotas que o papel `secretary`/`auxiliary` tem. Quando o usuário é staff:
+
+- `canAccess(path)` consulta primeiro `useStaffPermissions.permissions`.
+- Se o switch da rota estiver `false`, devolve `false` → o item some do menu (via `filterNavItems`) e o acesso direto pela URL cai numa tela de "Acesso não liberado pelo administrador".
+- Se o staff estiver suspenso (`is_active = false`), continua bloqueado pelo `SuspendedAccessScreen` já existente.
+
+### 5. Esconder do menu lateral o que não foi liberado (`AppSidebar.tsx`)
+
+Já usa `filterNavItems` — basta garantir que ele passe pelo novo `canAccess` que respeita permissões granulares.
 
 ## Arquivos alterados
 
-- `supabase/migrations/<novo>.sql` (adiciona `is_active`)
-- `supabase/functions/invite-member/index.ts` (normalização + validação + checagem de duplicado)
-- `src/pages/Auth.tsx` (normalização e-mail + mensagem PT-BR)
-- `src/components/settings/TeamSection.tsx` (coluna Ativo com Switch)
-- `src/contexts/AuthContext.tsx` (carregar `is_active` do membro corrente)
-- `src/hooks/useRoleAccess.ts` e `src/hooks/useStaffPermissions.ts` (respeitar `is_active`)
-- `src/components/AppLayout.tsx` ou novo `src/components/SuspendedAccessScreen.tsx` (tela de bloqueio)
+- `supabase/functions/invite-member/index.ts` — detecção robusta de e-mail duplicado + mensagens PT-BR.
+- `src/components/settings/StaffPermissionsDialog.tsx` — nova lista de permissões (11 itens) e defaults por papel.
+- `src/components/settings/TeamSection.tsx` — linha do funcionário inteira abre o diálogo; toast de erro mais claro.
+- `src/hooks/useStaffPermissions.ts` — expor o novo shape de permissões.
+- `src/hooks/useRoleAccess.ts` — `canAccess` respeita o mapa permissão→rota para staff.
+- `src/components/AppLayout.tsx` (ou novo `NoPermissionScreen.tsx`) — tela "Acesso não liberado" quando o staff abre uma URL desligada.
+
+Sem mudanças no banco — a coluna `permissions JSONB` em `clinic_members` já existe e cabe o novo shape.

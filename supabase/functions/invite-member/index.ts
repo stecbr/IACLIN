@@ -84,11 +84,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if a user with this email already exists
-    const { data: existingList } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const existing = existingList?.users?.find((u: any) => (u.email ?? '').toLowerCase() === email);
-    if (existing) {
-      return new Response(JSON.stringify({ error: "Já existe um usuário com este e-mail." }), {
+    // Check if a user with this email already exists (paginate to avoid missing it on large bases)
+    let emailAlreadyExists = false;
+    for (let page = 1; page <= 20; page++) {
+      const { data: list, error: listErr } = await adminClient.auth.admin.listUsers({ page, perPage: 200 });
+      if (listErr) break;
+      const users = list?.users ?? [];
+      if (users.some((u: any) => (u.email ?? '').toLowerCase() === email)) {
+        emailAlreadyExists = true;
+        break;
+      }
+      if (users.length < 200) break;
+    }
+    if (emailAlreadyExists) {
+      return new Response(JSON.stringify({
+        error: "Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.",
+      }), {
         status: 409,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -103,7 +114,14 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
+      const raw = createError.message ?? '';
+      const friendly =
+        /already been registered|email_exists/i.test(raw)
+          ? "Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário."
+          : /password.*(at least|short|weak)/i.test(raw)
+            ? "A senha precisa ter ao menos 6 caracteres."
+            : raw || "Não foi possível criar o usuário.";
+      return new Response(JSON.stringify({ error: friendly }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

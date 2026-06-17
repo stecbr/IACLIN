@@ -106,7 +106,15 @@ export default function TeamSection() {
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
     } catch (err: any) {
-      toast.error(err.message);
+      const msg: string = err?.message ?? 'Erro ao adicionar funcionário.';
+      // Translate common backend errors to PT-BR
+      const friendly =
+        /already been registered|email_exists|já está cadastrado/i.test(msg)
+          ? 'Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.'
+          : /Password should be at least|ao menos 6 caracteres/i.test(msg)
+            ? 'A senha precisa ter ao menos 6 caracteres.'
+            : msg;
+      toast.error(friendly);
     } finally {
       setSaving(false);
     }
@@ -243,8 +251,22 @@ export default function TeamSection() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((m: any) => (
-                <TableRow key={m.id} className={m.is_active === false ? 'opacity-60' : ''}>
+              {members.map((m: any) => {
+                const canEditPerms = isClinicOwner && !m.is_owner && isStaffRole(m.role);
+                return (
+                <TableRow
+                  key={m.id}
+                  className={`${m.is_active === false ? 'opacity-60 ' : ''}${canEditPerms ? 'cursor-pointer hover:bg-muted/40' : ''}`}
+                  onClick={() => {
+                    if (!canEditPerms) return;
+                    setPermEditor({
+                      id: m.id,
+                      name: m.full_name,
+                      role: m.role,
+                      permissions: (m.permissions as StaffPermissions | null) ?? null,
+                    });
+                  }}
+                >
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {m.full_name}
@@ -254,7 +276,7 @@ export default function TeamSection() {
                   <TableCell>
                     <Badge variant={roleColors[m.role] as any}>{roleLabels[m.role] ?? m.role}</Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     {(m.role === 'dentist' || m.role === 'admin') ? (
                       <button
                         type="button"
@@ -270,7 +292,7 @@ export default function TeamSection() {
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     {m.is_owner ? (
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : (
@@ -286,7 +308,7 @@ export default function TeamSection() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       {isClinicOwner && !m.is_owner && isStaffRole(m.role) && (
                         <Button
@@ -319,7 +341,7 @@ export default function TeamSection() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
           </Table>
         )}

@@ -226,7 +226,8 @@ export function AppSidebar() {
   const filteredOperationNav = filterNavItems(
     operationNav
       .filter((item) => item.allowedRoles.includes(effectiveRole))
-      .filter((item) => !isStaff || staffPerms?.agenda !== false || (item.url !== '/agenda' && item.url !== '/sala-de-espera'))
+      .filter((item) => !isStaff || (item.url === '/agenda' ? staffPerms?.agenda !== false : true))
+      .filter((item) => !isStaff || (item.url === '/sala-de-espera' ? staffPerms?.salaEspera !== false : true))
   );
   const filteredClinicNav = filterNavItems(
     clinicNav
@@ -235,8 +236,11 @@ export function AppSidebar() {
       .filter((item) => !(isDentist && item.url === '/odontogram'))
       .filter((item) => !(item.url === '/odontogram' && !isOdonto))
       .filter((item) => !(isPsi && item.url === '/budgets'))
-      .filter((item) => !isStaff || staffPerms?.pacientes !== false || (item.url !== '/patients' && item.url !== '/clinica/aprovacoes'))
-      .filter((item) => !isStaff || staffPerms?.financeiro !== false || item.url !== '/financial')
+      .filter((item) => !isStaff || (item.url === '/patients' ? staffPerms?.pacientes !== false : true))
+      .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))
+      .filter((item) => !isStaff || (item.url === '/clinica/convenios' ? staffPerms?.convenios !== false : true))
+      .filter((item) => !isStaff || (item.url === '/financial' ? staffPerms?.financeiro !== false : true))
+      .filter((item) => !isStaff || (item.url === '/secretaria-ia' ? staffPerms?.secretariaIa !== false : true))
       .map((item) => item.url === '/ferramentas' && toolsUrl !== '/ferramentas' ? { ...item, url: toolsUrl } : item)
   );
 
@@ -696,7 +700,7 @@ export function AppSidebar() {
             )}
 
 
-            {(effectiveRole === 'dentist' || effectiveRole === 'secretary' || effectiveRole === 'auxiliary') && currentClinicId && (!isStaff || staffPerms?.ia !== false) && (
+            {(effectiveRole === 'dentist' || effectiveRole === 'secretary' || effectiveRole === 'auxiliary') && currentClinicId && (!isStaff || staffPerms?.iaGestor !== false) && (
               <NavSection id="automacao-dentist" label="Automação" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
