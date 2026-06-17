@@ -8,6 +8,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoLight from '@/assets/logo-light.png';
 import logoDark from '@/assets/logo-dark.png';
+import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
 
 const breadcrumbMap: Record<string, string> = {
   '/paciente': 'Dashboard',
@@ -76,6 +77,7 @@ export function PatientLayout() {
           </main>
         </div>
       </div>
+      <GettingStartedChecklist />
     </SidebarProvider>
   );
 }
