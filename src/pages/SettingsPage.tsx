@@ -65,15 +65,18 @@ const allSections = [
   { id: 'appearance', label: 'Aparência', icon: Palette },
 ];
 
+const STAFF_SECTIONS = ['profile', 'security', 'appearance'];
+
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
-  const sections = allSections;
+  const { user, currentClinicId, clinicRole } = useAuth();
+  const isStaff = (clinicRole as string) === 'secretary' || (clinicRole as string) === 'auxiliary';
+  const sections = isStaff ? allSections.filter((s) => STAFF_SECTIONS.includes(s.id)) : allSections;
   // Permite abrir direto numa seção via ?section=insurance (usado pelos cards da IA)
   const initialSection = sections.some((s) => s.id === searchParams.get('section'))
     ? (searchParams.get('section') as string)
     : 'profile';
   const [activeSection, setActiveSection] = useState(initialSection);
-  const { user, currentClinicId, clinicRole } = useAuth();
   const [needsSpecialty, setNeedsSpecialty] = useState(false);
 
   useEffect(() => {

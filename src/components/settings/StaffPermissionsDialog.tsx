@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   LayoutDashboard, Calendar, DoorOpen, ClipboardCheck, Users, Receipt,
-  DollarSign, Bot, Sparkles, MessageSquare, Settings as SettingsIcon,
+  DollarSign, Bot, Sparkles, MessageSquare,
 } from 'lucide-react';
 
 export type StaffPermissions = {
@@ -27,12 +27,12 @@ export const STAFF_PERMISSION_DEFAULTS: Record<string, StaffPermissions> = {
   secretary: {
     dashboard: true, agenda: true, salaEspera: true, aprovacoes: true,
     pacientes: true, convenios: true, financeiro: true, iaGestor: true,
-    secretariaIa: false, chamados: true, settings: false,
+    secretariaIa: false, chamados: true, settings: true,
   },
   auxiliary: {
     dashboard: true, agenda: true, salaEspera: true, aprovacoes: false,
     pacientes: true, convenios: false, financeiro: false, iaGestor: false,
-    secretariaIa: false, chamados: true, settings: false,
+    secretariaIa: false, chamados: true, settings: true,
   },
 };
 
@@ -79,7 +79,6 @@ const PERMISSION_ITEMS: Array<{
   { key: 'iaGestor',     label: 'IA Gestor',           description: 'Assistente de gestão por IA',        icon: Bot },
   { key: 'secretariaIa', label: 'Secretária IA',       description: 'Configurar a secretária no WhatsApp', icon: Sparkles },
   { key: 'chamados',     label: 'Chamados / Suporte',  description: 'Abrir e responder chamados',         icon: MessageSquare },
-  { key: 'settings',     label: 'Configurações',       description: 'Editar dados e equipe da clínica',   icon: SettingsIcon },
 ];
 
 interface StaffPermissionsDialogProps {

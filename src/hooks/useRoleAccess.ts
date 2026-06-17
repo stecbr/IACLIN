@@ -112,7 +112,6 @@ export function useRoleAccess() {
         ['/ia-gestor',              'iaGestor'],
         ['/secretaria-ia',          'secretariaIa'],
         ['/chamados',               'chamados'],
-        ['/settings',               'settings'],
       ];
       for (const [prefix, key] of map) {
         if (path === prefix || path.startsWith(`${prefix}/`)) {
