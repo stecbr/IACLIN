@@ -5,6 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { PlanFormDialog } from '@/components/superadmin/PlanFormDialog';
 import { fetchAdminData } from '@/hooks/usePlatformAdminData';
 import {
@@ -16,15 +21,20 @@ export default function SuperAdminPlans() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<PlatformPlan | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<PlatformPlan | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ['platform-plans'],
     queryFn: () => fetchAdminData<PlatformPlan[]>('plans'),
   });
 
-  const handleDelete = async (p: PlatformPlan) => {
-    if (!confirm(`Excluir o plano "${p.name}"?`)) return;
-    const { error } = await (supabase as any).from('platform_plans').delete().eq('id', p.id);
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleteLoading(true);
+    const { error } = await (supabase as any).from('platform_plans').delete().eq('id', deleting.id);
+    setDeleteLoading(false);
+    setDeleting(null);
     if (error) return toast.error('Erro: ' + error.message);
     await qc.invalidateQueries({ queryKey: ['platform-plans'] });
     toast.success('Plano excluído');
@@ -97,7 +107,7 @@ export default function SuperAdminPlans() {
                         </div>
                         <div className="flex gap-1">
                           <Button size="icon" variant="ghost" onClick={() => setEditing(p)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleDelete(p)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => setDeleting(p)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                         </div>
                       </div>
                     </div>
@@ -116,6 +126,32 @@ export default function SuperAdminPlans() {
           plan={editing}
         />
       )}
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => { if (!o) setDeleting(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-destructive" />
+              Excluir plano
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o plano{' '}
+              <span className="font-semibold text-foreground">"{deleting?.name}"</span>?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading ? 'Excluindo…' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
