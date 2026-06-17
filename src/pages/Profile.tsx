@@ -72,7 +72,7 @@ export default function Profile() {
 }
 
 export function ProfileInfoSection() {
-  const { user, profile, currentClinicId, roles } = useAuth();
+  const { user, profile, currentClinicId, roles, clinicCategory } = useAuth();
   const queryClient = useQueryClient();
 
   const [fullName, setFullName] = useState('');
@@ -302,7 +302,10 @@ export function ProfileInfoSection() {
 
   const initials = (fullName || profile?.full_name || user?.email || 'U')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  const familyConfig = getFamilyConfig(selectedSpecialty || primarySpecialty);
+  // Use clinic category as fallback so an Odonto clinic always shows "CRO"
+  // even before the dentist picks a specific specialty.
+  const fallbackSpecialty = clinicCategory === 'odonto' ? 'dentista' : null;
+  const familyConfig = getFamilyConfig(selectedSpecialty || primarySpecialty || fallbackSpecialty);
   const regLabel = familyConfig.registrationLabel;
 
   return (
