@@ -1,76 +1,56 @@
-## Objetivo
+## Problema 1 — Secretária não consegue logar
 
-Permitir que o dono/admin da clínica alterne entre dois "modos de uso" sem trocar de login:
+A função `invite-member` cria o usuário com `email_confirm: true` via Admin API, então a conta deveria existir. As causas mais prováveis do "não existe":
 
-- **Modo Gestor** (padrão atual): visão de clínica — financeiro, secretária IA, aprovações, credenciamentos, etc.
-- **Modo Consulta**: visão do profissional (médico/dentista) — dashboard do dentista, minha agenda, disponibilidade, atendimento, odontograma, orçamentos, ferramentas — sem acesso a financeiro/secretária IA/clínica.
+1. **Senha fraca** (Supabase devolve erro como "Invalid login credentials" ou similar quando há validação HIBP / mínimo de caracteres). O formulário pede `min 6` mas não valida no servidor antes de chamar `createUser`.
+2. O `createUser` falhou silenciosamente para o usuário (mensagem ficou só no toast técnico) e a Maria nunca foi realmente criada no Auth — só apareceu na listagem porque o `profiles` foi gravado em outra tentativa anterior. Hoje o front mostra "adicionado com sucesso" mesmo quando há condição de corrida.
+3. O e-mail digitado tem espaço/maiúsculas — `signInWithPassword` é case-sensitive em alguns providers de Auth, e não fazemos `email.trim().toLowerCase()` nem na criação nem no login.
 
-Botão fica no canto superior direito da home (ao lado da saudação "Bom dia, Lucas"), e também aparece como item compacto na sidebar.
+### Correções
 
----
+**Backend (`supabase/functions/invite-member/index.ts`):**
+- Normalizar `email = email.trim().toLowerCase()`.
+- Antes de criar, checar com `adminClient.auth.admin.listUsers` se já existe um usuário com esse e-mail → devolver erro claro "E-mail já cadastrado".
+- Validar `password.length >= 6` no servidor.
+- Em caso de falha no `createUser`, devolver a mensagem real do Supabase (ex.: "Password should be at least 6 characters", "User already registered").
 
-## Comportamento
+**Frontend (`Auth.tsx`):**
+- No `handleSubmit` do login, fazer `email.trim().toLowerCase()` antes de `signInWithPassword`.
+- Traduzir "Invalid login credentials" para uma mensagem mais clara em PT-BR ("E-mail ou senha incorretos").
 
-### 1. Detecção do perfil profissional do dono
+**Frontend (`TeamSection.tsx` dialog de adicionar):**
+- Após adicionar com sucesso, mostrar um toast informativo: "Peça que **{nome}** acesse /auth e use o e-mail e a senha que você definiu".
 
-No primeiro clique em "Modo Consulta", verificar em `clinic_members` (linha do owner na clínica atual) se já tem `specialty` e `registration_number` preenchidos.
+## Problema 2 — Toggle de acesso (ativar/desativar membro)
 
-- **Sem dados** → abrir `FirstConsultModeDialog` solicitando:
-  - Especialidade (usa `SpecialtySelect` já existente)
-  - Registro profissional (CRM, CRO, CRP, etc — label dinâmico via `registrationLabelForSpecialty`)
-  - Ao salvar: `UPDATE clinic_members SET specialty=?, registration_number=? WHERE user_id=auth.uid() AND clinic_id=?` e `INSERT` em `professional_specialties` (is_primary=true) e `clinic_member_specialties`.
-- **Com dados** → ativa direto.
+Hoje só existe o botão de **Permissões** (ícone escudo) e **Remover** (lixeira). O usuário quer um **switch rápido** na linha para bloquear/liberar o acesso da Maria sem precisar remover.
 
-### 2. Toggle visual
+### Implementação
 
-- Rótulo dinâmico:
-  - Se o usuário **já é dentist** numa clínica (cadastro como médico): botão chama-se **"Modo Gestor"** (default = consulta, alterna para visão gestor).
-  - Se é **admin/owner** sem ser dentista: botão chama-se **"Modo Consulta"** (default = gestor).
-- Ícone `Stethoscope` ↔ `Building2`.
-- Localização: header da home (`Index.tsx`/`DentistHome.tsx`/`MedicalHome.tsx`) + botão duplicado no rodapé da sidebar acima do usuário.
+**Migration:**
+```sql
+ALTER TABLE public.clinic_members
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+```
 
-### 3. Persistência
+**Backend:**
+- `useRoleAccess` / `AuthContext` passam a considerar `is_active = false` como "sem acesso à clínica" (redireciona para tela de "Seu acesso foi suspenso pelo administrador").
+- `useStaffPermissions` retorna todas as permissões como `false` quando `is_active = false`.
 
-Novo helper `viewMode.ts`:
-- `getViewMode(userId, clinicId): 'manager' | 'consult'`
-- `setViewMode(userId, clinicId, mode)`
-- Storage: `localStorage` key `iaclin.viewMode.<userId>.<clinicId>`.
+**UI (`TeamSection.tsx`):**
+- Nova coluna **"Ativo"** na tabela, com um `<Switch>` ao lado do nome (visível apenas para o dono, e nunca para si mesmo).
+- Ao alternar: `update clinic_members set is_active = ? where id = ?` + toast "Acesso liberado/suspenso".
+- Linha do membro inativo fica com `opacity-60` e badge cinza "Suspenso".
 
-### 4. Aplicação do modo no roteamento
+**Bloqueio em tempo de login:**
+- Em `AuthContext`, ao carregar `currentClinicId`, se o `clinic_members` do usuário estiver `is_active = false`, mostrar tela bloqueando navegação com mensagem "Seu acesso a esta clínica foi suspenso. Fale com o administrador." e botão de Sair.
 
-Em `useRoleAccess`:
-- Calcular `effectiveRole`:
-  - Se `viewMode === 'consult'` e o usuário tem qualquer papel admin/owner/dentist → `effectiveRole = 'dentist'`.
-  - Se `viewMode === 'manager'` e o usuário é dentist+owner → `effectiveRole = 'admin'`.
-- `useProfessionalLabel`, sidebar, mobile bottom nav, dashboards e command palette já consomem `effectiveRole` → ganham a troca automaticamente.
-- Bloquear rotas `/financial`, `/secretaria-ia`, `/clinica/*` em consult mode (já segue regra `routePermissions` para `dentist`).
+## Arquivos alterados
 
-### 5. Home dinâmica
-
-`src/pages/Index.tsx` já roteia para `DentistHome`/`MedicalHome`/`ClinicaHome` baseado em role. Como `effectiveRole` muda, a home certa aparece sem novo código.
-
----
-
-## Arquivos a criar / editar
-
-**Novos:**
-- `src/lib/viewMode.ts` — helpers de persistência.
-- `src/hooks/useViewMode.ts` — hook React (`viewMode`, `setViewMode`, `toggle`, `canSwitch`).
-- `src/components/ViewModeToggle.tsx` — botão usado no header da home e na sidebar.
-- `src/components/FirstConsultModeDialog.tsx` — coleta especialidade + registro no primeiro acesso.
-
-**Editar:**
-- `src/hooks/useRoleAccess.ts` — incorporar `viewMode` no cálculo de `effectiveRole`.
-- `src/pages/Index.tsx` — renderizar `<ViewModeToggle/>` no topo direito da saudação.
-- `src/pages/dentist/DentistHome.tsx`, `src/pages/medical/MedicalHome.tsx`, `src/pages/clinica/ClinicaHome.tsx` — mesmo toggle no header.
-- `src/components/AppSidebar.tsx` — botão compacto acima do bloco do usuário (somente quando o usuário pode alternar).
-
-**Sem mudanças de banco** — `clinic_members.specialty` e `registration_number` já existem.
-
----
-
-## Fora de escopo
-
-- Criar perfil profissional duplicado em outras clínicas.
-- Cobrança/limite de profissionais quando o dono usa modo consulta (continua não contando como profissional extra).
-- Mudar a categoria da clínica.
+- `supabase/migrations/<novo>.sql` (adiciona `is_active`)
+- `supabase/functions/invite-member/index.ts` (normalização + validação + checagem de duplicado)
+- `src/pages/Auth.tsx` (normalização e-mail + mensagem PT-BR)
+- `src/components/settings/TeamSection.tsx` (coluna Ativo com Switch)
+- `src/contexts/AuthContext.tsx` (carregar `is_active` do membro corrente)
+- `src/hooks/useRoleAccess.ts` e `src/hooks/useStaffPermissions.ts` (respeitar `is_active`)
+- `src/components/AppLayout.tsx` ou novo `src/components/SuspendedAccessScreen.tsx` (tela de bloqueio)
