@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { STAFF_PERMISSION_DEFAULTS, type StaffPermissions } from '@/components/settings/StaffPermissionsDialog';
 
 export function useStaffPermissions() {
-  const { user, currentClinicId, clinicRole } = useAuth();
+  const { user, currentClinicId, clinicRole, isMembershipSuspended } = useAuth();
   const isStaff = (clinicRole as string) === 'secretary' || (clinicRole as string) === 'auxiliary';
 
   const { data: permissions = null } = useQuery({
@@ -27,6 +27,13 @@ export function useStaffPermissions() {
 
   const roleKey = (clinicRole as string) ?? 'secretary';
   const fallback = STAFF_PERMISSION_DEFAULTS[roleKey] ?? STAFF_PERMISSION_DEFAULTS.secretary;
+
+  if (isStaff && isMembershipSuspended) {
+    return {
+      isStaff,
+      permissions: { agenda: false, pacientes: false, financeiro: false, ia: false, chamados: false },
+    };
+  }
 
   return {
     isStaff,

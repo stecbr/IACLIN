@@ -251,8 +251,14 @@ export default function Auth() {
     setSubmitting(true);
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const cleanEmail = email.trim().toLowerCase();
+        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        if (error) {
+          const msg = /invalid login credentials/i.test(error.message)
+            ? 'E-mail ou senha incorretos. Confira com quem cadastrou seu acesso.'
+            : error.message;
+          throw new Error(msg);
+        }
         toast.success('Login realizado com sucesso!');
       } else {
         // Validate common name field for patient and professional signups

@@ -16,6 +16,7 @@ interface ClinicMembership {
   role: AppRole;
   is_owner: boolean;
   category: ClinicCategory;
+  is_active: boolean;
 }
 
 interface AuthContextType {
@@ -28,6 +29,7 @@ interface AuthContextType {
   clinicRole: AppRole | null;
   isClinicOwner: boolean;
   clinicCategory: ClinicCategory;
+  isMembershipSuspended: boolean;
   isPatient: boolean;
   isOperator: boolean;
   isPlatformAdmin: boolean;
@@ -80,14 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
-        supabase.from('clinic_members').select('clinic_id, role, is_owner').eq('user_id', userId),
+        (supabase as any).from('clinic_members').select('clinic_id, role, is_owner, is_active').eq('user_id', userId),
         supabase.from('operator_members').select('operator_id').eq('user_id', userId).maybeSingle(),
       ]).then(async ([{ data: rolesData }, { data: profileData }, { data: memberData }, { data: operatorMember }]) => {
         if (!mounted) return;
         setRoles((rolesData ?? []).map(r => r.role as AppRole));
         setProfile(profileData);
         setOperatorId((operatorMember as any)?.operator_id ?? null);
-        const memberRows = (memberData ?? []) as Array<{ clinic_id: string; role: string; is_owner: boolean }>;
+        const memberRows = (memberData ?? []) as Array<{ clinic_id: string; role: string; is_owner: boolean; is_active?: boolean }>;
         const storedPersonalScope = typeof window !== 'undefined'
           ? localStorage.getItem(scopeStorageKey(userId)) === 'personal'
           : false;
@@ -110,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: m.role as AppRole,
           is_owner: m.is_owner,
           category: (clinicMap.get(m.clinic_id)?.category ?? 'odonto') as ClinicCategory,
+          is_active: m.is_active !== false,
         }));
         if (!mounted) return;
         setClinics(memberships);
@@ -233,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clinicRole: currentMembership?.role ?? null,
       isClinicOwner: currentMembership?.is_owner ?? false,
       clinicCategory: currentMembership?.category ?? 'odonto',
+      isMembershipSuspended: currentMembership ? !currentMembership.is_active : false,
       isPatient,
       isOperator,
       isPlatformAdmin,

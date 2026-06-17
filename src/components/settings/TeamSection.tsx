@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -59,7 +60,7 @@ export default function TeamSection() {
       if (!currentClinicId) return [];
       const { data, error } = await (supabase as any)
         .from('clinic_members')
-        .select('id, user_id, role, is_owner, created_at, permissions')
+        .select('id, user_id, role, is_owner, created_at, permissions, is_active')
         .eq('clinic_id', currentClinicId);
       if (error) throw error;
 
@@ -120,6 +121,20 @@ export default function TeamSection() {
       const { error } = await supabase.from('clinic_members').delete().eq('id', memberId);
       if (error) throw error;
       toast.success('Membro removido.');
+      queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleToggleActive = async (memberId: string, nextValue: boolean) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('clinic_members')
+        .update({ is_active: nextValue })
+        .eq('id', memberId);
+      if (error) throw error;
+      toast.success(nextValue ? 'Acesso liberado.' : 'Acesso suspenso.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
     } catch (err: any) {
       toast.error(err.message);
@@ -223,12 +238,13 @@ export default function TeamSection() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Papel</TableHead>
                 <TableHead>Procedimentos</TableHead>
+                <TableHead>Acesso</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {members.map((m: any) => (
-                <TableRow key={m.id}>
+                <TableRow key={m.id} className={m.is_active === false ? 'opacity-60' : ''}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {m.full_name}
@@ -252,6 +268,22 @@ export default function TeamSection() {
                       </button>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {m.is_owner ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={m.is_active !== false}
+                          disabled={!isClinicOwner}
+                          onCheckedChange={(v) => handleToggleActive(m.id, v)}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {m.is_active === false ? 'Suspenso' : 'Ativo'}
+                        </span>
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="text-right">

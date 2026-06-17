@@ -35,7 +35,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinicRole } = useAuth();
+  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
 
@@ -93,6 +93,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const isFixedHeightPage = location.pathname.startsWith('/ia-gestor');
+
+  if (isMembershipSuspended) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 text-center shadow-card">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <Shield className="h-6 w-6" />
+          </div>
+          <h1 className="text-lg font-semibold mb-2">Acesso suspenso</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Olá{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}. Seu acesso a esta clínica foi
+            temporariamente suspenso pelo administrador. Entre em contato com o responsável para reativá-lo.
+          </p>
+          <button
+            onClick={signOut}
+            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
