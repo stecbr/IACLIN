@@ -1,7 +1,6 @@
 // Whitelist de e-mails com acesso ao "modo desenvolvedor"
 // (alternar visões Clínica / Médico / Paciente sem precisar de logins separados)
 export const DEV_EMAILS: string[] = [
-  'lucasferreiraceara@gmail.com',
   'endrya161624@gmail.com',
   'juniormelo884@gmail.com',
 ];
