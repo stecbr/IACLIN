@@ -4,20 +4,64 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Calendar, Users, DollarSign, Bot, MessageSquare } from 'lucide-react';
+import {
+  LayoutDashboard, Calendar, DoorOpen, ClipboardCheck, Users, Receipt,
+  DollarSign, Bot, Sparkles, MessageSquare, Settings as SettingsIcon,
+} from 'lucide-react';
 
 export type StaffPermissions = {
+  dashboard: boolean;
   agenda: boolean;
+  salaEspera: boolean;
+  aprovacoes: boolean;
   pacientes: boolean;
+  convenios: boolean;
   financeiro: boolean;
-  ia: boolean;
+  iaGestor: boolean;
+  secretariaIa: boolean;
   chamados: boolean;
+  settings: boolean;
 };
 
 export const STAFF_PERMISSION_DEFAULTS: Record<string, StaffPermissions> = {
-  secretary: { agenda: true, pacientes: true, financeiro: true, ia: false, chamados: true },
-  auxiliary: { agenda: true, pacientes: true, financeiro: false, ia: false, chamados: false },
+  secretary: {
+    dashboard: true, agenda: true, salaEspera: true, aprovacoes: true,
+    pacientes: true, convenios: true, financeiro: true, iaGestor: true,
+    secretariaIa: false, chamados: true, settings: false,
+  },
+  auxiliary: {
+    dashboard: true, agenda: true, salaEspera: true, aprovacoes: false,
+    pacientes: true, convenios: false, financeiro: false, iaGestor: false,
+    secretariaIa: false, chamados: true, settings: false,
+  },
 };
+
+/**
+ * Backward-compat: turns the previous 5-key shape into the new 11-key shape
+ * so existing rows in `clinic_members.permissions` keep working.
+ */
+export function normalizeStaffPermissions(
+  stored: any,
+  role: string,
+): StaffPermissions {
+  const base = STAFF_PERMISSION_DEFAULTS[role] ?? STAFF_PERMISSION_DEFAULTS.secretary;
+  if (!stored || typeof stored !== 'object') return base;
+  // Already in new shape
+  if ('dashboard' in stored && 'salaEspera' in stored) {
+    return { ...base, ...stored };
+  }
+  // Old shape → map
+  return {
+    ...base,
+    agenda: stored.agenda ?? base.agenda,
+    salaEspera: stored.agenda ?? base.salaEspera,
+    pacientes: stored.pacientes ?? base.pacientes,
+    aprovacoes: stored.pacientes ?? base.aprovacoes,
+    financeiro: stored.financeiro ?? base.financeiro,
+    iaGestor: stored.ia ?? base.iaGestor,
+    chamados: stored.chamados ?? base.chamados,
+  };
+}
 
 const PERMISSION_ITEMS: Array<{
   key: keyof StaffPermissions;
@@ -25,11 +69,17 @@ const PERMISSION_ITEMS: Array<{
   description: string;
   icon: typeof Calendar;
 }> = [
-  { key: 'agenda',     label: 'Agenda & Sala de Espera', description: 'Visualizar e gerenciar a agenda da clínica', icon: Calendar },
-  { key: 'pacientes',  label: 'Pacientes & Aprovações',  description: 'Acessar cadastro e dados dos pacientes',     icon: Users },
-  { key: 'financeiro', label: 'Financeiro',               description: 'Visualizar lançamentos e recebimentos',      icon: DollarSign },
-  { key: 'ia',         label: 'Inteligência Artificial',  description: 'Usar IA Gestor na plataforma',              icon: Bot },
-  { key: 'chamados',   label: 'Chamados',                 description: 'Acessar a área de suporte e chamados',      icon: MessageSquare },
+  { key: 'dashboard',    label: 'Dashboard',           description: 'Página inicial com indicadores',    icon: LayoutDashboard },
+  { key: 'agenda',       label: 'Agenda',              description: 'Ver e gerenciar consultas',         icon: Calendar },
+  { key: 'salaEspera',   label: 'Sala de espera',      description: 'Acompanhar chegadas e fila',        icon: DoorOpen },
+  { key: 'aprovacoes',   label: 'Aprovações',          description: 'Aprovar pedidos de pacientes',      icon: ClipboardCheck },
+  { key: 'pacientes',    label: 'Pacientes',           description: 'Cadastro e prontuários',             icon: Users },
+  { key: 'convenios',    label: 'Convênios',           description: 'Planos e operadoras',                icon: Receipt },
+  { key: 'financeiro',   label: 'Financeiro',          description: 'Lançamentos e recebimentos',         icon: DollarSign },
+  { key: 'iaGestor',     label: 'IA Gestor',           description: 'Assistente de gestão por IA',        icon: Bot },
+  { key: 'secretariaIa', label: 'Secretária IA',       description: 'Configurar a secretária no WhatsApp', icon: Sparkles },
+  { key: 'chamados',     label: 'Chamados / Suporte',  description: 'Abrir e responder chamados',         icon: MessageSquare },
+  { key: 'settings',     label: 'Configurações',       description: 'Editar dados e equipe da clínica',   icon: SettingsIcon },
 ];
 
 interface StaffPermissionsDialogProps {
@@ -52,13 +102,13 @@ export function StaffPermissionsDialog({
   onSaved,
 }: StaffPermissionsDialogProps) {
   const roleKey = memberRole ?? 'secretary';
-  const defaults = STAFF_PERMISSION_DEFAULTS[roleKey] ?? STAFF_PERMISSION_DEFAULTS.secretary;
-
-  const [perms, setPerms] = useState<StaffPermissions>(currentPermissions ?? defaults);
+  const [perms, setPerms] = useState<StaffPermissions>(
+    normalizeStaffPermissions(currentPermissions, roleKey),
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setPerms(currentPermissions ?? STAFF_PERMISSION_DEFAULTS[memberRole ?? 'secretary'] ?? STAFF_PERMISSION_DEFAULTS.secretary);
+    setPerms(normalizeStaffPermissions(currentPermissions, memberRole ?? 'secretary'));
   }, [currentPermissions, memberRole, open]);
 
   const toggle = (key: keyof StaffPermissions) => {
