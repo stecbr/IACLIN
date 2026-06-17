@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { STAFF_PERMISSION_DEFAULTS, type StaffPermissions } from '@/components/settings/StaffPermissionsDialog';
+import {
+  STAFF_PERMISSION_DEFAULTS,
+  normalizeStaffPermissions,
+  type StaffPermissions,
+} from '@/components/settings/StaffPermissionsDialog';
 
 export function useStaffPermissions() {
   const { user, currentClinicId, clinicRole, isMembershipSuspended } = useAuth();
@@ -19,9 +23,7 @@ export function useStaffPermissions() {
         .eq('clinic_id', currentClinicId!)
         .maybeSingle();
       if (!data) return null;
-      const stored = (data as any).permissions as StaffPermissions | null;
-      if (stored) return stored;
-      return STAFF_PERMISSION_DEFAULTS[(data as any).role as string] ?? STAFF_PERMISSION_DEFAULTS.secretary;
+      return normalizeStaffPermissions((data as any).permissions, (data as any).role);
     },
   });
 
@@ -29,10 +31,11 @@ export function useStaffPermissions() {
   const fallback = STAFF_PERMISSION_DEFAULTS[roleKey] ?? STAFF_PERMISSION_DEFAULTS.secretary;
 
   if (isStaff && isMembershipSuspended) {
-    return {
-      isStaff,
-      permissions: { agenda: false, pacientes: false, financeiro: false, ia: false, chamados: false },
-    };
+    const allFalse = Object.keys(fallback).reduce(
+      (acc, k) => ({ ...acc, [k]: false }),
+      {} as StaffPermissions,
+    );
+    return { isStaff, permissions: allFalse };
   }
 
   return {
