@@ -37,8 +37,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
   const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile } = useAuth();
-  const { effectiveRole } = useRoleAccess();
-  const { canAccess } = useRoleAccess();
+  const { effectiveRole, canAccess } = useRoleAccess();
   const { isStaff } = useStaffPermissions();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
 
