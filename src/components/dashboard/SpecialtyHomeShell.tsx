@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { type LucideIcon } from 'lucide-react';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { PageHeader } from '@/components/PageHeader';
+import { ViewModeToggle } from '@/components/ViewModeToggle';
 
 export interface KpiSpec {
   title: string;
@@ -31,7 +32,9 @@ export function SpecialtyHomeShell({
 }) {
   return (
     <div className="space-y-8">
-      <PageHeader title={title} description={description} />
+      <PageHeader title={title} description={description}>
+        <ViewModeToggle />
+      </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi, i) => (
