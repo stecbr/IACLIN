@@ -16,6 +16,7 @@ import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landma
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
+import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
 
 type Operator = {
   id: string;
@@ -577,28 +578,25 @@ export default function MyCredentialingSection() {
               const cred = byOp.get(op.id);
               const st = cred ? statusMap[cred.status] : null;
               const Icon = st?.icon;
-              const yearsInMarket = Math.max(1, new Date().getFullYear() - new Date(op.created_at).getFullYear());
               return (
                 <div key={op.id} className="rounded-lg border border-border/50 p-3">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
                   <div
-                    className="h-9 w-9 rounded-md flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: (op.brand_color ?? '#6B7280') + '20', color: op.brand_color ?? '#6B7280' }}
+                    className="h-10 w-10 rounded-md flex items-center justify-center shrink-0 overflow-hidden bg-background border border-border/60"
                   >
-                    {op.logo_url ? <img src={op.logo_url} alt={op.name} className="h-7 w-7 object-contain" /> : <Building2 className="h-4 w-4" />}
+                    <img
+                      src={op.logo_url || iaclinDefaultLogo.url}
+                      alt={op.name}
+                      className="h-8 w-8 object-contain"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinDefaultLogo.url; }}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{op.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {op.ans_code ? `ANS ${op.ans_code}` : 'Sem código ANS'} · {op.type === 'medico' ? 'Médica' : op.type === 'odonto' ? 'Odontológica' : 'Médica e odontológica'}
                     </p>
-                    <div className="mt-1 rounded-md bg-muted/40 border border-border/60 px-2 py-1.5">
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Info className="h-3 w-3" />
-                        Briefing: {yearsInMarket} anos de mercado, fluxo digital de validação e pagamento conforme tabela contratual da rede.
-                      </p>
-                    </div>
                     {cred?.status === 'rejected' && cred.rejection_reason && (
                       <p className="text-xs text-destructive mt-1">Motivo: {cred.rejection_reason}</p>
                     )}
@@ -606,21 +604,21 @@ export default function MyCredentialingSection() {
                       <p className="text-xs text-primary mt-1">Convite recebido por link da operadora.</p>
                     )}
                   </div>
-                    </div>
-
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[220px]">
                       {st && Icon && (
-                        <Badge variant="outline" className={`gap-1 w-fit md:self-end ${st.cls}`}>
+                        <Badge variant="outline" className={`gap-1 shrink-0 ${st.cls}`}>
                           <Icon className="h-3 w-3" /> {st.label}
                         </Badge>
                       )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40 justify-end">
                       {!cred && (
-                        <Button size="sm" variant="outline" className="w-full md:w-auto" disabled={busyOp === op.id || !memberId} onClick={() => setOpenFor(op)}>
+                        <Button size="sm" variant="outline" disabled={busyOp === op.id || !memberId} onClick={() => setOpenFor(op)}>
                           Solicitar credenciamento
                         </Button>
                       )}
                       {cred?.status === 'pending' && (
-                        <Button size="sm" variant="ghost" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
+                        <Button size="sm" variant="ghost" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
                           Cancelar
                         </Button>
                       )}
@@ -629,18 +627,17 @@ export default function MyCredentialingSection() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="w-full md:w-auto"
                             onClick={() => navigate(`/clinica/convenios?operator=${op.id}`)}
                           >
                             Ver tabela de valores
                           </Button>
-                          <Button size="sm" variant="outline" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
+                          <Button size="sm" variant="outline" disabled={busyOp === op.id} onClick={() => cancel(cred, op.name)}>
                             Cancelar credenciamento
                           </Button>
                         </>
                       )}
                       {(cred?.status === 'rejected' || cred?.status === 'revoked') && (
-                        <Button size="sm" variant="outline" className="w-full md:w-auto" disabled={busyOp === op.id} onClick={() => setOpenFor(op)}>
+                        <Button size="sm" variant="outline" disabled={busyOp === op.id} onClick={() => setOpenFor(op)}>
                           Solicitar novamente
                         </Button>
                       )}
