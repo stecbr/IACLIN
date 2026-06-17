@@ -262,7 +262,7 @@ export default function PatientHome() {
                 <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
                   <History className="h-4 w-4" /> Atividade recente
                 </CardTitle>
-                <Button size="sm" variant="ghost" onClick={() => navigate('/paciente/historico')}>
+                <Button size="sm" variant="ghost" onClick={() => navigate('/paciente/agendas')}>
                   Ver tudo
                 </Button>
               </div>

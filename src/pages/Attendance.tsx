@@ -1038,7 +1038,7 @@ export default function Attendance() {
         )}
 
         {tabKeys.includes('documents') && (
-          <TabsContent value="documents">
+          <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden">
             <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />
           </TabsContent>
         )}

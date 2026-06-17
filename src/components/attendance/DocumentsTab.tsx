@@ -288,6 +288,55 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
   const [certCidEdited, setCertCidEdited] = useState(false);
   const [certNotes, setCertNotes] = useState('');
 
+  // Draft persistence key: patient + calendar day so different consultations don't clash
+  const draftKey = `doc-draft-${patientId}-${today}`;
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore draft from localStorage on first mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d.exams?.length)  setExams(d.exams);
+      if (d.examIndication) setExamIndication(d.examIndication);
+      if (d.rxItems?.length) setRxItems(d.rxItems);
+      if (d.rxNotes)        setRxNotes(d.rxNotes);
+      if (d.refSpecialty)   setRefSpecialty(d.refSpecialty);
+      if (d.refUrgency)     setRefUrgency(d.refUrgency);
+      if (d.refReason)      setRefReason(d.refReason);
+      if (d.refSummary)     setRefSummary(d.refSummary);
+      if (d.emitCert != null) setEmitCert(d.emitCert);
+      if (d.certMode)       setCertMode(d.certMode);
+      if (d.certDate)       setCertDate(d.certDate);
+      if (d.certStart)      setCertStart(d.certStart);
+      if (d.certEnd)        setCertEnd(d.certEnd);
+      if (d.leaveStart)     setLeaveStart(d.leaveStart);
+      if (d.leaveDays)      setLeaveDays(d.leaveDays);
+      if (d.certCid != null)      setCertCid(d.certCid);
+      if (d.certCidEdited != null) setCertCidEdited(d.certCidEdited);
+      if (d.certNotes)      setCertNotes(d.certNotes);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save to localStorage whenever any field changes (debounced 600ms)
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          exams, examIndication, rxItems, rxNotes,
+          refSpecialty, refUrgency, refReason, refSummary,
+          emitCert, certMode, certDate, certStart, certEnd,
+          leaveStart, leaveDays, certCid, certCidEdited, certNotes,
+        }));
+      } catch {}
+    }, 600);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes]);
+
   // Sync CID from hypotheses
   useEffect(() => {
     if (certCidEdited) return;
@@ -295,9 +344,10 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
     setCertCid(codes);
   }, [hypotheses, certCidEdited]);
 
-  // Auto-fill attendance time from today's appointment
+  // Auto-fill attendance time from today's appointment (skip if draft already restored)
   useEffect(() => {
     if (!patientId || !user) return;
+    if (localStorage.getItem(draftKey)) return;
     const fetchToday = async () => {
       const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(); dayEnd.setHours(23, 59, 59, 999);
@@ -315,7 +365,7 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
       }
     };
     fetchToday();
-  }, [patientId, user]);
+  }, [patientId, user, draftKey]);
 
   // Patient data
   const { data: patient } = useQuery({

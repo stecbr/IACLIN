@@ -49,7 +49,7 @@ import PatientHome from "./pages/patient/PatientHome";
 import PatientPlan from "./pages/patient/PatientPlan";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientBooking from "./pages/patient/PatientBooking";
-import PatientHistory from "./pages/patient/PatientHistory";
+import PatientRecord from "./pages/patient/PatientRecord";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientSettings from "./pages/patient/PatientSettings";
 import { OperatorLayout } from "./components/operadora/OperatorLayout";
@@ -244,7 +244,7 @@ const AppRoutes = () => (
       <Route path="plano" element={<PatientPlan />} />
       <Route path="agendas" element={<PatientAppointments />} />
       <Route path="agendar" element={<PatientBooking />} />
-      <Route path="historico" element={<PatientHistory />} />
+      <Route path="prontuario" element={<PatientRecord />} />
       <Route path="exames" element={<PatientExams />} />
       <Route path="configuracoes" element={<PatientSettings />} />
     </Route>

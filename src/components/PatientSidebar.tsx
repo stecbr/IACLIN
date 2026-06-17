@@ -4,7 +4,7 @@ import {
   Calendar,
   CalendarPlus,
   FileText,
-  History,
+  ClipboardList,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -39,7 +39,7 @@ const mainNav = [
   { title: 'Dashboard', url: '/paciente', icon: LayoutDashboard, end: true },
   { title: 'Agendar consulta', url: '/paciente/agendar', icon: CalendarPlus },
   { title: 'Minhas Consultas', url: '/paciente/agendas', icon: Calendar },
-  { title: 'Histórico', url: '/paciente/historico', icon: History },
+  { title: 'Meu Prontuário', url: '/paciente/prontuario', icon: ClipboardList },
   { title: 'Meus Exames', url: '/paciente/exames', icon: FileText },
   { title: 'Plano de Saúde', url: '/paciente/plano', icon: CreditCard },
 ];

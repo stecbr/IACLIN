@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
@@ -23,6 +23,7 @@ import { DateStep } from '@/components/patient/booking/DateStep';
 import { ClinicDoctorStep, type BookingSelection } from '@/components/patient/booking/ClinicDoctorStep';
 import { SummaryStep } from '@/components/patient/booking/SummaryStep';
 import { BookingFilters, type BookingFiltersValue } from '@/components/patient/booking/BookingFilters';
+import { SPECIALTIES } from '@/components/patient/booking/SpecialtyStep';
 import { format } from 'date-fns';
 
 type Step = 1 | 2 | 3 | 4;
@@ -40,11 +41,18 @@ type ConflictInfo = {
 
 export default function PatientBooking() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { refetch } = usePatientData();
 
-  const [step, setStep] = useState<Step>(1);
-  const [specialty, setSpecialty] = useState<Specialty | null>(null);
+  const initialSpecialty = (() => {
+    const slug: string | null = location.state?.initialSpecialty ?? null;
+    if (!slug) return null;
+    return SPECIALTIES.find(s => s.id === slug || s.name.toLowerCase() === slug.toLowerCase()) ?? null;
+  })();
+
+  const [step, setStep] = useState<Step>(initialSpecialty ? 2 : 1);
+  const [specialty, setSpecialty] = useState<Specialty | null>(initialSpecialty);
   const [date, setDate] = useState<Date | null>(null);
   const [selection, setSelection] = useState<BookingSelection | null>(null);
   const [notes, setNotes] = useState('');
