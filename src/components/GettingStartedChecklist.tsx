@@ -86,8 +86,8 @@ export function GettingStartedChecklist() {
           .eq('clinic_id', currentClinicId!),
         supabase
           .from('treatment_plans')
-          .select('id', { count: 'exact', head: true })
-          .eq('clinic_id', currentClinicId!),
+          .select('id, patients!inner(clinic_id)', { count: 'exact', head: true })
+          .eq('patients.clinic_id', currentClinicId!),
         supabase
           .from('appointments')
           .select('id', { count: 'exact', head: true })
