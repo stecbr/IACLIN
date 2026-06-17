@@ -154,6 +154,33 @@ export function PlanFormDialog({ open, onClose, plan }: Props) {
             <Textarea rows={4} value={features} onChange={e => setFeatures(e.target.value)} placeholder={'Agenda ilimitada\nProntuário eletrônico\nWhatsApp integrado'} />
           </div>
 
+          {segment === 'clinic' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Profissionais inclusos</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={maxPros}
+                  onChange={e => setMaxPros(e.target.value)}
+                  placeholder="Ex: 10 (vazio = ilimitado)"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Excedente / profissional (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                  <Input
+                    className="pl-9"
+                    value={extraPriceBrl}
+                    onChange={e => setExtraPriceBrl(e.target.value)}
+                    placeholder="100,00"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
               <Label>Plano ativo</Label>
