@@ -301,7 +301,21 @@ export default function OperatorRequests() {
       try {
         parsed = JSON.parse(value);
       } catch {
-        return [{ day: '', closed: false, raw: value }];
+        // Parse plain string like "Segunda: 08:00 - 18:00 Terça: ... Sábado: Fechado"
+        const dayNames = Object.values(dayLabels);
+        const regex = new RegExp(
+          `(${dayNames.join('|')}):\\s*(Fechado|\\d{1,2}:\\d{2}\\s*[-–às]+\\s*\\d{1,2}:\\d{2})`,
+          'gi',
+        );
+        const matches = Array.from(value.matchAll(regex));
+        if (matches.length === 0) return [{ day: '', closed: false, raw: value }];
+        return matches.map((m) => {
+          const day = m[1];
+          const rest = m[2].trim();
+          if (/fechado/i.test(rest)) return { day, closed: true };
+          const times = rest.match(/(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/);
+          return { day, open: times?.[1], close: times?.[2], closed: false };
+        });
       }
     }
 
