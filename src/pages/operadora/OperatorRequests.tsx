@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Check, FileText, Eye, X } from 'lucide-react';
+import { Check, FileText, Eye, X, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface Req {
@@ -65,6 +66,7 @@ export default function OperatorRequests() {
   const [loadingDetailProfessionals, setLoadingDetailProfessionals] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<ClinicProfessional | null>(null);
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
+  const [search, setSearch] = useState('');
 
   const load = async () => {
     if (!operatorId) { setReqs([]); setLoading(false); return; }
@@ -155,7 +157,15 @@ export default function OperatorRequests() {
     load();
   };
 
-  const visible = tab === 'pending' ? reqs.filter((r) => r.status === 'pending') : reqs;
+  const base = tab === 'pending' ? reqs.filter((r) => r.status === 'pending') : reqs;
+  const q = search.trim().toLowerCase();
+  const visible = !q
+    ? base
+    : base.filter((r) =>
+        [r.clinic_name, r.full_name, r.requested_by_name, r.specialty]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q)),
+      );
 
   const parseNotes = (raw: string | null) => {
     if (!raw) return null;
@@ -277,6 +287,15 @@ export default function OperatorRequests() {
         <h1 className="text-2xl font-semibold">Pedidos de credenciamento</h1>
         <p className="text-sm text-muted-foreground">Aprove ou recuse profissionais que querem entrar na sua rede</p>
       </div>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por clínica, profissional ou especialidade..."
+          className="pl-9 rounded-xl"
+        />
+      </div>
       <div className="inline-flex rounded-lg bg-muted p-1">
         {(['pending', 'all'] as const).map((t) => (
           <button
@@ -299,28 +318,33 @@ export default function OperatorRequests() {
       ) : (
         <div className="space-y-3">
           {visible.map((r) => (
-            <Card key={r.id} className="rounded-xl p-4 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="font-medium">{r.clinic_name}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
+            <Card key={r.id} className="rounded-xl p-4 flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="font-medium">{r.clinic_name}</div>
+                    <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{STATUS_LABELS[r.status] ?? r.status}</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
+                  </div>
+                  {(() => {
+                    const parsed = parseNotes(r.notes);
+                    const procCount = parsed?.requested_procedures?.length ?? 0;
+                    return procCount > 0 ? (
+                      <div className="text-xs text-muted-foreground mt-1">{procCount} procedimento(s) selecionado(s)</div>
+                    ) : null;
+                  })()}
+                  {r.rejection_reason && (
+                    <div className="text-xs text-destructive mt-1">Motivo: {r.rejection_reason}</div>
+                  )}
                 </div>
-                {(() => {
-                  const parsed = parseNotes(r.notes);
-                  const procCount = parsed?.requested_procedures?.length ?? 0;
-                  return procCount > 0 ? (
-                    <div className="text-xs text-muted-foreground mt-1">{procCount} procedimento(s) selecionado(s)</div>
-                  ) : null;
-                })()}
-                {r.rejection_reason && (
-                  <div className="text-xs text-destructive mt-1">Motivo: {r.rejection_reason}</div>
-                )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
                 <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setDetailReq(r)}>
                   <FileText className="h-4 w-4 mr-1" /> Ver dados da clínica
                 </Button>
-                <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{STATUS_LABELS[r.status] ?? r.status}</Badge>
+                <div className="flex-1" />
                 {(r.status === 'approved' || r.status === 'pending') && (
                   <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setRevoking(r)}>
                     Revogar

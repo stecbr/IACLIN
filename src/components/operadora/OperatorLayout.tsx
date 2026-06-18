@@ -83,6 +83,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
   const { signOut, profile, operatorId, user } = useAuth();
   const [op, setOp] = useState<OperatorInfo | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     if (!operatorId) return;
@@ -93,6 +94,36 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
       .single()
       .then(({ data }) => data && setOp(data as OperatorInfo));
   }, [operatorId]);
+
+  useEffect(() => {
+    if (!operatorId) return;
+    let cancelled = false;
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from("operator_credentialings")
+        .select("id", { count: "exact", head: true })
+        .eq("operator_id", operatorId)
+        .eq("status", "pending");
+      if (!cancelled) setPendingCount(count ?? 0);
+    };
+    fetchCount();
+    const channel = supabase
+      .channel(`op-pending-${operatorId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "operator_credentialings", filter: `operator_id=eq.${operatorId}` },
+        () => fetchCount(),
+      )
+      .subscribe();
+    const interval = setInterval(fetchCount, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [operatorId, location.pathname]);
+
+  const badgeFor = (to: string) => (to === "/operadora/pedidos" && pendingCount > 0 ? pendingCount : null);
 
   const initials = (op?.name ?? "OP")
     .split(" ")
@@ -148,6 +179,11 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
+                    {badgeFor(item.to) !== null && (
+                      <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-semibold">
+                        {badgeFor(item.to)}
+                      </span>
+                    )}
                   </NavLink>
                 ))}
               </div>
@@ -224,13 +260,18 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                           <NavLink
                             to={item.to}
                             end={item.end}
-                            className={`flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
+                            className={`relative flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
                               active
                                 ? "bg-sidebar-accent text-sidebar-primary"
                                 : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
                             }`}
                           >
                             <item.icon size={18} strokeWidth={2} className="block shrink-0" />
+                            {badgeFor(item.to) !== null && (
+                              <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-semibold">
+                                {badgeFor(item.to)}
+                              </span>
+                            )}
                           </NavLink>
                         </TooltipTrigger>
                         <TooltipContent side="right">{item.label}</TooltipContent>
