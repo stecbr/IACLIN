@@ -110,7 +110,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         {/* Operator brand block: logo, status badge above name, and description */}
         <div className="px-5 py-5 border-sidebar-border">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
+            <div className="h-10 w-10 shrink-0 flex items-center justify-center">
               <img
                 src={op?.logo_url || iaclinDefaultLogo.url}
                 alt={op?.name ?? "Operadora"}
@@ -197,7 +197,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         className={`hidden ${!sidebarOpen ? "md:flex" : "md:hidden"} w-16 flex-col items-center bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen`}
       >
         <div className="py-4 w-full flex items-center justify-center">
-          <div className="h-10 w-10 rounded-xl overflow-hidden ring-1 ring-sidebar-border bg-sidebar-accent">
+          <div className="h-10 w-10 flex items-center justify-center">
             <img
               src={op?.logo_url || iaclinDefaultLogo.url}
               alt={op?.name ?? "Operadora"}
