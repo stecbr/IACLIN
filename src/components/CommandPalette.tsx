@@ -76,11 +76,11 @@ export function CommandPalette() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-muted-foreground text-sm hover:bg-muted transition-colors"
+        className="flex w-full max-w-2xl items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-muted-foreground text-sm hover:bg-muted transition-colors"
       >
         <Search className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Buscar...</span>
-        <kbd className="hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+        <span className="hidden sm:inline flex-1 text-left">Buscar pacientes, páginas...</span>
+        <kbd className="ml-auto hidden sm:inline-flex h-5 items-center gap-0.5 rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
           ⌘K
         </kbd>
       </button>
