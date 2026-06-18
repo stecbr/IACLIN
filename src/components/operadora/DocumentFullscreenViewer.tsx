@@ -88,7 +88,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
               </Button>
             </>
           )}
-          {img && (
+          {(img || pdf) && (
             <Button size="icon" variant="ghost" className="rounded-full" onClick={() => setRotation((r) => (r + 90) % 360)} aria-label="Girar">
               <RotateCw className="h-4 w-4" />
             </Button>
