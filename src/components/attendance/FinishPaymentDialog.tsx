@@ -368,7 +368,7 @@ export function FinishPaymentDialog({
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => { setMode('insurance'); setStripeUrl(null); }}
+            onClick={() => { setMode('insurance'); setCheckoutUrl(null); }}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'insurance' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
@@ -378,7 +378,7 @@ export function FinishPaymentDialog({
           </button>
           <button
             type="button"
-            onClick={() => { setMode('stripe'); setStripeUrl(null); }}
+            onClick={() => { setMode('stripe'); setCheckoutUrl(null); }}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'stripe' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
@@ -388,7 +388,7 @@ export function FinishPaymentDialog({
           </button>
           <button
             type="button"
-            onClick={() => { setMode('later'); setStripeUrl(null); }}
+            onClick={() => { setMode('later'); setCheckoutUrl(null); }}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'later' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
@@ -505,7 +505,7 @@ export function FinishPaymentDialog({
         {/* Stripe */}
         {mode === 'stripe' && (
           <div className="space-y-3">
-            {!stripeUrl ? (
+            {!checkoutUrl ? (
               <>
                 <p className="text-sm text-muted-foreground">
                   Vamos gerar um link de pagamento Stripe ({brl(totalParticular)}). Compartilhe com o paciente — ele paga pelo celular.
@@ -523,18 +523,18 @@ export function FinishPaymentDialog({
                   Link gerado! Compartilhe com o paciente:
                 </div>
                 <a
-                  href={stripeUrl}
+                  href={checkoutUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 text-sm hover:bg-muted/50"
                 >
-                  <span className="truncate text-primary">{stripeUrl}</span>
+                  <span className="truncate text-primary">{checkoutUrl}</span>
                   <ExternalLink className="h-4 w-4 flex-shrink-0" />
                 </a>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    navigator.clipboard.writeText(stripeUrl);
+                    navigator.clipboard.writeText(checkoutUrl);
                     toast.success('Link copiado');
                   }}
                   className="w-full"
