@@ -46,11 +46,23 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Recusado',
   revoked: 'Revogado',
 };
-const STATUS_VARIANT: Record<string, any> = {
-  pending: 'secondary',
-  approved: 'default',
-  rejected: 'destructive',
-  revoked: 'outline',
+const STATUS_CLASSES: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30',
+  approved: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30',
+  rejected: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30',
+  revoked: 'bg-muted text-muted-foreground border-border',
+};
+
+const DOC_LABELS: Record<string, string> = {
+  cro_dentista: 'CRO/CRM do profissional',
+  cro_clinica: 'CRO/CRM da clínica (responsável técnico)',
+  cartao_cnpj: 'Cartão CNPJ',
+  contrato_social: 'Contrato Social',
+  alvara: 'Alvará de funcionamento',
+  licenca_sanitaria: 'Licença sanitária',
+  cnes_doc: 'Comprovante CNES',
+  fotos_clinica: 'Fotos da clínica',
+  especializacao: 'Certificado de especialização',
 };
 
 export default function OperatorRequests() {
@@ -323,7 +335,9 @@ export default function OperatorRequests() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-medium">{r.clinic_name}</div>
-                    <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{STATUS_LABELS[r.status] ?? r.status}</Badge>
+                    <Badge variant="outline" className={STATUS_CLASSES[r.status] ?? ''}>
+                      {STATUS_LABELS[r.status] ?? r.status}
+                    </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
@@ -341,15 +355,10 @@ export default function OperatorRequests() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-                <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setDetailReq(r)}>
+                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setDetailReq(r)}>
                   <FileText className="h-4 w-4 mr-1" /> Ver dados da clínica
                 </Button>
                 <div className="flex-1" />
-                {(r.status === 'approved' || r.status === 'pending') && (
-                  <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setRevoking(r)}>
-                    Revogar
-                  </Button>
-                )}
                 {r.status === 'pending' && (
                   <>
                     <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setRejecting(r)}>
@@ -392,6 +401,10 @@ export default function OperatorRequests() {
             const clinic = data?.clinic ?? null;
             const contact = data?.contact ?? null;
             const procs = data?.requested_procedures ?? [];
+            const documentation = data?.documentation ?? null;
+            const docEntityType: 'fisica' | 'juridica' | null = documentation?.entity_type ?? clinic?.entity_type ?? null;
+            const docFiles: Array<{ doc_type: string; file_name: string; url: string }> = Array.isArray(documentation?.files) ? documentation.files : [];
+            const bank = documentation?.bank ?? null;
             const clinicAddress = [clinic?.address, clinic?.city, clinic?.state]
               .filter(Boolean)
               .join(' · ');
@@ -445,6 +458,46 @@ export default function OperatorRequests() {
                       {procs.map((p: any) => (
                         <Badge key={p.id ?? p.name} variant="secondary">{p.name}</Badge>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Documentação enviada {docEntityType ? `(${docEntityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})` : ''}
+                    </span>
+                    {docFiles.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground">{docFiles.length} arquivo(s)</span>
+                    )}
+                  </div>
+                  {docFiles.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Nenhum documento enviado.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {docFiles.map((f, i) => (
+                        <a
+                          key={`${f.url}-${i}`}
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 rounded-xl border border-border p-2 hover:bg-muted/40 transition-colors min-w-0"
+                        >
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{DOC_LABELS[f.doc_type] ?? f.doc_type}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">{f.file_name}</div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {bank && (bank.bank_name || bank.agency || bank.account) && (
+                    <div className="rounded-xl border border-border p-3 mt-2 text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div><span className="text-muted-foreground">Banco</span><div>{bank.bank_name ?? '—'}</div></div>
+                      <div><span className="text-muted-foreground">Agência</span><div>{bank.agency ?? '—'}</div></div>
+                      <div><span className="text-muted-foreground">Conta</span><div>{bank.account ?? '—'}</div></div>
+                      <div><span className="text-muted-foreground">Titular</span><div>{bank.holder_name ?? '—'}</div></div>
                     </div>
                   )}
                 </div>
