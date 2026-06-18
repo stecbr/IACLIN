@@ -74,20 +74,16 @@ export function PlanFormDialog({ open, onClose, plan }: Props) {
       }
       toast.success(isEdit ? 'Plano atualizado!' : 'Plano criado!');
 
-      // Sync with Stripe (product + price)
+      // Sync with Mercado Pago (preapproval plan)
       if (savedId) {
         try {
-          const { data: syncData, error: syncErr } = await supabase.functions.invoke('stripe-sync-plan', {
+          const { error: syncErr } = await supabase.functions.invoke('mercadopago-sync-plan', {
             body: { plan_id: savedId },
           });
           if (syncErr) throw syncErr;
-          if (syncData?.price_changed) {
-            toast.success('Sincronizado com Stripe (novo preço criado)');
-          } else {
-            toast.success('Sincronizado com Stripe');
-          }
+          toast.success('Sincronizado com Mercado Pago');
         } catch (err: any) {
-          toast.error('Plano salvo, mas falhou sync com Stripe: ' + (err?.message ?? 'erro'));
+          toast.error('Plano salvo, mas falhou sync com Mercado Pago: ' + (err?.message ?? 'erro'));
         }
       }
 
