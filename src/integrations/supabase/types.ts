@@ -2079,49 +2079,106 @@ export type Database = {
       }
       patient_accounts: {
         Row: {
+          address: string | null
+          address_complement: string | null
+          address_number: string | null
+          city: string | null
           cpf: string
           created_at: string
           date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           full_name: string
           gender: string | null
+          guardian_cpf: string | null
+          guardian_date_of_birth: string | null
+          guardian_name: string | null
           id: string
+          insurance_holder: string | null
+          insurance_holder_cpf: string | null
           insurance_number: string | null
           insurance_provider: string | null
+          is_foreign: boolean
+          landline: string | null
+          neighborhood: string | null
+          notes: string | null
           phone: string | null
+          photo_url: string | null
           profession: string | null
           rg: string | null
+          sms_reminders: boolean
+          state: string | null
           updated_at: string
           user_id: string
+          zip_code: string | null
         }
         Insert: {
+          address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
+          city?: string | null
           cpf: string
           created_at?: string
           date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name: string
           gender?: string | null
+          guardian_cpf?: string | null
+          guardian_date_of_birth?: string | null
+          guardian_name?: string | null
           id?: string
+          insurance_holder?: string | null
+          insurance_holder_cpf?: string | null
           insurance_number?: string | null
           insurance_provider?: string | null
+          is_foreign?: boolean
+          landline?: string | null
+          neighborhood?: string | null
+          notes?: string | null
           phone?: string | null
+          photo_url?: string | null
           profession?: string | null
           rg?: string | null
+          sms_reminders?: boolean
+          state?: string | null
           updated_at?: string
           user_id: string
+          zip_code?: string | null
         }
         Update: {
+          address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
+          city?: string | null
           cpf?: string
           created_at?: string
           date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name?: string
           gender?: string | null
+          guardian_cpf?: string | null
+          guardian_date_of_birth?: string | null
+          guardian_name?: string | null
           id?: string
+          insurance_holder?: string | null
+          insurance_holder_cpf?: string | null
           insurance_number?: string | null
           insurance_provider?: string | null
+          is_foreign?: boolean
+          landline?: string | null
+          neighborhood?: string | null
+          notes?: string | null
           phone?: string | null
+          photo_url?: string | null
           profession?: string | null
           rg?: string | null
+          sms_reminders?: boolean
+          state?: string | null
           updated_at?: string
           user_id?: string
+          zip_code?: string | null
         }
         Relationships: []
       }

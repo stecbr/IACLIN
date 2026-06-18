@@ -1,53 +1,43 @@
-# Simplificar Personalização Avançada de Tema
+## Problemas identificados
 
-Remover toda a edição manual e manter apenas a grade de paletas inteligentes (ampliada) + botão de restaurar padrão.
+### Bug 1 — RG / Profissão (e outros) somem após o cadastro de paciente
+A tela `/auth` envia `rg`, `profession`, `date_of_birth` e `gender` em `raw_user_meta_data`, mas o trigger `handle_new_user` (banco) **só** persiste `cpf, full_name, phone, insurance_provider, insurance_number` na tabela `patient_accounts`. Os demais campos são descartados no momento do cadastro — por isso, ao abrir Configurações, o RG (e gênero/data de nascimento, se preenchidos no signup) aparecem em branco.
 
-## Alterações em `src/components/settings/ThemeCustomizer.tsx`
+### Bug 2 — Endereço/observações/contato de emergência não persistem
+Em `PatientSettings.tsx → save()`:
+- `patient_accounts` só recebe um subconjunto pequeno (nome, telefone, nascimento, gênero, rg, profissão, convênio).
+- `profiles` recebe apenas `address, city, state, zip_code`.
+- Todo o resto (`address_complement`, `neighborhood`, `landline`, `notes`, `sms_reminders`, `emergency_contact_*`, `guardian_*`, `insurance_holder*`, `is_foreign`, `photo_url`) só é gravado em `patients` — **e somente quando já existe linha vinculada (`patientIds.length > 0`)**.
+- Um paciente recém-cadastrado ainda não está vinculado a nenhuma clínica → `patientIds` está vazio → toast diz "salvou", mas nada além de nome/telefone realmente foi para o banco. Ao recarregar, tudo volta em branco.
 
-### Remover
-- Seções: **Superfícies**, **Identidade**, **Detalhes** (3 grupos de color pickers)
-- Seção **Tons derivados da primária** (ramp)
-- Sliders **Intensidade da sombra** e **Arredondamento**
-- Seção **Pré-visualização ao vivo**
-- Switch **Contraste automático**
-- Imports não usados (`Slider`, `Switch`, `PremiumColorPicker`, `shadeRamp`, `Wand2`, `useState`, `useAuth`, `COLOR_FIELDS`, `CustomThemeKey` se não usado)
+## Correções
 
-### Manter / ajustar
-- Header do card (título "Personalização avançada")
-- Grade de **Paletas inteligentes** (ampliada para 20+ opções, incluindo vermelha, vinho, rosa e variações)
-- Botão **Restaurar padrão**
-- Atualizar `CardDescription` para refletir que agora é só seleção de paleta pronta
+### 1. Migration — expandir `patient_accounts` e corrigir o trigger
+Tornar `patient_accounts` o registro canônico dos dados pessoais do paciente (independente de vínculo com clínica):
 
-### Ampliar PRESETS para 20+ paletas
-Adicionar/substituir mantendo as 5 atuais (Oceano, Floresta, Pôr-do-sol, Minimalista, Rosé Couture) e incluir:
+- Adicionar colunas à `patient_accounts`:
+  `landline, notes, photo_url, sms_reminders (bool default true), is_foreign (bool default false), zip_code, address, address_number, address_complement, neighborhood, city, state, emergency_contact_name, emergency_contact_phone, guardian_name, guardian_cpf, guardian_date_of_birth, insurance_holder, insurance_holder_cpf`.
+- Atualizar `handle_new_user`: ao criar `patient_accounts`, gravar também `date_of_birth`, `gender`, `rg`, `profession` vindos do `raw_user_meta_data`.
+- Manter os GRANTs/políticas existentes (a tabela já tem 3 policies — nada novo a abrir).
 
-1. Vermelho Rubi
-2. Vinho Bordeaux
-3. Rosa Millennial
-4. Rosa Pink Vibrante
-5. Magenta Berry
-6. Coral Suave
-7. Lilás Lavanda
-8. Roxo Imperial
-9. Violeta Profundo
-10. Turquesa Tropical
-11. Azul Marinho Clássico
-12. Verde Esmeralda
-13. Verde Menta
-14. Amarelo Mostarda
-15. Âmbar Dourado
-16. Terracota Rústico
-17. Café Expresso
-18. Grafite Moderno
-19. Cinza Nórdico
-20. Petróleo Sofisticado
+### 2. `src/pages/patient/PatientSettings.tsx → save()`
+- Estender `accPatch` para incluir todos os novos campos acima.
+- Continuar atualizando `profiles` (avatar/endereço básico, para o restante do app que lê de `profiles`).
+- Continuar propagando para `patients` quando `patientIds.length > 0` (mantém os prontuários das clínicas sincronizados).
+- Resultado: mesmo sem nenhuma clínica vinculada, todos os dados persistem em `patient_accounts` e voltam corretamente ao recarregar.
 
-Cada preset com `colors` (background, foreground, primary, primaryForeground, card, accent, border) + `radius` + `shadowIntensity` coerentes — paletas claras adequadas ao light mode (a customização só se aplica no modo claro, conforme `CustomThemeProvider`).
+### 3. `src/hooks/usePatientData.ts` (e tipo `PatientAccount`)
+- Adicionar os novos campos ao tipo `PatientAccount` para que o `useEffect` de hidratação em `PatientSettings` leia de `account` (não só do `patientRecord`).
+- Ajustar o `useEffect` para preferir `account.*` nos campos recém-adicionados.
 
-### Layout da grade
-Manter visual atual de cards-swatch, mas em grid responsivo `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5` para acomodar 20+ itens sem ficar apertado.
+## Fora do escopo (não vou mexer)
+- Identidade visual da Aparência, paletas, IA Gestor, etc. — fica como está.
+- Não vou criar/alterar lógica de vínculo clínica↔paciente.
 
-## Não alterar
-- `CustomThemeProvider.tsx` — API permanece igual (`applyPreset` e `resetCustom` já existem)
-- `AppearanceSettingsSection.tsx` — continua renderizando `<ThemeCustomizer />`
-- `PremiumColorPicker.tsx` — não usado mais aqui, mas pode permanecer no projeto caso usado em outro lugar
+## Resumo técnico
+Arquivos alterados:
+- `supabase/migrations/<nova>.sql` — `ALTER TABLE patient_accounts ADD COLUMN ...` + `CREATE OR REPLACE FUNCTION handle_new_user`.
+- `src/pages/patient/PatientSettings.tsx` — `save()` grava tudo em `patient_accounts`.
+- `src/hooks/usePatientData.ts` — tipo `PatientAccount` ampliado.
+
+Posso seguir?
