@@ -13,7 +13,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { geocodeAddress } from '@/lib/geocode';
 import { useTheme } from '@/components/ThemeProvider';
-import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
+import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
 
 type ClinicSearchRow = {
   clinic_id: string;

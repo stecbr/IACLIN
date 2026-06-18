@@ -26,7 +26,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { NotificationBell } from "@/components/NotificationBell";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import iaclinDefaultLogo from "@/assets/iaclin-default-logo.png.asset.json";
+import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
