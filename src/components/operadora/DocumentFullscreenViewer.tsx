@@ -93,12 +93,19 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
 
       <div className="flex-1 overflow-auto bg-muted/30 flex items-center justify-center p-4">
         {pdf ? (
-          <iframe
-            src={file.url}
-            title={file.file_name}
+          <object
+            data={`${file.url}#view=FitH&toolbar=1`}
+            type="application/pdf"
             className="bg-white shadow-lg rounded-lg"
-            style={{ width: `${zoom}%`, height: '100%', minHeight: '80vh', maxWidth: '100%' }}
-          />
+            style={{ width: `${zoom}%`, height: '85vh', maxWidth: '100%' }}
+          >
+            <iframe
+              src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.url)}&embedded=true`}
+              title={file.file_name}
+              className="bg-white shadow-lg rounded-lg"
+              style={{ width: `${zoom}%`, height: '85vh', maxWidth: '100%', border: 0 }}
+            />
+          </object>
         ) : img ? (
           <img
             src={file.url}
