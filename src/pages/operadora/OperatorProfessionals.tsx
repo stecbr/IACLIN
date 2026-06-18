@@ -49,8 +49,8 @@ const BR_STATES = [
 ];
 
 const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-const DARK_MAP_FILTER = 'brightness(0.15) contrast(1.35) sepia(1) saturate(4) hue-rotate(178deg)';
-const DARK_MAP_BACKGROUND = '#0a1020';
+const DARK_MAP_FILTER = 'brightness(0.35) contrast(1.15) sepia(1) saturate(3) hue-rotate(178deg)';
+const DARK_MAP_BACKGROUND = '#16243d';
 const DARK_LOGO_BACKGROUND = '#142447';
 
 export default function OperatorProfessionals() {
