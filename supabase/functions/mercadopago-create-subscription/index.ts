@@ -52,7 +52,6 @@ Deno.serve(async (req) => {
         auto_recurring: {
           frequency,
           frequency_type: 'months',
-          start_date: new Date().toISOString(),
           transaction_amount: amount,
           currency_id: 'BRL',
         },
@@ -81,6 +80,12 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('mercadopago-create-subscription error:', msg);
+    if (msg.includes('card_token_id is required')) {
+      return json({
+        error: 'CARD_TOKEN_REQUIRED',
+        message: 'Mercado Pago recusou a criação pendente da assinatura e exigiu token de cartão. Tente novamente; se persistir, use o checkout autorizado com captura de cartão.',
+      }, 400);
+    }
     return json({ error: msg }, 500);
   }
 });
