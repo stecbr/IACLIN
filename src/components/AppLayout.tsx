@@ -129,8 +129,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <AppSidebar />
         </div>
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center gap-3 border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-            <div className="flex items-center gap-3 shrink-0">
+          <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
               {backNav && (
                 <button
@@ -166,11 +166,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   Modo Pessoal
                 </span>
               )}
+              {roleConfig && (
+                <span className={`hidden sm:inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${roleConfig.chip}`}>
+                  <roleConfig.Icon className="h-3 w-3" />
+                  {roleConfig.label}
+                </span>
+              )}
             </div>
-            <div className="flex-1 min-w-0 flex justify-center">
+            <div className="flex items-center gap-1">
               <CommandPalette />
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

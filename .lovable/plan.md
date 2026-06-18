@@ -1,36 +1,32 @@
-## Diagnóstico
+## Causa
 
-O conteúdo das abas Avaliação, Diagnóstico, Conduta, Procedimentos, Evolução e Documentos NÃO está com largura menor — o grid externo (`lg:grid-cols-[14rem_minmax(0,1fr)_22rem]`) e o wrapper `<div className="flex-1 min-w-0 space-y-4">` são os mesmos para todas as abas em `src/pages/Attendance.tsx`.
+Em `mercadopago-create-subscription/index.ts` enviamos para `/preapproval`:
+- `preapproval_plan_id` (plano-template)
+- **E** `auto_recurring` + `payer_email` + `status: 'pending'`
 
-O que quebra o padrão visual é **card-dentro-de-card**: ao envolvermos cada seção em `<Card>` no `renderSection()`, os subcomponentes `AssessmentForm` e `FollowUpBlock` continuam renderizando vários `<Card>` internos (Queixa principal, HDA, Exame físico, Plano terapêutico, Retorno). O padding duplo (`p-6` externo + `p-6` interno + borda interna) faz o conteúdo parecer afundado/estreito, enquanto Visão Geral e Sinais Vitais têm apenas um Card único.
+Quando MP recebe `preapproval_plan_id` junto com `auto_recurring`, ele entra no fluxo "criar assinatura já autorizada" e exige `card_token_id` (cartão tokenizado no front via SDK do MP). Por isso o 400 `card_token_id is required`.
 
-## Mudanças
+Para deixar o MP hospedar a coleta do cartão (sem precisar do SDK no front), o caminho correto é criar uma preapproval **standalone** (sem `preapproval_plan_id`), com `status: 'pending'` — o MP devolve `init_point` e o usuário autoriza/preenche cartão lá. É exatamente o fluxo redirect que já temos no front.
 
-### 1. `src/components/attendance/AssessmentForm.tsx`
-Remover os 3 `Card` internos das seções "Queixa principal", "História da doença atual (HDA)" e "Exame físico / inspeção". Substituir por blocos simples:
+## Solução (só no backend, front não muda)
 
-```tsx
-<div className="space-y-2">
-  <Label className="text-sm font-medium text-muted-foreground">Queixa principal</Label>
-  <Input ... />
-</div>
-```
+### Editar `supabase/functions/mercadopago-create-subscription/index.ts`
+- Remover `preapproval_plan_id` do body do POST `/preapproval`.
+- Manter: `reason`, `payer_email`, `back_url`, `external_reference`, `auto_recurring` (frequency, frequency_type, transaction_amount, currency_id, `start_date` = agora), `status: 'pending'`.
+- Não precisa mais ler `mp_preapproval_plan_id` do plano (mas mantenho a coluna; o sync de plano ainda cria/atualiza o template caso o admin queira usar futuramente).
+- Tirar a checagem que bloqueia quando `mp_preapproval_plan_id` está vazio (agora é opcional).
+- Manter `upsert` em `platform_subscriptions` com `mp_preapproval_id`, `mp_init_point`, status `trial`.
 
-Manter o alerta amber "Antecedentes do paciente" como Card (é um destaque intencional). Container raiz continua `space-y-4`.
+### Nada muda no front
+`SubscriptionSection.tsx` já redireciona para `data.url` (= `init_point`). MP coleta cartão e chama webhook ao autorizar; nosso `mercadopago-webhook` atualiza para `active`.
 
-### 2. `src/components/attendance/FollowUpBlock.tsx`
-Remover os 2 `Card` internos ("Plano terapêutico / orientações" e "Retorno sugerido"). Converter em blocos `<div className="space-y-2">` com `<Label>` + campo, mantendo o botão "Agendar retorno agora" e o `AppointmentFormDialog` inalterados.
+### Validação
+1. Plano de R$ 20 já sincronizado.
+2. Em `/settings` → Assinatura → "Assinar". Deve abrir o checkout do MP, pedir cartão, e ao concluir redirecionar para `back_url`.
+3. Webhook deve disparar `preapproval` e marcar a `platform_subscriptions` como `active`.
 
-### 3. `src/pages/Attendance.tsx`
-Nenhuma mudança. Os wrappers `<Card className="border-border/50 shadow-card">` em `assessment`, `vitals`, `diagnosis`, `conduct`, `requests`, `notes`, `procedures`, `odontogram` e `documents` permanecem — eles já produzem exatamente a mesma largura da Visão Geral. O grid, a sidebar de abas, o header com timer e o painel "Prontuário ao lado" ficam intactos.
+## Fora de escopo
+- Não vou integrar o SDK MP no front (Card Brick) agora — fluxo redirect é mais simples e suficiente.
+- Não removo `mp_preapproval_plan_id` da tabela.
 
-## Fora do escopo
-
-- Lógica de formulários, validações, RLS, edge functions.
-- Conteúdo de odontograma, procedimentos, documentos, prontuário lateral.
-- Novos campos, ícones ou abas.
-- `HypothesesEditor`, `RequestsEditor`, `DocumentsTab`, `VitalSignsForm` (já não usam Cards aninhados — não precisam de ajuste).
-
-## Resultado esperado
-
-Todas as abas exibirão um único Card externo ocupando a mesma largura horizontal da aba Visão Geral, sem efeito de caixa-dentro-de-caixa, mantendo a estética Apple/iOS minimalista.
+Confirma para aplicar?
