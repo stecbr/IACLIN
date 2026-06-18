@@ -7,7 +7,26 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Check, FileText, Eye, X, Search } from 'lucide-react';
+import {
+  Check,
+  FileText,
+  Eye,
+  X,
+  Search,
+  Building2,
+  Hash,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  Stethoscope,
+  FolderArchive,
+  Landmark,
+  Image as ImageIcon,
+  StickyNote,
+  Users,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
@@ -263,7 +282,9 @@ export default function OperatorRequests() {
     loadClinicProfessionals();
   }, [detailReq?.clinic_id]);
 
-  const formatBusinessHours = (value: unknown): string[] => {
+  const formatBusinessHours = (
+    value: unknown,
+  ): Array<{ day: string; open?: string; close?: string; closed: boolean; raw?: string }> => {
     const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     const dayLabels: Record<string, string> = {
       mon: 'Segunda',
@@ -280,24 +301,27 @@ export default function OperatorRequests() {
       try {
         parsed = JSON.parse(value);
       } catch {
-        return [value];
+        return [{ day: '', closed: false, raw: value }];
       }
     }
 
-    if (!parsed || typeof parsed !== 'object') return ['—'];
+    if (!parsed || typeof parsed !== 'object') return [];
 
-    const lines = dayOrder
+    const rows = dayOrder
       .map((k) => {
         const d = parsed?.[k];
         if (!d || typeof d !== 'object') return null;
-        if (d.enabled === false) return `${dayLabels[k]}: Fechado`;
-        const open = d.open ?? '--:--';
-        const close = d.close ?? '--:--';
-        return `${dayLabels[k]}: ${open} às ${close}`;
+        if (d.enabled === false) return { day: dayLabels[k], closed: true };
+        return {
+          day: dayLabels[k],
+          open: d.open ?? '--:--',
+          close: d.close ?? '--:--',
+          closed: false,
+        };
       })
-      .filter(Boolean) as string[];
+      .filter(Boolean) as Array<{ day: string; open?: string; close?: string; closed: boolean }>;
 
-    return lines.length > 0 ? lines : ['—'];
+    return rows;
   };
 
   return (
@@ -436,33 +460,74 @@ export default function OperatorRequests() {
             const businessHoursLines = formatBusinessHours(clinic?.business_hours ?? d?.clinic_hours);
 
             return (
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-4 px-6 py-5 text-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><span className="text-xs text-muted-foreground">Nome da clínica</span><div>{clinic?.name ?? detailReq.clinic_name ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">CNPJ</span><div>{clinic?.cnpj ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Responsável da clínica</span><div>{clinic?.responsible_name ?? contact?.responsible_name ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Telefone</span><div>{contact?.phone ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">E-mail</span><div>{contact?.email ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">CEP</span><div>{clinic?.zip_code ?? '—'}</div></div>
-                </div>
-
-                <div>
-                  <span className="text-xs text-muted-foreground">Endereço completo</span>
-                  <div>{clinicAddress || '—'}</div>
-                </div>
-
-                <div>
-                  <span className="text-xs text-muted-foreground">Horários de atendimento</span>
-                  <div className="space-y-1 mt-1">
-                    {businessHoursLines.map((line, i) => (
-                      <div key={`${line}-${i}`} className="text-sm">{line}</div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-5 px-6 py-5 text-sm">
+                <section className="rounded-2xl border border-border bg-card/40 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5" /> Informações da clínica
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                    {[
+                      { icon: Building2, label: 'Nome da clínica', value: clinic?.name ?? detailReq.clinic_name },
+                      { icon: Hash, label: 'CNPJ', value: clinic?.cnpj },
+                      { icon: User, label: 'Responsável', value: clinic?.responsible_name ?? contact?.responsible_name },
+                      { icon: Phone, label: 'Telefone', value: contact?.phone },
+                      { icon: Mail, label: 'E-mail', value: contact?.email },
+                      { icon: MapPin, label: 'CEP', value: clinic?.zip_code },
+                    ].map(({ icon: Icon, label, value }) => (
+                      <div key={label} className="flex items-start gap-2.5 min-w-0">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+                          <div className="text-sm font-medium truncate">{value || '—'}</div>
+                        </div>
+                      </div>
                     ))}
+                    <div className="flex items-start gap-2.5 min-w-0 md:col-span-2">
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Endereço completo</div>
+                        <div className="text-sm font-medium">{clinicAddress || '—'}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </section>
+
+                <section className="rounded-2xl border border-border bg-card/40 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" /> Horários de atendimento
+                  </h3>
+                  {businessHoursLines.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">—</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {businessHoursLines.map((row, i) => (
+                        <div
+                          key={`${row.day}-${i}`}
+                          className="flex items-center justify-between rounded-xl border border-border/60 bg-background px-3 py-2"
+                        >
+                          <span className="text-sm font-medium">{row.day || row.raw}</span>
+                          {row.closed ? (
+                            <Badge variant="secondary" className="text-[10px]">Fechado</Badge>
+                          ) : row.open ? (
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {row.open} – {row.close}
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
 
                 {((professional?.photo_url || d?.professional_photo_url) || (Array.isArray(clinic?.photos) && clinic.photos.length > 0) || (Array.isArray(d?.clinic_photo_urls) && d.clinic_photo_urls.length > 0)) && (
                   <div className="space-y-2">
-                    <span className="text-xs text-muted-foreground">Fotos</span>
+                    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <ImageIcon className="h-3.5 w-3.5" /> Fotos
+                    </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {(professional?.photo_url || d?.professional_photo_url) && (
                         <a href={professional?.photo_url ?? d?.professional_photo_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Foto profissional</a>
@@ -475,11 +540,13 @@ export default function OperatorRequests() {
                 )}
 
                 <div>
-                  <span className="text-xs text-muted-foreground">Procedimentos solicitados</span>
+                  <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Stethoscope className="h-3.5 w-3.5" /> Procedimentos solicitados
+                  </h3>
                   {procs.length === 0 ? (
                     <div>—</div>
                   ) : (
-                    <div className="flex flex-wrap gap-1.5 mt-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {procs.map((p: any) => (
                         <Badge key={p.id ?? p.name} variant="secondary">{p.name}</Badge>
                       ))}
@@ -489,9 +556,14 @@ export default function OperatorRequests() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Documentação enviada {docEntityType ? `(${docEntityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})` : ''}
-                    </span>
+                    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <FolderArchive className="h-3.5 w-3.5" /> Documentação enviada
+                      {docEntityType && (
+                        <span className="font-normal normal-case tracking-normal">
+                          ({docEntityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})
+                        </span>
+                      )}
+                    </h3>
                     {docFiles.length > 0 && (
                       <span className="text-[10px] text-muted-foreground">{docFiles.length} arquivo(s)</span>
                     )}
@@ -520,30 +592,39 @@ export default function OperatorRequests() {
                     </div>
                   )}
                   {bank && (bank.bank_name || bank.agency || bank.account) && (
-                    <div className="rounded-xl border border-border p-3 mt-2 text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <div><span className="text-muted-foreground">Banco</span><div>{bank.bank_name ?? '—'}</div></div>
-                      <div><span className="text-muted-foreground">Agência</span><div>{bank.agency ?? '—'}</div></div>
-                      <div><span className="text-muted-foreground">Conta</span><div>{bank.account ?? '—'}</div></div>
-                      <div><span className="text-muted-foreground">Titular</span><div>{bank.holder_name ?? '—'}</div></div>
+                    <div className="rounded-xl border border-border p-3 mt-2 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <Landmark className="h-3.5 w-3.5" /> Dados bancários
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div><span className="text-muted-foreground">Banco</span><div>{bank.bank_name ?? '—'}</div></div>
+                        <div><span className="text-muted-foreground">Agência</span><div>{bank.agency ?? '—'}</div></div>
+                        <div><span className="text-muted-foreground">Conta</span><div>{bank.account ?? '—'}</div></div>
+                        <div><span className="text-muted-foreground">Titular</span><div>{bank.holder_name ?? '—'}</div></div>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {(d?.notes || clinic?.notes) && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Observações</span>
+                    <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <StickyNote className="h-3.5 w-3.5" /> Observações
+                    </h3>
                     <div>{d?.notes ?? clinic?.notes}</div>
                   </div>
                 )}
 
                 <div>
-                  <span className="text-xs text-muted-foreground">Profissionais desta clínica</span>
+                  <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Users className="h-3.5 w-3.5" /> Profissionais desta clínica
+                  </h3>
                   {loadingDetailProfessionals ? (
                     <div className="mt-1">Carregando...</div>
                   ) : detailProfessionals.length === 0 ? (
                     <div className="mt-1">—</div>
                   ) : (
-                    <div className="mt-2 space-y-2">
+                    <div className="space-y-2">
                       {detailProfessionals.map((prof) => (
                         <div key={prof.user_id} className="rounded-xl border border-border/60 p-2 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
