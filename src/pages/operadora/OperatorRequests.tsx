@@ -564,6 +564,11 @@ export default function OperatorRequests() {
               </div>
             );
           })()}
+          <DocumentFullscreenViewer
+            file={viewerFile}
+            open={!!viewerFile}
+            onClose={() => setViewerFile(null)}
+          />
         </DialogContent>
       </Dialog>
 
@@ -638,11 +643,6 @@ export default function OperatorRequests() {
         </DialogContent>
       </Dialog>
 
-      <DocumentFullscreenViewer
-        file={viewerFile}
-        open={!!viewerFile}
-        onClose={() => setViewerFile(null)}
-      />
     </div>
   );
 }
