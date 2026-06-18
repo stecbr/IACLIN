@@ -1,32 +1,42 @@
-## Causa
+## Objetivo
 
-Em `mercadopago-create-subscription/index.ts` enviamos para `/preapproval`:
-- `preapproval_plan_id` (plano-template)
-- **E** `auto_recurring` + `payer_email` + `status: 'pending'`
+Trocar a logo atual (light/dark) pelo novo símbolo "VA" enviado e, na home (Landing), exibir o nome **IACLIN** ao lado do símbolo, com **IA** em `#033563` e **CLIN** em `#5b6887`.
 
-Quando MP recebe `preapproval_plan_id` junto com `auto_recurring`, ele entra no fluxo "criar assinatura já autorizada" e exige `card_token_id` (cartão tokenizado no front via SDK do MP). Por isso o 400 `card_token_id is required`.
+## Mudanças
 
-Para deixar o MP hospedar a coleta do cartão (sem precisar do SDK no front), o caminho correto é criar uma preapproval **standalone** (sem `preapproval_plan_id`), com `status: 'pending'` — o MP devolve `init_point` e o usuário autoriza/preenche cartão lá. É exatamente o fluxo redirect que já temos no front.
+1. **Upload do novo asset** via `lovable-assets` a partir de `/mnt/user-uploads/logo-iaclin-2.png` → gera `src/assets/iaclin-logo.png.asset.json`.
 
-## Solução (só no backend, front não muda)
+2. **Substituir os imports antigos** (`logo-light.png` e `logo-dark.png`) pelo novo asset único em todos os arquivos que hoje importam essas imagens:
+   - `src/components/AppLayout.tsx`
+   - `src/components/AppSidebar.tsx`
+   - `src/components/PatientSidebar.tsx`
+   - `src/components/PatientLayout.tsx`
+   - `src/components/marketplace/MarketplaceHeader.tsx`
+   - `src/components/superadmin/SuperAdminLayout.tsx`
+   - `src/components/operadora/OperatorLayout.tsx`
+   - `src/components/settings/MyCredentialingSection.tsx`
+   - `src/pages/Landing.tsx`
+   - `src/pages/Auth.tsx`
+   - `src/pages/ResetPassword.tsx`
+   - `src/pages/operadora/OperatorSettings.tsx`
+   - `src/pages/operadora/OperatorProfessionals.tsx`
 
-### Editar `supabase/functions/mercadopago-create-subscription/index.ts`
-- Remover `preapproval_plan_id` do body do POST `/preapproval`.
-- Manter: `reason`, `payer_email`, `back_url`, `external_reference`, `auto_recurring` (frequency, frequency_type, transaction_amount, currency_id, `start_date` = agora), `status: 'pending'`.
-- Não precisa mais ler `mp_preapproval_plan_id` do plano (mas mantenho a coluna; o sync de plano ainda cria/atualiza o template caso o admin queira usar futuramente).
-- Tirar a checagem que bloqueia quando `mp_preapproval_plan_id` está vazio (agora é opcional).
-- Manter `upsert` em `platform_subscriptions` com `mp_preapproval_id`, `mp_init_point`, status `trial`.
+   Como o novo símbolo é colorido (gradiente azul/teal) e funciona bem em qualquer fundo, ele substituirá tanto a variante clara quanto a escura — o switch por tema deixa de ser necessário nesses locais.
 
-### Nada muda no front
-`SubscriptionSection.tsx` já redireciona para `data.url` (= `init_point`). MP coleta cartão e chama webhook ao autorizar; nosso `mercadopago-webhook` atualiza para `active`.
+3. **Wordmark na Landing (home)**: ao lado do símbolo no header e/ou hero, renderizar:
+   ```tsx
+   <span className="font-bold tracking-tight text-2xl">
+     <span style={{ color: '#033563' }}>IA</span>
+     <span style={{ color: '#5b6887' }}>CLIN</span>
+   </span>
+   ```
+   Aplicado apenas em `src/pages/Landing.tsx` (home pública), conforme pedido.
 
-### Validação
-1. Plano de R$ 20 já sincronizado.
-2. Em `/settings` → Assinatura → "Assinar". Deve abrir o checkout do MP, pedir cartão, e ao concluir redirecionar para `back_url`.
-3. Webhook deve disparar `preapproval` e marcar a `platform_subscriptions` como `active`.
+4. **Limpeza**:
+   - Remover `src/assets/logo-light.png` e `src/assets/logo-dark.png`.
+   - Remover `src/assets/iaclin-default-logo.png.asset.json` (asset antigo não usado nos imports principais — confirmar com grep antes de deletar) via `assets--delete_asset`.
 
 ## Fora de escopo
-- Não vou integrar o SDK MP no front (Card Brick) agora — fluxo redirect é mais simples e suficiente.
-- Não removo `mp_preapproval_plan_id` da tabela.
-
-Confirma para aplicar?
+- Favicon (`public/`) — não foi pedido.
+- Branding dinâmico da clínica (`useClinicBranding` / `logo_url` do tenant) permanece intacto.
+- Não adicionar o wordmark em sidebars/headers internos — somente na home pública.
