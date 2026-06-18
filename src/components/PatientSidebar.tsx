@@ -104,11 +104,20 @@ export function PatientSidebar() {
               className="h-8 w-8 object-contain flex-shrink-0"
             />
           ) : (
-            <img
-              src={resolved === 'dark' ? logoDark : logoLight}
-              alt="IACLIN"
-              className="h-8 object-contain"
-            />
+            <>
+              <img
+                src={resolved === 'dark' ? logoDark : logoLight}
+                alt="IACLIN"
+                className="h-8 object-contain"
+              />
+              <span
+                className="text-lg leading-none"
+                style={{ fontFamily: "'Jura', sans-serif", fontWeight: 400, letterSpacing: "0.08em" }}
+              >
+                <span style={{ color: "#033563" }}>IA</span>
+                <span style={{ color: "#5b6887" }}>CLIN</span>
+              </span>
+            </>
           )}
         </div>
 

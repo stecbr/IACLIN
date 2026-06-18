@@ -502,6 +502,15 @@ export function AppSidebar() {
             return (
               <div className="flex items-center gap-2">
                 {showIaclin && <img src={iaclinSrc} alt="IACLIN" className={sz} />}
+                {showIaclin && !collapsed && (
+                  <span
+                    className="text-lg leading-none"
+                    style={{ fontFamily: "'Jura', sans-serif", fontWeight: 400, letterSpacing: "0.08em" }}
+                  >
+                    <span style={{ color: "#033563" }}>IA</span>
+                    <span style={{ color: "#5b6887" }}>CLIN</span>
+                  </span>
+                )}
                 {showIaclin && showClinic && !collapsed && <span className="text-muted-foreground/40 text-sm">·</span>}
                 {showClinic && <img src={logoUrl!} alt="Logo da clínica" className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'} />}
               </div>
