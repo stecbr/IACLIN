@@ -517,17 +517,20 @@ export default function OperatorRequests() {
                   {businessHoursLines.length === 0 ? (
                     <div className="text-sm text-muted-foreground">—</div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {businessHoursLines.map((row, i) => (
                         <div
                           key={`${row.day}-${i}`}
-                          className="flex items-center justify-between rounded-xl border border-border/60 bg-background px-3 py-2"
+                          className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background px-3.5 py-2.5"
                         >
-                          <span className="text-sm font-medium">{row.day || row.raw}</span>
+                          <span className="flex items-center gap-2 text-sm font-medium">
+                            <span className={`h-1.5 w-1.5 rounded-full ${row.closed ? 'bg-muted-foreground/40' : 'bg-primary'}`} />
+                            {row.day || row.raw}
+                          </span>
                           {row.closed ? (
-                            <Badge variant="secondary" className="text-[10px]">Fechado</Badge>
+                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Fechado</Badge>
                           ) : row.open ? (
-                            <span className="text-xs font-mono text-muted-foreground">
+                            <span className="text-xs font-mono tabular-nums text-foreground/80">
                               {row.open} – {row.close}
                             </span>
                           ) : null}
