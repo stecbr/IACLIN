@@ -17,8 +17,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import {
   Sidebar,
   SidebarContent,
@@ -74,15 +75,6 @@ function SuperAdminSidebar() {
             alt="IACLIN"
             className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'}
           />
-          {!collapsed && (
-            <span
-              className="text-lg leading-none"
-              style={{ fontFamily: "'Jura', sans-serif", fontWeight: 600, letterSpacing: "0.08em" }}
-            >
-              <span style={{ color: "#033563" }}>IA</span>
-              <span style={{ color: "#5b6887" }}>CLIN</span>
-            </span>
-          )}
           {!collapsed && (
             <span className="text-[10px] font-bold text-primary border-l border-sidebar-border/60 pl-2 ml-1 uppercase tracking-wider">
               Super Admin

@@ -12,8 +12,9 @@ import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -104,20 +105,11 @@ export function PatientSidebar() {
               className="h-8 w-8 object-contain flex-shrink-0"
             />
           ) : (
-            <>
-              <img
-                src={resolved === 'dark' ? logoDark : logoLight}
-                alt="IACLIN"
-                className="h-8 object-contain"
-              />
-              <span
-                className="text-lg leading-none"
-                style={{ fontFamily: "'Jura', sans-serif", fontWeight: 600, letterSpacing: "0.08em" }}
-              >
-                <span style={{ color: "#033563" }}>IA</span>
-                <span style={{ color: "#5b6887" }}>CLIN</span>
-              </span>
-            </>
+            <img
+              src={resolved === 'dark' ? logoDark : logoLight}
+              alt="IACLIN"
+              className="h-8 object-contain"
+            />
           )}
         </div>
 

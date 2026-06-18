@@ -33,7 +33,9 @@ import { Badge } from "@/components/ui/badge";
 import { Search, MapPin } from "lucide-react";
 import { MarketplaceSection } from "@/components/landing/MarketplaceSection";
 import { addDays, format } from "date-fns";
-import logoLight from "@/assets/logo-light.png";
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import landingDashboard from "@/assets/landing-dashboard.png";
 
 const fadeUp = {
@@ -46,13 +48,10 @@ const fadeUp = {
 function Logo({ className = "" }: { className?: string }) {
   return (
     <Link to="/" className={`flex items-center gap-2 ${className}`}>
-      <img src={logoLight} alt="Iaclin" className="h-8 object-contain" />
-      <span
-        className="text-2xl leading-none"
-        style={{ fontFamily: "'Jura', sans-serif", fontWeight: 600, letterSpacing: "0.08em" }}
-      >
-        <span style={{ color: "#033563" }}>IA</span>
-        <span style={{ color: "#5b6887" }}>CLIN</span>
+      <img src={logoLight} alt="IACLIN" className="h-8 object-contain" />
+      <span className="text-2xl font-bold tracking-tight leading-none">
+        <span style={{ color: '#033563' }}>IA</span>
+        <span style={{ color: '#5b6887' }}>CLIN</span>
       </span>
     </Link>
   );
@@ -162,8 +161,8 @@ function Hero() {
             Gestão clínica inteligente, moderna e humanizada.
           </h1>
           <p className="mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
-            O Iaclin foi criado para simplificar atendimentos, prontuários, agenda e gestão clínica em uma única
-            plataforma.
+            O Iaclin foi criado para simplificar atendimentos, prontuários, agenda e gestão clínica
+            em uma única plataforma.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="shadow-card-hover">
@@ -201,9 +200,9 @@ function About() {
           Tudo o que sua clínica precisa, em um só lugar.
         </h2>
         <p className="mt-4 text-muted-foreground">
-          O Iaclin é uma plataforma completa de gestão clínica que conecta agenda, prontuários, pacientes e financeiro
-          em um fluxo simples — pensada para profissionais que valorizam produtividade, segurança e uma experiência
-          elegante no dia a dia.
+          O Iaclin é uma plataforma completa de gestão clínica que conecta agenda, prontuários,
+          pacientes e financeiro em um fluxo simples — pensada para profissionais que valorizam
+          produtividade, segurança e uma experiência elegante no dia a dia.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {chips.map((c) => (
@@ -240,7 +239,9 @@ function Features() {
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             Recursos pensados para a rotina clínica.
           </h2>
-          <p className="mt-4 text-muted-foreground">Tudo o que você precisa para atender melhor, com menos esforço.</p>
+          <p className="mt-4 text-muted-foreground">
+            Tudo o que você precisa para atender melhor, com menos esforço.
+          </p>
         </motion.div>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
@@ -284,8 +285,8 @@ function Differentials() {
             Feito com cuidado em cada detalhe.
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Cada decisão de design e tecnologia foi tomada para entregar uma experiência clínica premium, fluida e
-            confiável.
+            Cada decisão de design e tecnologia foi tomada para entregar uma experiência clínica
+            premium, fluida e confiável.
           </p>
           <ul className="mt-6 space-y-3">
             {items.map((it) => (
@@ -309,7 +310,9 @@ function Differentials() {
               ].map((s) => (
                 <div key={s.v} className="rounded-xl border border-border bg-background/60 p-5">
                   <p className="text-2xl font-semibold text-foreground">{s.k}</p>
-                  <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{s.v}</p>
+                  <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {s.v}
+                  </p>
                 </div>
               ))}
             </div>
@@ -361,7 +364,14 @@ function Professionals() {
   );
 }
 
-const PREVIEW_SPECIALTIES = ["Clínico Geral", "Ortodontia", "Implantodontia", "Endodontia", "Periodontia", "Estética"];
+const PREVIEW_SPECIALTIES = [
+  "Clínico Geral",
+  "Ortodontia",
+  "Implantodontia",
+  "Endodontia",
+  "Periodontia",
+  "Estética",
+];
 
 function buildPreviewShifts() {
   const today = new Date();
@@ -374,7 +384,7 @@ function buildPreviewShifts() {
   });
 }
 
-const PREVIEW_DOCTORS = [
+const PREVIEW_DOCTORS = ([
   {
     userId: "preview-1",
     specialty: "Ortodontia",
@@ -405,7 +415,7 @@ const PREVIEW_DOCTORS = [
     shifts: buildPreviewShifts(),
     appointments: [],
   },
-] as unknown as DoctorData[];
+] as unknown) as DoctorData[];
 
 function MarketplacePreview() {
   return <MarketplaceSection />;
@@ -427,7 +437,8 @@ function FinalCTA() {
           Transforme sua rotina clínica com o Iaclin.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-          Entre na plataforma e descubra como organizar atendimentos, prontuários e gestão em poucos cliques.
+          Entre na plataforma e descubra como organizar atendimentos, prontuários e gestão em
+          poucos cliques.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg" className="shadow-card-hover">
@@ -462,58 +473,28 @@ function Footer() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Produto</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li>
-                <a href="#recursos" className="hover:text-foreground">
-                  Recursos
-                </a>
-              </li>
-              <li>
-                <a href="#diferenciais" className="hover:text-foreground">
-                  Diferenciais
-                </a>
-              </li>
-              <li>
-                <a href={SYSTEM_URL} className="hover:text-foreground">
-                  Acessar
-                </a>
-              </li>
+              <li><a href="#recursos" className="hover:text-foreground">Recursos</a></li>
+              <li><a href="#diferenciais" className="hover:text-foreground">Diferenciais</a></li>
+              <li><a href={SYSTEM_URL} className="hover:text-foreground">Acessar</a></li>
             </ul>
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Empresa</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li>
-                <a href="#sobre" className="hover:text-foreground">
-                  Sobre
-                </a>
-              </li>
-              <li>
-                <a href="#profissionais" className="hover:text-foreground">
-                  Para quem é
-                </a>
-              </li>
+              <li><a href="#sobre" className="hover:text-foreground">Sobre</a></li>
+              <li><a href="#profissionais" className="hover:text-foreground">Para quem é</a></li>
             </ul>
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Contato</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4" /> contato@iaclin.com
-              </li>
+              <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> contato@iaclin.com</li>
             </ul>
             <div className="mt-4 flex gap-2">
-              <a
-                href="#"
-                aria-label="Instagram"
-                className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
+              <a href="#" aria-label="Instagram" className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <Instagram className="h-4 w-4" />
               </a>
-              <a
-                href="#"
-                aria-label="LinkedIn"
-                className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
+              <a href="#" aria-label="LinkedIn" className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <Linkedin className="h-4 w-4" />
               </a>
             </div>
@@ -522,12 +503,8 @@ function Footer() {
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
           <p>© {new Date().getFullYear()} Iaclin. Todos os direitos reservados.</p>
           <div className="flex gap-4">
-            <a href="#" className="hover:text-foreground">
-              Privacidade
-            </a>
-            <a href="#" className="hover:text-foreground">
-              Termos
-            </a>
+            <a href="#" className="hover:text-foreground">Privacidade</a>
+            <a href="#" className="hover:text-foreground">Termos</a>
           </div>
         </div>
       </div>

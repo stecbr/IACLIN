@@ -11,8 +11,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check, Info, X } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import { useTheme } from '@/components/ThemeProvider';
 import {
   SpecialtySelect,

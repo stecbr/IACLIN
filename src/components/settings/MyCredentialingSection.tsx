@@ -16,7 +16,7 @@ import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landma
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
-import iaclinDefaultLogo from '@/assets/logo-light.png';
+import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
 
 type Operator = {
   id: string;
@@ -586,10 +586,10 @@ export default function MyCredentialingSection() {
                     className="h-10 w-10 rounded-md flex items-center justify-center shrink-0 overflow-hidden bg-background border border-border/60"
                   >
                     <img
-                      src={op.logo_url || iaclinDefaultLogo}
+                      src={op.logo_url || iaclinDefaultLogo.url}
                       alt={op.name}
                       className="h-8 w-8 object-contain"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinDefaultLogo; }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinDefaultLogo.url; }}
                     />
                   </div>
                   <div className="min-w-0 flex-1">

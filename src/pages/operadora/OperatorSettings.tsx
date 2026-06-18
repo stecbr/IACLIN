@@ -13,7 +13,7 @@ import {
 import { toast } from 'sonner';
 import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import iaclinDefaultLogo from '@/assets/logo-light.png';
+import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
 
 export default function OperatorSettings() {
   const { operatorId, user } = useAuth();
@@ -117,7 +117,7 @@ export default function OperatorSettings() {
             <div className="flex justify-center my-6">
               <div className="h-28 w-28 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
                 <img
-                  src={op.logo_url || iaclinDefaultLogo}
+                  src={op.logo_url || iaclinDefaultLogo.url}
                   alt="Logo"
                   className="h-full w-full object-contain"
                 />

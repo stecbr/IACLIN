@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import { useTheme } from '@/components/ThemeProvider';
 
 type Status = 'checking' | 'ready' | 'invalid' | 'success';

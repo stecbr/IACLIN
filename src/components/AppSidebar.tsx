@@ -27,8 +27,9 @@ import { useLocation } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
@@ -502,15 +503,6 @@ export function AppSidebar() {
             return (
               <div className="flex items-center gap-2">
                 {showIaclin && <img src={iaclinSrc} alt="IACLIN" className={sz} />}
-                {showIaclin && !collapsed && (
-                  <span
-                    className="text-lg leading-none"
-                    style={{ fontFamily: "'Jura', sans-serif", fontWeight: 600, letterSpacing: "0.08em" }}
-                  >
-                    <span style={{ color: "#033563" }}>IA</span>
-                    <span style={{ color: "#5b6887" }}>CLIN</span>
-                  </span>
-                )}
                 {showIaclin && showClinic && !collapsed && <span className="text-muted-foreground/40 text-sm">·</span>}
                 {showClinic && <img src={logoUrl!} alt="Logo da clínica" className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'} />}
               </div>
