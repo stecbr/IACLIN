@@ -34,13 +34,10 @@ Deno.serve(async (req) => {
 
     const { data: plan, error: planErr } = await admin
       .from('platform_plans')
-      .select('id, name, price_cents, billing_cycle, mp_preapproval_plan_id')
+      .select('id, name, price_cents, billing_cycle')
       .eq('id', planId)
       .maybeSingle();
     if (planErr || !plan) return json({ error: 'Plan not found' }, 404);
-    if (!plan.mp_preapproval_plan_id) {
-      return json({ error: 'Plano não está sincronizado com Mercado Pago. Peça ao admin para abrir o plano e salvar para sincronizar.' }, 400);
-    }
 
     const frequency = plan.billing_cycle === 'yearly' ? 12 : 1;
     const amount = Number((plan.price_cents / 100).toFixed(2));
@@ -48,7 +45,6 @@ Deno.serve(async (req) => {
     const preapproval = await mpFetch('/preapproval', {
       method: 'POST',
       body: JSON.stringify({
-        preapproval_plan_id: plan.mp_preapproval_plan_id,
         reason: plan.name,
         payer_email: userEmail,
         back_url: successUrl,
@@ -56,6 +52,7 @@ Deno.serve(async (req) => {
         auto_recurring: {
           frequency,
           frequency_type: 'months',
+          start_date: new Date().toISOString(),
           transaction_amount: amount,
           currency_id: 'BRL',
         },
