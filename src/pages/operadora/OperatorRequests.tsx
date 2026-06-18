@@ -46,11 +46,23 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Recusado',
   revoked: 'Revogado',
 };
-const STATUS_VARIANT: Record<string, any> = {
-  pending: 'secondary',
-  approved: 'default',
-  rejected: 'destructive',
-  revoked: 'outline',
+const STATUS_CLASSES: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30',
+  approved: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30',
+  rejected: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30',
+  revoked: 'bg-muted text-muted-foreground border-border',
+};
+
+const DOC_LABELS: Record<string, string> = {
+  cro_dentista: 'CRO/CRM do profissional',
+  cro_clinica: 'CRO/CRM da clínica (responsável técnico)',
+  cartao_cnpj: 'Cartão CNPJ',
+  contrato_social: 'Contrato Social',
+  alvara: 'Alvará de funcionamento',
+  licenca_sanitaria: 'Licença sanitária',
+  cnes_doc: 'Comprovante CNES',
+  fotos_clinica: 'Fotos da clínica',
+  especializacao: 'Certificado de especialização',
 };
 
 export default function OperatorRequests() {
@@ -323,7 +335,9 @@ export default function OperatorRequests() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-medium">{r.clinic_name}</div>
-                    <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{STATUS_LABELS[r.status] ?? r.status}</Badge>
+                    <Badge variant="outline" className={STATUS_CLASSES[r.status] ?? ''}>
+                      {STATUS_LABELS[r.status] ?? r.status}
+                    </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
@@ -341,15 +355,10 @@ export default function OperatorRequests() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-                <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setDetailReq(r)}>
+                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setDetailReq(r)}>
                   <FileText className="h-4 w-4 mr-1" /> Ver dados da clínica
                 </Button>
                 <div className="flex-1" />
-                {(r.status === 'approved' || r.status === 'pending') && (
-                  <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setRevoking(r)}>
-                    Revogar
-                  </Button>
-                )}
                 {r.status === 'pending' && (
                   <>
                     <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setRejecting(r)}>
