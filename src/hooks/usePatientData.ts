@@ -13,6 +13,25 @@ export interface PatientAccount {
   profession: string | null;
   insurance_provider: string | null;
   insurance_number: string | null;
+  landline?: string | null;
+  notes?: string | null;
+  photo_url?: string | null;
+  sms_reminders?: boolean | null;
+  is_foreign?: boolean | null;
+  zip_code?: string | null;
+  address?: string | null;
+  address_number?: string | null;
+  address_complement?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  guardian_name?: string | null;
+  guardian_cpf?: string | null;
+  guardian_date_of_birth?: string | null;
+  insurance_holder?: string | null;
+  insurance_holder_cpf?: string | null;
 }
 
 export interface AppointmentRow {
