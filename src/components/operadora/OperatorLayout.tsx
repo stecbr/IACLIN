@@ -26,7 +26,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { NotificationBell } from "@/components/NotificationBell";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import iaclinDefaultLogo from "@/assets/iaclin-default-logo.png.asset.json";
+import iaclinDefaultLogo from "@/assets/logo-light.png";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -112,7 +112,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-10 w-10 rounded-md overflow-hidden ring-1 ring-sidebar-border shrink-0 bg-sidebar-accent">
               <img
-                src={op?.logo_url || iaclinDefaultLogo.url}
+                src={op?.logo_url || iaclinDefaultLogo}
                 alt={op?.name ?? "Operadora"}
                 className="h-full w-full object-contain"
               />
@@ -199,7 +199,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         <div className="py-4 w-full flex items-center justify-center">
           <div className="h-10 w-10 rounded-xl overflow-hidden ring-1 ring-sidebar-border bg-sidebar-accent">
             <img
-              src={op?.logo_url || iaclinDefaultLogo.url}
+              src={op?.logo_url || iaclinDefaultLogo}
               alt={op?.name ?? "Operadora"}
               className="h-full w-full object-contain"
             />
@@ -294,7 +294,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               </div>
               <div className="md:hidden h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center overflow-hidden">
                 <img
-                  src={op?.logo_url || iaclinDefaultLogo.url}
+                  src={op?.logo_url || iaclinDefaultLogo}
                   alt=""
                   className="h-full w-full object-contain"
                 />
