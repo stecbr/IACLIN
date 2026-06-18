@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Check, FileText, Eye, X, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -398,7 +398,7 @@ export default function OperatorRequests() {
 
       <Dialog open={!!detailReq} onOpenChange={(o) => !o && setDetailReq(null)}>
         <DialogContent
-          className="max-w-3xl max-h-[88vh] overflow-y-auto"
+          className="max-w-3xl max-h-[88vh] overflow-hidden p-0 gap-0 [&>button]:hidden"
           onPointerDownOutside={(e) => {
             if (viewerFile || isDocumentViewerEvent(e.detail.originalEvent)) e.preventDefault();
           }}
@@ -409,9 +409,16 @@ export default function OperatorRequests() {
             if (viewerFile) e.preventDefault();
           }}
         >
-          <DialogHeader className="sticky top-0 z-10 -mx-6 -mt-6 px-6 pt-6 pb-4 bg-background border-b">
-            <DialogTitle>Dados da clínica para credenciamento</DialogTitle>
-          </DialogHeader>
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b bg-background px-6 py-4">
+            <DialogHeader className="min-w-0 flex-1 space-y-0 text-left">
+              <DialogTitle className="truncate pr-2">Dados da clínica para credenciamento</DialogTitle>
+            </DialogHeader>
+            <DialogClose asChild>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full" aria-label="Fechar modal">
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
           {detailReq && (() => {
             const data = parseNotes(detailReq.notes);
             const d = data?.dossier ?? null;
@@ -429,7 +436,7 @@ export default function OperatorRequests() {
             const businessHoursLines = formatBusinessHours(clinic?.business_hours ?? d?.clinic_hours);
 
             return (
-              <div className="space-y-4 text-sm">
+              <div className="space-y-4 overflow-y-auto px-6 py-5 text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div><span className="text-xs text-muted-foreground">Nome da clínica</span><div>{clinic?.name ?? detailReq.clinic_name ?? '—'}</div></div>
                   <div><span className="text-xs text-muted-foreground">CNPJ</span><div>{clinic?.cnpj ?? '—'}</div></div>
