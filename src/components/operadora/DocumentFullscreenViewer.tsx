@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -48,11 +48,23 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
       if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(400, z + 25));
       if (e.key === '-') setZoom((z) => Math.max(25, z - 25));
     };
+    const onNativeClose = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('[data-document-viewer-close]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      onClose();
+    };
     window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onNativeClose, true);
+    window.addEventListener('click', onNativeClose, true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointerdown', onNativeClose, true);
+      window.removeEventListener('click', onNativeClose, true);
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
@@ -61,7 +73,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
 
   const pdf = isPdf(file.file_name, file.url);
   const img = isImage(file.file_name, file.url);
-  const handleClose = (e?: MouseEvent<HTMLButtonElement>) => {
+  const handleClose = (e?: ReactMouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     e?.stopPropagation();
     onClose();
@@ -69,13 +81,22 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
+      data-document-fullscreen-viewer
+      className="fixed inset-0 z-[100] pointer-events-auto bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
       <header className="flex items-center justify-between gap-3 px-4 h-14 border-b border-border bg-background/80">
         <div className="flex items-center gap-2 min-w-0">
-          <Button size="icon" variant="ghost" className="rounded-full" onClick={handleClose} aria-label="Fechar">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full"
+            onPointerDown={handleClose}
+            onClick={handleClose}
+            data-document-viewer-close
+            aria-label="Fechar"
+          >
             <X className="h-5 w-5" />
           </Button>
           <div className="min-w-0">

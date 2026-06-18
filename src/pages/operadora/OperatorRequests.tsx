@@ -82,6 +82,11 @@ export default function OperatorRequests() {
   const [search, setSearch] = useState('');
   const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
 
+  const isDocumentViewerEvent = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    return !!target?.closest('[data-document-fullscreen-viewer]');
+  };
+
   const load = async () => {
     if (!operatorId) { setReqs([]); setLoading(false); return; }
     setLoading(true);
@@ -392,7 +397,18 @@ export default function OperatorRequests() {
       </Dialog>
 
       <Dialog open={!!detailReq} onOpenChange={(o) => !o && setDetailReq(null)}>
-        <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-3xl max-h-[88vh] overflow-y-auto"
+          onPointerDownOutside={(e) => {
+            if (viewerFile || isDocumentViewerEvent(e.detail.originalEvent)) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            if (viewerFile || isDocumentViewerEvent(e.detail.originalEvent)) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (viewerFile) e.preventDefault();
+          }}
+        >
           <DialogHeader><DialogTitle>Dados da clínica para credenciamento</DialogTitle></DialogHeader>
           {detailReq && (() => {
             const data = parseNotes(detailReq.notes);
