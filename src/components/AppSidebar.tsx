@@ -505,7 +505,7 @@ export function AppSidebar() {
                 {showIaclin && !collapsed && (
                   <span
                     className="text-lg leading-none"
-                    style={{ fontFamily: "'Jura', sans-serif", fontWeight: 400, letterSpacing: "0.08em" }}
+                    style={{ fontFamily: "'Jura', sans-serif", fontWeight: 600, letterSpacing: "0.08em" }}
                   >
                     <span style={{ color: "#033563" }}>IA</span>
                     <span style={{ color: "#5b6887" }}>CLIN</span>
