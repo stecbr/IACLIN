@@ -19,7 +19,6 @@ import {
   Phone,
   Mail,
   MapPin,
-  Map,
   Clock,
   Stethoscope,
   FolderArchive,
