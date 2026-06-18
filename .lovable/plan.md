@@ -1,43 +1,71 @@
-## Problemas identificados
 
-### Bug 1 — RG / Profissão (e outros) somem após o cadastro de paciente
-A tela `/auth` envia `rg`, `profession`, `date_of_birth` e `gender` em `raw_user_meta_data`, mas o trigger `handle_new_user` (banco) **só** persiste `cpf, full_name, phone, insurance_provider, insurance_number` na tabela `patient_accounts`. Os demais campos são descartados no momento do cadastro — por isso, ao abrir Configurações, o RG (e gênero/data de nascimento, se preenchidos no signup) aparecem em branco.
+# Migração de Stripe para Mercado Pago
 
-### Bug 2 — Endereço/observações/contato de emergência não persistem
-Em `PatientSettings.tsx → save()`:
-- `patient_accounts` só recebe um subconjunto pequeno (nome, telefone, nascimento, gênero, rg, profissão, convênio).
-- `profiles` recebe apenas `address, city, state, zip_code`.
-- Todo o resto (`address_complement`, `neighborhood`, `landline`, `notes`, `sms_reminders`, `emergency_contact_*`, `guardian_*`, `insurance_holder*`, `is_foreign`, `photo_url`) só é gravado em `patients` — **e somente quando já existe linha vinculada (`patientIds.length > 0`)**.
-- Um paciente recém-cadastrado ainda não está vinculado a nenhuma clínica → `patientIds` está vazio → toast diz "salvou", mas nada além de nome/telefone realmente foi para o banco. Ao recarregar, tudo volta em branco.
+## Contexto
+Hoje o IACLIN usa Stripe para:
+1. **Assinaturas dos planos da plataforma** (mensal/anual) — funções `stripe-bootstrap-plans`, `stripe-create-checkout`, `stripe-customer-portal`, `stripe-sync-plan`, `stripe-webhook`, tabela `platform_plans` (com `stripe_product_id` / `stripe_price_id`) e `platform_subscriptions` (com `stripe_customer_id` / `stripe_subscription_id`).
+2. **Checkout avulso de consulta** — função `create-consultation-checkout` (paciente paga consulta).
 
-## Correções
+Vamos trocar tudo por **Mercado Pago** (assinaturas via "Preapproval / Assinaturas com plano" e pagamentos avulsos via Checkout Pro).
 
-### 1. Migration — expandir `patient_accounts` e corrigir o trigger
-Tornar `patient_accounts` o registro canônico dos dados pessoais do paciente (independente de vínculo com clínica):
+## Pré-requisitos (você precisa providenciar)
+Como você não tem acesso à conta do dono, ele precisa enviar (do painel `mercadopago.com.br/developers`, app "Iaclin"):
 
-- Adicionar colunas à `patient_accounts`:
-  `landline, notes, photo_url, sms_reminders (bool default true), is_foreign (bool default false), zip_code, address, address_number, address_complement, neighborhood, city, state, emergency_contact_name, emergency_contact_phone, guardian_name, guardian_cpf, guardian_date_of_birth, insurance_holder, insurance_holder_cpf`.
-- Atualizar `handle_new_user`: ao criar `patient_accounts`, gravar também `date_of_birth`, `gender`, `rg`, `profession` vindos do `raw_user_meta_data`.
-- Manter os GRANTs/políticas existentes (a tabela já tem 3 policies — nada novo a abrir).
+- `MERCADOPAGO_ACCESS_TOKEN` (produção) — token "Produtivas" da aba Credenciais
+- `MERCADOPAGO_ACCESS_TOKEN_TEST` (teste) — token "Teste" (opcional, para sandbox)
+- `MERCADOPAGO_WEBHOOK_SECRET` — segredo definido ao cadastrar o webhook em "Notificações > Webhooks"
 
-### 2. `src/pages/patient/PatientSettings.tsx → save()`
-- Estender `accPatch` para incluir todos os novos campos acima.
-- Continuar atualizando `profiles` (avatar/endereço básico, para o restante do app que lê de `profiles`).
-- Continuar propagando para `patients` quando `patientIds.length > 0` (mantém os prontuários das clínicas sincronizados).
-- Resultado: mesmo sem nenhuma clínica vinculada, todos os dados persistem em `patient_accounts` e voltam corretamente ao recarregar.
+A **Public Key** do MP é pública e fica no código (não precisa secret).
 
-### 3. `src/hooks/usePatientData.ts` (e tipo `PatientAccount`)
-- Adicionar os novos campos ao tipo `PatientAccount` para que o `useEffect` de hidratação em `PatientSettings` leia de `account` (não só do `patientRecord`).
-- Ajustar o `useEffect` para preferir `account.*` nos campos recém-adicionados.
+Eu vou pedir esses 3 segredos via `add_secret` quando você confirmar.
 
-## Fora do escopo (não vou mexer)
-- Identidade visual da Aparência, paletas, IA Gestor, etc. — fica como está.
-- Não vou criar/alterar lógica de vínculo clínica↔paciente.
+## O que muda
 
-## Resumo técnico
-Arquivos alterados:
-- `supabase/migrations/<nova>.sql` — `ALTER TABLE patient_accounts ADD COLUMN ...` + `CREATE OR REPLACE FUNCTION handle_new_user`.
-- `src/pages/patient/PatientSettings.tsx` — `save()` grava tudo em `patient_accounts`.
-- `src/hooks/usePatientData.ts` — tipo `PatientAccount` ampliado.
+### 1. Banco de dados (migration)
+- `platform_plans`: adicionar colunas `mp_preapproval_plan_id text` (id do plano de assinatura no MP) e `mp_payer_email_required boolean default true`. Manter colunas Stripe por compatibilidade (não removo nada agora, só paro de usar).
+- `platform_subscriptions`: adicionar `mp_preapproval_id text`, `mp_payer_id text`, `mp_payer_email text`. Manter colunas Stripe.
+- Índice em `mp_preapproval_id` para lookup do webhook.
 
-Posso seguir?
+### 2. Edge functions novas
+- `mercadopago-bootstrap-plans` — cria/atualiza Preapproval Plans no MP para cada `platform_plans` ativo (admin `iaclin@gmail.com`).
+- `mercadopago-sync-plan` — sincroniza um plano específico (substitui `stripe-sync-plan`).
+- `mercadopago-create-subscription` — cria preapproval (assinatura) e devolve `init_point` para redirect (substitui `stripe-create-checkout`).
+- `mercadopago-cancel-subscription` — cancela a assinatura (equivalente ao customer-portal — MP não tem portal próprio, então faremos UI nossa para "cancelar" e "trocar cartão" via link gerado).
+- `mercadopago-webhook` — recebe notificações `preapproval`, `subscription_authorized_payment` e `payment`; atualiza `platform_subscriptions` (status, current_period_end, last_payment_at) e registra pagamentos em `platform_payments` (se existir) ou tabela equivalente.
+- `create-consultation-checkout-mp` — substitui `create-consultation-checkout`. Cria Preference (Checkout Pro) e devolve `init_point`.
+
+Funções antigas Stripe ficam no repo mas deixam de ser chamadas pelo front (posso deletá-las depois quando confirmar que MP está OK).
+
+### 3. Front-end
+- `src/pages/superadmin/SuperAdminPlans.tsx` (e `PlanFormDialog`): trocar chamadas `stripe-sync-plan` / `stripe-bootstrap-plans` por equivalentes MP. Mostrar `mp_preapproval_plan_id` em vez de `stripe_price_id`.
+- Página `/assinatura` (fluxo de assinatura do cliente): trocar `stripe-create-checkout` → `mercadopago-create-subscription`; trocar botão "Gerenciar no portal Stripe" por ações nativas: "Cancelar assinatura" e link do MP para trocar cartão.
+- `Financial.tsx` e qualquer outro consumidor de `create-consultation-checkout`: chamar a versão `-mp`.
+- Banner/UI: ajustar textos "Stripe" → "Mercado Pago".
+
+### 4. Webhook
+- URL: `https://fwyulywxhjyxdreeuqna.supabase.co/functions/v1/mercadopago-webhook` (sem JWT — adicionada em `supabase/config.toml` como `verify_jwt = false`).
+- Eventos a habilitar no painel MP: `payment`, `subscription_preapproval`, `subscription_authorized_payment`.
+- Validação por header `x-signature` (HMAC SHA256 com `MERCADOPAGO_WEBHOOK_SECRET`).
+
+## Detalhes técnicos importantes
+
+- **Assinaturas MP** funcionam como "Preapproval Plan" (template) + "Preapproval" (assinatura do usuário). A cobrança recorrente roda no MP automaticamente; cancelar = PATCH no preapproval com `status: cancelled`.
+- MP **não tem "customer portal"** como Stripe. Para trocar cartão, geramos um novo preapproval ou usamos o link `init_point` do preapproval atual. Para cancelar, chamada direta na API.
+- Moeda fixa **BRL**, intervalo `months` (1 ou 12).
+- Valor mínimo de assinatura no MP: R$ 2,00.
+
+## Etapas de execução
+1. Confirmar plano e pedir os 3 segredos via `add_secret`.
+2. Rodar migration (colunas MP).
+3. Criar as 6 edge functions acima.
+4. Atualizar front (SuperAdminPlans, fluxo de assinatura, Financial).
+5. Configurar `verify_jwt=false` para o webhook em `supabase/config.toml`.
+6. Rodar `mercadopago-bootstrap-plans` para criar os planos no MP.
+7. Te passar a URL do webhook para o dono cadastrar no painel MP.
+8. Testar com credenciais de teste; depois ir para produção.
+
+## Fora de escopo agora
+- Não removo as funções/colunas Stripe nesta etapa (rollback fácil). Limpeza pode ser feita depois.
+- PIX/Boleto avulsos para pacientes continuam fora (decisão do PRD).
+
+Confirma para eu pedir os segredos e começar a implementação?
