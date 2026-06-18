@@ -460,29 +460,68 @@ export default function OperatorRequests() {
             const businessHoursLines = formatBusinessHours(clinic?.business_hours ?? d?.clinic_hours);
 
             return (
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-4 px-6 py-5 text-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><span className="text-xs text-muted-foreground">Nome da clínica</span><div>{clinic?.name ?? detailReq.clinic_name ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">CNPJ</span><div>{clinic?.cnpj ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Responsável da clínica</span><div>{clinic?.responsible_name ?? contact?.responsible_name ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">Telefone</span><div>{contact?.phone ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">E-mail</span><div>{contact?.email ?? '—'}</div></div>
-                  <div><span className="text-xs text-muted-foreground">CEP</span><div>{clinic?.zip_code ?? '—'}</div></div>
-                </div>
-
-                <div>
-                  <span className="text-xs text-muted-foreground">Endereço completo</span>
-                  <div>{clinicAddress || '—'}</div>
-                </div>
-
-                <div>
-                  <span className="text-xs text-muted-foreground">Horários de atendimento</span>
-                  <div className="space-y-1 mt-1">
-                    {businessHoursLines.map((line, i) => (
-                      <div key={`${line}-${i}`} className="text-sm">{line}</div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-5 px-6 py-5 text-sm">
+                <section className="rounded-2xl border border-border bg-card/40 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5" /> Informações da clínica
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                    {[
+                      { icon: Building2, label: 'Nome da clínica', value: clinic?.name ?? detailReq.clinic_name },
+                      { icon: Hash, label: 'CNPJ', value: clinic?.cnpj },
+                      { icon: User, label: 'Responsável', value: clinic?.responsible_name ?? contact?.responsible_name },
+                      { icon: Phone, label: 'Telefone', value: contact?.phone },
+                      { icon: Mail, label: 'E-mail', value: contact?.email },
+                      { icon: MapPin, label: 'CEP', value: clinic?.zip_code },
+                    ].map(({ icon: Icon, label, value }) => (
+                      <div key={label} className="flex items-start gap-2.5 min-w-0">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+                          <div className="text-sm font-medium truncate">{value || '—'}</div>
+                        </div>
+                      </div>
                     ))}
+                    <div className="flex items-start gap-2.5 min-w-0 md:col-span-2">
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Endereço completo</div>
+                        <div className="text-sm font-medium">{clinicAddress || '—'}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </section>
+
+                <section className="rounded-2xl border border-border bg-card/40 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" /> Horários de atendimento
+                  </h3>
+                  {businessHoursLines.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">—</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {businessHoursLines.map((row, i) => (
+                        <div
+                          key={`${row.day}-${i}`}
+                          className="flex items-center justify-between rounded-xl border border-border/60 bg-background px-3 py-2"
+                        >
+                          <span className="text-sm font-medium">{row.day || row.raw}</span>
+                          {row.closed ? (
+                            <Badge variant="secondary" className="text-[10px]">Fechado</Badge>
+                          ) : row.open ? (
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {row.open} – {row.close}
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
 
                 {((professional?.photo_url || d?.professional_photo_url) || (Array.isArray(clinic?.photos) && clinic.photos.length > 0) || (Array.isArray(d?.clinic_photo_urls) && d.clinic_photo_urls.length > 0)) && (
                   <div className="space-y-2">
