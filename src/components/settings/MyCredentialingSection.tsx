@@ -586,10 +586,10 @@ export default function MyCredentialingSection() {
                     className="h-10 w-10 rounded-md flex items-center justify-center shrink-0 overflow-hidden bg-background border border-border/60"
                   >
                     <img
-                      src={op.logo_url || iaclinDefaultLogo.url}
+                      src={op.logo_url || iaclinDefaultLogo}
                       alt={op.name}
                       className="h-8 w-8 object-contain"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinDefaultLogo.url; }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinDefaultLogo; }}
                     />
                   </div>
                   <div className="min-w-0 flex-1">

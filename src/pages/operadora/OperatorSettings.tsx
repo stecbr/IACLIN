@@ -117,7 +117,7 @@ export default function OperatorSettings() {
             <div className="flex justify-center my-6">
               <div className="h-28 w-28 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
                 <img
-                  src={op.logo_url || iaclinDefaultLogo.url}
+                  src={op.logo_url || iaclinDefaultLogo}
                   alt="Logo"
                   className="h-full w-full object-contain"
                 />
