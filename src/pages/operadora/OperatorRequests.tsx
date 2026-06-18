@@ -82,6 +82,11 @@ export default function OperatorRequests() {
   const [search, setSearch] = useState('');
   const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
 
+  const isDocumentViewerEvent = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    return !!target?.closest('[data-document-fullscreen-viewer]');
+  };
+
   const load = async () => {
     if (!operatorId) { setReqs([]); setLoading(false); return; }
     setLoading(true);
@@ -395,10 +400,10 @@ export default function OperatorRequests() {
         <DialogContent
           className="max-w-3xl max-h-[88vh] overflow-y-auto"
           onPointerDownOutside={(e) => {
-            if (viewerFile) e.preventDefault();
+            if (viewerFile || isDocumentViewerEvent(e.detail.originalEvent)) e.preventDefault();
           }}
           onInteractOutside={(e) => {
-            if (viewerFile) e.preventDefault();
+            if (viewerFile || isDocumentViewerEvent(e.detail.originalEvent)) e.preventDefault();
           }}
           onEscapeKeyDown={(e) => {
             if (viewerFile) e.preventDefault();
@@ -564,11 +569,6 @@ export default function OperatorRequests() {
               </div>
             );
           })()}
-          <DocumentFullscreenViewer
-            file={viewerFile}
-            open={!!viewerFile}
-            onClose={() => setViewerFile(null)}
-          />
         </DialogContent>
       </Dialog>
 
@@ -643,6 +643,11 @@ export default function OperatorRequests() {
         </DialogContent>
       </Dialog>
 
+      <DocumentFullscreenViewer
+        file={viewerFile}
+        open={!!viewerFile}
+        onClose={() => setViewerFile(null)}
+      />
     </div>
   );
 }
