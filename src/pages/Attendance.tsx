@@ -1033,326 +1033,61 @@ export default function Attendance() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue={tabKeys[0] ?? 'assessment'} className="space-y-4">
-        <TabsList className="flex flex-wrap h-auto">
-          {tabKeys.map((key) => {
-            if (key === 'odontogram' && !showOdontogram) return null;
+      <div className={`grid gap-6 ${chartSideOpen ? 'lg:grid-cols-[14rem_minmax(0,1fr)_22rem]' : 'md:grid-cols-[14rem_minmax(0,1fr)]'}`}>
+        <nav className="flex md:flex-col gap-1 md:w-56 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0">
+          {visibleTabKeys.map((key) => {
+            const Icon = sectionIcons[key] ?? LayoutDashboard;
             const label = ATTENDANCE_TAB_LABELS[key];
-            const suffix =
-              key === 'requests' ? ` (${requests.length})` :
-              key === 'procedures' ? ` (${procedures.length})` : '';
-            return <TabsTrigger key={key} value={key}>{label}{suffix}</TabsTrigger>;
+            const badge = sectionBadge(key);
+            const isActive = activeSection === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveSection(key)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                  isActive ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left">{label}</span>
+                {badge !== null && (
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{badge}</Badge>
+                )}
+              </button>
+            );
           })}
-        </TabsList>
+        </nav>
 
-        {tabKeys.includes('overview') && (
-          <TabsContent value="overview">
-            <PatientOverviewTab patient={(appointment as any).patients ?? {}} consultationNotes={(appointment as any).notes} />
-          </TabsContent>
-        )}
+        <div className="flex-1 min-w-0 space-y-4">
+          {renderSection()}
+        </div>
 
-        {tabKeys.includes('soap') && (
-          <TabsContent value="soap"><SoapSessionForm value={soap} onChange={setSoap} /></TabsContent>
-        )}
-        {tabKeys.includes('anthropometry') && (
-          <TabsContent value="anthropometry"><AnthropometryForm value={anthropometry} onChange={setAnthropometry} /></TabsContent>
-        )}
-        {tabKeys.includes('mealplan') && (
-          <TabsContent value="mealplan"><MealPlanForm value={mealPlan} onChange={setMealPlan} /></TabsContent>
-        )}
-        {tabKeys.includes('scales') && (
-          <TabsContent value="scales"><Card className="border-border/50"><CardContent className="p-6 text-center text-sm text-muted-foreground">Aplique escalas (PHQ-9, GAD-7, etc.) na ferramenta dedicada. <Link to="/psi/ferramentas" className="text-primary hover:underline">Abrir ferramentas</Link></CardContent></Card></TabsContent>
-        )}
-        {tabKeys.includes('mood') && (
-          <TabsContent value="mood"><Card className="border-border/50"><CardContent className="p-6 text-center text-sm text-muted-foreground">Diário de humor disponível em ferramentas do psicólogo. <Link to="/psi/ferramentas" className="text-primary hover:underline">Abrir</Link></CardContent></Card></TabsContent>
-        )}
-
-        <TabsContent value="assessment">
-          <AssessmentForm
-            patientId={appointment.patient_id}
-            chiefComplaint={chiefComplaint}
-            setChiefComplaint={setChiefComplaint}
-            hpi={hpi}
-            setHpi={setHpi}
-            durationValue={durationValue}
-            setDurationValue={setDurationValue}
-            durationUnit={durationUnit}
-            setDurationUnit={setDurationUnit}
-            physicalExam={physicalExam}
-            setPhysicalExam={setPhysicalExam}
-          />
-        </TabsContent>
-
-        <TabsContent value="vitals">
-          <VitalSignsForm value={vitalSigns} onChange={setVitalSigns} />
-        </TabsContent>
-
-        <TabsContent value="diagnosis">
-          <HypothesesEditor
-            hypotheses={hypotheses}
-            onChange={setHypotheses}
-            diagnosis={diagnosis}
-            setDiagnosis={setDiagnosis}
-            severity={severity}
-            setSeverity={setSeverity}
-          />
-        </TabsContent>
-
-        <TabsContent value="conduct">
-          <FollowUpBlock
-            treatmentPlan={treatmentPlan}
-            setTreatmentPlan={setTreatmentPlan}
-            followUpDate={followUpDate}
-            setFollowUpDate={setFollowUpDate}
-            followUpReason={followUpReason}
-            setFollowUpReason={setFollowUpReason}
-            onScheduled={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
-          />
-        </TabsContent>
-
-        <TabsContent value="requests">
-          <RequestsEditor items={requests} onChange={setRequests} />
-        </TabsContent>
-
-        {/* Clinical Notes Tab */}
-        <TabsContent value="notes">
-          <div className="space-y-4">
-            <Card className="border-border/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Evolução / Anotações Clínicas</CardTitle>
+        {chartSideOpen && (
+          <aside className="hidden lg:block">
+            <Card className="border-border/50 sticky top-4">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Prontuário do paciente</CardTitle>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setChartSideOpen(false)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
               </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={clinicalNotes}
-                  onChange={(e) => setClinicalNotes(e.target.value)}
-                  rows={6}
-                  placeholder="Descreva o atendimento, queixas do paciente, procedimentos realizados..."
-                  className="resize-none"
-                />
+              <CardContent className="max-h-[calc(100vh-8rem)] overflow-y-auto">
+                {chartPanel}
               </CardContent>
             </Card>
-            <Card className="border-border/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Diagnóstico</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  rows={3}
-                  placeholder="Diagnóstico clínico..."
-                  className="resize-none"
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Procedures Tab */}
-        <TabsContent value="procedures">
-          <Card className="border-border/50">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Procedimentos Realizados</CardTitle>
-              <Button size="sm" variant="outline" onClick={addProcedure} className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {operatorCatalog?.status === 'operator' && operatorCatalog.operator && operatorCatalog.table && (
-                <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-medium text-emerald-700 dark:text-emerald-400">
-                      Convênio {operatorCatalog.operator.name}
-                    </p>
-                    <p className="text-muted-foreground">
-                      Tabela "{operatorCatalog.table.name}" {operatorCatalog.table.state ? `· ${operatorCatalog.table.state}` : '· cobertura nacional'} — preços travados pela operadora.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {operatorCatalog?.status === 'no-table' && operatorCatalog.operator && (
-                <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                  <span className="text-muted-foreground">
-                    {operatorCatalog.operator.name} não possui tabela vigente para {clinicInfo?.state ?? 'este estado'}. Cobrando como particular.
-                  </span>
-                </div>
-              )}
-              {operatorCatalog?.status === 'not-covered' && operatorCatalog.operator && (
-                <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                  <span className="text-muted-foreground">
-                    Clínica não credenciada à {operatorCatalog.operator.name}. Cobrando como particular.
-                  </span>
-                </div>
-              )}
-              {procedures.length === 0 ? (
-                <div className="text-center py-8 text-sm text-muted-foreground">
-                  <p>Nenhum procedimento adicionado.</p>
-                  <Button size="sm" variant="link" onClick={addProcedure}>Adicionar procedimento</Button>
-                </div>
-              ) : (
-                <>
-                  {procedures.map((proc) => (
-                    <div key={proc.tempId} className="p-3 rounded-lg border border-border/50 space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className="md:col-span-2 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs flex items-center gap-1.5">
-                                Procedimento
-                                {proc.is_operator && (
-                                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] gap-0.5">
-                                    <ShieldCheck className="h-2.5 w-2.5" /> Operadora
-                                  </Badge>
-                                )}
-                              </Label>
-                              {operatorMode ? (
-                                <button
-                                  type="button"
-                                  onClick={() => updateProcedure(proc.tempId, 'is_operator', !proc.is_operator)}
-                                  className="text-[11px] text-primary hover:underline"
-                                >
-                                  {proc.is_operator ? 'Fora da tabela (particular)' : 'Voltar à tabela da operadora'}
-                                </button>
-                              ) : proceduresCatalog.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateProcedure(proc.tempId, 'is_manual', !proc.is_manual)}
-                                  className="text-[11px] text-primary hover:underline"
-                                >
-                                  {proc.is_manual ? 'Selecionar do catálogo' : 'Digitar manualmente'}
-                                </button>
-                              )}
-                            </div>
-                            {proc.is_operator ? (
-                              <Select value={proc.operator_item_id ?? ''} onValueChange={(v) => updateProcedure(proc.tempId, 'operator_item_id', v)}>
-                                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione da tabela da operadora" /></SelectTrigger>
-                                <SelectContent className="max-h-[60vh]">
-                                  {operatorItems.map((it) => (
-                                    <SelectItem key={it.id} value={it.id}>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{it.category}</span>
-                                        <span>{it.procedure_name}</span>
-                                        {it.tuss_code && <span className="text-[10px] text-muted-foreground">TUSS {it.tuss_code}</span>}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : proc.is_manual || proceduresCatalog.length === 0 ? (
-                              <Input
-                                value={proc.custom_name}
-                                onChange={(e) => updateProcedure(proc.tempId, 'custom_name', e.target.value)}
-                                placeholder="Nome do procedimento"
-                                className="h-9 text-sm"
-                              />
-                            ) : (
-                              <Select value={proc.procedure_id} onValueChange={(v) => updateProcedure(proc.tempId, 'procedure_id', v)}>
-                                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                <SelectContent>
-                                  {proceduresCatalog.map((c) => (
-                                    <SelectItem key={c.id} value={c.id}>
-                                      <div className="flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
-                                        {c.name}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                            {proc.is_operator && proc.tuss_code && (
-                              <p className="text-[10px] text-muted-foreground">TUSS {proc.tuss_code}</p>
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs flex items-center gap-1">
-                              Valor (R$)
-                              {proc.is_operator && <Lock className="h-3 w-3 text-muted-foreground" />}
-                            </Label>
-                            <Input
-                              type="number"
-                              value={proc.price}
-                              onChange={(e) => updateProcedure(proc.tempId, 'price', Number(e.target.value))}
-                              className="h-9 text-sm"
-                              disabled={proc.is_operator}
-                            />
-                          </div>
-                        </div>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 mt-5" onClick={() => removeProcedure(proc.tempId)}>
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      </div>
-                      <div className={`grid gap-3 ${showToothProcedures ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1'}`}>
-                        {showToothProcedures && (
-                          <>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Dente</Label>
-                              <Input
-                                type="number"
-                                value={proc.tooth_number ?? ''}
-                                onChange={(e) => updateProcedure(proc.tempId, 'tooth_number', e.target.value ? Number(e.target.value) : null)}
-                                className="h-9 text-sm"
-                                placeholder="Nº"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Face</Label>
-                              <Input
-                                value={proc.surface}
-                                onChange={(e) => updateProcedure(proc.tempId, 'surface', e.target.value)}
-                                className="h-9 text-sm"
-                                placeholder="M, D, V..."
-                              />
-                            </div>
-                          </>
-                        )}
-                        <div className={showToothProcedures ? 'col-span-2 md:col-span-1 space-y-1' : 'space-y-1'}>
-                          <Label className="text-xs">Obs</Label>
-                          <Input
-                            value={proc.notes}
-                            onChange={(e) => updateProcedure(proc.tempId, 'notes', e.target.value)}
-                            className="h-9 text-sm"
-                            placeholder="Observações"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex justify-end pt-2">
-                    <p className="text-sm font-semibold">Total: R$ {totalPrice.toFixed(2).replace('.', ',')}</p>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {showOdontogram && (
-          <TabsContent value="odontogram">
-            <div className="space-y-3">
-              <DentalExamForm value={dentalExam} onChange={setDentalExam} />
-              <div className="text-center">
-                <Link
-                  to={`/odontogram?patient=${appointment.patient_id}`}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Abrir odontograma completo do paciente →
-                </Link>
-              </div>
-            </div>
-          </TabsContent>
+          </aside>
         )}
+      </div>
 
-        {tabKeys.includes('documents') && (
-          <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden">
-            <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />
-          </TabsContent>
-        )}
-      </Tabs>
+      <Sheet open={chartSideOpen} onOpenChange={setChartSideOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md lg:hidden overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Prontuário do paciente</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">{chartPanel}</div>
+        </SheetContent>
+      </Sheet>
 
       <FinishPaymentDialog
         open={showPaymentDialog}
