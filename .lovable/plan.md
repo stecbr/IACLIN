@@ -1,79 +1,53 @@
-## Problema observado
+# Simplificar Personalização Avançada de Tema
 
-Nos logs do Auth aparece:
-```
-POST /admin/users → 422 email_exists
-"A user with this email address has already been registered"
-```
+Remover toda a edição manual e manter apenas a grade de paletas inteligentes (ampliada) + botão de restaurar padrão.
 
-Ou seja, **o e-mail que o dono digitou já existe no Auth** (pode ter sido criado numa tentativa anterior, ou é o próprio e-mail do dono / de outro paciente). Hoje a função `invite-member`:
+## Alterações em `src/components/settings/ThemeCustomizer.tsx`
 
-1. Faz `adminClient.auth.admin.listUsers({ page: 1, perPage: 200 })` e procura o e-mail — se a base passar de 200 usuários, o duplicado **não é detectado** e o `createUser` falha com 422 sem mensagem clara no front.
-2. Quando o `createUser` devolve erro, a mensagem real do Supabase (`"A user with this email address has already been registered"`) chega no toast, mas em inglês e sem orientar o dono ("use outro e-mail" / "esse e-mail já é de outro usuário do sistema").
+### Remover
+- Seções: **Superfícies**, **Identidade**, **Detalhes** (3 grupos de color pickers)
+- Seção **Tons derivados da primária** (ramp)
+- Sliders **Intensidade da sombra** e **Arredondamento**
+- Seção **Pré-visualização ao vivo**
+- Switch **Contraste automático**
+- Imports não usados (`Slider`, `Switch`, `PremiumColorPicker`, `shadeRamp`, `Wand2`, `useState`, `useAuth`, `COLOR_FIELDS`, `CustomThemeKey` se não usado)
 
-## Plano
+### Manter / ajustar
+- Header do card (título "Personalização avançada")
+- Grade de **Paletas inteligentes** (ampliada para 20+ opções, incluindo vermelha, vinho, rosa e variações)
+- Botão **Restaurar padrão**
+- Atualizar `CardDescription` para refletir que agora é só seleção de paleta pronta
 
-### 1. Detectar e-mail duplicado de forma confiável (`supabase/functions/invite-member/index.ts`)
+### Ampliar PRESETS para 20+ paletas
+Adicionar/substituir mantendo as 5 atuais (Oceano, Floresta, Pôr-do-sol, Minimalista, Rosé Couture) e incluir:
 
-- Trocar o `listUsers({ perPage: 200 })` por uma checagem paginada **ou** pela query direta no schema `auth.users` via service role:
-  ```ts
-  const { data: existing } = await adminClient
-    .from('auth.users' as any)            // via service role
-    .select('id, email')
-    .eq('email', email)
-    .maybeSingle();
-  ```
-  (alternativa: paginar `listUsers` até achar ou acabar).
-- Se já existir, devolver 409 com mensagem PT-BR clara:
-  > "Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário, ou peça que ele entre pela tela de login com a senha atual."
-- Em qualquer outro erro do `createUser`, traduzir a mensagem (ex.: "Password should be at least 6 characters" → "A senha precisa ter ao menos 6 caracteres.").
+1. Vermelho Rubi
+2. Vinho Bordeaux
+3. Rosa Millennial
+4. Rosa Pink Vibrante
+5. Magenta Berry
+6. Coral Suave
+7. Lilás Lavanda
+8. Roxo Imperial
+9. Violeta Profundo
+10. Turquesa Tropical
+11. Azul Marinho Clássico
+12. Verde Esmeralda
+13. Verde Menta
+14. Amarelo Mostarda
+15. Âmbar Dourado
+16. Terracota Rústico
+17. Café Expresso
+18. Grafite Moderno
+19. Cinza Nórdico
+20. Petróleo Sofisticado
 
-### 2. Mostrar o erro de forma amigável no diálogo de adicionar (`TeamSection.tsx`)
+Cada preset com `colors` (background, foreground, primary, primaryForeground, card, accent, border) + `radius` + `shadowIntensity` coerentes — paletas claras adequadas ao light mode (a customização só se aplica no modo claro, conforme `CustomThemeProvider`).
 
-- Hoje o toast mostra a mensagem técnica. Passar a exibir a mensagem traduzida vinda da função e, em caso de "e-mail já cadastrado", manter o diálogo aberto com o campo de e-mail destacado em vermelho para o dono corrigir.
+### Layout da grade
+Manter visual atual de cards-swatch, mas em grid responsivo `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5` para acomodar 20+ itens sem ficar apertado.
 
-### 3. Ampliar a tela de permissões por funcionário (`StaffPermissionsDialog.tsx`)
-
-Hoje o diálogo tem 5 itens (Agenda, Pacientes, Financeiro, IA, Chamados). O usuário quer poder marcar/desmarcar tela por tela. Vou expandir para esta lista, mantendo o mesmo padrão visual (switch + ícone + descrição curta):
-
-| Permissão                | Rotas controladas                              |
-| ------------------------ | ---------------------------------------------- |
-| Dashboard                | `/`                                            |
-| Agenda                   | `/agenda`                                      |
-| Sala de espera           | `/sala-de-espera`                              |
-| Aprovações               | `/clinica/aprovacoes`                          |
-| Pacientes                | `/patients`                                    |
-| Convênios                | `/clinica/convenios`                           |
-| Financeiro               | `/financial`                                   |
-| IA Gestor                | `/ia-gestor`                                   |
-| Secretária IA            | `/secretaria-ia` (só dono pode liberar)        |
-| Chamados / Suporte       | `/chamados`                                    |
-| Configurações da clínica | `/settings`                                    |
-
-- `STAFF_PERMISSION_DEFAULTS` ganha defaults por papel:
-  - **secretary**: tudo `true` exceto `secretariaIa` e `settings`.
-  - **auxiliary**: só `dashboard`, `agenda`, `salaEspera`, `pacientes`, `chamados` por padrão.
-- O diálogo abre clicando na **linha inteira do funcionário** na tabela (não apenas no ícone de escudo) — mais intuitivo, como o usuário pediu.
-
-### 4. Aplicar as permissões no roteamento (`useRoleAccess.ts` + `useStaffPermissions.ts`)
-
-Hoje `useRoleAccess` libera todas as rotas que o papel `secretary`/`auxiliary` tem. Quando o usuário é staff:
-
-- `canAccess(path)` consulta primeiro `useStaffPermissions.permissions`.
-- Se o switch da rota estiver `false`, devolve `false` → o item some do menu (via `filterNavItems`) e o acesso direto pela URL cai numa tela de "Acesso não liberado pelo administrador".
-- Se o staff estiver suspenso (`is_active = false`), continua bloqueado pelo `SuspendedAccessScreen` já existente.
-
-### 5. Esconder do menu lateral o que não foi liberado (`AppSidebar.tsx`)
-
-Já usa `filterNavItems` — basta garantir que ele passe pelo novo `canAccess` que respeita permissões granulares.
-
-## Arquivos alterados
-
-- `supabase/functions/invite-member/index.ts` — detecção robusta de e-mail duplicado + mensagens PT-BR.
-- `src/components/settings/StaffPermissionsDialog.tsx` — nova lista de permissões (11 itens) e defaults por papel.
-- `src/components/settings/TeamSection.tsx` — linha do funcionário inteira abre o diálogo; toast de erro mais claro.
-- `src/hooks/useStaffPermissions.ts` — expor o novo shape de permissões.
-- `src/hooks/useRoleAccess.ts` — `canAccess` respeita o mapa permissão→rota para staff.
-- `src/components/AppLayout.tsx` (ou novo `NoPermissionScreen.tsx`) — tela "Acesso não liberado" quando o staff abre uma URL desligada.
-
-Sem mudanças no banco — a coluna `permissions JSONB` em `clinic_members` já existe e cabe o novo shape.
+## Não alterar
+- `CustomThemeProvider.tsx` — API permanece igual (`applyPreset` e `resetCustom` já existem)
+- `AppearanceSettingsSection.tsx` — continua renderizando `<ThemeCustomizer />`
+- `PremiumColorPicker.tsx` — não usado mais aqui, mas pode permanecer no projeto caso usado em outro lugar
