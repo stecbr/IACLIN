@@ -80,6 +80,7 @@ export default function OperatorRequests() {
   const [selectedProfessional, setSelectedProfessional] = useState<ClinicProfessional | null>(null);
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
   const [search, setSearch] = useState('');
+  const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
 
   const load = async () => {
     if (!operatorId) { setReqs([]); setLoading(false); return; }
