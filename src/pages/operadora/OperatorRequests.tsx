@@ -7,7 +7,27 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Check, FileText, Eye, X, Search } from 'lucide-react';
+import {
+  Check,
+  FileText,
+  Eye,
+  X,
+  Search,
+  Building2,
+  Hash,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Map,
+  Clock,
+  Stethoscope,
+  FolderArchive,
+  Landmark,
+  Image as ImageIcon,
+  StickyNote,
+  Users,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
