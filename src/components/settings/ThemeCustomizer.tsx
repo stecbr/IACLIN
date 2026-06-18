@@ -1,30 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { useCustomTheme, CustomThemeKey, CustomTheme } from '@/components/CustomThemeProvider';
-import { RotateCcw, Palette, Sparkles, Wand2 } from 'lucide-react';
-import { PremiumColorPicker, bestForeground, shadeRamp } from './PremiumColorPicker';
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-
-const COLOR_FIELDS: {
-  key: CustomThemeKey;
-  label: string;
-  fallback: string;
-  description: string;
-  group: 'surface' | 'brand' | 'detail';
-}[] = [
-  { key: 'background', label: 'Fundo', fallback: '#fafafa', description: 'Cor base de todas as telas. Influencia toda a atmosfera visual.', group: 'surface' },
-  { key: 'card', label: 'Cartões', fallback: '#ffffff', description: 'Superfícies elevadas como cards, modais e popovers.', group: 'surface' },
-  { key: 'foreground', label: 'Texto principal', fallback: '#15192a', description: 'Cor do texto sobre o fundo. Garanta contraste alto para legibilidade.', group: 'surface' },
-  { key: 'primary', label: 'Cor primária', fallback: '#1f74e0', description: 'Identidade da marca. Usada em botões, links e elementos de destaque.', group: 'brand' },
-  { key: 'primaryForeground', label: 'Texto sobre primária', fallback: '#ffffff', description: 'Texto exibido sobre a cor primária. Calculado automaticamente para contraste se ativado.', group: 'brand' },
-  { key: 'accent', label: 'Destaque suave', fallback: '#eef2f7', description: 'Realce sutil em hovers, badges e seleções secundárias.', group: 'detail' },
-  { key: 'border', label: 'Bordas', fallback: '#e5e7eb', description: 'Linhas divisórias, contornos e bordas de inputs.', group: 'detail' },
-];
+import { RotateCcw, Palette, Sparkles } from 'lucide-react';
 
 const PRESETS: { name: string; theme: Partial<CustomTheme> }[] = [
   {
@@ -71,50 +49,150 @@ const PRESETS: { name: string; theme: Partial<CustomTheme> }[] = [
       shadowIntensity: 14,
     },
   },
+  {
+    name: 'Vermelho Rubi',
+    theme: {
+      colors: { background: '#fff5f5', foreground: '#2a0a0d', primary: '#c81e3a', primaryForeground: '#ffffff', card: '#ffffff', accent: '#fde2e4', border: '#f8c6cc' },
+      radius: 14, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Vinho Bordeaux',
+    theme: {
+      colors: { background: '#faf3f4', foreground: '#2a0f15', primary: '#7b1e3a', primaryForeground: '#ffffff', card: '#ffffff', accent: '#ead4d8', border: '#dcb8c0' },
+      radius: 12, shadowIntensity: 14,
+    },
+  },
+  {
+    name: 'Rosa Millennial',
+    theme: {
+      colors: { background: '#fff5f7', foreground: '#3a1f29', primary: '#e87aa0', primaryForeground: '#ffffff', card: '#ffffff', accent: '#fde0e8', border: '#f7c8d6' },
+      radius: 20, shadowIntensity: 10,
+    },
+  },
+  {
+    name: 'Pink Vibrante',
+    theme: {
+      colors: { background: '#fff0f6', foreground: '#2e0a1f', primary: '#ec1f8a', primaryForeground: '#ffffff', card: '#ffffff', accent: '#fcd4e8', border: '#f9b3d4' },
+      radius: 16, shadowIntensity: 16,
+    },
+  },
+  {
+    name: 'Magenta Berry',
+    theme: {
+      colors: { background: '#fbf3f8', foreground: '#2c0f25', primary: '#a4257a', primaryForeground: '#ffffff', card: '#ffffff', accent: '#f1d5e8', border: '#e3b6d4' },
+      radius: 14, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Coral Suave',
+    theme: {
+      colors: { background: '#fff5f2', foreground: '#3a1810', primary: '#ff6f61', primaryForeground: '#ffffff', card: '#ffffff', accent: '#ffd9d2', border: '#ffbeb3' },
+      radius: 18, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Lilás Lavanda',
+    theme: {
+      colors: { background: '#f7f4fb', foreground: '#241a3a', primary: '#9b7bd8', primaryForeground: '#ffffff', card: '#ffffff', accent: '#e6dcf5', border: '#cfc0ea' },
+      radius: 18, shadowIntensity: 10,
+    },
+  },
+  {
+    name: 'Roxo Imperial',
+    theme: {
+      colors: { background: '#f6f3fb', foreground: '#1f0f3a', primary: '#6b21a8', primaryForeground: '#ffffff', card: '#ffffff', accent: '#e2d4f5', border: '#cbb3ea' },
+      radius: 14, shadowIntensity: 14,
+    },
+  },
+  {
+    name: 'Violeta Profundo',
+    theme: {
+      colors: { background: '#f4f3fb', foreground: '#181133', primary: '#4c1d95', primaryForeground: '#ffffff', card: '#ffffff', accent: '#ddd6f3', border: '#c4b8ea' },
+      radius: 12, shadowIntensity: 16,
+    },
+  },
+  {
+    name: 'Turquesa Tropical',
+    theme: {
+      colors: { background: '#f0fbfa', foreground: '#062a2a', primary: '#0ea5a4', primaryForeground: '#ffffff', card: '#ffffff', accent: '#cdf2ef', border: '#a6e4df' },
+      radius: 16, shadowIntensity: 10,
+    },
+  },
+  {
+    name: 'Azul Marinho',
+    theme: {
+      colors: { background: '#f2f5fb', foreground: '#0a1730', primary: '#1e3a8a', primaryForeground: '#ffffff', card: '#ffffff', accent: '#d6dff2', border: '#b6c4e6' },
+      radius: 10, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Esmeralda',
+    theme: {
+      colors: { background: '#f0fbf4', foreground: '#062818', primary: '#059669', primaryForeground: '#ffffff', card: '#ffffff', accent: '#cdf2dd', border: '#a8e4c2' },
+      radius: 14, shadowIntensity: 10,
+    },
+  },
+  {
+    name: 'Verde Menta',
+    theme: {
+      colors: { background: '#f3fbf7', foreground: '#0e2a1f', primary: '#52c4a0', primaryForeground: '#ffffff', card: '#ffffff', accent: '#d6f2e6', border: '#b6e4d0' },
+      radius: 18, shadowIntensity: 8,
+    },
+  },
+  {
+    name: 'Amarelo Mostarda',
+    theme: {
+      colors: { background: '#fdfaf0', foreground: '#2e2208', primary: '#c79100', primaryForeground: '#ffffff', card: '#ffffff', accent: '#f7ead0', border: '#ecd9a8' },
+      radius: 12, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Âmbar Dourado',
+    theme: {
+      colors: { background: '#fffaf0', foreground: '#3a2408', primary: '#f59e0b', primaryForeground: '#ffffff', card: '#ffffff', accent: '#fde9c8', border: '#f7d49a' },
+      radius: 16, shadowIntensity: 14,
+    },
+  },
+  {
+    name: 'Terracota Rústico',
+    theme: {
+      colors: { background: '#fbf4f0', foreground: '#2e1408', primary: '#b85c38', primaryForeground: '#ffffff', card: '#ffffff', accent: '#f0dccc', border: '#e3c1a8' },
+      radius: 14, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Café Expresso',
+    theme: {
+      colors: { background: '#faf6f2', foreground: '#1f1208', primary: '#5d3a1f', primaryForeground: '#ffffff', card: '#ffffff', accent: '#ebdfd1', border: '#d6c4ad' },
+      radius: 10, shadowIntensity: 12,
+    },
+  },
+  {
+    name: 'Grafite Moderno',
+    theme: {
+      colors: { background: '#f5f6f8', foreground: '#111418', primary: '#374151', primaryForeground: '#ffffff', card: '#ffffff', accent: '#e2e5ea', border: '#cbd0d8' },
+      radius: 10, shadowIntensity: 8,
+    },
+  },
+  {
+    name: 'Cinza Nórdico',
+    theme: {
+      colors: { background: '#f7f7f8', foreground: '#1c1f24', primary: '#6b7280', primaryForeground: '#ffffff', card: '#ffffff', accent: '#e8eaed', border: '#d2d5da' },
+      radius: 8, shadowIntensity: 6,
+    },
+  },
+  {
+    name: 'Petróleo',
+    theme: {
+      colors: { background: '#f0f6f7', foreground: '#0a1f24', primary: '#155e75', primaryForeground: '#ffffff', card: '#ffffff', accent: '#d2e5ea', border: '#abccd4' },
+      radius: 12, shadowIntensity: 12,
+    },
+  },
 ];
 
 export function ThemeCustomizer() {
-  const { customTheme, setColor, setShadowIntensity, setRadius, applyPreset, resetCustom, hasCustom } = useCustomTheme();
-  const [autoContrast, setAutoContrast] = useState(true);
-  const { profile, user } = useAuth();
-  const displayName =
-    profile?.full_name?.trim() ||
-    (user?.email ? user.email.split('@')[0] : '') ||
-    'você';
-
-  const handleColorChange = (key: CustomThemeKey, hex: string) => {
-    setColor(key, hex);
-    if (autoContrast && key === 'primary') {
-      setColor('primaryForeground', bestForeground(hex));
-    }
-    if (autoContrast && key === 'background') {
-      setColor('foreground', bestForeground(hex));
-    }
-  };
-
-  const primary = customTheme.colors.primary ?? '#1f74e0';
-  const accent = customTheme.colors.accent ?? '#eef2f7';
-  const accentFg = bestForeground(accent);
-  const ramp = shadeRamp(primary);
-
-  const renderGroup = (group: 'surface' | 'brand' | 'detail', title: string) => (
-    <div className="space-y-2">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium">{title}</p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {COLOR_FIELDS.filter((f) => f.group === group).map((f) => (
-          <PremiumColorPicker
-            key={f.key}
-            label={f.label}
-            description={f.description}
-            value={customTheme.colors[f.key] ?? f.fallback}
-            onChange={(hex) => handleColorChange(f.key, hex)}
-            showHarmony={f.key === 'primary'}
-            showRamp={f.key === 'primary'}
-          />
-        ))}
-      </div>
-    </div>
-  );
+  const { applyPreset, resetCustom, hasCustom } = useCustomTheme();
 
   return (
     <Card className="shadow-card border-border/50 overflow-hidden">
@@ -127,7 +205,7 @@ export function ThemeCustomizer() {
           {hasCustom && <Badge variant="secondary" className="ml-2">Ativo</Badge>}
         </CardTitle>
         <CardDescription>
-          Camada visual aplicada somente no modo claro. O modo escuro continua usando o tema padrão — a lua no topo sempre alterna entre claro e escuro.
+          Escolha uma paleta pronta para personalizar a aparência. Aplicada somente no modo claro — o modo escuro continua usando o tema padrão.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-7">
@@ -139,7 +217,7 @@ export function ThemeCustomizer() {
             </p>
             <span className="text-[11px] text-muted-foreground">Clique para aplicar</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
             {PRESETS.map((p) => (
               <button
                 key={p.name}
@@ -160,104 +238,6 @@ export function ThemeCustomizer() {
                 <span className="text-xs font-medium text-foreground/90 text-left truncate">{p.name}</span>
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* Auto contrast switch */}
-        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-gradient-to-br from-accent/30 to-transparent px-4 py-3">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-              <Wand2 className="h-3.5 w-3.5 text-primary" />
-            </span>
-            <div>
-              <p className="text-sm font-medium">Contraste automático</p>
-              <p className="text-xs text-muted-foreground">Calcula texto claro ou escuro adequado às cores escolhidas.</p>
-            </div>
-          </div>
-          <Switch checked={autoContrast} onCheckedChange={setAutoContrast} />
-        </div>
-
-        {/* Color groups */}
-        <div className="space-y-5">
-          {renderGroup('surface', 'Superfícies')}
-          {renderGroup('brand', 'Identidade')}
-          {renderGroup('detail', 'Detalhes')}
-        </div>
-
-        {/* Derived shades from primary */}
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium mb-2">
-            Tons derivados da primária
-          </p>
-          <div className="flex h-10 rounded-xl overflow-hidden border border-border/60 shadow-inner">
-            {ramp.map((c, i) => (
-              <div
-                key={i}
-                className="flex-1 transition-transform hover:scale-y-110"
-                style={{ background: c }}
-                title={c}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Sliders */}
-        <div className="space-y-5">
-          <div>
-            <div className="flex justify-between mb-2">
-              <Label className="text-sm">Intensidade da sombra</Label>
-              <span className="text-xs text-muted-foreground">{customTheme.shadowIntensity}%</span>
-            </div>
-            <Slider
-              value={[customTheme.shadowIntensity]}
-              min={0}
-              max={100}
-              step={1}
-              onValueChange={(v) => setShadowIntensity(v[0])}
-            />
-          </div>
-          <div>
-            <div className="flex justify-between mb-2">
-              <Label className="text-sm">Arredondamento</Label>
-              <span className="text-xs text-muted-foreground">{customTheme.radius}px</span>
-            </div>
-            <Slider
-              value={[customTheme.radius]}
-              min={0}
-              max={24}
-              step={1}
-              onValueChange={(v) => setRadius(v[0])}
-            />
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-medium mb-2">
-            Pré-visualização ao vivo
-          </p>
-          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-card space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div>
-                <p className="font-semibold text-foreground">Olá, {displayName}</p>
-                <p className="text-sm text-muted-foreground">Assim ficará a interface.</p>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <Badge>Novo</Badge>
-                <Button size="sm">Primário</Button>
-                <Button size="sm" variant="outline">Outline</Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div
-                className="rounded-lg p-3 text-xs"
-                style={{ background: accent, color: accentFg }}
-              >
-                Destaque
-              </div>
-              <div className="rounded-lg border border-border p-3 text-xs">Borda</div>
-              <div className="rounded-lg p-3 text-xs text-primary-foreground" style={{ background: primary }}>Primária</div>
-            </div>
           </div>
         </div>
 
