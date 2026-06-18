@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -494,7 +494,11 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
   };
 
   return (
-    <div className="space-y-2">
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Documentos clínicos</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
       <Stepper current={step} hasData={hasData} />
 
       {/* ── Step 1: Exames ── */}
@@ -711,6 +715,7 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
           <div className="w-24" />
         )}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
