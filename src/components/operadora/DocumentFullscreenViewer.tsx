@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
 
@@ -50,7 +51,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
   const pdf = isPdf(file.file_name, file.url);
   const img = isImage(file.file_name, file.url);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in">
       <header className="flex items-center justify-between gap-3 px-4 h-14 border-b border-border bg-background/80">
         <div className="flex items-center gap-2 min-w-0">
@@ -116,6 +117,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
