@@ -398,7 +398,7 @@ export default function OperatorRequests() {
 
       <Dialog open={!!detailReq} onOpenChange={(o) => !o && setDetailReq(null)}>
         <DialogContent
-          className="max-w-3xl max-h-[88vh] overflow-hidden p-0 gap-0 [&>button]:hidden"
+          className="max-w-3xl w-[calc(100vw-2rem)] h-[88vh] sm:h-auto sm:max-h-[88vh] flex flex-col overflow-hidden p-0 gap-0 [&>button]:hidden"
           onPointerDownOutside={(e) => {
             if (viewerFile || isDocumentViewerEvent(e.detail.originalEvent)) e.preventDefault();
           }}
@@ -436,7 +436,7 @@ export default function OperatorRequests() {
             const businessHoursLines = formatBusinessHours(clinic?.business_hours ?? d?.clinic_hours);
 
             return (
-              <div className="space-y-4 overflow-y-auto px-6 py-5 text-sm">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-4 px-6 py-5 text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div><span className="text-xs text-muted-foreground">Nome da clínica</span><div>{clinic?.name ?? detailReq.clinic_name ?? '—'}</div></div>
                   <div><span className="text-xs text-muted-foreground">CNPJ</span><div>{clinic?.cnpj ?? '—'}</div></div>
