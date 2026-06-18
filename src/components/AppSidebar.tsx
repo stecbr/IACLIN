@@ -495,7 +495,7 @@ export function AppSidebar() {
       {/* ── Header: Logo + Perfil ── */}
       <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60 gap-0">
         {/* Logo */}
-        <div className="flex flex-col items-start gap-1.5 mb-0">
+        <div className="flex items-center gap-2 mb-0">
           {(() => {
             const iaclinSrc  = resolved === 'dark' ? logoDark : logoLight;
             const showIaclin = !(hideIaclinLogo && logoUrl);
