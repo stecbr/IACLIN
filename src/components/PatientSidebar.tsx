@@ -98,7 +98,7 @@ export function PatientSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex flex-col items-start gap-1.5">
+        <div className="flex items-center gap-2">
           {collapsed ? (
             <img
               src={resolved === 'dark' ? logoDark : logoLight}

@@ -70,20 +70,18 @@ function SuperAdminSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60">
-        <div className="flex flex-col items-start gap-1.5">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <img
             src={resolved === 'dark' ? logoDark : logoLight}
             alt="IACLIN"
             className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'}
           />
+          {!collapsed && <IaclinWordmark size="md" />}
           {!collapsed && (
             <span className="text-[10px] font-bold text-primary border-l border-sidebar-border/60 pl-2 ml-1 uppercase tracking-wider">
               Super Admin
             </span>
           )}
-          </div>
-          {!collapsed && <IaclinWordmark size="md" />}
         </div>
       </SidebarHeader>
 
