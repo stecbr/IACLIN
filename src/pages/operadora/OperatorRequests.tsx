@@ -401,6 +401,10 @@ export default function OperatorRequests() {
             const clinic = data?.clinic ?? null;
             const contact = data?.contact ?? null;
             const procs = data?.requested_procedures ?? [];
+            const documentation = data?.documentation ?? null;
+            const docEntityType: 'fisica' | 'juridica' | null = documentation?.entity_type ?? clinic?.entity_type ?? null;
+            const docFiles: Array<{ doc_type: string; file_name: string; url: string }> = Array.isArray(documentation?.files) ? documentation.files : [];
+            const bank = documentation?.bank ?? null;
             const clinicAddress = [clinic?.address, clinic?.city, clinic?.state]
               .filter(Boolean)
               .join(' · ');
@@ -454,6 +458,46 @@ export default function OperatorRequests() {
                       {procs.map((p: any) => (
                         <Badge key={p.id ?? p.name} variant="secondary">{p.name}</Badge>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Documentação enviada {docEntityType ? `(${docEntityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})` : ''}
+                    </span>
+                    {docFiles.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground">{docFiles.length} arquivo(s)</span>
+                    )}
+                  </div>
+                  {docFiles.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Nenhum documento enviado.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {docFiles.map((f, i) => (
+                        <a
+                          key={`${f.url}-${i}`}
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 rounded-xl border border-border p-2 hover:bg-muted/40 transition-colors min-w-0"
+                        >
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{DOC_LABELS[f.doc_type] ?? f.doc_type}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">{f.file_name}</div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {bank && (bank.bank_name || bank.agency || bank.account) && (
+                    <div className="rounded-xl border border-border p-3 mt-2 text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div><span className="text-muted-foreground">Banco</span><div>{bank.bank_name ?? '—'}</div></div>
+                      <div><span className="text-muted-foreground">Agência</span><div>{bank.agency ?? '—'}</div></div>
+                      <div><span className="text-muted-foreground">Conta</span><div>{bank.account ?? '—'}</div></div>
+                      <div><span className="text-muted-foreground">Titular</span><div>{bank.holder_name ?? '—'}</div></div>
                     </div>
                   )}
                 </div>
