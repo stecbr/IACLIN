@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
-import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
 export interface FullscreenDocFile {
   url: string;
@@ -25,9 +33,11 @@ function isImage(name: string, url: string) {
 export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
+  const [numPages, setNumPages] = useState(0);
+  const [pageNum, setPageNum] = useState(1);
 
   useEffect(() => {
-    if (open) { setZoom(100); setRotation(0); }
+    if (open) { setZoom(100); setRotation(0); setPageNum(1); setNumPages(0); }
   }, [open, file?.url]);
 
   useEffect(() => {
@@ -93,19 +103,41 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
 
       <div className="flex-1 overflow-auto bg-muted/30 flex items-center justify-center p-4">
         {pdf ? (
-          <object
-            data={`${file.url}#view=FitH&toolbar=1`}
-            type="application/pdf"
-            className="bg-white shadow-lg rounded-lg"
-            style={{ width: `${zoom}%`, height: '85vh', maxWidth: '100%' }}
-          >
-            <iframe
-              src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.url)}&embedded=true`}
-              title={file.file_name}
-              className="bg-white shadow-lg rounded-lg"
-              style={{ width: `${zoom}%`, height: '85vh', maxWidth: '100%', border: 0 }}
-            />
-          </object>
+          <div className="flex flex-col items-center gap-4 w-full">
+            <Document
+              file={file.url}
+              onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+              loading={
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-12">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando PDF…
+                </div>
+              }
+              error={
+                <div className="text-sm text-destructive py-12">Falha ao carregar o PDF.</div>
+              }
+              className="flex flex-col items-center gap-4"
+            >
+              <Page
+                pageNumber={pageNum}
+                scale={zoom / 100}
+                rotate={rotation}
+                renderAnnotationLayer
+                renderTextLayer
+                className="shadow-lg rounded-lg overflow-hidden bg-white"
+              />
+            </Document>
+            {numPages > 1 && (
+              <div className="sticky bottom-4 flex items-center gap-2 bg-background/90 backdrop-blur border border-border rounded-full px-3 py-1.5 shadow-md">
+                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" disabled={pageNum <= 1} onClick={() => setPageNum((p) => Math.max(1, p - 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs tabular-nums">{pageNum} / {numPages}</span>
+                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" disabled={pageNum >= numPages} onClick={() => setPageNum((p) => Math.min(numPages, p + 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         ) : img ? (
           <img
             src={file.url}
