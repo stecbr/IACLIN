@@ -282,7 +282,9 @@ export default function OperatorRequests() {
     loadClinicProfessionals();
   }, [detailReq?.clinic_id]);
 
-  const formatBusinessHours = (value: unknown): string[] => {
+  const formatBusinessHours = (
+    value: unknown,
+  ): Array<{ day: string; open?: string; close?: string; closed: boolean; raw?: string }> => {
     const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     const dayLabels: Record<string, string> = {
       mon: 'Segunda',
@@ -299,24 +301,27 @@ export default function OperatorRequests() {
       try {
         parsed = JSON.parse(value);
       } catch {
-        return [value];
+        return [{ day: '', closed: false, raw: value }];
       }
     }
 
-    if (!parsed || typeof parsed !== 'object') return ['—'];
+    if (!parsed || typeof parsed !== 'object') return [];
 
-    const lines = dayOrder
+    const rows = dayOrder
       .map((k) => {
         const d = parsed?.[k];
         if (!d || typeof d !== 'object') return null;
-        if (d.enabled === false) return `${dayLabels[k]}: Fechado`;
-        const open = d.open ?? '--:--';
-        const close = d.close ?? '--:--';
-        return `${dayLabels[k]}: ${open} às ${close}`;
+        if (d.enabled === false) return { day: dayLabels[k], closed: true };
+        return {
+          day: dayLabels[k],
+          open: d.open ?? '--:--',
+          close: d.close ?? '--:--',
+          closed: false,
+        };
       })
-      .filter(Boolean) as string[];
+      .filter(Boolean) as Array<{ day: string; open?: string; close?: string; closed: boolean }>;
 
-    return lines.length > 0 ? lines : ['—'];
+    return rows;
   };
 
   return (
