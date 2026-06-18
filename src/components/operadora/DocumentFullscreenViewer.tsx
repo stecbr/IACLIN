@@ -68,7 +68,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
+      className="fixed left-1/2 top-1/2 z-[100] h-dvh w-screen -translate-x-1/2 -translate-y-1/2 bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
