@@ -13,7 +13,7 @@ import {
 import { toast } from 'sonner';
 import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
+import iaclinDefaultLogo from '@/assets/logo-light.png';
 
 export default function OperatorSettings() {
   const { operatorId, user } = useAuth();
