@@ -265,6 +265,33 @@ export default function Attendance() {
   // Odontogram tab shows only when the professional's own specialty profile includes it
   const showOdontogram = tabKeys.includes('odontogram');
 
+  // Sidebar nav section state (hooks must be declared before any early return)
+  const SECTION_KEY = `attendance_section_${appointmentId}`;
+  const CHART_SIDE_KEY = `attendance_chart_side_${appointmentId}`;
+  const visibleTabKeys = tabKeys.filter((k) => !(k === 'odontogram' && !showOdontogram));
+  const [activeSection, setActiveSection] = useState<AttendanceTabKey>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem(SECTION_KEY) as AttendanceTabKey | null;
+      if (saved && (visibleTabKeys as string[]).includes(saved)) return saved;
+    }
+    return visibleTabKeys[0] ?? 'assessment';
+  });
+  useEffect(() => {
+    if (!(visibleTabKeys as string[]).includes(activeSection)) {
+      setActiveSection(visibleTabKeys[0] ?? 'assessment');
+    }
+  }, [visibleTabKeys.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    sessionStorage.setItem(SECTION_KEY, activeSection);
+  }, [activeSection, SECTION_KEY]);
+  const [chartSideOpen, setChartSideOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(CHART_SIDE_KEY) === '1';
+  });
+  useEffect(() => {
+    sessionStorage.setItem(CHART_SIDE_KEY, chartSideOpen ? '1' : '0');
+  }, [chartSideOpen, CHART_SIDE_KEY]);
+
   // Payment account for PIX display on payment dialog
   const { data: paymentAccount } = useQuery({
     queryKey: ['payment-account-attendance', currentClinicId, user?.id],
@@ -654,34 +681,6 @@ export default function Attendance() {
   }
 
   const totalPrice = procedures.reduce((s, p) => s + p.price, 0);
-
-  // Sidebar nav section state (replaces Tabs)
-  const SECTION_KEY = `attendance_section_${appointmentId}`;
-  const CHART_SIDE_KEY = `attendance_chart_side_${appointmentId}`;
-  const visibleTabKeys = tabKeys.filter((k) => !(k === 'odontogram' && !showOdontogram));
-  const [activeSection, setActiveSection] = useState<AttendanceTabKey>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem(SECTION_KEY) as AttendanceTabKey | null;
-      if (saved && (visibleTabKeys as string[]).includes(saved)) return saved;
-    }
-    return visibleTabKeys[0] ?? 'assessment';
-  });
-  useEffect(() => {
-    if (!(visibleTabKeys as string[]).includes(activeSection)) {
-      setActiveSection(visibleTabKeys[0] ?? 'assessment');
-    }
-  }, [visibleTabKeys.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    sessionStorage.setItem(SECTION_KEY, activeSection);
-  }, [activeSection, SECTION_KEY]);
-
-  const [chartSideOpen, setChartSideOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem(CHART_SIDE_KEY) === '1';
-  });
-  useEffect(() => {
-    sessionStorage.setItem(CHART_SIDE_KEY, chartSideOpen ? '1' : '0');
-  }, [chartSideOpen, CHART_SIDE_KEY]);
 
   const sectionIcons: Record<AttendanceTabKey, typeof LayoutDashboard> = {
     overview: LayoutDashboard,
