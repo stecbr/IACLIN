@@ -1,5 +1,4 @@
 import { useEffect, useState, type MouseEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -67,7 +66,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
     onClose();
   };
 
-  return createPortal(
+  return (
     <div
       className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
       onPointerDown={(e) => e.stopPropagation()}
@@ -166,7 +165,6 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
