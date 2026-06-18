@@ -6,7 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Save, CheckCircle, Plus, Trash2, Stethoscope, FolderHeart, ExternalLink } from 'lucide-react';
+import {
+  ArrowLeft, Save, CheckCircle, Plus, Trash2, Stethoscope, FolderHeart, ExternalLink,
+  LayoutDashboard, ClipboardList, Activity, FileText, FlaskConical, ListChecks,
+  NotebookPen, Folder, Smile, HeartPulse, Apple, Utensils, BarChart3, PanelRightOpen, PanelRightClose, X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AssessmentForm } from '@/components/attendance/AssessmentForm';
 import { VitalSignsForm, type VitalSigns } from '@/components/attendance/VitalSignsForm';
 import { HypothesesEditor, type Hypothesis } from '@/components/attendance/HypothesesEditor';
@@ -31,7 +35,7 @@ import { DentalExamForm, type DentalExam } from '@/components/attendance/DentalE
 import { ConsultationTimer } from '@/components/attendance/ConsultationTimer';
 import { computeElapsedSeconds, endSession, getSession, startSession } from '@/lib/consultationSession';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
-import { ATTENDANCE_TAB_LABELS } from '@/lib/specialtyProfile';
+import { ATTENDANCE_TAB_LABELS, type AttendanceTabKey } from '@/lib/specialtyProfile';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Navigate } from 'react-router-dom';
