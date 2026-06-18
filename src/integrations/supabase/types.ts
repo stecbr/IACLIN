@@ -2718,6 +2718,7 @@ export type Database = {
           id: string
           is_active: boolean
           max_professionals: number | null
+          mp_preapproval_plan_id: string | null
           name: string
           price_cents: number
           segment: Database["public"]["Enums"]["plan_segment"]
@@ -2736,6 +2737,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_professionals?: number | null
+          mp_preapproval_plan_id?: string | null
           name: string
           price_cents?: number
           segment: Database["public"]["Enums"]["plan_segment"]
@@ -2754,6 +2756,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_professionals?: number | null
+          mp_preapproval_plan_id?: string | null
           name?: string
           price_cents?: number
           segment?: Database["public"]["Enums"]["plan_segment"]
@@ -2782,6 +2785,10 @@ export type Database = {
           last_payment_method:
             | Database["public"]["Enums"]["payment_method"]
             | null
+          mp_init_point: string | null
+          mp_payer_email: string | null
+          mp_payer_id: string | null
+          mp_preapproval_id: string | null
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           plan_id: string | null
@@ -2808,6 +2815,10 @@ export type Database = {
           last_payment_method?:
             | Database["public"]["Enums"]["payment_method"]
             | null
+          mp_init_point?: string | null
+          mp_payer_email?: string | null
+          mp_payer_id?: string | null
+          mp_preapproval_id?: string | null
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           plan_id?: string | null
@@ -2834,6 +2845,10 @@ export type Database = {
           last_payment_method?:
             | Database["public"]["Enums"]["payment_method"]
             | null
+          mp_init_point?: string | null
+          mp_payer_email?: string | null
+          mp_payer_id?: string | null
+          mp_preapproval_id?: string | null
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           plan_id?: string | null
@@ -3649,6 +3664,10 @@ export type Database = {
           last_payment_method:
             | Database["public"]["Enums"]["payment_method"]
             | null
+          mp_init_point: string | null
+          mp_payer_email: string | null
+          mp_payer_id: string | null
+          mp_preapproval_id: string | null
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           plan_id: string | null
