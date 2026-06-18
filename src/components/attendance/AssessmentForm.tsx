@@ -60,76 +60,64 @@ export function AssessmentForm({
         </Card>
       )}
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Queixa principal</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Input
-            value={chiefComplaint}
-            onChange={(e) => setChiefComplaint(e.target.value)}
-            placeholder="Ex: Dor no dente inferior direito"
-            disabled={readOnly}
-          />
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-muted-foreground">Queixa principal</Label>
+        <Input
+          value={chiefComplaint}
+          onChange={(e) => setChiefComplaint(e.target.value)}
+          placeholder="Ex: Dor no dente inferior direito"
+          disabled={readOnly}
+        />
+      </div>
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">História da doença atual (HDA)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Textarea
-            value={hpi}
-            onChange={(e) => setHpi(e.target.value)}
-            rows={4}
-            placeholder="Descrição detalhada do quadro clínico, evolução, fatores associados..."
-            className="resize-none"
-            disabled={readOnly}
-          />
-          <div className="grid grid-cols-2 gap-3 max-w-sm">
-            <div className="space-y-1">
-              <Label className="text-xs">Duração</Label>
-              <Input
-                type="number"
-                value={durationValue}
-                onChange={(e) => setDurationValue(e.target.value)}
-                placeholder="Ex: 3"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Unidade</Label>
-              <Select value={durationUnit} onValueChange={setDurationUnit} disabled={readOnly}>
-                <SelectTrigger><SelectValue placeholder="Período" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hours">Horas</SelectItem>
-                  <SelectItem value="days">Dias</SelectItem>
-                  <SelectItem value="weeks">Semanas</SelectItem>
-                  <SelectItem value="months">Meses</SelectItem>
-                  <SelectItem value="years">Anos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-muted-foreground">História da doença atual (HDA)</Label>
+        <Textarea
+          value={hpi}
+          onChange={(e) => setHpi(e.target.value)}
+          rows={4}
+          placeholder="Descrição detalhada do quadro clínico, evolução, fatores associados..."
+          className="resize-none"
+          disabled={readOnly}
+        />
+        <div className="grid grid-cols-2 gap-3 max-w-sm pt-1">
+          <div className="space-y-1">
+            <Label className="text-xs">Duração</Label>
+            <Input
+              type="number"
+              value={durationValue}
+              onChange={(e) => setDurationValue(e.target.value)}
+              placeholder="Ex: 3"
+              disabled={readOnly}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="space-y-1">
+            <Label className="text-xs">Unidade</Label>
+            <Select value={durationUnit} onValueChange={setDurationUnit} disabled={readOnly}>
+              <SelectTrigger><SelectValue placeholder="Período" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hours">Horas</SelectItem>
+                <SelectItem value="days">Dias</SelectItem>
+                <SelectItem value="weeks">Semanas</SelectItem>
+                <SelectItem value="months">Meses</SelectItem>
+                <SelectItem value="years">Anos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Exame físico / inspeção</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={physicalExam}
-            onChange={(e) => setPhysicalExam(e.target.value)}
-            rows={4}
-            placeholder="Achados ao exame físico, inspeção, palpação..."
-            className="resize-none"
-            disabled={readOnly}
-          />
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-muted-foreground">Exame físico / inspeção</Label>
+        <Textarea
+          value={physicalExam}
+          onChange={(e) => setPhysicalExam(e.target.value)}
+          rows={4}
+          placeholder="Achados ao exame físico, inspeção, palpação..."
+          className="resize-none"
+          disabled={readOnly}
+        />
+      </div>
     </div>
   );
 }

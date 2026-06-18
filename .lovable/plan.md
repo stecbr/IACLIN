@@ -1,26 +1,36 @@
-# Padronização visual das abas do atendimento
+## Diagnóstico
 
-Hoje, as abas **Visão Geral**, **Sinais Vitais**, **Solicitações** e **Odontograma** já renderizam um `Card` branco com borda suave (padrão do sistema). Já **Avaliação**, **Diagnóstico**, **Conduta**, **Procedimentos**, **Evolução** e **Documentos** aparecem "soltos" dentro da coluna, sem o mesmo card de contorno — quebrando o padrão visto nos prints.
+O conteúdo das abas Avaliação, Diagnóstico, Conduta, Procedimentos, Evolução e Documentos NÃO está com largura menor — o grid externo (`lg:grid-cols-[14rem_minmax(0,1fr)_22rem]`) e o wrapper `<div className="flex-1 min-w-0 space-y-4">` são os mesmos para todas as abas em `src/pages/Attendance.tsx`.
 
-## O que será feito
+O que quebra o padrão visual é **card-dentro-de-card**: ao envolvermos cada seção em `<Card>` no `renderSection()`, os subcomponentes `AssessmentForm` e `FollowUpBlock` continuam renderizando vários `<Card>` internos (Queixa principal, HDA, Exame físico, Plano terapêutico, Retorno). O padding duplo (`p-6` externo + `p-6` interno + borda interna) faz o conteúdo parecer afundado/estreito, enquanto Visão Geral e Sinais Vitais têm apenas um Card único.
 
-Em `src/pages/Attendance.tsx`, dentro de `renderSection()`, envolver as 6 seções inconsistentes em um wrapper `Card` idêntico ao usado nas outras (`border-border/50 shadow-card`) **sem alterar o conteúdo interno dos componentes**:
+## Mudanças
 
-- `assessment` → envolver `<AssessmentForm/>` em `Card` com header "Avaliação clínica".
-- `diagnosis` → envolver `<HypothesesEditor/>` em `Card` com header "Diagnóstico".
-- `conduct` → envolver `<FollowUpBlock/>` em `Card` com header "Conduta e retorno".
-- `procedures` → manter o Card já existente, apenas alinhar título/spacing ao padrão dos demais (`CardTitle` em `text-base font-semibold`, em vez de `text-sm muted`).
-- `notes` (Evolução) → ajustar os dois Cards existentes para o mesmo padrão de title.
-- `documents` → envolver `<DocumentsTab/>` em `Card` com header "Documentos".
+### 1. `src/components/attendance/AssessmentForm.tsx`
+Remover os 3 `Card` internos das seções "Queixa principal", "História da doença atual (HDA)" e "Exame físico / inspeção". Substituir por blocos simples:
 
-Também alinhar todos os títulos de seção (incluindo Visão Geral / Sinais Vitais / Solicitações se necessário) para o mesmo estilo: `CardHeader` com `CardTitle` "text-base font-semibold text-foreground" + descrição opcional em `text-xs text-muted-foreground`, de modo que todas as abas tenham a **mesma moldura, mesmo espaçamento e mesma tipografia** de cabeçalho.
+```tsx
+<div className="space-y-2">
+  <Label className="text-sm font-medium text-muted-foreground">Queixa principal</Label>
+  <Input ... />
+</div>
+```
+
+Manter o alerta amber "Antecedentes do paciente" como Card (é um destaque intencional). Container raiz continua `space-y-4`.
+
+### 2. `src/components/attendance/FollowUpBlock.tsx`
+Remover os 2 `Card` internos ("Plano terapêutico / orientações" e "Retorno sugerido"). Converter em blocos `<div className="space-y-2">` com `<Label>` + campo, mantendo o botão "Agendar retorno agora" e o `AppointmentFormDialog` inalterados.
+
+### 3. `src/pages/Attendance.tsx`
+Nenhuma mudança. Os wrappers `<Card className="border-border/50 shadow-card">` em `assessment`, `vitals`, `diagnosis`, `conduct`, `requests`, `notes`, `procedures`, `odontogram` e `documents` permanecem — eles já produzem exatamente a mesma largura da Visão Geral. O grid, a sidebar de abas, o header com timer e o painel "Prontuário ao lado" ficam intactos.
 
 ## Fora do escopo
 
-- Não alterar lógica de formulários, validações, salvamento, RLS, edge functions, gravação, odontograma interno, prontuário lateral, timer ou botões superiores.
-- Não mexer em `specialtyProfile` nem adicionar/remover abas.
-- Não trocar ícones do menu lateral.
+- Lógica de formulários, validações, RLS, edge functions.
+- Conteúdo de odontograma, procedimentos, documentos, prontuário lateral.
+- Novos campos, ícones ou abas.
+- `HypothesesEditor`, `RequestsEditor`, `DocumentsTab`, `VitalSignsForm` (já não usam Cards aninhados — não precisam de ajuste).
 
 ## Resultado esperado
 
-Ao navegar entre **Visão Geral → Avaliação → Sinais Vitais → Diagnóstico → Conduta → Solicitações → Procedimentos → Evolução → Odontograma → Documentos**, todas as abas terão o mesmo "cartão" de fundo, mesma borda, mesmo padding e mesmo título — mantendo a estética Apple/iOS minimalista do sistema.
+Todas as abas exibirão um único Card externo ocupando a mesma largura horizontal da aba Visão Geral, sem efeito de caixa-dentro-de-caixa, mantendo a estética Apple/iOS minimalista.
