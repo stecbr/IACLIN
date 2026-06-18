@@ -49,7 +49,7 @@ function Logo({ className = "" }: { className?: string }) {
       <img src={logoLight} alt="Iaclin" className="h-8 object-contain" />
       <span
         className="text-2xl leading-none"
-        style={{ fontFamily: "'Jura', sans-serif", fontWeight: 500, letterSpacing: "0.08em" }}
+        style={{ fontFamily: "'Jura', sans-serif", fontWeight: 600, letterSpacing: "0.08em" }}
       >
         <span style={{ color: "#033563" }}>IA</span>
         <span style={{ color: "#5b6887" }}>CLIN</span>
