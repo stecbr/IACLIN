@@ -475,21 +475,23 @@ export default function OperatorRequests() {
                     <div className="text-sm text-muted-foreground">Nenhum documento enviado.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {docFiles.map((f, i) => (
-                        <a
-                          key={`${f.url}-${i}`}
-                          href={f.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-2 rounded-xl border border-border p-2 hover:bg-muted/40 transition-colors min-w-0"
-                        >
-                          <FileText className="h-4 w-4 text-primary shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium truncate">{DOC_LABELS[f.doc_type] ?? f.doc_type}</div>
-                            <div className="text-[11px] text-muted-foreground truncate">{f.file_name}</div>
-                          </div>
-                        </a>
-                      ))}
+                      {docFiles.map((f, i) => {
+                        const label = DOC_LABELS[f.doc_type] ?? f.doc_type;
+                        return (
+                          <button
+                            key={`${f.url}-${i}`}
+                            type="button"
+                            onClick={() => setViewerFile({ url: f.url, file_name: f.file_name, label })}
+                            className="flex items-center gap-2 rounded-xl border border-border p-2 hover:bg-muted/40 transition-colors min-w-0 text-left"
+                          >
+                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium truncate">{label}</div>
+                              <div className="text-[11px] text-muted-foreground truncate">{f.file_name}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                   {bank && (bank.bank_name || bank.agency || bank.account) && (
@@ -624,6 +626,12 @@ export default function OperatorRequests() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DocumentFullscreenViewer
+        file={viewerFile}
+        open={!!viewerFile}
+        onClose={() => setViewerFile(null)}
+      />
     </div>
   );
 }
