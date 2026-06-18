@@ -76,7 +76,14 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
     >
       <header className="flex items-center justify-between gap-3 px-4 h-14 border-b border-border bg-background/80">
         <div className="flex items-center gap-2 min-w-0">
-          <Button size="icon" variant="ghost" className="rounded-full" onClick={handleClose} aria-label="Fechar">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full"
+            onPointerDown={handleClose}
+            onClick={handleClose}
+            aria-label="Fechar"
+          >
             <X className="h-5 w-5" />
           </Button>
           <div className="min-w-0">
