@@ -392,7 +392,18 @@ export default function OperatorRequests() {
       </Dialog>
 
       <Dialog open={!!detailReq} onOpenChange={(o) => !o && setDetailReq(null)}>
-        <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-3xl max-h-[88vh] overflow-y-auto"
+          onPointerDownOutside={(e) => {
+            if (viewerFile) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            if (viewerFile) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (viewerFile) e.preventDefault();
+          }}
+        >
           <DialogHeader><DialogTitle>Dados da clínica para credenciamento</DialogTitle></DialogHeader>
           {detailReq && (() => {
             const data = parseNotes(detailReq.notes);
