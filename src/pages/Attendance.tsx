@@ -729,48 +729,87 @@ export default function Attendance() {
         );
       case 'assessment':
         return (
-          <AssessmentForm
-            patientId={appointment.patient_id}
-            chiefComplaint={chiefComplaint} setChiefComplaint={setChiefComplaint}
-            hpi={hpi} setHpi={setHpi}
-            durationValue={durationValue} setDurationValue={setDurationValue}
-            durationUnit={durationUnit} setDurationUnit={setDurationUnit}
-            physicalExam={physicalExam} setPhysicalExam={setPhysicalExam}
-          />
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Avaliação clínica</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AssessmentForm
+                patientId={appointment.patient_id}
+                chiefComplaint={chiefComplaint} setChiefComplaint={setChiefComplaint}
+                hpi={hpi} setHpi={setHpi}
+                durationValue={durationValue} setDurationValue={setDurationValue}
+                durationUnit={durationUnit} setDurationUnit={setDurationUnit}
+                physicalExam={physicalExam} setPhysicalExam={setPhysicalExam}
+              />
+            </CardContent>
+          </Card>
         );
       case 'vitals':
-        return <VitalSignsForm value={vitalSigns} onChange={setVitalSigns} />;
+        return (
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Sinais vitais</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <VitalSignsForm value={vitalSigns} onChange={setVitalSigns} />
+            </CardContent>
+          </Card>
+        );
       case 'diagnosis':
         return (
-          <HypothesesEditor
-            hypotheses={hypotheses} onChange={setHypotheses}
-            diagnosis={diagnosis} setDiagnosis={setDiagnosis}
-            severity={severity} setSeverity={setSeverity}
-          />
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Diagnóstico</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <HypothesesEditor
+                hypotheses={hypotheses} onChange={setHypotheses}
+                diagnosis={diagnosis} setDiagnosis={setDiagnosis}
+                severity={severity} setSeverity={setSeverity}
+              />
+            </CardContent>
+          </Card>
         );
       case 'conduct':
         return (
-          <FollowUpBlock
-            treatmentPlan={treatmentPlan} setTreatmentPlan={setTreatmentPlan}
-            followUpDate={followUpDate} setFollowUpDate={setFollowUpDate}
-            followUpReason={followUpReason} setFollowUpReason={setFollowUpReason}
-            onScheduled={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
-          />
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Conduta e retorno</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FollowUpBlock
+                treatmentPlan={treatmentPlan} setTreatmentPlan={setTreatmentPlan}
+                followUpDate={followUpDate} setFollowUpDate={setFollowUpDate}
+                followUpReason={followUpReason} setFollowUpReason={setFollowUpReason}
+                onScheduled={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
+              />
+            </CardContent>
+          </Card>
         );
       case 'requests':
-        return <RequestsEditor items={requests} onChange={setRequests} />;
+        return (
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Solicitações</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RequestsEditor items={requests} onChange={setRequests} />
+            </CardContent>
+          </Card>
+        );
       case 'notes':
         return (
           <div className="space-y-4">
-            <Card className="border-border/50">
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Evolução / Anotações Clínicas</CardTitle></CardHeader>
+            <Card className="border-border/50 shadow-card">
+              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold text-foreground">Evolução / Anotações clínicas</CardTitle></CardHeader>
               <CardContent>
                 <Textarea value={clinicalNotes} onChange={(e) => setClinicalNotes(e.target.value)} rows={6}
                   placeholder="Descreva o atendimento, queixas do paciente, procedimentos realizados..." className="resize-none" />
               </CardContent>
             </Card>
-            <Card className="border-border/50">
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Diagnóstico</CardTitle></CardHeader>
+            <Card className="border-border/50 shadow-card">
+              <CardHeader className="pb-3"><CardTitle className="text-base font-semibold text-foreground">Diagnóstico</CardTitle></CardHeader>
               <CardContent>
                 <Textarea value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} rows={3}
                   placeholder="Diagnóstico clínico..." className="resize-none" />
@@ -780,9 +819,9 @@ export default function Attendance() {
         );
       case 'procedures':
         return (
-          <Card className="border-border/50">
+          <Card className="border-border/50 shadow-card">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Procedimentos Realizados</CardTitle>
+              <CardTitle className="text-base font-semibold text-foreground">Procedimentos realizados</CardTitle>
               <Button size="sm" variant="outline" onClick={addProcedure} className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> Adicionar
               </Button>
@@ -922,17 +961,31 @@ export default function Attendance() {
         );
       case 'odontogram':
         return (
-          <div className="space-y-3">
-            <DentalExamForm value={dentalExam} onChange={setDentalExam} />
-            <div className="text-center">
-              <Link to={`/odontogram?patient=${appointment.patient_id}`} className="text-xs text-primary hover:underline">
-                Abrir odontograma completo do paciente →
-              </Link>
-            </div>
-          </div>
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Odontograma</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <DentalExamForm value={dentalExam} onChange={setDentalExam} />
+              <div className="text-center">
+                <Link to={`/odontogram?patient=${appointment.patient_id}`} className="text-xs text-primary hover:underline">
+                  Abrir odontograma completo do paciente →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         );
       case 'documents':
-        return <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />;
+        return (
+          <Card className="border-border/50 shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">Documentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />
+            </CardContent>
+          </Card>
+        );
       default:
         return null;
     }
