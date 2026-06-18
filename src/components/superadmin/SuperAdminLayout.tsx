@@ -43,6 +43,7 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 import { ArrowRight } from 'lucide-react';
+import { IaclinWordmark } from '@/components/IaclinWordmark';
 
 const nav = [
   { to: '/superadmin',               label: 'Visão Geral',    icon: LayoutDashboard, end: true },
@@ -69,7 +70,8 @@ function SuperAdminSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-start gap-1.5">
+          <div className="flex items-center gap-2">
           <img
             src={resolved === 'dark' ? logoDark : logoLight}
             alt="IACLIN"
@@ -80,6 +82,8 @@ function SuperAdminSidebar() {
               Super Admin
             </span>
           )}
+          </div>
+          {!collapsed && <IaclinWordmark size="md" />}
         </div>
       </SidebarHeader>
 

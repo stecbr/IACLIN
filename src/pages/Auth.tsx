@@ -15,6 +15,7 @@ import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
 const logoLight = iaclinLogoAsset.url;
 const logoDark = iaclinLogoAsset.url;
 import { useTheme } from '@/components/ThemeProvider';
+import { IaclinWordmark } from '@/components/IaclinWordmark';
 import {
   SpecialtySelect,
   registrationLabelForSpecialty,
@@ -470,12 +471,13 @@ export default function Auth() {
       >
         {/* Logo */}
         <motion.div
-          className="flex justify-center mb-8"
+          className="flex flex-col items-center gap-2 mb-8"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
         >
           <img src={logoSrc} alt="IACLIN" className="h-10" />
+          <IaclinWordmark size="lg" />
         </motion.div>
 
         <AnimatePresence mode="wait">
