@@ -1,24 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Send, MessageCircle, X, Mail, Phone, MapPin, ArrowLeft, SlidersHorizontal } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { geocodeAddress } from '@/lib/geocode';
-import { useTheme } from '@/components/ThemeProvider';
-import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Send, MessageCircle, X, Mail, Phone, MapPin, ArrowLeft, SlidersHorizontal } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { geocodeAddress } from "@/lib/geocode";
+import { useTheme } from "@/components/ThemeProvider";
+import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 
 type ClinicSearchRow = {
   clinic_id: string;
   clinic_name: string;
-  category: 'medico' | 'odonto' | 'outro';
+  category: "medico" | "odonto" | "outro";
   cnpj: string | null;
   city: string | null;
   state: string | null;
@@ -40,28 +40,52 @@ type ClinicSearchRow = {
   specialties: string[];
 };
 
-const normalizePhone = (value: string) => value.replace(/\D/g, '');
+const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
 const BR_STATES = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
-  'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC',
-  'SP', 'SE', 'TO',
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
 ];
 
-const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-const DARK_MAP_FILTER = 'brightness(0.35) contrast(1.15) sepia(1) saturate(3) hue-rotate(178deg)';
-const DARK_MAP_BACKGROUND = '#16243d';
-const DARK_LOGO_BACKGROUND = '#142447';
+const MAP_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const DARK_MAP_FILTER = "brightness(0.20) contrast(1.35) sepia(1) saturate(4) hue-rotate(178deg)";
+const DARK_MAP_BACKGROUND = "#0a1020";
+const DARK_LOGO_BACKGROUND = "#142447";
 
 export default function OperatorProfessionals() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ClinicSearchRow[]>([]);
-  const [q, setQ] = useState('');
-  const [cityFilter, setCityFilter] = useState('all');
-  const [stateFilter, setStateFilter] = useState('all');
-  const [professionalType, setProfessionalType] = useState<'all' | 'medico' | 'dentista'>('all');
-  const [specialtyFilter, setSpecialtyFilter] = useState('all');
+  const [q, setQ] = useState("");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
+  const [professionalType, setProfessionalType] = useState<"all" | "medico" | "dentista">("all");
+  const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -70,9 +94,9 @@ export default function OperatorProfessionals() {
       setLoading(true);
       try {
         const { data: memberships } = await supabase
-          .from('clinic_members')
-          .select('clinic_id, user_id, role, specialty')
-          .in('role', ['dentist', 'admin']);
+          .from("clinic_members")
+          .select("clinic_id, user_id, role, specialty")
+          .in("role", ["dentist", "admin"]);
 
         const normalizedMemberships = (memberships ?? []) as Array<{
           clinic_id: string;
@@ -90,17 +114,16 @@ export default function OperatorProfessionals() {
 
         const [{ data: clinics }, { data: profiles }, { data: specs }] = await Promise.all([
           supabase
-            .from('clinics')
-            .select('id, name, city, state, cnpj, phone, email, category, logo_url, address, address_number, neighborhood, zip_code')
-            .in('id', clinicIds),
+            .from("clinics")
+            .select(
+              "id, name, city, state, cnpj, phone, email, category, logo_url, address, address_number, neighborhood, zip_code",
+            )
+            .in("id", clinicIds),
+          supabase.from("profiles").select("id, full_name, avatar_url, phone").in("id", userIds),
           supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url, phone')
-            .in('id', userIds),
-          supabase
-            .from('professional_specialties' as any)
-            .select('user_id, specialty')
-            .in('user_id', userIds),
+            .from("professional_specialties" as any)
+            .select("user_id, specialty")
+            .in("user_id", userIds),
         ]);
 
         const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
@@ -124,7 +147,7 @@ export default function OperatorProfessionals() {
             const specialties = specMap.get(m.user_id) ?? (m.specialty ? [m.specialty] : []);
             return {
               user_id: m.user_id,
-              full_name: p?.full_name ?? 'Profissional',
+              full_name: p?.full_name ?? "Profissional",
               avatar_url: p?.avatar_url ?? null,
               phone: p?.phone ?? null,
               specialties,
@@ -132,12 +155,12 @@ export default function OperatorProfessionals() {
           });
 
           const allSpecs = [...new Set(professionals.flatMap((p) => p.specialties).filter(Boolean))] as string[];
-          const normalizedCategory: ClinicSearchRow['category'] =
-            clinic.category === 'medico' ? 'medico' : clinic.category === 'odonto' ? 'odonto' : 'outro';
+          const normalizedCategory: ClinicSearchRow["category"] =
+            clinic.category === "medico" ? "medico" : clinic.category === "odonto" ? "odonto" : "outro";
 
           return {
             clinic_id: clinic.id,
-            clinic_name: clinic.name ?? 'Clínica',
+            clinic_name: clinic.name ?? "Clínica",
             category: normalizedCategory,
             cnpj: clinic.cnpj ?? null,
             city: clinic.city ?? null,
@@ -172,9 +195,7 @@ export default function OperatorProfessionals() {
   const stateOptions = useMemo(() => BR_STATES, []);
 
   const cityOptions = useMemo(() => {
-    const source = stateFilter === 'all'
-      ? rows
-      : rows.filter((r) => (r.state ?? '').toUpperCase() === stateFilter);
+    const source = stateFilter === "all" ? rows : rows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
     return [...new Set(source.map((r) => r.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
   }, [rows, stateFilter]);
 
@@ -197,14 +218,15 @@ export default function OperatorProfessionals() {
             .filter(Boolean)
             .some((v) => String(v).toLowerCase().includes(term));
 
-      const typeMatch = professionalType === 'all'
-        ? true
-        : professionalType === 'medico'
-          ? r.category === 'medico'
-          : r.category === 'odonto';
-      const specialtyMatch = specialtyFilter === 'all' || r.specialties.includes(specialtyFilter);
-      const stateMatch = stateFilter === 'all' || (r.state ?? '').toUpperCase() === stateFilter;
-      const cityMatch = cityFilter === 'all' || (r.city ?? '').toLowerCase() === cityFilter.toLowerCase();
+      const typeMatch =
+        professionalType === "all"
+          ? true
+          : professionalType === "medico"
+            ? r.category === "medico"
+            : r.category === "odonto";
+      const specialtyMatch = specialtyFilter === "all" || r.specialties.includes(specialtyFilter);
+      const stateMatch = stateFilter === "all" || (r.state ?? "").toUpperCase() === stateFilter;
+      const cityMatch = cityFilter === "all" || (r.city ?? "").toLowerCase() === cityFilter.toLowerCase();
       return searchMatch && specialtyMatch && stateMatch && cityMatch && typeMatch;
     });
   }, [rows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
@@ -213,7 +235,7 @@ export default function OperatorProfessionals() {
     if (!phone) return;
     const digits = normalizePhone(phone);
     if (!digits) return;
-    window.open(`https://wa.me/${digits}`, '_blank');
+    window.open(`https://wa.me/${digits}`, "_blank");
   };
 
   // ====== Map ======
@@ -236,14 +258,12 @@ export default function OperatorProfessionals() {
       zoomControl: false,
       attributionControl: false,
     });
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.zoom({ position: "topright" }).addTo(map);
     tileLayerRef.current = L.tileLayer(MAP_TILE_URL, { maxZoom: 20 }).addTo(map);
-    const tilePane = map.getPane('tilePane');
+    const tilePane = map.getPane("tilePane");
     if (tilePane) {
-      tilePane.style.filter = resolved === 'dark'
-        ? DARK_MAP_FILTER
-        : '';
-      tilePane.style.backgroundColor = resolved === 'dark' ? DARK_MAP_BACKGROUND : '';
+      tilePane.style.filter = resolved === "dark" ? DARK_MAP_FILTER : "";
+      tilePane.style.backgroundColor = resolved === "dark" ? DARK_MAP_BACKGROUND : "";
     }
     mapInstanceRef.current = map;
     return () => {
@@ -262,12 +282,10 @@ export default function OperatorProfessionals() {
       map.removeLayer(tileLayerRef.current);
     }
     tileLayerRef.current = L.tileLayer(MAP_TILE_URL, { maxZoom: 20 }).addTo(map);
-    const tilePane = map.getPane('tilePane');
+    const tilePane = map.getPane("tilePane");
     if (tilePane) {
-      tilePane.style.filter = resolved === 'dark'
-        ? DARK_MAP_FILTER
-        : '';
-      tilePane.style.backgroundColor = resolved === 'dark' ? DARK_MAP_BACKGROUND : '';
+      tilePane.style.filter = resolved === "dark" ? DARK_MAP_FILTER : "";
+      tilePane.style.backgroundColor = resolved === "dark" ? DARK_MAP_BACKGROUND : "";
     }
   }, [resolved]);
 
@@ -307,7 +325,10 @@ export default function OperatorProfessionals() {
       };
       const scheduleFlush = () => {
         if (flushTimer) return;
-        flushTimer = setTimeout(() => { flushTimer = null; flush(); }, 150);
+        flushTimer = setTimeout(() => {
+          flushTimer = null;
+          flush();
+        }, 150);
       };
 
       const worker = async () => {
@@ -357,7 +378,7 @@ export default function OperatorProfessionals() {
       let lat = c.lat;
       let lng = c.lng;
       if (seen > 0) {
-        const angle = (seen * 137.5) * (Math.PI / 180); // golden angle
+        const angle = seen * 137.5 * (Math.PI / 180); // golden angle
         const radius = 0.004 * Math.sqrt(seen); // ~400m per step
         lat += Math.cos(angle) * radius;
         lng += Math.sin(angle) * radius;
@@ -365,16 +386,16 @@ export default function OperatorProfessionals() {
       const latlng = L.latLng(lat, lng);
       bounds.push(latlng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
-      const logoBg = resolved === 'dark' ? DARK_LOGO_BACKGROUND : '#fff';
+      const logoBg = resolved === "dark" ? DARK_LOGO_BACKGROUND : "#fff";
       const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
-        className: '',
+        className: "",
         html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 8px 18px rgba(0,0,0,.35);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
         iconSize: [44, 50],
         iconAnchor: [22, 50],
       });
       const marker = L.marker(latlng, { icon }).addTo(map);
-      marker.on('click', () => {
+      marker.on("click", () => {
         setSelectedId(clinic.clinic_id);
         map.setView(latlng, Math.max(map.getZoom(), 14), { animate: true });
       });
@@ -388,10 +409,7 @@ export default function OperatorProfessionals() {
     setTimeout(() => map.invalidateSize(), 50);
   }, [filtered, coords, resolved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selected = useMemo(
-    () => filtered.find((c) => c.clinic_id === selectedId) ?? null,
-    [filtered, selectedId],
-  );
+  const selected = useMemo(() => filtered.find((c) => c.clinic_id === selectedId) ?? null, [filtered, selectedId]);
 
   const searchSuggestions = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -442,7 +460,7 @@ export default function OperatorProfessionals() {
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span className="text-sm font-medium text-foreground">
               Carregando clínicas
-              {geocodeProgress.total > 0 ? ` (${geocodeProgress.done}/${geocodeProgress.total})` : ''}…
+              {geocodeProgress.total > 0 ? ` (${geocodeProgress.done}/${geocodeProgress.total})` : ""}…
             </span>
           </div>
         </div>
@@ -456,9 +474,7 @@ export default function OperatorProfessionals() {
               <SlidersHorizontal className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">Buscar rede credenciada</h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">
-              Selecione os filtros para localizar clínicas no mapa.
-            </p>
+            <p className="text-sm text-muted-foreground mb-5">Selecione os filtros para localizar clínicas no mapa.</p>
             <div className="space-y-3">
               <div className="relative">
                 <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
@@ -467,12 +483,16 @@ export default function OperatorProfessionals() {
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Nome da clínica, profissional, CNPJ..."
                   className="pl-10 h-11 rounded-2xl"
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitSearch(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitSearch();
+                  }}
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectTrigger className="h-10 rounded-2xl">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
                   <SelectContent className="z-[1000]">
                     <SelectItem value="all">Todos os tipos</SelectItem>
                     <SelectItem value="medico">Médicos</SelectItem>
@@ -480,36 +500,60 @@ export default function OperatorProfessionals() {
                   </SelectContent>
                 </Select>
                 <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="Especialidade" /></SelectTrigger>
+                  <SelectTrigger className="h-10 rounded-2xl">
+                    <SelectValue placeholder="Especialidade" />
+                  </SelectTrigger>
                   <SelectContent className="z-[1000]">
                     <SelectItem value="all">Todas especialidades</SelectItem>
-                    {specialtyOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {specialtyOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <Select value={stateFilter} onValueChange={(v) => { setStateFilter(v); setCityFilter('all'); }}>
-                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="UF" /></SelectTrigger>
+                <Select
+                  value={stateFilter}
+                  onValueChange={(v) => {
+                    setStateFilter(v);
+                    setCityFilter("all");
+                  }}
+                >
+                  <SelectTrigger className="h-10 rounded-2xl">
+                    <SelectValue placeholder="UF" />
+                  </SelectTrigger>
                   <SelectContent className="z-[1000]">
                     <SelectItem value="all">Todas UFs</SelectItem>
-                    {stateOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {stateOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Select value={cityFilter} onValueChange={setCityFilter}>
-                  <SelectTrigger className="h-10 rounded-2xl"><SelectValue placeholder="Cidade" /></SelectTrigger>
+                  <SelectTrigger className="h-10 rounded-2xl">
+                    <SelectValue placeholder="Cidade" />
+                  </SelectTrigger>
                   <SelectContent className="z-[1000]">
                     <SelectItem value="all">Todas cidades</SelectItem>
-                    {cityOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {cityOptions.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                className="w-full h-11 rounded-2xl mt-2"
-                onClick={handleSubmitSearch}
-                disabled={loading}
-              >
+              <Button className="w-full h-11 rounded-2xl mt-2" onClick={handleSubmitSearch} disabled={loading}>
                 {loading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando…</>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando…
+                  </>
                 ) : (
-                  <><Search className="h-4 w-4 mr-2" /> Buscar clínicas</>
+                  <>
+                    <Search className="h-4 w-4 mr-2" /> Buscar clínicas
+                  </>
                 )}
               </Button>
             </div>
@@ -549,7 +593,6 @@ export default function OperatorProfessionals() {
         </div>
       )}
 
-
       {/* Bottom info panel */}
       {selected && (
         <div className="absolute inset-x-0 bottom-0 z-[500] p-3 md:p-4 pointer-events-none">
@@ -558,7 +601,12 @@ export default function OperatorProfessionals() {
               <Avatar className="h-14 w-14 shrink-0">
                 <AvatarImage src={selected.logo_url ?? undefined} />
                 <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
-                  {selected.clinic_name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                  {selected.clinic_name
+                    .split(" ")
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
@@ -567,12 +615,20 @@ export default function OperatorProfessionals() {
                     <div className="font-semibold truncate">{selected.clinic_name}</div>
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       <Badge variant="outline" className="text-[10px]">
-                        {selected.category === 'medico' ? 'Médica' : selected.category === 'odonto' ? 'Odontológica' : 'Outras'}
+                        {selected.category === "medico"
+                          ? "Médica"
+                          : selected.category === "odonto"
+                            ? "Odontológica"
+                            : "Outras"}
                       </Badge>
                       {selected.specialties.slice(0, 3).map((s) => (
-                        <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                        <Badge key={s} variant="secondary" className="text-[10px]">
+                          {s}
+                        </Badge>
                       ))}
-                      <Badge variant="outline" className="text-[10px]">{selected.professionals_count} profissional(is)</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {selected.professionals_count} profissional(is)
+                      </Badge>
                     </div>
                   </div>
                   <button
@@ -588,10 +644,10 @@ export default function OperatorProfessionals() {
                     <div className="flex items-start gap-1.5">
                       <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                       <span className="truncate">
-                        {[selected.address, selected.address_number].filter(Boolean).join(', ')}
-                        {selected.neighborhood ? ` · ${selected.neighborhood}` : ''}
-                        {selected.city ? ` · ${selected.city}` : ''}
-                        {selected.state ? `/${selected.state}` : ''}
+                        {[selected.address, selected.address_number].filter(Boolean).join(", ")}
+                        {selected.neighborhood ? ` · ${selected.neighborhood}` : ""}
+                        {selected.city ? ` · ${selected.city}` : ""}
+                        {selected.state ? `/${selected.state}` : ""}
                       </span>
                     </div>
                   )}
@@ -615,7 +671,8 @@ export default function OperatorProfessionals() {
                     <div className="flex flex-wrap gap-1.5">
                       {selected.professionals.slice(0, 5).map((p) => (
                         <Badge key={p.user_id} variant="outline" className="text-[10px] font-normal">
-                          {p.full_name}{p.specialties[0] ? ` · ${p.specialties[0]}` : ''}
+                          {p.full_name}
+                          {p.specialties[0] ? ` · ${p.specialties[0]}` : ""}
                         </Badge>
                       ))}
                       {selected.professionals.length > 5 && (
@@ -649,7 +706,7 @@ export default function OperatorProfessionals() {
                     className="rounded-xl"
                     onClick={() =>
                       navigate(
-                        `/operadora/convites?name=${encodeURIComponent(selected.clinic_name)}&email=${encodeURIComponent(selected.email ?? '')}`,
+                        `/operadora/convites?name=${encodeURIComponent(selected.clinic_name)}&email=${encodeURIComponent(selected.email ?? "")}`,
                       )
                     }
                   >
@@ -661,7 +718,6 @@ export default function OperatorProfessionals() {
           </Card>
         </div>
       )}
-
     </div>
   );
 }
