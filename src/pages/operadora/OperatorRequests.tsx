@@ -333,12 +333,10 @@ export default function OperatorRequests() {
             <Card key={r.id} className="rounded-xl p-4 flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="font-medium">{r.clinic_name}</div>
-                    <Badge variant="outline" className={STATUS_CLASSES[r.status] ?? ''}>
-                      {STATUS_LABELS[r.status] ?? r.status}
-                    </Badge>
-                  </div>
+                  <Badge variant="outline" className={`${STATUS_CLASSES[r.status] ?? ''} mb-1.5`}>
+                    {STATUS_LABELS[r.status] ?? r.status}
+                  </Badge>
+                  <div className="font-medium">{r.clinic_name}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
                   </div>
