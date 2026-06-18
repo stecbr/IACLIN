@@ -30,65 +30,57 @@ export function FollowUpBlock({
   const defaultDate = followUpDate ? parseISO(followUpDate) : undefined;
 
   return (
-    <div className="space-y-4">
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Plano terapêutico / orientações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={treatmentPlan}
-            onChange={(e) => setTreatmentPlan(e.target.value)}
-            rows={6}
-            placeholder="Conduta proposta, orientações ao paciente, cuidados, restrições..."
-            className="resize-none"
-            disabled={readOnly}
-          />
-        </CardContent>
-      </Card>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-muted-foreground">Plano terapêutico / orientações</Label>
+        <Textarea
+          value={treatmentPlan}
+          onChange={(e) => setTreatmentPlan(e.target.value)}
+          rows={6}
+          placeholder="Conduta proposta, orientações ao paciente, cuidados, restrições..."
+          className="resize-none"
+          disabled={readOnly}
+        />
+      </div>
 
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Retorno sugerido</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Data sugerida</Label>
-              <Input
-                type="date"
-                value={followUpDate}
-                onChange={(e) => setFollowUpDate(e.target.value)}
-                className="h-9 text-sm"
-                disabled={readOnly}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Motivo do retorno</Label>
-              <Input
-                value={followUpReason}
-                onChange={(e) => setFollowUpReason(e.target.value)}
-                placeholder="Ex: Reavaliação, controle"
-                className="h-9 text-sm"
-                disabled={readOnly}
-              />
-            </div>
+      <div className="space-y-3">
+        <Label className="text-sm font-medium text-muted-foreground">Retorno sugerido</Label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Data sugerida</Label>
+            <Input
+              type="date"
+              value={followUpDate}
+              onChange={(e) => setFollowUpDate(e.target.value)}
+              className="h-9 text-sm"
+              disabled={readOnly}
+            />
           </div>
-          {!readOnly && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setOpenDialog(true)}
-              disabled={!followUpDate}
-              className="gap-2"
-            >
-              <CalendarPlus className="h-3.5 w-3.5" />
-              Agendar retorno agora
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+          <div className="space-y-1">
+            <Label className="text-xs">Motivo do retorno</Label>
+            <Input
+              value={followUpReason}
+              onChange={(e) => setFollowUpReason(e.target.value)}
+              placeholder="Ex: Reavaliação, controle"
+              className="h-9 text-sm"
+              disabled={readOnly}
+            />
+          </div>
+        </div>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setOpenDialog(true)}
+            disabled={!followUpDate}
+            className="gap-2"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            Agendar retorno agora
+          </Button>
+        )}
+      </div>
 
       <AppointmentFormDialog
         open={openDialog}
