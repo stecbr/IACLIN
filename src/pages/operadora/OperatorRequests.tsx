@@ -477,7 +477,7 @@ export default function OperatorRequests() {
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-5 px-6 py-5 text-sm">
                 <section className="rounded-2xl border border-border bg-card/40 p-4">
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Building2 className="h-3.5 w-3.5" /> Informações da clínica
+                    <Building2 className="h-3.5 w-3.5 text-primary" /> Informações da clínica
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
                     {[
@@ -489,7 +489,7 @@ export default function OperatorRequests() {
                       { icon: MapPin, label: 'CEP', value: clinic?.zip_code },
                     ].map(({ icon: Icon, label, value }) => (
                       <div key={label} className="flex items-start gap-2.5 min-w-0">
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                           <Icon className="h-3.5 w-3.5" />
                         </span>
                         <div className="min-w-0 flex-1">
@@ -499,7 +499,7 @@ export default function OperatorRequests() {
                       </div>
                     ))}
                     <div className="flex items-start gap-2.5 min-w-0 md:col-span-2">
-                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <MapPin className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1">
@@ -512,7 +512,7 @@ export default function OperatorRequests() {
 
                 <section className="rounded-2xl border border-border bg-card/40 p-4">
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" /> Horários de atendimento
+                    <Clock className="h-3.5 w-3.5 text-primary" /> Horários de atendimento
                   </h3>
                   {businessHoursLines.length === 0 ? (
                     <div className="text-sm text-muted-foreground">—</div>
@@ -540,7 +540,7 @@ export default function OperatorRequests() {
                 {((professional?.photo_url || d?.professional_photo_url) || (Array.isArray(clinic?.photos) && clinic.photos.length > 0) || (Array.isArray(d?.clinic_photo_urls) && d.clinic_photo_urls.length > 0)) && (
                   <div className="space-y-2">
                     <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <ImageIcon className="h-3.5 w-3.5" /> Fotos
+                      <ImageIcon className="h-3.5 w-3.5 text-primary" /> Fotos
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {(professional?.photo_url || d?.professional_photo_url) && (
@@ -555,7 +555,7 @@ export default function OperatorRequests() {
 
                 <div>
                   <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Stethoscope className="h-3.5 w-3.5" /> Procedimentos solicitados
+                    <Stethoscope className="h-3.5 w-3.5 text-primary" /> Procedimentos solicitados
                   </h3>
                   {procs.length === 0 ? (
                     <div>—</div>
@@ -571,7 +571,7 @@ export default function OperatorRequests() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <FolderArchive className="h-3.5 w-3.5" /> Documentação enviada
+                      <FolderArchive className="h-3.5 w-3.5 text-primary" /> Documentação enviada
                       {docEntityType && (
                         <span className="font-normal normal-case tracking-normal">
                           ({docEntityType === 'fisica' ? 'Pessoa Física' : 'Pessoa Jurídica'})
@@ -608,7 +608,7 @@ export default function OperatorRequests() {
                   {bank && (bank.bank_name || bank.agency || bank.account) && (
                     <div className="rounded-xl border border-border p-3 mt-2 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <Landmark className="h-3.5 w-3.5" /> Dados bancários
+                        <Landmark className="h-3.5 w-3.5 text-primary" /> Dados bancários
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                         <div><span className="text-muted-foreground">Banco</span><div>{bank.bank_name ?? '—'}</div></div>
@@ -623,7 +623,7 @@ export default function OperatorRequests() {
                 {(d?.notes || clinic?.notes) && (
                   <div>
                     <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <StickyNote className="h-3.5 w-3.5" /> Observações
+                      <StickyNote className="h-3.5 w-3.5 text-primary" /> Observações
                     </h3>
                     <div>{d?.notes ?? clinic?.notes}</div>
                   </div>
@@ -631,7 +631,7 @@ export default function OperatorRequests() {
 
                 <div>
                   <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Users className="h-3.5 w-3.5" /> Profissionais desta clínica
+                    <Users className="h-3.5 w-3.5 text-primary" /> Profissionais desta clínica
                   </h3>
                   {loadingDetailProfessionals ? (
                     <div className="mt-1">Carregando...</div>
