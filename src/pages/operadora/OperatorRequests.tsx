@@ -353,12 +353,12 @@ export default function OperatorRequests() {
           className="pl-9 rounded-xl"
         />
       </div>
-      <div className="inline-flex rounded-lg bg-muted p-1">
+      <div className="inline-flex rounded-full bg-muted p-1">
         {(['pending', 'all'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
               tab === t
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
