@@ -48,11 +48,23 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
       if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(400, z + 25));
       if (e.key === '-') setZoom((z) => Math.max(25, z - 25));
     };
+    const onNativeClose = (e: PointerEvent | MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('[data-document-viewer-close]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      onClose();
+    };
     window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onNativeClose, true);
+    window.addEventListener('click', onNativeClose, true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('pointerdown', onNativeClose, true);
+      window.removeEventListener('click', onNativeClose, true);
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
@@ -70,7 +82,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
   return createPortal(
     <div
       data-document-fullscreen-viewer
-      className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
+      className="fixed inset-0 z-[100] pointer-events-auto bg-background/95 backdrop-blur-sm flex flex-col animate-fade-in"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -82,6 +94,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
             className="rounded-full"
             onPointerDown={handleClose}
             onClick={handleClose}
+            data-document-viewer-close
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
