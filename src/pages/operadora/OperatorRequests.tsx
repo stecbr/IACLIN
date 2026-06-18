@@ -409,7 +409,9 @@ export default function OperatorRequests() {
             if (viewerFile) e.preventDefault();
           }}
         >
-          <DialogHeader><DialogTitle>Dados da clínica para credenciamento</DialogTitle></DialogHeader>
+          <DialogHeader className="sticky top-0 z-10 -mx-6 -mt-6 px-6 pt-6 pb-4 bg-background border-b">
+            <DialogTitle>Dados da clínica para credenciamento</DialogTitle>
+          </DialogHeader>
           {detailReq && (() => {
             const data = parseNotes(detailReq.notes);
             const d = data?.dossier ?? null;
