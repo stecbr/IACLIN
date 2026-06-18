@@ -33,7 +33,9 @@ import { Badge } from "@/components/ui/badge";
 import { Search, MapPin } from "lucide-react";
 import { MarketplaceSection } from "@/components/landing/MarketplaceSection";
 import { addDays, format } from "date-fns";
-import logoLight from "@/assets/logo-light.png";
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import landingDashboard from "@/assets/landing-dashboard.png";
 
 const fadeUp = {
