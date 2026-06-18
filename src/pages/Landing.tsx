@@ -50,8 +50,8 @@ function Logo({ className = "" }: { className?: string }) {
     <Link to="/" className={`flex items-center gap-2 ${className}`}>
       <img src={logoLight} alt="IACLIN" className="h-8 object-contain" />
       <span
-        className="text-2xl font-light leading-none"
-        style={{ fontFamily: "'Jura', sans-serif", letterSpacing: '0.12em' }}
+        className="text-2xl leading-none"
+        style={{ fontFamily: "'Jura', sans-serif", letterSpacing: '0.12em', fontWeight: 600 }}
       >
         <span style={{ color: '#033563' }}>IA</span>
         <span style={{ color: '#5b6887' }}>CLIN</span>
