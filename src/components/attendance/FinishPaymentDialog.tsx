@@ -37,6 +37,7 @@ interface Props {
 }
 
 type Mode = '' | 'insurance' | 'stripe' | 'later';
+// 'stripe' kept as enum key for backward compatibility; UI/label = Mercado Pago
 
 function brl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -68,7 +69,7 @@ export function FinishPaymentDialog({
   const [priceItems, setPriceItems] = useState<Record<string, number>>({}); // tuss_code -> value_brl
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [stripeUrl, setStripeUrl] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   const totalParticular = useMemo(
     () => procedures.reduce((s, p) => s + (p.price || 0), 0),
@@ -288,12 +289,12 @@ export function FinishPaymentDialog({
       const txId = await createBaseTx({
         category: 'consultation',
         amount: totalParticular,
-        payment_method: 'stripe',
+        payment_method: 'mercadopago',
         status: 'pending',
         due_date: format(new Date(), 'yyyy-MM-dd'),
-        notes: 'Pagamento via Stripe Checkout',
+        notes: 'Pagamento via Mercado Pago Checkout',
       });
-      const { data, error } = await supabase.functions.invoke('create-consultation-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-consultation-checkout-mp', {
         body: {
           transaction_id: txId,
           patient_name: patientName,
@@ -302,10 +303,10 @@ export function FinishPaymentDialog({
       });
       if (error) throw error;
       if (!data?.url) throw new Error('Link de pagamento não gerado');
-      setStripeUrl(data.url as string);
+      setCheckoutUrl(data.url as string);
       toast.success('Link de pagamento gerado!');
     } catch (e: any) {
-      toast.error(e.message ?? 'Falha no Stripe');
+      toast.error(e.message ?? 'Falha no Mercado Pago');
     } finally {
       setSaving(false);
     }
