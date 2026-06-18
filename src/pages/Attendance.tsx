@@ -1016,17 +1016,16 @@ export default function Attendance() {
                 </div>
               </div>
             </div>
-            <a
-              href={`/patients/${appointment.patient_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-              title="Abre o prontuário completo em uma nova aba"
+            <Button
+              size="sm"
+              variant={chartSideOpen ? 'default' : 'outline'}
+              onClick={() => setChartSideOpen((v) => !v)}
+              className="gap-1.5"
+              title="Ver resumo do prontuário ao lado"
             >
-              <FolderHeart className="h-3.5 w-3.5" />
-              Ver prontuário completo
-              <ExternalLink className="h-3 w-3" />
-            </a>
+              {chartSideOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+              Prontuário ao lado
+            </Button>
           </div>
           <div className="mt-3">
             <PatientAlertsBar patientId={appointment.patient_id} />
