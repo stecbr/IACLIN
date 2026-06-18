@@ -48,7 +48,11 @@ const fadeUp = {
 function Logo({ className = "" }: { className?: string }) {
   return (
     <Link to="/" className={`flex items-center gap-2 ${className}`}>
-      <img src={logoLight} alt="Iaclin" className="h-8 object-contain" />
+      <img src={logoLight} alt="IACLIN" className="h-8 object-contain" />
+      <span className="text-2xl font-bold tracking-tight leading-none">
+        <span style={{ color: '#033563' }}>IA</span>
+        <span style={{ color: '#5b6887' }}>CLIN</span>
+      </span>
     </Link>
   );
 }
