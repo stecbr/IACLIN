@@ -40,15 +40,19 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        onClose();
+      }
       if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(400, z + 25));
       if (e.key === '-') setZoom((z) => Math.max(25, z - 25));
     };
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
