@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -48,7 +48,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
       if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(400, z + 25));
       if (e.key === '-') setZoom((z) => Math.max(25, z - 25));
     };
-    const onNativeClose = (e: PointerEvent | MouseEvent) => {
+    const onNativeClose = (e: Event) => {
       const target = e.target as HTMLElement | null;
       if (!target?.closest('[data-document-viewer-close]')) return;
       e.preventDefault();
@@ -73,7 +73,7 @@ export function DocumentFullscreenViewer({ file, open, onClose }: Props) {
 
   const pdf = isPdf(file.file_name, file.url);
   const img = isImage(file.file_name, file.url);
-  const handleClose = (e?: MouseEvent<HTMLButtonElement>) => {
+  const handleClose = (e?: ReactMouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     e?.stopPropagation();
     onClose();
