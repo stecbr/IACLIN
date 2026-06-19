@@ -623,8 +623,9 @@ export default function Attendance() {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
       setFinishedNavigatePending(true);
-      // SEMPRE abrir o modal de forma de pagamento
-      setShowPaymentDialog(true);
+      // Pagamento NÃO é responsabilidade do médico — fica a cargo da secretária
+      // através da Sala de Espera. Aqui apenas exibimos o resumo do atendimento.
+      setShowSummary(true);
     } catch (err: any) {
       toast.error(err.message);
     } finally {

@@ -14,6 +14,10 @@ import "leaflet/dist/leaflet.css";
 import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
+import { EXTERNAL_CLINICS } from "@/data/externalClinics";
+import { lookupManausCoords } from "@/data/manausCoords";
+
+const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -38,6 +42,17 @@ type ClinicSearchRow = {
     specialties: string[];
   }>;
   specialties: string[];
+  source?: "iaclin" | "servdonto";
+  lat?: number;
+  lng?: number;
+};
+
+type ProfessionalTypeFilter = "all" | "medico" | "dentista";
+type ProfileRow = { id: string; full_name: string | null; avatar_url: string | null; phone: string | null };
+type SpecialtyRow = { user_id: string; specialty: string };
+type ClinicRow = Omit<ClinicSearchRow, "clinic_id" | "professionals_count" | "professionals" | "specialties" | "source"> & {
+  id: string;
+  name: string | null;
 };
 
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
@@ -77,6 +92,23 @@ const DARK_MAP_FILTER = "brightness(0.20) contrast(1.35) sepia(1) saturate(4) hu
 const DARK_MAP_BACKGROUND = "#0a1020";
 const DARK_LOGO_BACKGROUND = "#142447";
 
+const getAdaptiveMarkerSize = (zoom: number) => {
+  if (zoom <= 8) return 32;
+  if (zoom <= 11) return 36;
+  return 44;
+};
+
+const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
+  if (clinic.city?.toLowerCase() === "manaus") {
+    const [lat, lng] = lookupManausCoords(clinic.neighborhood);
+    return { lat, lng };
+  }
+  return null;
+};
+
+const isManausLikeCoords = (coords: { lat: number; lng: number }) =>
+  coords.lat >= -3.25 && coords.lat <= -2.9 && coords.lng >= -60.16 && coords.lng <= -59.86;
+
 export default function OperatorProfessionals() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -84,10 +116,11 @@ export default function OperatorProfessionals() {
   const [q, setQ] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
-  const [professionalType, setProfessionalType] = useState<"all" | "medico" | "dentista">("all");
+  const [professionalType, setProfessionalType] = useState<ProfessionalTypeFilter>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [network, setNetwork] = useState<"iaclin" | "general">("iaclin");
 
   useEffect(() => {
     const load = async () => {
@@ -121,15 +154,15 @@ export default function OperatorProfessionals() {
             .in("id", clinicIds),
           supabase.from("profiles").select("id, full_name, avatar_url, phone").in("id", userIds),
           supabase
-            .from("professional_specialties" as any)
+            .from("professional_specialties" as never)
             .select("user_id, specialty")
             .in("user_id", userIds),
         ]);
 
-        const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+        const profileMap = new Map(((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p]));
 
         const specMap = new Map<string, string[]>();
-        (specs ?? []).forEach((s: any) => {
+        ((specs ?? []) as SpecialtyRow[]).forEach((s) => {
           const prev = specMap.get(s.user_id) ?? [];
           if (!prev.includes(s.specialty)) specMap.set(s.user_id, [...prev, s.specialty]);
         });
@@ -140,7 +173,7 @@ export default function OperatorProfessionals() {
           membersByClinic.set(m.clinic_id, [...prev, m]);
         });
 
-        const merged: ClinicSearchRow[] = (clinics ?? []).map((clinic: any) => {
+        const merged: ClinicSearchRow[] = ((clinics ?? []) as ClinicRow[]).map((clinic) => {
           const clinicMembers = membersByClinic.get(clinic.id) ?? [];
           const professionals = clinicMembers.map((m) => {
             const p = profileMap.get(m.user_id);
@@ -179,7 +212,7 @@ export default function OperatorProfessionals() {
         });
 
         merged.sort((a, b) => a.clinic_name.localeCompare(b.clinic_name));
-        setRows(merged);
+        setRows(merged.map((r) => ({ ...r, source: "iaclin" as const })));
       } finally {
         setLoading(false);
       }
@@ -188,20 +221,61 @@ export default function OperatorProfessionals() {
     load();
   }, []);
 
+  // External clinics (Servdonto network) mapped into the same row shape
+  const externalRows: ClinicSearchRow[] = useMemo(() => {
+    return EXTERNAL_CLINICS.map((c) => ({
+      clinic_id: c.id,
+      clinic_name: c.name,
+      category: "odonto",
+      cnpj: c.cnpj,
+      city: c.city,
+      state: c.state,
+      phone: c.phone,
+      email: c.email,
+      logo_url: iaclinDefaultLogo.url,
+      address: c.address,
+      address_number: c.address_number,
+      neighborhood: c.neighborhood,
+      zip_code: c.zip_code,
+      professionals_count: c.professionals.length,
+      lat: c.lat,
+      lng: c.lng,
+      professionals: c.professionals.map((p, i) => ({
+        user_id: `${c.id}-${i}`,
+        full_name: p.name,
+        avatar_url: null,
+        phone: c.phone,
+        specialties: [p.specialty],
+      })),
+      specialties: c.specialties,
+      source: "servdonto",
+    }));
+  }, []);
+
+  const activeRows = useMemo(
+    () => (network === "general" ? [...rows, ...externalRows] : rows),
+    [rows, externalRows, network],
+  );
+
   const specialtyOptions = useMemo(() => {
-    return [...new Set(rows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+    return [...new Set(activeRows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [activeRows]);
 
   const stateOptions = useMemo(() => BR_STATES, []);
 
   const cityOptions = useMemo(() => {
-    const source = stateFilter === "all" ? rows : rows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
+    const source =
+      stateFilter === "all"
+        ? activeRows
+        : activeRows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
     return [...new Set(source.map((r) => r.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
-  }, [rows, stateFilter]);
+  }, [activeRows, stateFilter]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return rows.filter((r) => {
+    return activeRows.filter((r) => {
       const searchMatch = !term
         ? true
         : [
@@ -229,7 +303,7 @@ export default function OperatorProfessionals() {
       const cityMatch = cityFilter === "all" || (r.city ?? "").toLowerCase() === cityFilter.toLowerCase();
       return searchMatch && specialtyMatch && stateMatch && cityMatch && typeMatch;
     });
-  }, [rows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
+  }, [activeRows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
 
   const handleContact = (phone: string | null) => {
     if (!phone) return;
@@ -243,10 +317,12 @@ export default function OperatorProfessionals() {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const lastFitSignatureRef = useRef<string>("");
   const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [geocodeProgress, setGeocodeProgress] = useState({ done: 0, total: 0 });
+  const [mapRevision, setMapRevision] = useState(0);
   const { resolved } = useTheme();
 
   // Init map once
@@ -265,6 +341,7 @@ export default function OperatorProfessionals() {
       tilePane.style.filter = resolved === "dark" ? DARK_MAP_FILTER : "";
       tilePane.style.backgroundColor = resolved === "dark" ? DARK_MAP_BACKGROUND : "";
     }
+    map.on("zoomend", () => setMapRevision((v) => v + 1));
     mapInstanceRef.current = map;
     return () => {
       map.remove();
@@ -298,14 +375,16 @@ export default function OperatorProfessionals() {
         setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
+      // Geocode every clinic with its real street address. Fallbacks are only
+      // used when no reliable street result exists, never to visually move pins.
       const pending = filtered.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
-        setGeocodeProgress({ done: filtered.length, total: filtered.length });
+        setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
       setMapLoading(true);
-      setGeocodeProgress({ done: filtered.length - pending.length, total: filtered.length });
+      setGeocodeProgress({ done: 0, total: pending.length });
 
       // Stream results: update map progressively, with a small concurrency cap to be nice to Nominatim
       // and to avoid blocking the UI on the slowest clinic.
@@ -336,11 +415,22 @@ export default function OperatorProfessionals() {
           const i = cursor++;
           if (i >= pending.length) return;
           const r = pending[i];
+          if (r.source === "servdonto" && typeof r.lat === "number" && typeof r.lng === "number") {
+            setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
+            buffer.push([r.clinic_id, { lat: r.lat, lng: r.lng }]);
+            scheduleFlush();
+            continue;
+          }
           const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
           if (cancelled) return;
           setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
-          if (c) {
-            buffer.push([r.clinic_id, c]);
+          const fallbackCoords = resolveFallbackCoords(r);
+          const resolvedCoords =
+            r.source === "servdonto" && c && !isManausLikeCoords(c)
+              ? fallbackCoords
+              : c ?? fallbackCoords;
+          if (resolvedCoords) {
+            buffer.push([r.clinic_id, resolvedCoords]);
             scheduleFlush();
           }
         }
@@ -365,49 +455,48 @@ export default function OperatorProfessionals() {
     markersRef.current.forEach((m) => map.removeLayer(m));
     markersRef.current.clear();
 
+    const zoom = map.getZoom();
+    const markerSize = getAdaptiveMarkerSize(zoom);
+    const markerAnchorX = markerSize / 2;
+    const markerAnchorY = markerSize + 6;
     const bounds: L.LatLng[] = [];
-    // Track positions to jitter overlapping markers (clinics geocoded to same city centroid)
-    const seenKeys = new Map<string, number>();
-    filtered.forEach((clinic) => {
-      const c = coords.get(clinic.clinic_id);
-      if (!c) return;
-      const key = `${c.lat.toFixed(4)}|${c.lng.toFixed(4)}`;
-      const seen = seenKeys.get(key) ?? 0;
-      seenKeys.set(key, seen + 1);
-      // Apply spiral offset for duplicates so stacked pins are visible
-      let lat = c.lat;
-      let lng = c.lng;
-      if (seen > 0) {
-        const angle = seen * 137.5 * (Math.PI / 180); // golden angle
-        const radius = 0.004 * Math.sqrt(seen); // ~400m per step
-        lat += Math.cos(angle) * radius;
-        lng += Math.sin(angle) * radius;
-      }
-      const latlng = L.latLng(lat, lng);
-      bounds.push(latlng);
+    const visibleClinics = filtered
+      .map((clinic) => ({ clinic, coords: coords.get(clinic.clinic_id) }))
+      .filter((item): item is { clinic: ClinicSearchRow; coords: { lat: number; lng: number } } => Boolean(item.coords));
+
+    visibleClinics.forEach(({ clinic, coords: c }) => {
+      const realLatLng = L.latLng(c.lat, c.lng);
+      bounds.push(realLatLng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
-      const logoBg = resolved === "dark" ? DARK_LOGO_BACKGROUND : "#fff";
-      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
+      const logoBg =
+        clinic.source === "servdonto"
+          ? GENERAL_NETWORK_LOGO_BG
+          : resolved === "dark"
+            ? DARK_LOGO_BACKGROUND
+            : "#fff";
+      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};padding:${clinic.source === "servdonto" ? 4 : 0}px;" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 8px 18px rgba(0,0,0,.35);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
-        iconSize: [44, 50],
-        iconAnchor: [22, 50],
+        html: `<div style="position:relative;width:${markerSize}px;height:${markerSize}px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 2px 5px rgba(0,0,0,.14);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
+        iconSize: [markerSize, markerSize + 6],
+        iconAnchor: [markerAnchorX, markerAnchorY],
       });
-      const marker = L.marker(latlng, { icon }).addTo(map);
+      const marker = L.marker(realLatLng, { icon, zIndexOffset: selectedId === clinic.clinic_id ? 1000 : 0 }).addTo(map);
       marker.on("click", () => {
         setSelectedId(clinic.clinic_id);
-        map.setView(latlng, Math.max(map.getZoom(), 14), { animate: true });
+        map.setView(realLatLng, Math.max(map.getZoom(), 14), { animate: true });
       });
       markersRef.current.set(clinic.clinic_id, marker);
     });
 
-    if (bounds.length > 0 && !selectedId) {
+    const fitSignature = `${searched}|${network}|${filtered.map((item) => item.clinic_id).join("|")}`;
+    if (bounds.length > 0 && !selectedId && lastFitSignatureRef.current !== fitSignature) {
+      lastFitSignatureRef.current = fitSignature;
       const b = L.latLngBounds(bounds).pad(0.3);
-      map.fitBounds(b, { animate: false, maxZoom: 14 });
+      map.fitBounds(b, { animate: false, maxZoom: network === "general" ? 12 : 14 });
     }
     setTimeout(() => map.invalidateSize(), 50);
-  }, [filtered, coords, resolved]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered, coords, resolved, mapRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selected = useMemo(() => filtered.find((c) => c.clinic_id === selectedId) ?? null, [filtered, selectedId]);
 
@@ -472,9 +561,33 @@ export default function OperatorProfessionals() {
           <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md">
             <div className="flex items-center gap-2 mb-1">
               <SlidersHorizontal className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Buscar rede credenciada</h2>
+              <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">Selecione os filtros para localizar clínicas no mapa.</p>
+            <p className="text-sm text-muted-foreground mb-5">Encontre clínicas e profissionais da sua rede credenciada no mapa.</p>
+            <div className="mb-4 inline-flex w-full rounded-xl border border-border/60 bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setNetwork("iaclin")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  network === "iaclin"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Busca na IACLIN
+              </button>
+              <button
+                type="button"
+                onClick={() => setNetwork("general")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  network === "general"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Rede Geral
+              </button>
+            </div>
             <div className="space-y-3">
               <div className="relative">
                 <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
@@ -488,62 +601,75 @@ export default function OperatorProfessionals() {
                   }}
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todos os tipos</SelectItem>
-                    <SelectItem value="medico">Médicos</SelectItem>
-                    <SelectItem value="dentista">Dentistas</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="Especialidade" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todas especialidades</SelectItem>
-                    {specialtyOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={stateFilter}
-                  onValueChange={(v) => {
-                    setStateFilter(v);
-                    setCityFilter("all");
-                  }}
-                >
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todas UFs</SelectItem>
-                    {stateOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={cityFilter} onValueChange={setCityFilter}>
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="Cidade" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todas cidades</SelectItem>
-                    {cityOptions.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <p className="text-xs text-muted-foreground -mt-1">Use os filtros abaixo para refinar a sua busca.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Tipo de profissional</label>
+                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as ProfessionalTypeFilter)}>
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="medico">Médicos</SelectItem>
+                      <SelectItem value="dentista">Dentistas</SelectItem>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Especialidade</label>
+                  <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Todas as especialidades</SelectItem>
+                      {specialtyOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">UF</label>
+                  <Select
+                    value={stateFilter}
+                    onValueChange={(v) => {
+                      setStateFilter(v);
+                      setCityFilter("all");
+                    }}
+                  >
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Todas as UFs</SelectItem>
+                      {stateOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Cidade</label>
+                  <Select value={cityFilter} onValueChange={setCityFilter}>
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Todas as cidades</SelectItem>
+                      {cityOptions.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Button className="w-full h-11 rounded-2xl mt-2" onClick={handleSubmitSearch} disabled={loading}>
                 {loading ? (
@@ -563,7 +689,7 @@ export default function OperatorProfessionals() {
 
       {/* Floating back button (after search) */}
       {searched && (
-        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550]">
+        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550] flex items-center gap-2">
           <Button
             variant="secondary"
             size="icon"
@@ -574,6 +700,30 @@ export default function OperatorProfessionals() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          <div className="inline-flex rounded-xl border border-border/60 bg-background/90 p-1 shadow-xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setNetwork("iaclin")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                network === "iaclin"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              IACLIN
+            </button>
+            <button
+              type="button"
+              onClick={() => setNetwork("general")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                network === "general"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Rede Geral
+            </button>
+          </div>
         </div>
       )}
 
@@ -598,8 +748,18 @@ export default function OperatorProfessionals() {
         <div className="absolute inset-x-0 bottom-0 z-[500] p-3 md:p-4 pointer-events-none">
           <Card className="pointer-events-auto mx-auto max-w-4xl rounded-2xl border border-border/60 bg-background/95 p-4 shadow-2xl backdrop-blur-md">
             <div className="flex items-start gap-4">
-              <Avatar className="h-14 w-14 shrink-0">
-                <AvatarImage src={selected.logo_url ?? undefined} />
+              <Avatar
+                className="h-14 w-14 shrink-0"
+                style={
+                  selected.source === "servdonto"
+                    ? { backgroundColor: GENERAL_NETWORK_LOGO_BG }
+                    : undefined
+                }
+              >
+                <AvatarImage
+                  src={selected.logo_url ?? undefined}
+                  className={selected.source === "servdonto" ? "object-contain p-1.5" : undefined}
+                />
                 <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
                   {selected.clinic_name
                     .split(" ")
