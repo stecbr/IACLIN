@@ -3,12 +3,13 @@ const inflight = new Map<string, Promise<{ lat: number; lng: number } | null>>()
 // v2: previous version persisted null results, which permanently hid clinics
 // whose first geocode attempt failed (rate-limit, transient network). v2 only
 // persists successful coords; nulls live in-memory for this session only.
-const LS_KEY = "geocode-cache-v4";
+const LS_KEY = "geocode-cache-v5";
 try {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem("geocode-cache-v1");
     window.localStorage.removeItem("geocode-cache-v2");
     window.localStorage.removeItem("geocode-cache-v3");
+    window.localStorage.removeItem("geocode-cache-v4");
   }
 } catch { /* ignore */ }
 
@@ -41,18 +42,80 @@ function scheduleFlush() {
   }, 1000);
 }
 
-async function fetchNominatim(params: Record<string, string>): Promise<{ lat: number; lng: number } | null> {
+type NominatimResult = { lat: number; lng: number; name: string; displayName: string; addresstype?: string; type?: string };
+
+const normalizeText = (value?: string | null) =>
+  (value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeStreet = (value?: string | null) =>
+  normalizeText(value)
+    .replace(/\b(rua|r|avenida|av|travessa|tv|estrada|rodovia|alameda)\b/g, "")
+    .replace(/\b(de|da|do|dos|das|e)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isGenericCep = (zip?: string | null) => {
+  const digits = (zip ?? "").replace(/\D/g, "");
+  return digits.length === 8 && digits.endsWith("000");
+};
+
+function pickBestCandidate(
+  candidates: NominatimResult[],
+  target: { address?: string | null; neighborhood?: string | null; city?: string | null; state?: string | null },
+) {
+  if (candidates.length === 0) return null;
+  const street = normalizeStreet(target.address);
+  const neighborhood = normalizeText(target.neighborhood);
+  const city = normalizeText(target.city);
+  const state = normalizeText(target.state);
+
+  const ranked = candidates
+    .map((candidate) => {
+      const name = normalizeStreet(candidate.name);
+      const display = normalizeText(candidate.displayName);
+      let score = 0;
+      if (street && (name.includes(street) || display.includes(street))) score += 60;
+      if (street && !(name.includes(street) || display.includes(street))) score -= 35;
+      if (neighborhood && display.includes(neighborhood)) score += 36;
+      if (neighborhood && !display.includes(neighborhood)) score -= 12;
+      if (city && display.includes(city)) score += 12;
+      if (state && display.includes(state)) score += 6;
+      if (["road", "highway"].includes(candidate.addresstype ?? "")) score += 6;
+      if (["residential", "primary", "secondary", "tertiary"].includes(candidate.type ?? "")) score += 3;
+      return { candidate, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  if (street && ranked[0]?.score < 25) return null;
+  return ranked[0]?.candidate ?? null;
+}
+
+async function fetchNominatim(params: Record<string, string>): Promise<NominatimResult[]> {
   try {
-    const qs = new URLSearchParams({ format: "json", limit: "1", countrycodes: "br", ...params });
+    const qs = new URLSearchParams({ format: "json", limit: "5", countrycodes: "br", ...params });
     const res = await fetch(`https://nominatim.openstreetmap.org/search?${qs.toString()}`);
     const data = await res.json();
-    if (data?.[0]) {
-      return { lat: +data[0].lat, lng: +data[0].lon };
-    }
+    if (!Array.isArray(data)) return [];
+    return data
+      .filter((item) => item?.lat && item?.lon)
+      .map((item) => ({
+        lat: +item.lat,
+        lng: +item.lon,
+        name: item.name ?? "",
+        displayName: item.display_name ?? "",
+        addresstype: item.addresstype,
+        type: item.type,
+      }));
   } catch {
     // silent fail
   }
-  return null;
+  return [];
 }
 
 // BrasilAPI CEP v2 returns precise coordinates for a Brazilian postal code
@@ -94,21 +157,30 @@ export async function geocodeAddress(
   if (existing) return existing;
 
   const task = (async () => {
-    // Prefer the Brazilian postal code (CEP) — gives exact street coordinates
-    // and avoids Nominatim picking the wrong street when the name is fuzzy.
     let coords: { lat: number; lng: number } | null = null;
-    if (zipCode) coords = await fetchBrasilApiCep(zipCode);
+    const target = { address, neighborhood, city, state };
+
+    // Street + neighborhood must win over generic CEPs like 69010-000,
+    // otherwise geocoders can place Centro addresses on the wrong road.
+    if (street && city) {
+      const fullQuery = [street, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+      coords = pickBestCandidate(await fetchNominatim({ q: fullQuery }), target);
+    }
     if (!coords && street && city) {
       const structuredParams: Record<string, string> = { street, city };
       if (state) structuredParams.state = state;
-      if (zipCode) structuredParams.postalcode = zipCode;
-      coords = await fetchNominatim(structuredParams);
+      if (zipCode && !isGenericCep(zipCode)) structuredParams.postalcode = zipCode;
+      coords = pickBestCandidate(await fetchNominatim(structuredParams), target);
     }
-    if (!coords) coords = await fetchNominatim({ q: key });
+    if (!coords && zipCode && !isGenericCep(zipCode)) coords = await fetchBrasilApiCep(zipCode);
+    if (!coords) {
+      const fallbackQuery = [street, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+      coords = pickBestCandidate(await fetchNominatim({ q: fallbackQuery || key }), target);
+    }
     if (!coords && city) {
       const cityParams: Record<string, string> = { city };
       if (state) cityParams.state = state;
-      coords = await fetchNominatim(cityParams);
+      coords = (await fetchNominatim(cityParams))[0] ?? null;
     }
     cache.set(key, coords ?? null);
     scheduleFlush();

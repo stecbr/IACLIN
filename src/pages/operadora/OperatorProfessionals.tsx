@@ -43,6 +43,16 @@ type ClinicSearchRow = {
   }>;
   specialties: string[];
   source?: "iaclin" | "servdonto";
+  lat?: number;
+  lng?: number;
+};
+
+type ProfessionalTypeFilter = "all" | "medico" | "dentista";
+type ProfileRow = { id: string; full_name: string | null; avatar_url: string | null; phone: string | null };
+type SpecialtyRow = { user_id: string; specialty: string };
+type ClinicRow = Omit<ClinicSearchRow, "clinic_id" | "professionals_count" | "professionals" | "specialties" | "source"> & {
+  id: string;
+  name: string | null;
 };
 
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
@@ -88,20 +98,6 @@ const getAdaptiveMarkerSize = (zoom: number) => {
   return 44;
 };
 
-const getSpreadOffset = (index: number, total: number, markerSize: number) => {
-  if (total <= 1) return L.point(0, 0);
-  const step = markerSize * 0.72;
-  if (total === 2) return L.point(index === 0 ? -step / 2 : step / 2, 0);
-  if (total === 3) {
-    const angle = -Math.PI / 2 + index * ((Math.PI * 2) / 3);
-    return L.point(Math.cos(angle) * step, Math.sin(angle) * step);
-  }
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const angle = index * goldenAngle - Math.PI / 2;
-  const radius = step * Math.sqrt(index + 1);
-  return L.point(Math.cos(angle) * radius, Math.sin(angle) * radius);
-};
-
 const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
   if (clinic.city?.toLowerCase() === "manaus") {
     const [lat, lng] = lookupManausCoords(clinic.neighborhood);
@@ -120,7 +116,7 @@ export default function OperatorProfessionals() {
   const [q, setQ] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
-  const [professionalType, setProfessionalType] = useState<"all" | "medico" | "dentista">("all");
+  const [professionalType, setProfessionalType] = useState<ProfessionalTypeFilter>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -158,15 +154,15 @@ export default function OperatorProfessionals() {
             .in("id", clinicIds),
           supabase.from("profiles").select("id, full_name, avatar_url, phone").in("id", userIds),
           supabase
-            .from("professional_specialties" as any)
+            .from("professional_specialties" as never)
             .select("user_id, specialty")
             .in("user_id", userIds),
         ]);
 
-        const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+        const profileMap = new Map(((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p]));
 
         const specMap = new Map<string, string[]>();
-        (specs ?? []).forEach((s: any) => {
+        ((specs ?? []) as SpecialtyRow[]).forEach((s) => {
           const prev = specMap.get(s.user_id) ?? [];
           if (!prev.includes(s.specialty)) specMap.set(s.user_id, [...prev, s.specialty]);
         });
@@ -177,7 +173,7 @@ export default function OperatorProfessionals() {
           membersByClinic.set(m.clinic_id, [...prev, m]);
         });
 
-        const merged: ClinicSearchRow[] = (clinics ?? []).map((clinic: any) => {
+        const merged: ClinicSearchRow[] = ((clinics ?? []) as ClinicRow[]).map((clinic) => {
           const clinicMembers = membersByClinic.get(clinic.id) ?? [];
           const professionals = clinicMembers.map((m) => {
             const p = profileMap.get(m.user_id);
@@ -242,6 +238,8 @@ export default function OperatorProfessionals() {
       neighborhood: c.neighborhood,
       zip_code: c.zip_code,
       professionals_count: c.professionals.length,
+      lat: c.lat,
+      lng: c.lng,
       professionals: c.professionals.map((p, i) => ({
         user_id: `${c.id}-${i}`,
         full_name: p.name,
@@ -377,9 +375,8 @@ export default function OperatorProfessionals() {
         setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
-      // Geocode every clinic (IACLIN + Rede Geral) with its real street
-      // address so pins land exactly at the right place — no more
-      // neighborhood-centroid + jitter pushing markers into the river.
+      // Geocode every clinic with its real street address. Fallbacks are only
+      // used when no reliable street result exists, never to visually move pins.
       const pending = filtered.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
@@ -418,6 +415,12 @@ export default function OperatorProfessionals() {
           const i = cursor++;
           if (i >= pending.length) return;
           const r = pending[i];
+          if (r.source === "servdonto" && typeof r.lat === "number" && typeof r.lng === "number") {
+            setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
+            buffer.push([r.clinic_id, { lat: r.lat, lng: r.lng }]);
+            scheduleFlush();
+            continue;
+          }
           const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
           if (cancelled) return;
           setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
@@ -460,21 +463,8 @@ export default function OperatorProfessionals() {
     const visibleClinics = filtered
       .map((clinic) => ({ clinic, coords: coords.get(clinic.clinic_id) }))
       .filter((item): item is { clinic: ClinicSearchRow; coords: { lat: number; lng: number } } => Boolean(item.coords));
-    const groups = new Map<string, Array<{ clinic: ClinicSearchRow; coords: { lat: number; lng: number } }>>();
-    visibleClinics.forEach((item) => {
-      const point = map.project([item.coords.lat, item.coords.lng], zoom);
-      const key = `${Math.round(point.x / (markerSize * 1.45))}|${Math.round(point.y / (markerSize * 1.45))}`;
-      const prev = groups.get(key) ?? [];
-      groups.set(key, [...prev, item]);
-    });
 
     visibleClinics.forEach(({ clinic, coords: c }) => {
-      const point = map.project([c.lat, c.lng], zoom);
-      const key = `${Math.round(point.x / (markerSize * 1.45))}|${Math.round(point.y / (markerSize * 1.45))}`;
-      const group = groups.get(key) ?? [];
-      const groupIndex = group.findIndex((item) => item.clinic.clinic_id === clinic.clinic_id);
-      const offset = getSpreadOffset(Math.max(groupIndex, 0), group.length, markerSize);
-      const visualLatLng = map.unproject(point.add(offset), zoom);
       const realLatLng = L.latLng(c.lat, c.lng);
       bounds.push(realLatLng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
@@ -491,7 +481,7 @@ export default function OperatorProfessionals() {
         iconSize: [markerSize, markerSize + 6],
         iconAnchor: [markerAnchorX, markerAnchorY],
       });
-      const marker = L.marker(visualLatLng, { icon }).addTo(map);
+      const marker = L.marker(realLatLng, { icon, zIndexOffset: selectedId === clinic.clinic_id ? 1000 : 0 }).addTo(map);
       marker.on("click", () => {
         setSelectedId(clinic.clinic_id);
         map.setView(realLatLng, Math.max(map.getZoom(), 14), { animate: true });
@@ -615,7 +605,7 @@ export default function OperatorProfessionals() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Tipo de profissional</label>
-                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
+                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as ProfessionalTypeFilter)}>
                     <SelectTrigger className="h-10 rounded-2xl">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>

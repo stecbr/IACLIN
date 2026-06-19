@@ -21,9 +21,77 @@ export interface ExternalClinic {
   professionals: Array<{ name: string; specialty: string }>;
   source: "servdonto";
   logo_url: string;
+  lat?: number;
+  lng?: number;
 }
 
-export const EXTERNAL_CLINICS: ExternalClinic[] = [
+const SERVDONTO_COORDS: Record<string, [number, number]> = {
+  "servdonto-a-isabelly-rodrigues-barroso-ftd": [-3.048107, -60.0029075],
+  "servdonto-ariel-guerra-martins-ftd": [-2.9925916, -59.995081],
+  "servdonto-cecile-odontologia-ftd": [-3.0526087, -59.9938508],
+  "servdonto-ceo-clinica-especializada-em-odontologia-ftd": [-3.1281737, -60.019131],
+  "servdonto-clinhappy-odontologia-ftd": [-3.1007423, -60.0537522],
+  "servdonto-clinica-lions-ftd": [-3.0159378, -59.9933525],
+  "servdonto-cliom-clinica-odontologica-moderna-ftd": [-3.0952779, -60.0242465],
+  "servdonto-david-wallas-de-souza-cunha-ftd": [-3.0708204, -59.9491295],
+  "servdonto-dentista-do-sul-chapada-ftd": [-3.0883, -60.0257],
+  "servdonto-dentista-do-sul-santo-antonio-ftd": [-3.0395317, -60.0060562],
+  "servdonto-fada-do-dente-ftd": [-3.0723, -59.9335],
+  "servdonto-ingrid-lobo-ramos-ftd": [-3.1160454, -60.0080219],
+  "servdonto-jvf-odontologia-ftd": [-3.1264847, -59.983866],
+  "servdonto-lg-odontologia-ftd": [-3.0309569, -59.9303382],
+  "servdonto-lisboclin-ftd": [-3.0776415, -60.0473966],
+  "servdonto-multiclinica-medicina-e-odontologia-integrada-ftd": [-3.1259273, -60.0238728],
+  "servdonto-odontomed-integrada-ftd": [-3.0629166, -59.950534],
+  "servdonto-privilege-odontologia-ltda-ftd": [-3.1358967, -60.0249174],
+  "servdonto-pupyane-costa-de-oliveira-ftd": [-3.0282503, -59.9820833],
+  "servdonto-r-p-de-abreu-ftd": [-3.0873646, -59.9987405],
+  "servdonto-rosana-cunha-de-menezes-ftd": [-3.1358967, -60.0249174],
+  "servdonto-t-f-goncalves-de-melo-ftd": [-3.1164662, -60.0425756],
+  "servdonto-dmcs-odontologia-ltda-ftd": [-3.0662033, -60.0028729],
+  "servdonto-eodonto-clinica-odontologica-ltda-ftd": [-3.0905932, -60.024263],
+  "servdonto-karenine-juliana-suwa-falcao-ftd": [-3.0883699, -60.0046436],
+  "servdonto-r-h-alves-odontologico-me-ftd": [-3.0952779, -60.0242465],
+  "servdonto-a-k-takeda-odontologia-ftd": [-3.0871478, -60.0266683],
+  "servdonto-a-alves-ribeiro-cavalcante-ltda-ftd": [-3.0833676, -60.0243095],
+  "servdonto-alj-clinica-odontologica-ftd": [-3.1063729, -60.0478926],
+  "servdonto-amazonia-clinica-odontologica-ltda-ftd": [-3.1039024, -60.0210227],
+  "servdonto-amodonto-ftd": [-3.0186732, -59.9424006],
+  "servdonto-check-up-odontologico-ftd": [-3.029905, -59.982494],
+  "servdonto-clinica-ebenezer-ftd": [-3.1216727, -60.0023214],
+  "servdonto-clinica-odontologica-baggio-ltda-ftd": [-3.0944, -60.0035],
+  "servdonto-clinica-odontologica-caleffi-ftd": [-3.0615102, -59.9436305],
+  "servdonto-e-h-p-de-oliveira-c-d-de-oliveira-ltda-ftd": [-3.1242765, -60.0225252],
+  "servdonto-hospital-nilton-lins-ftd": [-3.0510987, -60.0057809],
+  "servdonto-instituto-odontologico-rosiane-ferreira-ftd": [-3.1338049, -60.0198462],
+  "servdonto-kcj-consultorio-odontologico-eireli-ftd": [-3.0315781, -59.980347],
+  "servdonto-kelly-leopoldina-soares-filgueiras-costa-ftd": [-3.0896241, -60.0091631],
+  "servdonto-monalisa-da-s-costa-ftd": [-2.9963637, -59.9977297],
+  "servdonto-n-c-de-s-navegante-odontologia-ftd": [-3.0732837, -60.0420553],
+  "servdonto-nova-odonto-ftd": [-3.0331634, -59.972615],
+  "servdonto-odonto-dra-sorriso-ftd": [-3.0784409, -60.037672],
+  "servdonto-ortodontia-dr-mateus-de-castro-andrade-ftd": [-3.1358967, -60.0249174],
+  "servdonto-rozana-ramos-da-silva-ftd": [-3.0821993, -59.9776223],
+  "servdonto-s-a-s-p-passos-ftd": [-3.1358967, -60.0249174],
+  "servdonto-sorriso-radiante-ftd": [-3.0732837, -60.0420553],
+  "servdonto-sorrivip-odontologia-ftd": [-3.0470834, -59.9437266],
+  "servdonto-clinident-clinica-odontologica-ltda-ftd": [-3.1278332, -60.02947],
+  "servdonto-instituto-brasileiro-de-ensino-do-norte-iben-ftd": [-3.0865138, -60.01428],
+  "servdonto-cimo-centro-ftd": [-3.131744, -60.0248769],
+  "servdonto-cimo-cidade-nova-ftd": [-3.0298, -59.9907],
+  "servdonto-cimo-ponta-negra-ftd": [-3.0847353, -60.0731383],
+  "servdonto-cimo-sao-jose-operario-ftd": [-3.0629166, -59.950534],
+  "servdonto-cimo-vieiralves-ftd": [-3.1091158, -60.0225809],
+  "servdonto-neo-x-odontologia-e-radiologia-ltda-ftd": [-3.0629166, -59.950534],
+  "servdonto-sorrimed-ltda-ftd": [-3.1051064, -60.0236716],
+};
+
+const withCoords = <T extends { id: string }>(clinic: T): T & { lat?: number; lng?: number } => {
+  const coords = SERVDONTO_COORDS[clinic.id];
+  return coords ? { ...clinic, lat: coords[0], lng: coords[1] } : clinic;
+};
+
+const EXTERNAL_CLINICS_RAW: ExternalClinic[] = [
   {
     id: "servdonto-a-isabelly-rodrigues-barroso-ftd",
     name: "A. Isabelly Rodrigues Barroso",
@@ -1146,3 +1214,5 @@ export const EXTERNAL_CLINICS: ExternalClinic[] = [
     logo_url: servdontoLogo.url,
   },
 ];
+
+export const EXTERNAL_CLINICS: ExternalClinic[] = EXTERNAL_CLINICS_RAW.map(withCoords);
