@@ -3,9 +3,12 @@ const inflight = new Map<string, Promise<{ lat: number; lng: number } | null>>()
 // v2: previous version persisted null results, which permanently hid clinics
 // whose first geocode attempt failed (rate-limit, transient network). v2 only
 // persists successful coords; nulls live in-memory for this session only.
-const LS_KEY = "geocode-cache-v2";
+const LS_KEY = "geocode-cache-v3";
 try {
-  if (typeof window !== "undefined") window.localStorage.removeItem("geocode-cache-v1");
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("geocode-cache-v1");
+    window.localStorage.removeItem("geocode-cache-v2");
+  }
 } catch { /* ignore */ }
 
 // Hydrate from localStorage (persistent across sessions — dramatically speeds repeat visits)
