@@ -517,6 +517,30 @@ export default function OperatorProfessionals() {
               <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-5">Encontre clínicas e profissionais da sua rede credenciada no mapa.</p>
+            <div className="mb-4 inline-flex w-full rounded-xl border border-border/60 bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setNetwork("iaclin")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  network === "iaclin"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Busca na IACLIN
+              </button>
+              <button
+                type="button"
+                onClick={() => setNetwork("general")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  network === "general"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Rede Geral
+              </button>
+            </div>
             <div className="space-y-3">
               <div className="relative">
                 <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
