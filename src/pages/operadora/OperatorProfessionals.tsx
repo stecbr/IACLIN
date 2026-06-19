@@ -421,7 +421,11 @@ export default function OperatorProfessionals() {
           const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
           if (cancelled) return;
           setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
-          const resolvedCoords = c ?? resolveFallbackCoords(r);
+          const fallbackCoords = resolveFallbackCoords(r);
+          const resolvedCoords =
+            r.source === "servdonto" && c && !isManausLikeCoords(c)
+              ? fallbackCoords
+              : c ?? fallbackCoords;
           if (resolvedCoords) {
             buffer.push([r.clinic_id, resolvedCoords]);
             scheduleFlush();
