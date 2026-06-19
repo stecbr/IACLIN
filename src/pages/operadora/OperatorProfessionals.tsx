@@ -45,6 +45,14 @@ type ClinicSearchRow = {
   source?: "iaclin" | "servdonto";
 };
 
+type ProfessionalTypeFilter = "all" | "medico" | "dentista";
+type ProfileRow = { id: string; full_name: string | null; avatar_url: string | null; phone: string | null };
+type SpecialtyRow = { user_id: string; specialty: string };
+type ClinicRow = Omit<ClinicSearchRow, "clinic_id" | "professionals_count" | "professionals" | "specialties" | "source"> & {
+  id: string;
+  name: string | null;
+};
+
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
 const BR_STATES = [
@@ -106,7 +114,7 @@ export default function OperatorProfessionals() {
   const [q, setQ] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
-  const [professionalType, setProfessionalType] = useState<"all" | "medico" | "dentista">("all");
+  const [professionalType, setProfessionalType] = useState<ProfessionalTypeFilter>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -144,15 +152,15 @@ export default function OperatorProfessionals() {
             .in("id", clinicIds),
           supabase.from("profiles").select("id, full_name, avatar_url, phone").in("id", userIds),
           supabase
-            .from("professional_specialties" as any)
+            .from("professional_specialties" as never)
             .select("user_id, specialty")
             .in("user_id", userIds),
         ]);
 
-        const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+        const profileMap = new Map(((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p]));
 
         const specMap = new Map<string, string[]>();
-        (specs ?? []).forEach((s: any) => {
+        ((specs ?? []) as SpecialtyRow[]).forEach((s) => {
           const prev = specMap.get(s.user_id) ?? [];
           if (!prev.includes(s.specialty)) specMap.set(s.user_id, [...prev, s.specialty]);
         });
@@ -163,7 +171,7 @@ export default function OperatorProfessionals() {
           membersByClinic.set(m.clinic_id, [...prev, m]);
         });
 
-        const merged: ClinicSearchRow[] = (clinics ?? []).map((clinic: any) => {
+        const merged: ClinicSearchRow[] = ((clinics ?? []) as ClinicRow[]).map((clinic) => {
           const clinicMembers = membersByClinic.get(clinic.id) ?? [];
           const professionals = clinicMembers.map((m) => {
             const p = profileMap.get(m.user_id);
@@ -587,7 +595,7 @@ export default function OperatorProfessionals() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Tipo de profissional</label>
-                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
+                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as ProfessionalTypeFilter)}>
                     <SelectTrigger className="h-10 rounded-2xl">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
