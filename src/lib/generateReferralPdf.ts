@@ -48,9 +48,9 @@ const URGENCY_LABEL: Record<NonNullable<ReferralPdfData['urgency']>, string> = {
 };
 
 const URGENCY_COLOR: Record<NonNullable<ReferralPdfData['urgency']>, string> = {
-  rotina: '#1a1a6e',
-  prioritario: '#92400e',
-  emergencia: '#991b1b',
+  rotina: '#000',
+  prioritario: '#000',
+  emergencia: '#000',
 };
 
 export async function buildReferralHtml(data: ReferralPdfData): Promise<string> {
@@ -84,35 +84,35 @@ export async function buildReferralHtml(data: ReferralPdfData): Promise<string> 
   body { font-family: 'Times New Roman', Times, serif; color: #111; font-size: 13px; line-height: 1.6; background: #fff }
   .page { width: 210mm; min-height: 297mm; padding: 18mm 20mm 18mm 20mm; display: flex; flex-direction: column }
 
-  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #1a1a6e; margin-bottom: 10px }
-  .clinic-name { font-size: 15px; font-weight: 700; color: #1a1a6e }
-  .clinic-sub { font-size: 10px; color: #555; margin-top: 2px; line-height: 1.4 }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 10px }
+  .clinic-name { font-size: 15px; font-weight: 700; color: #000 }
+  .clinic-sub { font-size: 10px; color: #000; margin-top: 2px; line-height: 1.4 }
 
-  .title-strip { text-align: center; margin: 14px 0; padding: 6px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc }
-  .title-strip h1 { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #1a1a6e }
+  .title-strip { text-align: center; margin: 14px 0; padding: 6px 0; border-top: 1px solid #000; border-bottom: 1px solid #000 }
+  .title-strip h1 { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #000 }
 
-  .patient-row { display: flex; gap: 12px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #ddd }
+  .patient-row { display: flex; gap: 12px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #000 }
   .patient-field { flex: 1 }
-  .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #888; font-family: Arial, sans-serif }
+  .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #000; font-family: Arial, sans-serif }
   .field-value { font-size: 13px; font-weight: 600; margin-top: 1px }
-  .field-value-sm { font-size: 11px; margin-top: 1px; color: #444 }
+  .field-value-sm { font-size: 11px; margin-top: 1px; color: #000 }
 
-  .dest-box { background: #f0f0fa; border: 1px solid #c8c8e8; border-radius: 4px; padding: 10px 14px; margin-bottom: 14px }
-  .dest-label { font-size: 9px; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.8px; color: #888; margin-bottom: 3px }
-  .dest-value { font-size: 14px; font-weight: 700; color: #1a1a6e }
+  .dest-box { background: #f0f0fa; border: 1px solid #000; border-radius: 4px; padding: 10px 14px; margin-bottom: 14px }
+  .dest-label { font-size: 9px; font-family: Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.8px; color: #000; margin-bottom: 3px }
+  .dest-value { font-size: 14px; font-weight: 700; color: #000 }
 
   .section { margin-bottom: 12px }
-  .section-label { font-size: 10px; font-family: Arial, sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; margin-bottom: 4px; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px }
+  .section-label { font-size: 10px; font-family: Arial, sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #000; margin-bottom: 4px; border-bottom: 1px solid #000; padding-bottom: 2px }
   .section-text { font-size: 13px; text-align: justify; line-height: 1.7 }
 
-  .courtesy { margin-top: 14px; font-size: 12px; font-style: italic; color: #555 }
+  .courtesy { margin-top: 14px; font-size: 12px; font-style: italic; color: #000 }
 
   .sig-area { margin-top: 52px; text-align: center }
-  .sig-line { border-top: 1px solid #333; width: 280px; margin: 0 auto 5px }
+  .sig-line { border-top: 1px solid #000; width: 280px; margin: 0 auto 5px }
   .sig-name { font-size: 12px; font-weight: 700 }
-  .sig-reg { font-size: 10px; color: #666; margin-top: 2px }
+  .sig-reg { font-size: 10px; color: #000; margin-top: 2px }
 
-  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 9px; color: #999; font-family: Arial, sans-serif }
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #000; font-family: Arial, sans-serif }
 
   @media print { html, body { width: 210mm } .page { padding: 14mm 18mm } }
 </style></head>

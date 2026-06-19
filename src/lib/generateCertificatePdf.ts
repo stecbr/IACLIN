@@ -89,24 +89,24 @@ export async function buildCertificateHtml(data: CertificatePdfData): Promise<st
   body { font-family: 'Times New Roman', Times, serif; color: #111; font-size: 13px; line-height: 1.65; background: #fff }
   .page { width: 210mm; min-height: 297mm; padding: 20mm 22mm 20mm 22mm; display: flex; flex-direction: column }
 
-  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #1a1a6e; margin-bottom: 10px }
-  .clinic-name { font-size: 15px; font-weight: 700; color: #1a1a6e }
-  .clinic-sub { font-size: 10px; color: #555; margin-top: 2px; line-height: 1.4 }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 10px }
+  .clinic-name { font-size: 15px; font-weight: 700; color: #000 }
+  .clinic-sub { font-size: 10px; color: #000; margin-top: 2px; line-height: 1.4 }
 
   .title-strip { text-align: center; margin: 20px 0 28px; }
-  .title-strip h1 { font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #1a1a6e; padding-bottom: 6px; border-bottom: 2px solid #1a1a6e; display: inline-block; padding: 4px 32px 6px }
+  .title-strip h1 { font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #000; padding-bottom: 6px; border-bottom: 2px solid #000; display: inline-block; padding: 4px 32px 6px }
 
   .body-text { font-size: 13.5px; line-height: 2; text-align: justify; max-width: 480px; margin: 0 auto }
 
-  .cid-line { margin-top: 18px; font-size: 11px; color: #555; text-align: center }
-  .notes-box { margin-top: 16px; padding: 8px 14px; border-left: 3px solid #1a1a6e; background: #f5f5fb; font-size: 11px; font-style: italic; color: #444 }
+  .cid-line { margin-top: 18px; font-size: 11px; color: #000; text-align: center }
+  .notes-box { margin-top: 16px; padding: 8px 14px; border-left: 3px solid #000; background: #f5f5fb; font-size: 11px; font-style: italic; color: #000 }
 
   .sig-area { margin-top: 72px; text-align: center }
-  .sig-line { border-top: 1px solid #333; width: 300px; margin: 0 auto 5px }
+  .sig-line { border-top: 1px solid #000; width: 300px; margin: 0 auto 5px }
   .sig-name { font-size: 12px; font-weight: 700 }
-  .sig-reg { font-size: 10px; color: #666; margin-top: 2px }
+  .sig-reg { font-size: 10px; color: #000; margin-top: 2px }
 
-  .footer { margin-top: 32px; padding-top: 8px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 9px; color: #999; font-family: Arial, sans-serif }
+  .footer { margin-top: 32px; padding-top: 8px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #000; font-family: Arial, sans-serif }
 
   @media print { html, body { width: 210mm } .page { padding: 16mm 20mm } }
 </style></head>

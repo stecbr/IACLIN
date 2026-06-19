@@ -72,42 +72,42 @@ export async function buildPrescriptionHtml(data: PrescriptionPdfData): Promise<
   .page { width: 210mm; min-height: 297mm; padding: 18mm 20mm 18mm 20mm; display: flex; flex-direction: column }
 
   /* Header */
-  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #1a1a6e; margin-bottom: 10px }
-  .clinic-name { font-size: 15px; font-weight: 700; color: #1a1a6e; letter-spacing: 0.3px }
-  .clinic-sub { font-size: 10px; color: #555; margin-top: 2px; line-height: 1.4 }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 10px }
+  .clinic-name { font-size: 15px; font-weight: 700; color: #000; letter-spacing: 0.3px }
+  .clinic-sub { font-size: 10px; color: #000; margin-top: 2px; line-height: 1.4 }
 
   /* Title strip */
-  .title-strip { text-align: center; margin: 12px 0; padding: 6px 0; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc }
-  .title-strip h1 { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #1a1a6e }
+  .title-strip { text-align: center; margin: 12px 0; padding: 6px 0; border-top: 1px solid #000; border-bottom: 1px solid #000 }
+  .title-strip h1 { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #000 }
 
   /* Patient */
-  .patient-row { display: flex; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ddd }
+  .patient-row { display: flex; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #000 }
   .patient-field { flex: 1 }
-  .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #888; font-family: Arial, sans-serif }
+  .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #000; font-family: Arial, sans-serif }
   .field-value { font-size: 13px; font-weight: 600; margin-top: 1px }
-  .field-value-sm { font-size: 11px; margin-top: 1px; color: #444 }
+  .field-value-sm { font-size: 11px; margin-top: 1px; color: #000 }
 
   /* Items */
   .items { flex: 1 }
-  .item { padding: 9px 0; border-bottom: 1px dashed #ddd }
+  .item { padding: 9px 0; border-bottom: 1px dashed #000 }
   .item:last-child { border-bottom: none }
   .item-header { display: flex; align-items: baseline; gap: 8px }
-  .item-num { font-size: 12px; font-weight: 700; color: #1a1a6e; min-width: 18px }
+  .item-num { font-size: 12px; font-weight: 700; color: #000; min-width: 18px }
   .item-med { font-size: 13px; font-weight: 700 }
-  .item-dose { font-size: 12px; color: #333; margin-left: 26px; margin-top: 2px }
-  .item-instr { font-size: 11px; color: #666; font-style: italic; margin-left: 26px; margin-top: 2px }
+  .item-dose { font-size: 12px; color: #000; margin-left: 26px; margin-top: 2px }
+  .item-instr { font-size: 11px; color: #000; font-style: italic; margin-left: 26px; margin-top: 2px }
 
   /* Notes */
-  .notes-box { margin-top: 14px; padding: 8px 12px; border-left: 3px solid #1a1a6e; background: #f5f5fb; font-size: 11px; color: #333 }
+  .notes-box { margin-top: 14px; padding: 8px 12px; border-left: 3px solid #000; background: #f5f5fb; font-size: 11px; color: #000 }
 
   /* Signature */
   .sig-area { margin-top: 48px; text-align: center }
-  .sig-line { border-top: 1px solid #333; width: 280px; margin: 0 auto 5px }
+  .sig-line { border-top: 1px solid #000; width: 280px; margin: 0 auto 5px }
   .sig-name { font-size: 12px; font-weight: 700 }
-  .sig-reg { font-size: 10px; color: #666; margin-top: 2px }
+  .sig-reg { font-size: 10px; color: #000; margin-top: 2px }
 
   /* Footer */
-  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 9px; color: #999; font-family: Arial, sans-serif }
+  .footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #000; font-family: Arial, sans-serif }
 
   @media print { html, body { width: 210mm } .page { padding: 14mm 18mm } }
 </style></head>

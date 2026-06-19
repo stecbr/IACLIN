@@ -51,22 +51,22 @@ export async function buildExamRequestHtml(data: ExamRequestPdfData): Promise<st
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Times New Roman',Times,serif;color:#111;font-size:13px;line-height:1.6;background:#fff}
 .page{width:210mm;min-height:297mm;padding:18mm 20mm;display:flex;flex-direction:column}
-.ex-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1a1a6e}
-.ex-clinic-name{font-size:15px;font-weight:700;color:#1a1a6e}
-.ex-clinic-sub{font-size:10px;color:#555;margin-top:2px;line-height:1.4}
-.ex-title{text-align:center;margin:16px 0;font-size:16px;letter-spacing:3px;color:#1a1a6e;font-weight:700;padding:6px 0;border-top:1px solid #ccc;border-bottom:1px solid #ccc}
+.ex-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #000}
+.ex-clinic-name{font-size:15px;font-weight:700;color:#000}
+.ex-clinic-sub{font-size:10px;color:#000;margin-top:2px;line-height:1.4}
+.ex-title{text-align:center;margin:16px 0;font-size:16px;letter-spacing:3px;color:#000;font-weight:700;padding:6px 0;border-top:1px solid #000;border-bottom:1px solid #000}
 .ex-patient{background:#f5f5fb;padding:12px 16px;border-radius:6px;margin-bottom:18px}
-.ex-patient-label{font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:#888;font-family:Arial,sans-serif}
+.ex-patient-label{font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:#000;font-family:Arial,sans-serif}
 .ex-patient-name{font-size:14px;font-weight:600;margin-top:2px}
 .ex-list{margin:14px 0;flex:1}
-.ex-list li{padding:7px 0;border-bottom:1px dashed #e0e0e0;list-style:none;display:flex;align-items:center;gap:10px;font-size:13px}
-.ex-list li::before{content:'';width:13px;height:13px;border:1.5px solid #1a1a6e;border-radius:3px;flex-shrink:0}
-.ex-indication{margin-top:16px;padding:10px 14px;background:#eff0fb;border-left:3px solid #1a1a6e;font-size:12px}
+.ex-list li{padding:7px 0;border-bottom:1px dashed #000;list-style:none;display:flex;align-items:center;gap:10px;font-size:13px}
+.ex-list li::before{content:'';width:13px;height:13px;border:1.5px solid #000;border-radius:3px;flex-shrink:0}
+.ex-indication{margin-top:16px;padding:10px 14px;background:#eff0fb;border-left:3px solid #000;font-size:12px}
 .ex-sig{margin-top:52px;text-align:center}
-.ex-sig-line{border-top:1px solid #333;width:280px;margin:0 auto 5px}
+.ex-sig-line{border-top:1px solid #000;width:280px;margin:0 auto 5px}
 .ex-sig-name{font-size:12px;font-weight:700}
-.ex-sig-reg{font-size:10px;color:#666;margin-top:2px}
-.ex-footer{margin-top:24px;padding-top:8px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:9px;color:#999;font-family:Arial,sans-serif}
+.ex-sig-reg{font-size:10px;color:#000;margin-top:2px}
+.ex-footer{margin-top:24px;padding-top:8px;border-top:1px solid #000;display:flex;justify-content:space-between;font-size:9px;color:#000;font-family:Arial,sans-serif}
 @media print{html,body{width:210mm}.page{padding:14mm 18mm}}
 </style></head><body><div class="page">
 <div class="ex-header">
@@ -84,9 +84,9 @@ body{font-family:'Times New Roman',Times,serif;color:#111;font-size:13px;line-he
 <div class="ex-patient">
   <div class="ex-patient-label">Paciente</div>
   <div class="ex-patient-name">${patient.full_name}</div>
-  ${patient.cpf ? `<div style="font-size:11px;color:#666;margin-top:2px">CPF: ${patient.cpf}</div>` : ''}
+  ${patient.cpf ? `<div style="font-size:11px;color:#000;margin-top:2px">CPF: ${patient.cpf}</div>` : ''}
 </div>
-<p style="font-size:12px;color:#374151;margin-bottom:6px"><strong>Solicito os seguintes exames:</strong></p>
+<p style="font-size:12px;color:#000;margin-bottom:6px"><strong>Solicito os seguintes exames:</strong></p>
 <ul class="ex-list">
   ${exams.map((e) => `<li>${e}</li>`).join('')}
 </ul>
