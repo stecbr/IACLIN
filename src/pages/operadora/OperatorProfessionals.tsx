@@ -90,6 +90,7 @@ export default function OperatorProfessionals() {
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [network, setNetwork] = useState<"iaclin" | "general">("iaclin");
 
   useEffect(() => {
     const load = async () => {
@@ -181,7 +182,7 @@ export default function OperatorProfessionals() {
         });
 
         merged.sort((a, b) => a.clinic_name.localeCompare(b.clinic_name));
-        setRows(merged);
+        setRows(merged.map((r) => ({ ...r, source: "iaclin" as const })));
       } finally {
         setLoading(false);
       }
@@ -190,20 +191,59 @@ export default function OperatorProfessionals() {
     load();
   }, []);
 
+  // External clinics (Servdonto network) mapped into the same row shape
+  const externalRows: ClinicSearchRow[] = useMemo(() => {
+    return EXTERNAL_CLINICS.map((c) => ({
+      clinic_id: c.id,
+      clinic_name: c.name,
+      category: "odonto",
+      cnpj: c.cnpj,
+      city: c.city,
+      state: c.state,
+      phone: c.phone,
+      email: c.email,
+      logo_url: SERVDONTO_LOGO_URL,
+      address: c.address,
+      address_number: c.address_number,
+      neighborhood: c.neighborhood,
+      zip_code: c.zip_code,
+      professionals_count: c.professionals.length,
+      professionals: c.professionals.map((p, i) => ({
+        user_id: `${c.id}-${i}`,
+        full_name: p.name,
+        avatar_url: null,
+        phone: c.phone,
+        specialties: [p.specialty],
+      })),
+      specialties: c.specialties,
+      source: "servdonto",
+    }));
+  }, []);
+
+  const activeRows = useMemo(
+    () => (network === "general" ? [...rows, ...externalRows] : rows),
+    [rows, externalRows, network],
+  );
+
   const specialtyOptions = useMemo(() => {
-    return [...new Set(rows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+    return [...new Set(activeRows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [activeRows]);
 
   const stateOptions = useMemo(() => BR_STATES, []);
 
   const cityOptions = useMemo(() => {
-    const source = stateFilter === "all" ? rows : rows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
+    const source =
+      stateFilter === "all"
+        ? activeRows
+        : activeRows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
     return [...new Set(source.map((r) => r.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
-  }, [rows, stateFilter]);
+  }, [activeRows, stateFilter]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return rows.filter((r) => {
+    return activeRows.filter((r) => {
       const searchMatch = !term
         ? true
         : [
@@ -231,7 +271,7 @@ export default function OperatorProfessionals() {
       const cityMatch = cityFilter === "all" || (r.city ?? "").toLowerCase() === cityFilter.toLowerCase();
       return searchMatch && specialtyMatch && stateMatch && cityMatch && typeMatch;
     });
-  }, [rows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
+  }, [activeRows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
 
   const handleContact = (phone: string | null) => {
     if (!phone) return;
