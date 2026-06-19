@@ -157,21 +157,30 @@ export async function geocodeAddress(
   if (existing) return existing;
 
   const task = (async () => {
-    // Prefer the Brazilian postal code (CEP) — gives exact street coordinates
-    // and avoids Nominatim picking the wrong street when the name is fuzzy.
     let coords: { lat: number; lng: number } | null = null;
-    if (zipCode) coords = await fetchBrasilApiCep(zipCode);
+    const target = { address, neighborhood, city, state };
+
+    // Street + neighborhood must win over generic CEPs like 69010-000,
+    // otherwise geocoders can place Centro addresses on the wrong road.
+    if (street && city) {
+      const fullQuery = [street, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+      coords = pickBestCandidate(await fetchNominatim({ q: fullQuery }), target);
+    }
     if (!coords && street && city) {
       const structuredParams: Record<string, string> = { street, city };
       if (state) structuredParams.state = state;
-      if (zipCode) structuredParams.postalcode = zipCode;
-      coords = await fetchNominatim(structuredParams);
+      if (zipCode && !isGenericCep(zipCode)) structuredParams.postalcode = zipCode;
+      coords = pickBestCandidate(await fetchNominatim(structuredParams), target);
     }
-    if (!coords) coords = await fetchNominatim({ q: key });
+    if (!coords && zipCode && !isGenericCep(zipCode)) coords = await fetchBrasilApiCep(zipCode);
+    if (!coords) {
+      const fallbackQuery = [street, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+      coords = pickBestCandidate(await fetchNominatim({ q: fallbackQuery || key }), target);
+    }
     if (!coords && city) {
       const cityParams: Record<string, string> = { city };
       if (state) cityParams.state = state;
-      coords = await fetchNominatim(cityParams);
+      coords = (await fetchNominatim(cityParams))[0] ?? null;
     }
     cache.set(key, coords ?? null);
     scheduleFlush();
