@@ -51,6 +51,25 @@ async function fetchNominatim(params: Record<string, string>): Promise<{ lat: nu
   return null;
 }
 
+// BrasilAPI CEP v2 returns precise coordinates for a Brazilian postal code
+// (street-level when available). Much more accurate than Nominatim for BR
+// addresses, especially when the street name spelling is approximate.
+async function fetchBrasilApiCep(zip: string): Promise<{ lat: number; lng: number } | null> {
+  const cep = zip.replace(/\D/g, "");
+  if (cep.length !== 8) return null;
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const lat = data?.location?.coordinates?.latitude;
+    const lng = data?.location?.coordinates?.longitude;
+    if (lat && lng) return { lat: +lat, lng: +lng };
+  } catch {
+    // silent fail
+  }
+  return null;
+}
+
 export async function geocodeAddress(
   address?: string | null,
   city?: string | null,
@@ -71,10 +90,11 @@ export async function geocodeAddress(
   if (existing) return existing;
 
   const task = (async () => {
-    // Single best-shot strategy: free-text combined search; if it fails, fall back to city/state only.
-    // This caps requests at 2/clinic instead of up to 4 to drastically reduce total geocoding time
-    // (Nominatim is rate-limited and each request adds 200-800ms).
-    let coords = await fetchNominatim({ q: key });
+    // Prefer the Brazilian postal code (CEP) — gives exact street coordinates
+    // and avoids Nominatim picking the wrong street when the name is fuzzy.
+    let coords: { lat: number; lng: number } | null = null;
+    if (zipCode) coords = await fetchBrasilApiCep(zipCode);
+    if (!coords) coords = await fetchNominatim({ q: key });
     if (!coords && city) {
       const cityParams: Record<string, string> = { city };
       if (state) cityParams.state = state;
