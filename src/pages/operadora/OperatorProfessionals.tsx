@@ -15,6 +15,7 @@ import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { EXTERNAL_CLINICS, SERVDONTO_LOGO_URL } from "@/data/externalClinics";
+import { lookupManausCoords } from "@/data/manausCoords";
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -340,14 +341,32 @@ export default function OperatorProfessionals() {
         setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
-      const pending = filtered.filter((r) => !coords.has(r.clinic_id));
+      // External (Servdonto / Rede Geral) clinics use bundled neighborhood
+      // coordinates — no network roundtrip. Seed them synchronously so the
+      // progress bar only counts IACLIN clinics that need real geocoding.
+      const externalPending = filtered.filter(
+        (r) => r.source === "servdonto" && !coords.has(r.clinic_id),
+      );
+      if (externalPending.length > 0) {
+        setCoords((prev) => {
+          const next = new Map(prev);
+          for (const r of externalPending) {
+            const [lat, lng] = lookupManausCoords(r.neighborhood);
+            next.set(r.clinic_id, { lat, lng });
+          }
+          return next;
+        });
+      }
+      const pending = filtered.filter(
+        (r) => r.source !== "servdonto" && !coords.has(r.clinic_id),
+      );
       if (pending.length === 0) {
         setMapLoading(false);
-        setGeocodeProgress({ done: filtered.length, total: filtered.length });
+        setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
       setMapLoading(true);
-      setGeocodeProgress({ done: filtered.length - pending.length, total: filtered.length });
+      setGeocodeProgress({ done: 0, total: pending.length });
 
       // Stream results: update map progressively, with a small concurrency cap to be nice to Nominatim
       // and to avoid blocking the UI on the slowest clinic.
