@@ -88,20 +88,6 @@ const getAdaptiveMarkerSize = (zoom: number) => {
   return 44;
 };
 
-const getSpreadOffset = (index: number, total: number, markerSize: number) => {
-  if (total <= 1) return L.point(0, 0);
-  const step = markerSize * 0.72;
-  if (total === 2) return L.point(index === 0 ? -step / 2 : step / 2, 0);
-  if (total === 3) {
-    const angle = -Math.PI / 2 + index * ((Math.PI * 2) / 3);
-    return L.point(Math.cos(angle) * step, Math.sin(angle) * step);
-  }
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const angle = index * goldenAngle - Math.PI / 2;
-  const radius = step * Math.sqrt(index + 1);
-  return L.point(Math.cos(angle) * radius, Math.sin(angle) * radius);
-};
-
 const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
   if (clinic.city?.toLowerCase() === "manaus") {
     const [lat, lng] = lookupManausCoords(clinic.neighborhood);
@@ -377,9 +363,8 @@ export default function OperatorProfessionals() {
         setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
-      // Geocode every clinic (IACLIN + Rede Geral) with its real street
-      // address so pins land exactly at the right place — no more
-      // neighborhood-centroid + jitter pushing markers into the river.
+      // Geocode every clinic with its real street address. Fallbacks are only
+      // used when no reliable street result exists, never to visually move pins.
       const pending = filtered.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
@@ -460,21 +445,8 @@ export default function OperatorProfessionals() {
     const visibleClinics = filtered
       .map((clinic) => ({ clinic, coords: coords.get(clinic.clinic_id) }))
       .filter((item): item is { clinic: ClinicSearchRow; coords: { lat: number; lng: number } } => Boolean(item.coords));
-    const groups = new Map<string, Array<{ clinic: ClinicSearchRow; coords: { lat: number; lng: number } }>>();
-    visibleClinics.forEach((item) => {
-      const point = map.project([item.coords.lat, item.coords.lng], zoom);
-      const key = `${Math.round(point.x / (markerSize * 1.45))}|${Math.round(point.y / (markerSize * 1.45))}`;
-      const prev = groups.get(key) ?? [];
-      groups.set(key, [...prev, item]);
-    });
 
     visibleClinics.forEach(({ clinic, coords: c }) => {
-      const point = map.project([c.lat, c.lng], zoom);
-      const key = `${Math.round(point.x / (markerSize * 1.45))}|${Math.round(point.y / (markerSize * 1.45))}`;
-      const group = groups.get(key) ?? [];
-      const groupIndex = group.findIndex((item) => item.clinic.clinic_id === clinic.clinic_id);
-      const offset = getSpreadOffset(Math.max(groupIndex, 0), group.length, markerSize);
-      const visualLatLng = map.unproject(point.add(offset), zoom);
       const realLatLng = L.latLng(c.lat, c.lng);
       bounds.push(realLatLng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
@@ -491,7 +463,7 @@ export default function OperatorProfessionals() {
         iconSize: [markerSize, markerSize + 6],
         iconAnchor: [markerAnchorX, markerAnchorY],
       });
-      const marker = L.marker(visualLatLng, { icon }).addTo(map);
+      const marker = L.marker(realLatLng, { icon, zIndexOffset: selectedId === clinic.clinic_id ? 1000 : 0 }).addTo(map);
       marker.on("click", () => {
         setSelectedId(clinic.clinic_id);
         map.setView(realLatLng, Math.max(map.getZoom(), 14), { animate: true });
