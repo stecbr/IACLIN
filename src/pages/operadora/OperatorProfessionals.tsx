@@ -43,6 +43,8 @@ type ClinicSearchRow = {
   }>;
   specialties: string[];
   source?: "iaclin" | "servdonto";
+  lat?: number;
+  lng?: number;
 };
 
 type ProfessionalTypeFilter = "all" | "medico" | "dentista";
