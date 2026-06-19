@@ -472,9 +472,9 @@ export default function OperatorProfessionals() {
           <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md">
             <div className="flex items-center gap-2 mb-1">
               <SlidersHorizontal className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Buscar rede credenciada</h2>
+              <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">Selecione os filtros para localizar clínicas no mapa.</p>
+            <p className="text-sm text-muted-foreground mb-5">Encontre clínicas e profissionais da sua rede credenciada no mapa.</p>
             <div className="space-y-3">
               <div className="relative">
                 <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
@@ -488,62 +488,75 @@ export default function OperatorProfessionals() {
                   }}
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todos os tipos</SelectItem>
-                    <SelectItem value="medico">Médicos</SelectItem>
-                    <SelectItem value="dentista">Dentistas</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="Especialidade" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todas especialidades</SelectItem>
-                    {specialtyOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={stateFilter}
-                  onValueChange={(v) => {
-                    setStateFilter(v);
-                    setCityFilter("all");
-                  }}
-                >
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todas UFs</SelectItem>
-                    {stateOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={cityFilter} onValueChange={setCityFilter}>
-                  <SelectTrigger className="h-10 rounded-2xl">
-                    <SelectValue placeholder="Cidade" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1000]">
-                    <SelectItem value="all">Todas cidades</SelectItem>
-                    {cityOptions.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <p className="text-xs text-muted-foreground -mt-1">Use os filtros abaixo para refinar a sua busca.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Tipo de profissional</label>
+                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as any)}>
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Selecione</SelectItem>
+                      <SelectItem value="medico">Médicos</SelectItem>
+                      <SelectItem value="dentista">Dentistas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Especialidade</label>
+                  <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Selecione</SelectItem>
+                      {specialtyOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">UF</label>
+                  <Select
+                    value={stateFilter}
+                    onValueChange={(v) => {
+                      setStateFilter(v);
+                      setCityFilter("all");
+                    }}
+                  >
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Selecione</SelectItem>
+                      {stateOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Cidade</label>
+                  <Select value={cityFilter} onValueChange={setCityFilter}>
+                    <SelectTrigger className="h-10 rounded-2xl">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000]">
+                      <SelectItem value="all">Selecione</SelectItem>
+                      {cityOptions.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Button className="w-full h-11 rounded-2xl mt-2" onClick={handleSubmitSearch} disabled={loading}>
                 {loading ? (
