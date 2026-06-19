@@ -65,9 +65,7 @@ export function MobileBottomNav() {
       ];
 
   const mainItems = filterNavItems(allMainItems);
-  const moreItems = filterNavItems(
-    allMoreItems.filter((item) => !('categories' in item) || item.categories.includes(clinicCategory))
-  );
+  const moreItems = filterNavItems(allMoreItems);
 
   const isActive = (url: string) => {
     if (url === '/') return location.pathname === '/';
