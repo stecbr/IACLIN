@@ -103,7 +103,7 @@ const getSpreadOffset = (index: number, total: number, markerSize: number) => {
 };
 
 const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
-  if (clinic.source === "servdonto" && clinic.city?.toLowerCase() === "manaus") {
+  if (clinic.city?.toLowerCase() === "manaus") {
     const [lat, lng] = lookupManausCoords(clinic.neighborhood);
     return { lat, lng };
   }
