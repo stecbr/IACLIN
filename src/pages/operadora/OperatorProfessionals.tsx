@@ -14,7 +14,9 @@ import "leaflet/dist/leaflet.css";
 import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
-import { EXTERNAL_CLINICS, SERVDONTO_LOGO_URL } from "@/data/externalClinics";
+import { EXTERNAL_CLINICS } from "@/data/externalClinics";
+
+const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
 import { lookupManausCoords } from "@/data/manausCoords";
 
 type ClinicSearchRow = {
@@ -203,7 +205,7 @@ export default function OperatorProfessionals() {
       state: c.state,
       phone: c.phone,
       email: c.email,
-      logo_url: SERVDONTO_LOGO_URL,
+      logo_url: iaclinDefaultLogo.url,
       address: c.address,
       address_number: c.address_number,
       neighborhood: c.neighborhood,
@@ -448,7 +450,12 @@ export default function OperatorProfessionals() {
       const latlng = L.latLng(lat, lng);
       bounds.push(latlng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
-      const logoBg = resolved === "dark" ? DARK_LOGO_BACKGROUND : "#fff";
+      const logoBg =
+        clinic.source === "servdonto"
+          ? GENERAL_NETWORK_LOGO_BG
+          : resolved === "dark"
+            ? DARK_LOGO_BACKGROUND
+            : "#fff";
       const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: "",
