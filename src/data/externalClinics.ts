@@ -1214,3 +1214,5 @@ const EXTERNAL_CLINICS_RAW: ExternalClinic[] = [
     logo_url: servdontoLogo.url,
   },
 ];
+
+export const EXTERNAL_CLINICS: ExternalClinic[] = EXTERNAL_CLINICS_RAW.map(withCoords);
