@@ -15,6 +15,7 @@ import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { EXTERNAL_CLINICS } from "@/data/externalClinics";
+import { lookupManausCoords } from "@/data/manausCoords";
 
 const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
 
