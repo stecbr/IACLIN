@@ -96,6 +96,7 @@ export default function Agenda() {
         .select('*, patients(full_name), procedures(name, color)')
         .gte('start_time', range.start.toISOString())
         .lte('start_time', addDays(range.end, 1).toISOString())
+        .neq('status', 'cancelled')
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       else if (isPersonalMode && user) query = query.is('clinic_id', null).eq('dentist_id', user.id);
