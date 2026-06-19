@@ -14,7 +14,9 @@ import "leaflet/dist/leaflet.css";
 import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
-import { EXTERNAL_CLINICS, SERVDONTO_LOGO_URL } from "@/data/externalClinics";
+import { EXTERNAL_CLINICS } from "@/data/externalClinics";
+
+const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
 import { lookupManausCoords } from "@/data/manausCoords";
 
 type ClinicSearchRow = {
@@ -203,7 +205,7 @@ export default function OperatorProfessionals() {
       state: c.state,
       phone: c.phone,
       email: c.email,
-      logo_url: SERVDONTO_LOGO_URL,
+      logo_url: iaclinDefaultLogo.url,
       address: c.address,
       address_number: c.address_number,
       neighborhood: c.neighborhood,
@@ -448,7 +450,12 @@ export default function OperatorProfessionals() {
       const latlng = L.latLng(lat, lng);
       bounds.push(latlng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
-      const logoBg = resolved === "dark" ? DARK_LOGO_BACKGROUND : "#fff";
+      const logoBg =
+        clinic.source === "servdonto"
+          ? GENERAL_NETWORK_LOGO_BG
+          : resolved === "dark"
+            ? DARK_LOGO_BACKGROUND
+            : "#fff";
       const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: "",
@@ -721,8 +728,18 @@ export default function OperatorProfessionals() {
         <div className="absolute inset-x-0 bottom-0 z-[500] p-3 md:p-4 pointer-events-none">
           <Card className="pointer-events-auto mx-auto max-w-4xl rounded-2xl border border-border/60 bg-background/95 p-4 shadow-2xl backdrop-blur-md">
             <div className="flex items-start gap-4">
-              <Avatar className="h-14 w-14 shrink-0">
-                <AvatarImage src={selected.logo_url ?? undefined} />
+              <Avatar
+                className="h-14 w-14 shrink-0"
+                style={
+                  selected.source === "servdonto"
+                    ? { backgroundColor: GENERAL_NETWORK_LOGO_BG }
+                    : undefined
+                }
+              >
+                <AvatarImage
+                  src={selected.logo_url ?? undefined}
+                  className={selected.source === "servdonto" ? "object-contain p-1.5" : undefined}
+                />
                 <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
                   {selected.clinic_name
                     .split(" ")
