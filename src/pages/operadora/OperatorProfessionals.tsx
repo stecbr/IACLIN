@@ -102,6 +102,14 @@ const getSpreadOffset = (index: number, total: number, markerSize: number) => {
   return L.point(Math.cos(angle) * radius, Math.sin(angle) * radius);
 };
 
+const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
+  if (clinic.source === "servdonto" && clinic.city?.toLowerCase() === "manaus") {
+    const [lat, lng] = lookupManausCoords(clinic.neighborhood);
+    return { lat, lng };
+  }
+  return null;
+};
+
 export default function OperatorProfessionals() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
