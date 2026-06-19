@@ -17,7 +17,6 @@ import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { EXTERNAL_CLINICS } from "@/data/externalClinics";
 
 const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
-import { lookupManausCoords } from "@/data/manausCoords";
 
 type ClinicSearchRow = {
   clinic_id: string;
