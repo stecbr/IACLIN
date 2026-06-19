@@ -14,6 +14,7 @@ import "leaflet/dist/leaflet.css";
 import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
+import { EXTERNAL_CLINICS, SERVDONTO_LOGO_URL } from "@/data/externalClinics";
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -38,6 +39,7 @@ type ClinicSearchRow = {
     specialties: string[];
   }>;
   specialties: string[];
+  source?: "iaclin" | "servdonto";
 };
 
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
@@ -88,6 +90,7 @@ export default function OperatorProfessionals() {
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [network, setNetwork] = useState<"iaclin" | "general">("iaclin");
 
   useEffect(() => {
     const load = async () => {
@@ -179,7 +182,7 @@ export default function OperatorProfessionals() {
         });
 
         merged.sort((a, b) => a.clinic_name.localeCompare(b.clinic_name));
-        setRows(merged);
+        setRows(merged.map((r) => ({ ...r, source: "iaclin" as const })));
       } finally {
         setLoading(false);
       }
@@ -188,20 +191,59 @@ export default function OperatorProfessionals() {
     load();
   }, []);
 
+  // External clinics (Servdonto network) mapped into the same row shape
+  const externalRows: ClinicSearchRow[] = useMemo(() => {
+    return EXTERNAL_CLINICS.map((c) => ({
+      clinic_id: c.id,
+      clinic_name: c.name,
+      category: "odonto",
+      cnpj: c.cnpj,
+      city: c.city,
+      state: c.state,
+      phone: c.phone,
+      email: c.email,
+      logo_url: SERVDONTO_LOGO_URL,
+      address: c.address,
+      address_number: c.address_number,
+      neighborhood: c.neighborhood,
+      zip_code: c.zip_code,
+      professionals_count: c.professionals.length,
+      professionals: c.professionals.map((p, i) => ({
+        user_id: `${c.id}-${i}`,
+        full_name: p.name,
+        avatar_url: null,
+        phone: c.phone,
+        specialties: [p.specialty],
+      })),
+      specialties: c.specialties,
+      source: "servdonto",
+    }));
+  }, []);
+
+  const activeRows = useMemo(
+    () => (network === "general" ? [...rows, ...externalRows] : rows),
+    [rows, externalRows, network],
+  );
+
   const specialtyOptions = useMemo(() => {
-    return [...new Set(rows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+    return [...new Set(activeRows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [activeRows]);
 
   const stateOptions = useMemo(() => BR_STATES, []);
 
   const cityOptions = useMemo(() => {
-    const source = stateFilter === "all" ? rows : rows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
+    const source =
+      stateFilter === "all"
+        ? activeRows
+        : activeRows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
     return [...new Set(source.map((r) => r.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
-  }, [rows, stateFilter]);
+  }, [activeRows, stateFilter]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return rows.filter((r) => {
+    return activeRows.filter((r) => {
       const searchMatch = !term
         ? true
         : [
@@ -229,7 +271,7 @@ export default function OperatorProfessionals() {
       const cityMatch = cityFilter === "all" || (r.city ?? "").toLowerCase() === cityFilter.toLowerCase();
       return searchMatch && specialtyMatch && stateMatch && cityMatch && typeMatch;
     });
-  }, [rows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
+  }, [activeRows, q, specialtyFilter, stateFilter, cityFilter, professionalType]);
 
   const handleContact = (phone: string | null) => {
     if (!phone) return;
@@ -475,6 +517,30 @@ export default function OperatorProfessionals() {
               <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-5">Encontre clínicas e profissionais da sua rede credenciada no mapa.</p>
+            <div className="mb-4 inline-flex w-full rounded-xl border border-border/60 bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setNetwork("iaclin")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  network === "iaclin"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Busca na IACLIN
+              </button>
+              <button
+                type="button"
+                onClick={() => setNetwork("general")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  network === "general"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Rede Geral
+              </button>
+            </div>
             <div className="space-y-3">
               <div className="relative">
                 <Search className="h-4 w-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2 z-10" />
@@ -576,7 +642,7 @@ export default function OperatorProfessionals() {
 
       {/* Floating back button (after search) */}
       {searched && (
-        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550]">
+        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550] flex items-center gap-2">
           <Button
             variant="secondary"
             size="icon"
@@ -587,6 +653,30 @@ export default function OperatorProfessionals() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          <div className="inline-flex rounded-xl border border-border/60 bg-background/90 p-1 shadow-xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setNetwork("iaclin")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                network === "iaclin"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              IACLIN
+            </button>
+            <button
+              type="button"
+              onClick={() => setNetwork("general")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                network === "general"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Rede Geral
+            </button>
+          </div>
         </div>
       )}
 
