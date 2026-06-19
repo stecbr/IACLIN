@@ -14,6 +14,7 @@ import "leaflet/dist/leaflet.css";
 import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
+import { EXTERNAL_CLINICS, SERVDONTO_LOGO_URL } from "@/data/externalClinics";
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -38,6 +39,7 @@ type ClinicSearchRow = {
     specialties: string[];
   }>;
   specialties: string[];
+  source?: "iaclin" | "servdonto";
 };
 
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
