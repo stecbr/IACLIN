@@ -244,13 +244,7 @@ export function AppSidebar() {
       .map((item) => item.url === '/ferramentas' && toolsUrl !== '/ferramentas' ? { ...item, url: toolsUrl } : item)
   );
 
-  let finalClinicNav = isDentist && dynamicMap
-    ? [
-        ...filteredClinicNav.slice(0, 2),
-        { title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon, categories: ALL_CATEGORIES, allowedRoles: ['dentist'] as Role[] },
-        ...filteredClinicNav.slice(2),
-      ]
-    : filteredClinicNav;
+  let finalClinicNav = filteredClinicNav;
 
   const { data: todayCount = 0 } = useQuery({
     queryKey: ['today-apt-count', currentClinicId],

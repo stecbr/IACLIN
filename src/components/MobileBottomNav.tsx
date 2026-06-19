@@ -55,21 +55,17 @@ export function MobileBottomNav() {
   const allMoreItems = isDentist
     ? [
         { title: 'Ferramentas', url: '/ferramentas', icon: isPsi ? Brain : Briefcase },
-        ...(dynamicMap ? [{ title: dynamicMap.label, url: '/mapa-clinico', icon: dynamicMap.icon }] : []),
         ...(isPsi ? [] : [{ title: 'Orçamentos', url: '/budgets', icon: ClipboardList }]),
       ]
     : [
         { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen },
-        { title: 'Odontograma', url: '/odontogram', icon: FileHeart, categories: ['odonto'] },
         { title: 'Orçamentos', url: '/budgets', icon: ClipboardList },
         { title: 'Secretária IA', url: '/secretaria-ia', icon: Bot },
         { title: 'Configurações', url: '/settings', icon: Settings },
       ];
 
   const mainItems = filterNavItems(allMainItems);
-  const moreItems = filterNavItems(
-    allMoreItems.filter((item) => !('categories' in item) || item.categories.includes(clinicCategory))
-  );
+  const moreItems = filterNavItems(allMoreItems);
 
   const isActive = (url: string) => {
     if (url === '/') return location.pathname === '/';
