@@ -563,9 +563,9 @@ export default function OperatorProfessionals() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="z-[1000]">
-                      <SelectItem value="all">Selecione</SelectItem>
                       <SelectItem value="medico">Médicos</SelectItem>
                       <SelectItem value="dentista">Dentistas</SelectItem>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -576,7 +576,7 @@ export default function OperatorProfessionals() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="z-[1000]">
-                      <SelectItem value="all">Selecione</SelectItem>
+                      <SelectItem value="all">Todas as especialidades</SelectItem>
                       {specialtyOptions.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
@@ -598,7 +598,7 @@ export default function OperatorProfessionals() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="z-[1000]">
-                      <SelectItem value="all">Selecione</SelectItem>
+                      <SelectItem value="all">Todas as UFs</SelectItem>
                       {stateOptions.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
@@ -614,7 +614,7 @@ export default function OperatorProfessionals() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="z-[1000]">
-                      <SelectItem value="all">Selecione</SelectItem>
+                      <SelectItem value="all">Todas as cidades</SelectItem>
                       {cityOptions.map((c) => (
                         <SelectItem key={c} value={c}>
                           {c}
