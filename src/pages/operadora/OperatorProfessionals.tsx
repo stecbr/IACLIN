@@ -642,7 +642,7 @@ export default function OperatorProfessionals() {
 
       {/* Floating back button (after search) */}
       {searched && (
-        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550]">
+        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550] flex items-center gap-2">
           <Button
             variant="secondary"
             size="icon"
@@ -653,6 +653,30 @@ export default function OperatorProfessionals() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          <div className="inline-flex rounded-xl border border-border/60 bg-background/90 p-1 shadow-xl backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setNetwork("iaclin")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                network === "iaclin"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              IACLIN
+            </button>
+            <button
+              type="button"
+              onClick={() => setNetwork("general")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                network === "general"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Rede Geral
+            </button>
+          </div>
         </div>
       )}
 
