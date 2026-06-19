@@ -15,6 +15,7 @@ import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { EXTERNAL_CLINICS, SERVDONTO_LOGO_URL } from "@/data/externalClinics";
+import { lookupManausCoords } from "@/data/manausCoords";
 
 type ClinicSearchRow = {
   clinic_id: string;
