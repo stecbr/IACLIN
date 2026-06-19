@@ -15,6 +15,7 @@ import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
 import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { EXTERNAL_CLINICS } from "@/data/externalClinics";
+import { lookupManausCoords } from "@/data/manausCoords";
 
 const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
 
@@ -80,6 +81,37 @@ const MAP_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}
 const DARK_MAP_FILTER = "brightness(0.20) contrast(1.35) sepia(1) saturate(4) hue-rotate(178deg)";
 const DARK_MAP_BACKGROUND = "#0a1020";
 const DARK_LOGO_BACKGROUND = "#142447";
+
+const getAdaptiveMarkerSize = (zoom: number) => {
+  if (zoom <= 8) return 32;
+  if (zoom <= 11) return 36;
+  return 44;
+};
+
+const getSpreadOffset = (index: number, total: number, markerSize: number) => {
+  if (total <= 1) return L.point(0, 0);
+  const step = markerSize * 0.72;
+  if (total === 2) return L.point(index === 0 ? -step / 2 : step / 2, 0);
+  if (total === 3) {
+    const angle = -Math.PI / 2 + index * ((Math.PI * 2) / 3);
+    return L.point(Math.cos(angle) * step, Math.sin(angle) * step);
+  }
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const angle = index * goldenAngle - Math.PI / 2;
+  const radius = step * Math.sqrt(index + 1);
+  return L.point(Math.cos(angle) * radius, Math.sin(angle) * radius);
+};
+
+const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
+  if (clinic.city?.toLowerCase() === "manaus") {
+    const [lat, lng] = lookupManausCoords(clinic.neighborhood);
+    return { lat, lng };
+  }
+  return null;
+};
+
+const isManausLikeCoords = (coords: { lat: number; lng: number }) =>
+  coords.lat >= -3.25 && coords.lat <= -2.9 && coords.lng >= -60.16 && coords.lng <= -59.86;
 
 export default function OperatorProfessionals() {
   const navigate = useNavigate();
@@ -287,10 +319,12 @@ export default function OperatorProfessionals() {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const lastFitSignatureRef = useRef<string>("");
   const [coords, setCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [geocodeProgress, setGeocodeProgress] = useState({ done: 0, total: 0 });
+  const [mapRevision, setMapRevision] = useState(0);
   const { resolved } = useTheme();
 
   // Init map once
@@ -309,6 +343,7 @@ export default function OperatorProfessionals() {
       tilePane.style.filter = resolved === "dark" ? DARK_MAP_FILTER : "";
       tilePane.style.backgroundColor = resolved === "dark" ? DARK_MAP_BACKGROUND : "";
     }
+    map.on("zoomend", () => setMapRevision((v) => v + 1));
     mapInstanceRef.current = map;
     return () => {
       map.remove();
@@ -386,8 +421,13 @@ export default function OperatorProfessionals() {
           const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
           if (cancelled) return;
           setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
-          if (c) {
-            buffer.push([r.clinic_id, c]);
+          const fallbackCoords = resolveFallbackCoords(r);
+          const resolvedCoords =
+            r.source === "servdonto" && c && !isManausLikeCoords(c)
+              ? fallbackCoords
+              : c ?? fallbackCoords;
+          if (resolvedCoords) {
+            buffer.push([r.clinic_id, resolvedCoords]);
             scheduleFlush();
           }
         }
@@ -412,28 +452,31 @@ export default function OperatorProfessionals() {
     markersRef.current.forEach((m) => map.removeLayer(m));
     markersRef.current.clear();
 
+    const zoom = map.getZoom();
+    const markerSize = getAdaptiveMarkerSize(zoom);
+    const markerAnchorX = markerSize / 2;
+    const markerAnchorY = markerSize + 6;
     const bounds: L.LatLng[] = [];
-    // Track positions to jitter overlapping markers (clinics geocoded to same city centroid)
-    const seenKeys = new Map<string, number>();
-    filtered.forEach((clinic) => {
-      const c = coords.get(clinic.clinic_id);
-      if (!c) return;
-      const key = `${c.lat.toFixed(4)}|${c.lng.toFixed(4)}`;
-      const seen = seenKeys.get(key) ?? 0;
-      seenKeys.set(key, seen + 1);
-      // Apply spiral offset for duplicates so stacked pins are visible
-      let lat = c.lat;
-      let lng = c.lng;
-      if (seen > 0) {
-        // Only nudge true duplicates (same address) — keep it tiny (~30m)
-        // so the pin stays at the real location, never lands in the river.
-        const angle = seen * 137.5 * (Math.PI / 180); // golden angle
-        const radius = 0.0003 * Math.sqrt(seen); // ~30m step
-        lat += Math.cos(angle) * radius;
-        lng += Math.sin(angle) * radius;
-      }
-      const latlng = L.latLng(lat, lng);
-      bounds.push(latlng);
+    const visibleClinics = filtered
+      .map((clinic) => ({ clinic, coords: coords.get(clinic.clinic_id) }))
+      .filter((item): item is { clinic: ClinicSearchRow; coords: { lat: number; lng: number } } => Boolean(item.coords));
+    const groups = new Map<string, Array<{ clinic: ClinicSearchRow; coords: { lat: number; lng: number } }>>();
+    visibleClinics.forEach((item) => {
+      const point = map.project([item.coords.lat, item.coords.lng], zoom);
+      const key = `${Math.round(point.x / (markerSize * 1.45))}|${Math.round(point.y / (markerSize * 1.45))}`;
+      const prev = groups.get(key) ?? [];
+      groups.set(key, [...prev, item]);
+    });
+
+    visibleClinics.forEach(({ clinic, coords: c }) => {
+      const point = map.project([c.lat, c.lng], zoom);
+      const key = `${Math.round(point.x / (markerSize * 1.45))}|${Math.round(point.y / (markerSize * 1.45))}`;
+      const group = groups.get(key) ?? [];
+      const groupIndex = group.findIndex((item) => item.clinic.clinic_id === clinic.clinic_id);
+      const offset = getSpreadOffset(Math.max(groupIndex, 0), group.length, markerSize);
+      const visualLatLng = map.unproject(point.add(offset), zoom);
+      const realLatLng = L.latLng(c.lat, c.lng);
+      bounds.push(realLatLng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
       const logoBg =
         clinic.source === "servdonto"
@@ -441,27 +484,29 @@ export default function OperatorProfessionals() {
           : resolved === "dark"
             ? DARK_LOGO_BACKGROUND
             : "#fff";
-      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
+      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};padding:${clinic.source === "servdonto" ? 4 : 0}px;" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 2px 4px rgba(0,0,0,.18);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
-        iconSize: [44, 50],
-        iconAnchor: [22, 50],
+        html: `<div style="position:relative;width:${markerSize}px;height:${markerSize}px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 2px 5px rgba(0,0,0,.14);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
+        iconSize: [markerSize, markerSize + 6],
+        iconAnchor: [markerAnchorX, markerAnchorY],
       });
-      const marker = L.marker(latlng, { icon }).addTo(map);
+      const marker = L.marker(visualLatLng, { icon }).addTo(map);
       marker.on("click", () => {
         setSelectedId(clinic.clinic_id);
-        map.setView(latlng, Math.max(map.getZoom(), 14), { animate: true });
+        map.setView(realLatLng, Math.max(map.getZoom(), 14), { animate: true });
       });
       markersRef.current.set(clinic.clinic_id, marker);
     });
 
-    if (bounds.length > 0 && !selectedId) {
+    const fitSignature = `${searched}|${network}|${filtered.map((item) => item.clinic_id).join("|")}`;
+    if (bounds.length > 0 && !selectedId && lastFitSignatureRef.current !== fitSignature) {
+      lastFitSignatureRef.current = fitSignature;
       const b = L.latLngBounds(bounds).pad(0.3);
-      map.fitBounds(b, { animate: false, maxZoom: 14 });
+      map.fitBounds(b, { animate: false, maxZoom: network === "general" ? 12 : 14 });
     }
     setTimeout(() => map.invalidateSize(), 50);
-  }, [filtered, coords, resolved]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered, coords, resolved, mapRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selected = useMemo(() => filtered.find((c) => c.clinic_id === selectedId) ?? null, [filtered, selectedId]);
 

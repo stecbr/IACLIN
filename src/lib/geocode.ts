@@ -3,11 +3,12 @@ const inflight = new Map<string, Promise<{ lat: number; lng: number } | null>>()
 // v2: previous version persisted null results, which permanently hid clinics
 // whose first geocode attempt failed (rate-limit, transient network). v2 only
 // persists successful coords; nulls live in-memory for this session only.
-const LS_KEY = "geocode-cache-v3";
+const LS_KEY = "geocode-cache-v4";
 try {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem("geocode-cache-v1");
     window.localStorage.removeItem("geocode-cache-v2");
+    window.localStorage.removeItem("geocode-cache-v3");
   }
 } catch { /* ignore */ }
 
@@ -97,6 +98,12 @@ export async function geocodeAddress(
     // and avoids Nominatim picking the wrong street when the name is fuzzy.
     let coords: { lat: number; lng: number } | null = null;
     if (zipCode) coords = await fetchBrasilApiCep(zipCode);
+    if (!coords && street && city) {
+      const structuredParams: Record<string, string> = { street, city };
+      if (state) structuredParams.state = state;
+      if (zipCode) structuredParams.postalcode = zipCode;
+      coords = await fetchNominatim(structuredParams);
+    }
     if (!coords) coords = await fetchNominatim({ q: key });
     if (!coords && city) {
       const cityParams: Record<string, string> = { city };
