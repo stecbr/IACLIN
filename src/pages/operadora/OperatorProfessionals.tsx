@@ -440,7 +440,8 @@ export default function OperatorProfessionals() {
       let lng = c.lng;
       if (seen > 0) {
         const angle = seen * 137.5 * (Math.PI / 180); // golden angle
-        const radius = 0.004 * Math.sqrt(seen); // ~400m per step
+        // Spread overlapping markers wider so each one stays visible from afar.
+        const radius = 0.012 * Math.sqrt(seen); // ~1.2km step, grows with stack
         lat += Math.cos(angle) * radius;
         lng += Math.sin(angle) * radius;
       }
@@ -451,7 +452,7 @@ export default function OperatorProfessionals() {
       const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 8px 18px rgba(0,0,0,.35);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
+        html: `<div style="position:relative;width:44px;height:44px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 2px 4px rgba(0,0,0,.18);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,
         iconSize: [44, 50],
         iconAnchor: [22, 50],
       });
