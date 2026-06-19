@@ -92,13 +92,12 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
   const handleSubscribe = async (planId: string) => {
     setCheckoutLoading(planId);
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-create-checkout', {
+      const { data, error } = await supabase.functions.invoke('mercadopago-create-subscription', {
         body: {
           plan_id: planId,
           entity_type: entityType,
           entity_id: entityId,
           success_url: `${window.location.origin}/settings?tab=subscription&status=success`,
-          cancel_url: `${window.location.origin}/settings?tab=subscription&status=cancelled`,
         },
       });
       if (error) throw error;
@@ -110,21 +109,18 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
     }
   };
 
-  const handleOpenPortal = async () => {
+  const handleCancelSubscription = async () => {
+    if (!confirm('Tem certeza que deseja cancelar sua assinatura? O acesso permanece até o fim do período pago.')) return;
     setPortalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-customer-portal', {
-        body: {
-          entity_type: entityType,
-          entity_id: entityId,
-          return_url: `${window.location.origin}/settings?tab=subscription`,
-        },
+      const { error } = await supabase.functions.invoke('mercadopago-cancel-subscription', {
+        body: { entity_type: entityType, entity_id: entityId },
       });
       if (error) throw error;
-      if (data?.url) window.location.href = data.url;
-      else throw new Error('URL do portal não retornada');
+      toast.success('Assinatura cancelada.');
+      window.location.reload();
     } catch (e: any) {
-      toast.error('Erro ao abrir portal: ' + (e?.message ?? 'desconhecido'));
+      toast.error('Erro ao cancelar: ' + (e?.message ?? 'desconhecido'));
     } finally {
       setPortalLoading(false);
     }
@@ -272,16 +268,30 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={handleOpenPortal}
-              disabled={portalLoading}
-            >
-              {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              Gerenciar assinatura
-            </Button>
+            {(subscription as any).mp_init_point && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                asChild
+              >
+                <a href={(subscription as any).mp_init_point} target="_blank" rel="noreferrer">
+                  <CreditCard className="h-4 w-4" /> Atualizar cartão
+                </a>
+              </Button>
+            )}
+            {isActive && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-destructive hover:text-destructive"
+                onClick={handleCancelSubscription}
+                disabled={portalLoading}
+              >
+                {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Cancelar assinatura
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -26,9 +26,11 @@ import { useLocation } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import { useClinicBranding } from '@/hooks/useClinicBranding';
+import { IaclinWordmark } from '@/components/IaclinWordmark';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -491,7 +493,7 @@ export function AppSidebar() {
       {/* ── Header: Logo + Perfil ── */}
       <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60 gap-0">
         {/* Logo */}
-        <div className="flex items-center gap-3 mb-0">
+        <div className="flex items-center gap-2 mb-0">
           {(() => {
             const iaclinSrc  = resolved === 'dark' ? logoDark : logoLight;
             const showIaclin = !(hideIaclinLogo && logoUrl);
@@ -505,6 +507,7 @@ export function AppSidebar() {
               </div>
             );
           })()}
+          {!collapsed && <IaclinWordmark size="md" />}
         </div>
 
         {/* Perfil do usuário */}

@@ -12,8 +12,9 @@ import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -34,6 +35,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { IaclinWordmark } from '@/components/IaclinWordmark';
 
 const mainNav = [
   { title: 'Dashboard', url: '/paciente', icon: LayoutDashboard, end: true },
@@ -96,7 +98,7 @@ export function PatientSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {collapsed ? (
             <img
               src={resolved === 'dark' ? logoDark : logoLight}
@@ -104,11 +106,14 @@ export function PatientSidebar() {
               className="h-8 w-8 object-contain flex-shrink-0"
             />
           ) : (
-            <img
-              src={resolved === 'dark' ? logoDark : logoLight}
-              alt="IACLIN"
-              className="h-8 object-contain"
-            />
+            <>
+              <img
+                src={resolved === 'dark' ? logoDark : logoLight}
+                alt="IACLIN"
+                className="h-8 object-contain"
+              />
+              <IaclinWordmark size="md" />
+            </>
           )}
         </div>
 

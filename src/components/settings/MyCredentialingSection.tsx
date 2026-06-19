@@ -16,7 +16,7 @@ import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landma
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
-import iaclinDefaultLogo from '@/assets/iaclin-default-logo.png.asset.json';
+import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
 
 type Operator = {
   id: string;
@@ -785,24 +785,7 @@ export default function MyCredentialingSection() {
               <h4 className="text-sm font-semibold">Procedimentos para esta operadora</h4>
               <p className="text-xs text-muted-foreground">
                 Selecione os procedimentos que você quer atender por este convênio.
-                Você pode usar sua lista da clínica ou puxar os procedimentos diretamente da tabela publicada pela operadora.
               </p>
-              <div className="inline-flex rounded-md border border-border p-0.5 bg-muted/40">
-                <button
-                  type="button"
-                  onClick={() => setProcSource('clinic')}
-                  className={`px-3 py-1.5 text-xs rounded ${procSource === 'clinic' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'}`}
-                >
-                  Lista da clínica
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProcSource('operator')}
-                  className={`px-3 py-1.5 text-xs rounded ${procSource === 'operator' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'}`}
-                >
-                  Lista da operadora
-                </button>
-              </div>
 
               {procSource === 'clinic' ? (
                 <div className="max-h-48 overflow-y-auto rounded-md border border-border p-2 space-y-1">

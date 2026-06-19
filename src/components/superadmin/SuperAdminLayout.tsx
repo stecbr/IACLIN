@@ -17,8 +17,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
-import logoLight from '@/assets/logo-light.png';
-import logoDark from '@/assets/logo-dark.png';
+import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
+const logoLight = iaclinLogoAsset.url;
+const logoDark = iaclinLogoAsset.url;
 import {
   Sidebar,
   SidebarContent,
@@ -42,6 +43,7 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 import { ArrowRight } from 'lucide-react';
+import { IaclinWordmark } from '@/components/IaclinWordmark';
 
 const nav = [
   { to: '/superadmin',               label: 'Visão Geral',    icon: LayoutDashboard, end: true },
@@ -74,6 +76,7 @@ function SuperAdminSidebar() {
             alt="IACLIN"
             className={collapsed ? 'h-8 w-8 object-contain flex-shrink-0' : 'h-8 object-contain'}
           />
+          {!collapsed && <IaclinWordmark size="md" />}
           {!collapsed && (
             <span className="text-[10px] font-bold text-primary border-l border-sidebar-border/60 pl-2 ml-1 uppercase tracking-wider">
               Super Admin
