@@ -17,7 +17,6 @@ import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
 import { EXTERNAL_CLINICS } from "@/data/externalClinics";
 
 const GENERAL_NETWORK_LOGO_BG = "#F5F7FA";
-import { lookupManausCoords } from "@/data/manausCoords";
 
 type ClinicSearchRow = {
   clinic_id: string;
@@ -343,25 +342,10 @@ export default function OperatorProfessionals() {
         setGeocodeProgress({ done: 0, total: 0 });
         return;
       }
-      // External (Servdonto / Rede Geral) clinics use bundled neighborhood
-      // coordinates — no network roundtrip. Seed them synchronously so the
-      // progress bar only counts IACLIN clinics that need real geocoding.
-      const externalPending = filtered.filter(
-        (r) => r.source === "servdonto" && !coords.has(r.clinic_id),
-      );
-      if (externalPending.length > 0) {
-        setCoords((prev) => {
-          const next = new Map(prev);
-          for (const r of externalPending) {
-            const [lat, lng] = lookupManausCoords(r.neighborhood);
-            next.set(r.clinic_id, { lat, lng });
-          }
-          return next;
-        });
-      }
-      const pending = filtered.filter(
-        (r) => r.source !== "servdonto" && !coords.has(r.clinic_id),
-      );
+      // Geocode every clinic (IACLIN + Rede Geral) with its real street
+      // address so pins land exactly at the right place — no more
+      // neighborhood-centroid + jitter pushing markers into the river.
+      const pending = filtered.filter((r) => !coords.has(r.clinic_id));
       if (pending.length === 0) {
         setMapLoading(false);
         setGeocodeProgress({ done: 0, total: 0 });
@@ -441,9 +425,10 @@ export default function OperatorProfessionals() {
       let lat = c.lat;
       let lng = c.lng;
       if (seen > 0) {
+        // Only nudge true duplicates (same address) — keep it tiny (~30m)
+        // so the pin stays at the real location, never lands in the river.
         const angle = seen * 137.5 * (Math.PI / 180); // golden angle
-        // Spread overlapping markers wider so each one stays visible from afar.
-        const radius = 0.012 * Math.sqrt(seen); // ~1.2km step, grows with stack
+        const radius = 0.0003 * Math.sqrt(seen); // ~30m step
         lat += Math.cos(angle) * radius;
         lng += Math.sin(angle) * radius;
       }
