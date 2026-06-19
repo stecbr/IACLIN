@@ -18,7 +18,6 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const COLUMNS = [
   { id: 'pending', label: 'Pendente', bar: 'bg-amber-400' },
-  { id: 'negotiating', label: 'Em Negociação', bar: 'bg-blue-400' },
   { id: 'approved', label: 'Aprovado', bar: 'bg-emerald-400' },
   { id: 'lost', label: 'Perdido', bar: 'bg-rose-400' },
 ];

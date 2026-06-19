@@ -19,12 +19,21 @@ import {
   WaitingRoomCard,
   type WaitingRoomAppointment,
 } from '@/components/waiting-room/WaitingRoomCard';
+import { FinishPaymentDialog, type FinishProcedure } from '@/components/attendance/FinishPaymentDialog';
 
 export default function WaitingRoom() {
   const { currentClinicId } = useAuth();
   const queryClient = useQueryClient();
   const [doctorFilter, setDoctorFilter] = useState<string>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [paymentApt, setPaymentApt] = useState<{
+    id: string;
+    patientId: string;
+    patientName: string;
+    patientInsuranceProvider: string | null;
+    procedures: FinishProcedure[];
+  } | null>(null);
+  const [loadingPayment, setLoadingPayment] = useState(false);
 
   const todayStart = startOfDay(new Date()).toISOString();
   const todayEnd = endOfDay(new Date()).toISOString();
@@ -154,6 +163,57 @@ export default function WaitingRoom() {
     }
   };
 
+  const handleRegisterPayment = async (appointmentId: string) => {
+    setLoadingPayment(true);
+    try {
+      // Verifica se já existe transação financeira para esta consulta
+      const { data: existingTx } = await supabase
+        .from('financial_transactions')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .limit(1)
+        .maybeSingle();
+      if (existingTx) {
+        toast.info('Esta consulta já possui um lançamento financeiro. Edite em Financeiro.');
+        return;
+      }
+
+      // Carrega procedimentos do prontuário desta consulta
+      const { data: apt, error: aptErr } = await supabase
+        .from('appointments')
+        .select('id, patient_id, patients(full_name, insurance_provider)')
+        .eq('id', appointmentId)
+        .single();
+      if (aptErr) throw aptErr;
+
+      const { data: record } = await supabase
+        .from('clinical_records')
+        .select('id, clinical_record_procedures(procedure_id, price, procedures(name, code))')
+        .eq('appointment_id', appointmentId)
+        .maybeSingle();
+
+      const procedures: FinishProcedure[] = ((record as any)?.clinical_record_procedures ?? []).map((p: any) => ({
+        procedure_id: p.procedure_id ?? '',
+        name: p.procedures?.name ?? 'Procedimento',
+        code: p.procedures?.code ?? null,
+        price: Number(p.price) || 0,
+      }));
+
+      setPaymentApt({
+        id: appointmentId,
+        patientId: (apt as any).patient_id,
+        patientName: (apt as any).patients?.full_name ?? 'Paciente',
+        patientInsuranceProvider: (apt as any).patients?.insurance_provider ?? null,
+        procedures,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar dados de pagamento';
+      toast.error(msg);
+    } finally {
+      setLoadingPayment(false);
+    }
+  };
+
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
@@ -273,6 +333,7 @@ export default function WaitingRoom() {
                 onMarkInService={(id) => updatePresence(id, 'in_service')}
                 onMarkFinished={(id) => updatePresence(id, 'finished')}
                 onMarkNoShow={(id) => updatePresence(id, 'no_show')}
+                onRegisterPayment={handleRegisterPayment}
               />
             ))
           )}
@@ -284,6 +345,24 @@ export default function WaitingRoom() {
           icon={Users}
           title="Nenhuma consulta hoje"
           description="Quando houver agendamentos para o dia, eles aparecerão aqui."
+        />
+      )}
+
+      {paymentApt && (
+        <FinishPaymentDialog
+          open={!!paymentApt}
+          onOpenChange={(o) => { if (!o) setPaymentApt(null); }}
+          appointmentId={paymentApt.id}
+          patientId={paymentApt.patientId}
+          patientName={paymentApt.patientName}
+          clinicId={currentClinicId ?? null}
+          patientInsuranceProvider={paymentApt.patientInsuranceProvider}
+          procedures={paymentApt.procedures}
+          onCompleted={() => {
+            setPaymentApt(null);
+            queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+            queryClient.invalidateQueries({ queryKey: ['waiting-room'] });
+          }}
         />
       )}
     </div>

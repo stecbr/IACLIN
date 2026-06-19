@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope, FolderHeart } from 'lucide-react';
+import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope, FolderHeart, Wallet } from 'lucide-react';
 import { WaitingTimer } from './WaitingTimer';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +32,7 @@ interface Props {
   onMarkInService: (id: string) => void;
   onMarkFinished: (id: string) => void;
   onMarkNoShow: (id: string) => void;
+  onRegisterPayment?: (id: string) => void;
   busyId?: string | null;
 }
 
@@ -41,6 +42,7 @@ export function WaitingRoomCard({
   onMarkInService,
   onMarkFinished,
   onMarkNoShow,
+  onRegisterPayment,
   busyId,
 }: Props) {
   const navigate = useNavigate();
@@ -179,16 +181,29 @@ export function WaitingRoomCard({
           </Button>
         )}
         {presence === 'in_service' && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 gap-1.5 h-9"
-            onClick={() => onMarkFinished(appointment.id)}
-            disabled={isBusy}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Finalizar
-          </Button>
+          <>
+            {onRegisterPayment && (
+              <Button
+                size="sm"
+                className="flex-1 gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => onRegisterPayment(appointment.id)}
+                disabled={isBusy}
+              >
+                <Wallet className="h-4 w-4" />
+                Registrar pagamento
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-9"
+              onClick={() => onMarkFinished(appointment.id)}
+              disabled={isBusy}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Finalizar
+            </Button>
+          </>
         )}
       </div>
     </Card>
