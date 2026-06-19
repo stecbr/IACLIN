@@ -279,7 +279,7 @@ const AppRoutes = () => (
     <Route path="/clinica/credenciamentos" element={<ProtectedRoute><ClinicaCredentialings /></ProtectedRoute>} />
     <Route path="/clinica/convenios" element={<ProtectedRoute><ClinicaConvenios /></ProtectedRoute>} />
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
-    <Route path="/mapa-clinico" element={<ProtectedRoute><ClinicalMapPage /></ProtectedRoute>} />
+    <Route path="/mapa-clinico" element={<Navigate to="/" replace />} />
     <Route path="/ferramentas" element={<ProtectedRoute><ToolsHomeUnified /></ProtectedRoute>} />
     <Route path="/psi/ferramentas" element={<Navigate to="/ferramentas" replace />} />
     <Route path="/estetica/ferramentas" element={<Navigate to="/ferramentas" replace />} />
