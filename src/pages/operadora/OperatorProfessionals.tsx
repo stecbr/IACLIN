@@ -238,6 +238,8 @@ export default function OperatorProfessionals() {
       neighborhood: c.neighborhood,
       zip_code: c.zip_code,
       professionals_count: c.professionals.length,
+      lat: c.lat,
+      lng: c.lng,
       professionals: c.professionals.map((p, i) => ({
         user_id: `${c.id}-${i}`,
         full_name: p.name,
@@ -413,6 +415,12 @@ export default function OperatorProfessionals() {
           const i = cursor++;
           if (i >= pending.length) return;
           const r = pending[i];
+          if (r.source === "servdonto" && typeof r.lat === "number" && typeof r.lng === "number") {
+            setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
+            buffer.push([r.clinic_id, { lat: r.lat, lng: r.lng }]);
+            scheduleFlush();
+            continue;
+          }
           const c = await geocodeAddress(r.address, r.city, r.state, r.zip_code, r.address_number, r.neighborhood);
           if (cancelled) return;
           setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
