@@ -110,6 +110,9 @@ const resolveFallbackCoords = (clinic: ClinicSearchRow) => {
   return null;
 };
 
+const isManausLikeCoords = (coords: { lat: number; lng: number }) =>
+  coords.lat >= -3.25 && coords.lat <= -2.9 && coords.lng >= -60.16 && coords.lng <= -59.86;
+
 export default function OperatorProfessionals() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
