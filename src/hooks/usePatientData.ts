@@ -103,6 +103,8 @@ export function usePatientData() {
           .from('documents')
           .select('id, name, file_url, file_type, category, created_at, patient_id')
           .in('patient_id', patientIds)
+          .not('category', 'eq', 'doctor_folder')
+          .not('category', 'ilike', 'doctor_file:%')
           .order('created_at', { ascending: false }),
       ]);
 

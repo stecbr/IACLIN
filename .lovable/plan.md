@@ -1,77 +1,38 @@
+## Três problemas, três correções
 
-## Problemas identificados
+### 1. PDF "Resumo de Atendimento" sai em branco
 
-1. **Pacientes/Exames (área do paciente) não mostra os pedidos feitos no atendimento.**
-   - O atendimento salva pedidos com kinds: `lab_exam`, `imaging_exam`, `prescription`, `referral`.
-   - A página `PatientExams.tsx` só lê: `prescription`, `referral`, `doc_exam_request`, `doc_prescription`, `doc_referral`, `doc_certificate`.
-   - Resultado: **exames laboratoriais e de imagem ficam invisíveis** para o paciente.
+**Causa:** `htmlToPdfBlob` injeta um documento completo (`<!DOCTYPE><html><head><body>`) dentro de um `<div>` via `innerHTML`. O navegador descarta as tags `html/head/body`, então as regras CSS `body { padding: 40px; ... }` e o background nunca se aplicam — html2canvas captura uma área praticamente vazia.
 
-2. **Resumo do atendimento não fica salvo em lugar nenhum como PDF.**
-   - Hoje, ao finalizar, o `AttendanceSummaryModal` abre. O botão "Exportar PDF" só faz `window.open + print` — nada é guardado.
-   - O médico precisa que, ao finalizar o atendimento, o sistema **automaticamente** crie uma pasta nos "Arquivos privados" do paciente (aba **Arquivos** em `/patients/:id`) nomeada com a data/hora da consulta, e salve dentro dela:
-     - Resumo do Atendimento (PDF)
-     - Receituário (PDF) — se houver prescrição
-     - Solicitação de Exames (PDF) — se houver lab_exam/imaging_exam
-     - Encaminhamento (PDF) — se houver referral
-     - Atestado (PDF) — se houver
+**Fix em `src/lib/htmlToPdfBlob.ts`:** renderizar o HTML dentro de um `<iframe>` oculto (com `srcdoc`), esperar o load, e passar `iframe.contentDocument.body` para o html2pdf. Assim o documento inteiro (estilos, body, layout) é interpretado corretamente. Limpar o iframe ao final.
 
-## O que vai ser feito
+### 2. Pasta "Consulta …" e "Resumo de Atendimento.pdf" aparecem para o PACIENTE (em "Outros")
 
-### 1. Exibir exames/encaminhamentos no prontuário do paciente
+**Causa:** `archiveAttendanceFiles` insere os documentos do médico em `documents` com o `patient_id` correto. O `usePatientData` carrega todos os documentos por `patient_id` sem filtrar a categoria, então os arquivos privados do médico vazam para a aba "Meus Exames" do paciente.
 
-**`src/pages/patient/PatientExams.tsx`**
-- Acrescentar handling para `kind === 'lab_exam'` e `kind === 'imaging_exam'` no `recordDocs` query — agrupar como "Solicitação de exames" (mesma estrutura `ExamRequestFromRecord`), montando `exams: [payload.name]`, `indication: payload.justification`.
-- Já existe handling de `prescription` e `referral` — confirmar que aparecem na lista filtrada.
+**Fix em `src/hooks/usePatientData.ts`:** ao buscar `documents`, excluir as categorias internas do médico (`doctor_folder` e qualquer `doctor_file:%`) com `.not('category','eq','doctor_folder').not('category','ilike','doctor_file:%')`. Esses arquivos continuam visíveis na aba Arquivos do prontuário (PatientFiles), só não vazam para o paciente.
 
-### 2. Gerar PDFs como Blob (não só print)
+### 3. Receitas / Exames / Encaminhamentos / Atestados não aparecem na conta do paciente
 
-Adicionar dependência leve **`html2pdf.js`** (wraps jsPDF + html2canvas, ~300 KB) para converter HTML em Blob no navegador.
+**Causa:** as políticas RLS de `clinical_records` e `clinical_record_requests` só permitem SELECT para **membros da clínica**. A conta do paciente (`patient_accounts.user_id`) não é membro, então `PatientExams.tsx` recebe array vazio nessas queries.
 
-Refatorar geradores para expor uma função `buildXxxBlob()` (paralela ao `generateXxxPdf()` que dá print). Usar o mesmo HTML interno:
-- `src/lib/generateAttendancePdf.ts` → adicionar `buildAttendancePdfBlob(data): Promise<Blob>`
-- `src/lib/generatePrescriptionPdf.ts` → `buildPrescriptionPdfBlob(...)`
-- `src/lib/generateExamRequestPdf.ts` → `buildExamRequestPdfBlob(...)`
-- `src/lib/generateReferralPdf.ts` → `buildReferralPdfBlob(...)`
-- `src/lib/generateCertificatePdf.ts` → `buildCertificatePdfBlob(...)`
+**Fix via migration:** adicionar policies de SELECT que permitam o paciente-conta ler os próprios registros:
 
-### 3. Auto-arquivar na finalização do atendimento
+- `clinical_records`: SELECT autorizado quando `EXISTS (SELECT 1 FROM patients p WHERE p.id = clinical_records.patient_id AND p.patient_user_id = auth.uid())`.
+- `clinical_record_requests`: SELECT autorizado quando o `clinical_record_id` referido pertence a um `clinical_records` com o mesmo vínculo acima.
 
-**`src/pages/Attendance.tsx` → função `handleFinish`** (depois de marcar `appointment.status = 'completed'`, antes do `toast.success`):
-
-1. Chamar nova função `archiveAttendanceFiles({ appointment, record, requests, user, ... })` (novo módulo `src/lib/archiveAttendanceFiles.ts`).
-2. Ela faz:
-   - `INSERT documents` (folder) com:
-     - `patient_id`, `uploaded_by = user.id`
-     - `file_type = 'folder'`, `category = 'doctor_folder'`
-     - `name = "Consulta {dd/MM/yyyy HH:mm}"`
-   - Para cada PDF: gera Blob → `supabase.storage.from('patient-files').upload(path, blob)` (path: `{patientId}/consultas/{folderId}/{slug}.pdf`) → `INSERT documents` com `category = 'doctor_file:{folderId}'`, `name = "Resumo de Atendimento.pdf"` etc., `file_type = 'application/pdf'`, `file_url = path`.
-3. Falhas individuais não bloqueiam a finalização — só mostram `toast.warning`.
-
-A aba **Arquivos** (`PatientFiles.tsx`) já lê `doctor_folder` + `doctor_file:{folderId}` — vai aparecer automaticamente.
-
-### 4. Não duplicar quando re-finalizar
-
-Antes de criar a pasta, checar se já existe uma pasta `doctor_folder` para este `appointment_id` — guardar `appointment_id` num campo. Como `documents` não tem essa coluna, vou usar uma convenção no `name` (`Consulta {data} #appt:{id8}`) ou criar uma migration adicionando `appointment_id` na tabela `documents` (preferido — mais limpo).
-
-**Migration**: adicionar coluna `appointment_id uuid null` em `public.documents` + índice. Sem mudança de RLS (já existente cobre por paciente/uploader).
-
-## Resumo técnico (para devs)
-
-| Arquivo | Mudança |
-|---|---|
-| `package.json` | + `html2pdf.js` |
-| `src/lib/generateAttendancePdf.ts` | + `buildAttendancePdfBlob` |
-| `src/lib/generatePrescriptionPdf.ts` | + `buildPrescriptionPdfBlob` |
-| `src/lib/generateExamRequestPdf.ts` | + `buildExamRequestPdfBlob` |
-| `src/lib/generateReferralPdf.ts` | + `buildReferralPdfBlob` |
-| `src/lib/generateCertificatePdf.ts` | + `buildCertificatePdfBlob` |
-| `src/lib/archiveAttendanceFiles.ts` | **novo** — orquestra blob → storage → documents |
-| `src/pages/Attendance.tsx` | chamar `archiveAttendanceFiles` no `handleFinish` |
-| `src/pages/patient/PatientExams.tsx` | reconhecer `lab_exam`/`imaging_exam` |
-| Migration | `ALTER TABLE public.documents ADD COLUMN appointment_id uuid;` + índice |
+Sem alterar as policies existentes de INSERT/UPDATE/DELETE — o paciente só lê.
 
 ## Fora do escopo
 
-- Não mexer no fluxo da secretária / financeiro.
-- Não mexer no modal de resumo nem nos botões manuais de PDF existentes (continuam funcionando via `window.print`).
-- Não regenerar PDFs para atendimentos antigos — só novos atendimentos finalizados a partir da implementação.
+- Não mexer no fluxo de finalização, no `AttendanceSummaryModal`, nem nos PDFs avulsos (continuam usando `window.print`).
+- Não regenerar PDFs antigos.
+- Não alterar `PatientFiles.tsx` (a pasta do médico continua aparecendo lá, para o médico).
+
+## Resumo técnico
+
+| Arquivo | Mudança |
+|---|---|
+| `src/lib/htmlToPdfBlob.ts` | renderizar em iframe oculto via `srcdoc` e gerar PDF a partir do `body` do iframe |
+| `src/hooks/usePatientData.ts` | filtrar `doctor_folder` e `doctor_file:%` do select de `documents` |
+| nova migration | policies de SELECT em `clinical_records` e `clinical_record_requests` para `patient_user_id = auth.uid()` |
