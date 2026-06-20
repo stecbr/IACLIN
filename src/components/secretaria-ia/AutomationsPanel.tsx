@@ -97,17 +97,6 @@ const AUTOMATION_DEFS: Array<{
   },
 ];
 
-// Exemplo renderizado p/ a prévia "como o paciente recebe" (sem mostrar {}).
-function renderPreview(message: string, clinicName: string): string {
-  return (message || '')
-    .replace(/\{patient_name\}/g, 'Maria')
-    .replace(/\{date\}/g, '10/06/2026')
-    .replace(/\{time\}/g, '10:00')
-    .replace(/\{doctor\}/g, 'Dr. Carlos')
-    .replace(/\{procedure\}/g, 'Limpeza')
-    .replace(/\{clinic_name\}/g, clinicName || 'sua clínica');
-}
-
 function normalize(payload: unknown): AutomationRecord[] {
   const arr = Array.isArray(payload)
     ? payload
@@ -259,16 +248,6 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
   const [returnDays, setReturnDays] = useState<string>(String((record as any)?.return_after_days ?? 180));
   // Editor de texto fica ESCONDIDO por padrão — fluxo comum é só ligar.
   const [editing, setEditing] = useState<boolean>(false);
-
-  // Nome da clínica para a prévia "como o paciente recebe".
-  const { data: clinicName = '' } = useQuery({
-    queryKey: ['clinic-name', clinicId],
-    enabled: !!clinicId,
-    queryFn: async () => {
-      const { data } = await supabase.from('clinics').select('name').eq('id', clinicId).maybeSingle();
-      return (data as any)?.name ?? '';
-    },
-  });
 
   // Avisos de dados faltando: só relevantes quando a automação está ativa e há
   // pacientes cadastrados. Mostra quantos ficarão de fora por falta de dado.
