@@ -358,16 +358,6 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
 
         {/* Mensagem: prévia pronta + edição opcional (escondida por padrão) */}
         <div className="space-y-2">
-          {/* Prévia "como o paciente recebe" — sem mostrar {} */}
-          <div className={cn('rounded-lg border p-2.5', active ? 'bg-primary/5 border-primary/20' : 'bg-muted/40')}>
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Como o paciente recebe
-            </p>
-            <p className="text-sm leading-snug text-foreground/90">
-              {renderPreview(message, clinicName)}
-            </p>
-          </div>
-
           {/* Aniversário: anexar imagem (cartão) */}
           {isBirthday && (
             <div className="space-y-1.5">
