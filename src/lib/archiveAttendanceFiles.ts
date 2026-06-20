@@ -38,13 +38,14 @@ async function uploadPdf(
     .from(BUCKET)
     .upload(path, blob, { contentType: 'application/pdf', upsert: false });
   if (upErr) throw upErr;
-  const { error: dbErr } = await supabase.from('documents').insert({
+  const row: any = {
     ...documentInsertBase,
     name,
     file_url: path,
     file_type: 'application/pdf',
     category: `doctor_file:${folderId}`,
-  });
+  };
+  const { error: dbErr } = await supabase.from('documents').insert(row);
   if (dbErr) throw dbErr;
 }
 
