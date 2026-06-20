@@ -1,4 +1,3 @@
-// @ts-expect-error - html2pdf.js has no types
 import html2pdf from 'html2pdf.js';
 
 /**
@@ -19,9 +18,9 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
     const opt = {
       margin: 0,
       filename,
-      image: { type: 'jpeg', quality: 0.95 },
+      image: { type: 'jpeg' as const, quality: 0.95 },
       html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const },
     };
     const blob: Blob = await html2pdf().set(opt).from(container).outputPdf('blob');
     return blob;
