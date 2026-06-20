@@ -1,38 +1,49 @@
-## Três problemas, três correções
+## Diagnóstico
 
-### 1. PDF "Resumo de Atendimento" sai em branco
+1. **Documentos vem pré-preenchido ao abrir um novo atendimento**
+   `DocumentsTab.tsx` salva um rascunho em `localStorage` na chave `doc-draft-${patientId}-${today}` e o restaura no mount. Como a chave usa só paciente + dia, qualquer atendimento aberto no mesmo dia mostra o que foi digitado antes — mesmo após finalizar a consulta anterior.
 
-**Causa:** `htmlToPdfBlob` injeta um documento completo (`<!DOCTYPE><html><head><body>`) dentro de um `<div>` via `innerHTML`. O navegador descarta as tags `html/head/body`, então as regras CSS `body { padding: 40px; ... }` e o background nunca se aplicam — html2canvas captura uma área praticamente vazia.
+2. **PDF “Resumo de Atendimento.pdf” sai em texto cru (image-269)**
+   O `htmlToPdfBlob` renderiza via `<iframe srcdoc>` e passa `iframe.contentDocument.body` para `html2pdf`. Internamente o html2pdf cria um clone do elemento num container fora do iframe — o clone fica sem as regras `<style>` que estavam no `<head>` do `srcdoc`, então o canvas captura só texto sem CSS (sem cabeçalho colorido, sem grid, sem tabela). O fluxo de impressão da consulta (image-270) funciona porque usa `window.open` + `window.print` no HTML completo.
 
-**Fix em `src/lib/htmlToPdfBlob.ts`:** renderizar o HTML dentro de um `<iframe>` oculto (com `srcdoc`), esperar o load, e passar `iframe.contentDocument.body` para o html2pdf. Assim o documento inteiro (estilos, body, layout) é interpretado corretamente. Limpar o iframe ao final.
+3. **“Documentos Médicos” do botão “Imprimir documentos” não aparecem na pasta do paciente nem na visão do paciente**
+   - `DocumentsTab.handlePrint` só abre um `window.open` para imprimir e grava `clinical_record_requests` (`doc_exam_request`, `doc_prescription`, `doc_referral`, `doc_certificate`). Não gera nenhum PDF salvo em `documents`/Storage, então nada vai para `patients/Arquivos/Consulta dd/mm/aaaa`.
+   - `PatientExams` e `PatientRecord` já leem esses `doc_*` corretamente — o que faltava aparecer realmente são os PDFs físicos arquivados.
 
-### 2. Pasta "Consulta …" e "Resumo de Atendimento.pdf" aparecem para o PACIENTE (em "Outros")
+## Mudanças
 
-**Causa:** `archiveAttendanceFiles` insere os documentos do médico em `documents` com o `patient_id` correto. O `usePatientData` carrega todos os documentos por `patient_id` sem filtrar a categoria, então os arquivos privados do médico vazam para a aba "Meus Exames" do paciente.
+### 1. `src/lib/htmlToPdfBlob.ts` — renderização fiel
+Substituir a abordagem do iframe por uma que preserva o CSS:
+- Extrair `<style>` + `<body>` do HTML completo (usar o mesmo padrão de `extractHtmlParts`).
+- Criar um container `div` fixo fora da tela, com `width: 210mm`, `background:#fff`, injetar `<style>...</style>` + body do documento dentro dele (mantendo o CSS no escopo desse container).
+- Aguardar `document.fonts.ready` e `Promise.all(images.map(loaded))` antes de capturar.
+- Passar esse `div` para `html2pdf().set({ ... pagebreak: { mode: ['css','legacy'] } }).from(el).outputPdf('blob')`.
+- Limpar o container no `finally`.
 
-**Fix em `src/hooks/usePatientData.ts`:** ao buscar `documents`, excluir as categorias internas do médico (`doctor_folder` e qualquer `doctor_file:%`) com `.not('category','eq','doctor_folder').not('category','ilike','doctor_file:%')`. Esses arquivos continuam visíveis na aba Arquivos do prontuário (PatientFiles), só não vazam para o paciente.
+Isso replica o mesmo HTML que vai para `window.print` (image-270), agora em PDF.
 
-### 3. Receitas / Exames / Encaminhamentos / Atestados não aparecem na conta do paciente
+### 2. `src/components/attendance/DocumentsTab.tsx` — arquivar “Documentos Médicos”
+Em `handlePrint`, após gerar o `combined` HTML e abrir o `window.print`, **também** gerar `htmlToPdfBlob(combined, 'Documentos Médicos.pdf')` e fazer upload na mesma pasta da consulta do paciente. Para reutilizar a lógica de pasta (idempotente por `appointment_id`), extrair de `archiveAttendanceFiles.ts` um helper exportado `ensureConsultationFolder({ patientId, userId, appointmentId, startTime })` que devolve o `folderId`, e exportar `uploadPdfToFolder(...)`. Em seguida usar essas duas funções no `DocumentsTab`.
 
-**Causa:** as políticas RLS de `clinical_records` e `clinical_record_requests` só permitem SELECT para **membros da clínica**. A conta do paciente (`patient_accounts.user_id`) não é membro, então `PatientExams.tsx` recebe array vazio nessas queries.
+Requisitos no DocumentsTab para isso funcionar:
+- Adicionar prop opcional `appointmentId?: string` e `appointmentStartTime?: string`. Atendimento.tsx já tem ambos — passar no JSX.
+- Só arquivar quando `appointmentId` existir e houver ao menos um documento preenchido. Falhas reportadas via `toast`, sem bloquear a impressão.
 
-**Fix via migration:** adicionar policies de SELECT que permitam o paciente-conta ler os próprios registros:
+### 3. `src/components/attendance/DocumentsTab.tsx` — não pré-preencher novo atendimento
+- Trocar a chave de rascunho `doc-draft-${patientId}-${today}` por `doc-draft-${appointmentId}` (fallback ao formato antigo se `appointmentId` ausente, para não quebrar telas sem agendamento).
+- Limpar `localStorage.removeItem(draftKey)` ao final de `handlePrint` bem-sucedido **e** quando o atendimento é finalizado.
+- Em `src/pages/Attendance.tsx#handleFinish`, depois do archive, também remover a chave `doc-draft-${appointmentId}`.
 
-- `clinical_records`: SELECT autorizado quando `EXISTS (SELECT 1 FROM patients p WHERE p.id = clinical_records.patient_id AND p.patient_user_id = auth.uid())`.
-- `clinical_record_requests`: SELECT autorizado quando o `clinical_record_id` referido pertence a um `clinical_records` com o mesmo vínculo acima.
+### 4. Nenhuma mudança em RLS, schema, ou no fluxo de finalização
+O `archiveAttendanceFiles` continua sendo chamado em `handleFinish`. A correção do `htmlToPdfBlob` automaticamente faz com que o “Resumo de Atendimento.pdf” saia bonito como em image-270 e que os “Documentos Médicos.pdf” arquivados saiam idênticos ao print.
 
-Sem alterar as policies existentes de INSERT/UPDATE/DELETE — o paciente só lê.
+## Arquivos editados
+- `src/lib/htmlToPdfBlob.ts` (reescrito)
+- `src/lib/archiveAttendanceFiles.ts` (exportar `ensureConsultationFolder` + `uploadPdfToFolder`)
+- `src/components/attendance/DocumentsTab.tsx` (chave do draft por `appointmentId`, arquivar PDF combinado, limpar draft)
+- `src/pages/Attendance.tsx` (passar `appointmentId`/`startTime` para `DocumentsTab`, limpar draft de docs em `handleFinish`)
 
-## Fora do escopo
-
-- Não mexer no fluxo de finalização, no `AttendanceSummaryModal`, nem nos PDFs avulsos (continuam usando `window.print`).
-- Não regenerar PDFs antigos.
-- Não alterar `PatientFiles.tsx` (a pasta do médico continua aparecendo lá, para o médico).
-
-## Resumo técnico
-
-| Arquivo | Mudança |
-|---|---|
-| `src/lib/htmlToPdfBlob.ts` | renderizar em iframe oculto via `srcdoc` e gerar PDF a partir do `body` do iframe |
-| `src/hooks/usePatientData.ts` | filtrar `doctor_folder` e `doctor_file:%` do select de `documents` |
-| nova migration | policies de SELECT em `clinical_records` e `clinical_record_requests` para `patient_user_id = auth.uid()` |
+## Fora de escopo
+- Mudar layout de qualquer PDF.
+- Mexer em RLS já adicionadas (`patient_user_id`) — elas já permitem o paciente ver os `clinical_record_requests`.
+- Mexer no `AttendanceSummaryModal`, no `window.print`, ou no `PatientFiles.tsx`.
