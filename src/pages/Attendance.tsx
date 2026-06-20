@@ -640,6 +640,68 @@ export default function Attendance() {
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
+
+      // Auto-arquivar PDFs (resumo + receituário + exames + encaminhamentos)
+      // na pasta privada do médico do paciente. Falhas não bloqueiam.
+      (async () => {
+        try {
+          const symptomDuration = durationValue.trim()
+            ? `${durationValue} ${durationUnit}`
+            : null;
+          const { failures } = await archiveAttendanceFiles({
+            appointmentId: appointment.id,
+            patientId: appointment.patient_id,
+            clinicId: currentClinicId ?? null,
+            userId: user.id,
+            startTime: (appointment as any).start_time,
+            requests,
+            attendance: {
+              appointment: {
+                start_time: (appointment as any).start_time,
+                procedures: (appointment as any).procedures ?? null,
+              },
+              record: {
+                chief_complaint: chiefComplaint,
+                history_present_illness: hpi,
+                symptom_duration: symptomDuration,
+                physical_exam: physicalExam,
+                vital_signs: vitalSigns as Record<string, unknown>,
+                hypotheses: hypotheses
+                  .filter((h) => h.text.trim())
+                  .map((h) => ({ text: h.text, cid: h.cid10 || null })),
+                diagnosis,
+                severity,
+                treatment_plan: treatmentPlan,
+                follow_up_date: followUpDate || null,
+                follow_up_reason: followUpReason,
+                notes: clinicalNotes,
+                procedures: procedures
+                  .filter((p) => p.procedure_id || (p.is_manual && p.custom_name.trim()))
+                  .map((p) => ({
+                    name: p.custom_name || 'Procedimento',
+                    tooth: p.tooth_number,
+                    price: p.price,
+                    notes: p.notes,
+                  })),
+              },
+              patient: {
+                full_name: (appointment as any).patients?.full_name ?? 'Paciente',
+                cpf: (appointment as any).patients?.cpf ?? null,
+                date_of_birth: (appointment as any).patients?.date_of_birth ?? null,
+              },
+            },
+          });
+          if (failures.length === 0) {
+            toast.success('Documentos arquivados nos Arquivos do paciente.');
+          } else {
+            toast.warning(`Alguns documentos não foram arquivados: ${failures.join(' • ')}`);
+          }
+          queryClient.invalidateQueries({ queryKey: ['patient-private-folders', appointment.patient_id, user.id] });
+        } catch (e: any) {
+          toast.warning('Não foi possível arquivar os PDFs automaticamente: ' + (e.message ?? e));
+        }
+      })();
+
       setFinishedNavigatePending(true);
       // Pagamento NÃO é responsabilidade do médico — fica a cargo da secretária
       // através da Sala de Espera. Aqui apenas exibimos o resumo do atendimento.
