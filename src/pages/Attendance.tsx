@@ -258,6 +258,23 @@ export default function Attendance() {
     enabled: !!appointmentId,
   });
 
+  // Load patient's current medications from anamnese (for drug interaction alerts)
+  const patientId = (appointment as any)?.patient_id as string | undefined;
+  const { data: patientMedications } = useQuery({
+    queryKey: ['anamnese-medications', patientId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('anamneses')
+        .select('medications')
+        .eq('patient_id', patientId!)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data?.medications as string | null) ?? null;
+    },
+    enabled: !!patientId,
+  });
+
   // Odontogram tab shows only when the professional's own specialty profile includes it
   const showOdontogram = tabKeys.includes('odontogram');
 
@@ -826,7 +843,7 @@ export default function Attendance() {
         </TabsContent>
 
         <TabsContent value="requests">
-          <RequestsEditor items={requests} onChange={setRequests} />
+          <RequestsEditor items={requests} onChange={setRequests} patientMedications={patientMedications} />
         </TabsContent>
 
         {/* Clinical Notes Tab */}

@@ -1,17 +1,16 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, FlaskConical, Scan, Pill, Send, Copy, Sparkles } from 'lucide-react';
+import { Plus, Trash2, FlaskConical, Scan, Pill, Send, Copy, Sparkles, AlertTriangle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DEFAULT_PRESCRIPTION_TEMPLATES } from '@/lib/prescriptionTemplates';
 import { searchMedications, MEDICATION_SUGGESTIONS, type MedicationSuggestion } from '@/lib/medicationSuggestions';
+import { checkDrugInteractions, SEVERITY_LABELS, SEVERITY_STYLES } from '@/lib/drugInteractions';
 import { cn } from '@/lib/utils';
 
 export type RequestKind = 'lab_exam' | 'imaging_exam' | 'prescription' | 'referral';
@@ -26,6 +25,7 @@ interface Props {
   items: RequestItem[];
   onChange: (items: RequestItem[]) => void;
   readOnly?: boolean;
+  patientMedications?: string | null;
 }
 
 const KIND_META: Record<RequestKind, { label: string; icon: typeof FlaskConical; color: string }> = {
@@ -35,7 +35,7 @@ const KIND_META: Record<RequestKind, { label: string; icon: typeof FlaskConical;
   referral:    { label: 'Encaminhamentos',      icon: Send,         color: 'text-amber-500 bg-amber-500/10' },
 };
 
-export function RequestsEditor({ items, onChange, readOnly }: Props) {
+export function RequestsEditor({ items, onChange, readOnly, patientMedications }: Props) {
   const byKind = (k: RequestKind) => items.filter((i) => i.kind === k);
 
   const add = (kind: RequestKind) => {
@@ -142,6 +142,7 @@ export function RequestsEditor({ items, onChange, readOnly }: Props) {
         updateMany={updateMany}
         readOnly={readOnly}
         preview={prescriptionPreview(item.payload)}
+        patientMedications={patientMedications}
       />
     );
   };
@@ -236,16 +237,23 @@ function PrescriptionItemEditor({
   updateMany,
   readOnly,
   preview,
+  patientMedications,
 }: {
   item: RequestItem;
   update: (id: string, field: string, value: string) => void;
   updateMany: (id: string, patch: Record<string, string>) => void;
   readOnly?: boolean;
   preview: string | null;
+  patientMedications?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const results = searchMedications(query, 10);
+
+  const interactions = useMemo(() => {
+    if (!patientMedications || !item.payload.medication) return [];
+    return checkDrugInteractions(item.payload.medication, patientMedications);
+  }, [item.payload.medication, patientMedications]);
 
   const select = (m: MedicationSuggestion) => {
     updateMany(item.id, {
@@ -324,6 +332,28 @@ function PrescriptionItemEditor({
       </div>
       {preview && (
         <p className="text-[11px] text-muted-foreground italic pl-0.5">{preview}</p>
+      )}
+      {interactions.length > 0 && (
+        <div className="space-y-1 pt-0.5">
+          {interactions.map((inter, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs',
+                SEVERITY_STYLES[inter.severity]
+              )}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="font-semibold">{SEVERITY_LABELS[inter.severity]}:</span>{' '}
+                {inter.description}
+                <span className="ml-1 opacity-70">
+                  ({inter.drugs.join(' + ')})
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
