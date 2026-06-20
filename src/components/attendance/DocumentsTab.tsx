@@ -498,6 +498,26 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
           await supabase.from('clinical_record_requests').insert(toInsert);
         }
       }
+
+      // Arquiva PDF "Documentos Médicos" na pasta da consulta do paciente
+      if (appointmentId && appointmentStartTime && user) {
+        try {
+          const folderId = await ensureConsultationFolder({
+            patientId, userId: user.id, appointmentId, startTime: appointmentStartTime,
+          });
+          await uploadPdfToFolder({
+            patientId, userId: user.id, appointmentId, folderId,
+            slug: 'documentos-medicos',
+            name: 'Documentos Médicos.pdf',
+            html: combined,
+          });
+        } catch (e: any) {
+          toast.warning('Documentos impressos, mas falhou arquivar na pasta: ' + (e?.message ?? e));
+        }
+      }
+
+      // Limpa rascunho — esta sessão de documentos foi concluída
+      try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar documentos.');
     } finally {
