@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import {
   Printer, ChevronLeft, ChevronRight,
   ClipboardList, Pill, Send, FileText,
-  Plus, Trash2, Check,
+  Plus, Trash2, Check, RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -385,6 +385,13 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
     emitCert,
   ];
 
+  const clearCurrentStep = () => {
+    if (step === 0) { setExams(['']); setExamIndication(''); }
+    if (step === 1) { setRxItems([{ ...EMPTY_RX }]); setRxNotes(''); }
+    if (step === 2) { setRefSpecialty(''); setRefUrgency('rotina'); setRefReason(''); setRefSummary(''); }
+    if (step === 3) { setEmitCert(false); setCertMode('attendance'); setCertDate(today); setCertStart(''); setCertEnd(''); setLeaveStart(today); setLeaveDays('1'); setCertCid(''); setCertCidEdited(false); setCertNotes(''); }
+  };
+
   const filledCount = hasData.filter(Boolean).length;
 
   // Print all filled docs — ONE window, one page per document
@@ -507,9 +514,16 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Exames solicitados</Label>
-              <Button variant="ghost" size="sm" onClick={() => setExams(p => [...p, ''])} className="gap-1 h-7 text-xs">
-                <Plus className="h-3 w-3" /> Adicionar
-              </Button>
+              <div className="flex items-center gap-1">
+                {hasData[0] && (
+                  <Button variant="ghost" size="sm" onClick={clearCurrentStep} className="gap-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <RotateCcw className="h-3 w-3" /> Limpar
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setExams(p => [...p, ''])} className="gap-1 h-7 text-xs">
+                  <Plus className="h-3 w-3" /> Adicionar
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               {exams.map((e, i) => (
@@ -543,9 +557,16 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Medicamentos</Label>
-            <Button variant="ghost" size="sm" onClick={() => setRxItems(p => [...p, { ...EMPTY_RX }])} className="gap-1 h-7 text-xs">
-              <Plus className="h-3 w-3" /> Adicionar
-            </Button>
+            <div className="flex items-center gap-1">
+              {hasData[1] && (
+                <Button variant="ghost" size="sm" onClick={clearCurrentStep} className="gap-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                  <RotateCcw className="h-3 w-3" /> Limpar
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => setRxItems(p => [...p, { ...EMPTY_RX }])} className="gap-1 h-7 text-xs">
+                <Plus className="h-3 w-3" /> Adicionar
+              </Button>
+            </div>
           </div>
           {rxItems.map((item, idx) => (
             <Card key={idx} className="border-border/60">
@@ -587,6 +608,14 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
       {/* ── Step 3: Encaminhamento ── */}
       {step === 2 && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Dados do encaminhamento</Label>
+            {(refSpecialty || refReason || refSummary) && (
+              <Button variant="ghost" size="sm" onClick={clearCurrentStep} className="gap-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                <RotateCcw className="h-3 w-3" /> Limpar
+              </Button>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm">Encaminhar para (especialidade)</Label>
@@ -619,6 +648,13 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
       {/* ── Step 4: Atestado ── */}
       {step === 3 && (
         <div className="space-y-4">
+          {emitCert && (
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={clearCurrentStep} className="gap-1 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                <RotateCcw className="h-3 w-3" /> Limpar
+              </Button>
+            </div>
+          )}
           <div className="flex items-center gap-3 rounded-xl border border-border p-4">
             <Switch checked={emitCert} onCheckedChange={setEmitCert} />
             <div>
