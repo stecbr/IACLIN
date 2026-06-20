@@ -122,16 +122,15 @@ export function PatientVitalsChart({ patientId }: { patientId: string }) {
 
   if (isLoading || points.length < 2) return null;
 
-  const charts: {
-    title: string; keys: VitalKey[]; labels: string[]; unit?: string;
-  }[] = [
+  type ChartCfg = { title: string; keys: VitalKey[]; labels: string[]; unit?: string };
+  const charts: ChartCfg[] = ([
     { title: 'Pressão Arterial (mmHg)',    keys: ['bp_sys', 'bp_dia'], labels: ['Sistólica', 'Diastólica'], unit: ' mmHg' },
     { title: 'Frequência Cardíaca (bpm)',  keys: ['hr'],               labels: ['FC'],                       unit: ' bpm'  },
     { title: 'Peso (kg)',                  keys: ['weight'],           labels: ['Peso'],                     unit: ' kg'   },
     { title: 'Glicemia (mg/dL)',           keys: ['glycemia'],         labels: ['Glicemia'],                 unit: ' mg/dL'},
     { title: 'Temperatura (°C)',           keys: ['temp'],             labels: ['Temp.'],                    unit: '°C'    },
     { title: 'SpO₂ (%)',                   keys: ['spo2'],             labels: ['SpO₂'],                     unit: '%'     },
-  ].filter(c => points.some(p => c.keys.some(k => (p as any)[k] != null)));
+  ] as ChartCfg[]).filter(c => points.some(p => c.keys.some(k => (p as any)[k] != null)));
 
   if (charts.length === 0) return null;
 

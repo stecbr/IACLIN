@@ -140,6 +140,23 @@ export default function PatientExams() {
           const p = req.payload as any;
           examRequests.push({ reqId: req.id, date: r.created_at, exams: p.exams ?? [], indication: p.indication || undefined, dentist, clinic, patient });
         }
+        // Pedidos individuais de exames (vindos da aba Atendimento -> RequestsEditor)
+        const labOrImg = reqs.filter((x: any) => x.kind === 'lab_exam' || x.kind === 'imaging_exam');
+        if (labOrImg.length > 0) {
+          const exams = labOrImg.map((req: any) => {
+            const p = req.payload ?? {};
+            const name = (p.name ?? '').toString();
+            const region = p.region ? ` — ${p.region}` : '';
+            return (name + region).trim();
+          }).filter(Boolean);
+          const indication = labOrImg
+            .map((req: any) => (req.payload?.justification ?? '').toString().trim())
+            .filter(Boolean)
+            .join(' | ') || undefined;
+          if (exams.length > 0) {
+            examRequests.push({ reqId: r.id + ':exams', date: r.created_at, exams, indication, dentist, clinic, patient });
+          }
+        }
         for (const req of reqs.filter((x: any) => x.kind === 'referral' || x.kind === 'doc_referral')) {
           const p = req.payload as any;
           referrals.push({ reqId: req.id, date: r.created_at, specialty: p.toSpecialty ?? p.specialty ?? '', reason: p.reason ?? '', summary: p.summary || undefined, urgency: p.urgency || undefined, dentist, clinic, patient });

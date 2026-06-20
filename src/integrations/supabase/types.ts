@@ -1203,6 +1203,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          appointment_id: string | null
           category: string | null
           created_at: string
           file_type: string | null
@@ -1213,6 +1214,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          appointment_id?: string | null
           category?: string | null
           created_at?: string
           file_type?: string | null
@@ -1223,6 +1225,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          appointment_id?: string | null
           category?: string | null
           created_at?: string
           file_type?: string | null
