@@ -97,7 +97,7 @@ const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'confi
     showBudgets: false,
   },
   generic: {
-    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes', 'documents'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes', 'documents'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: true,
