@@ -157,24 +157,25 @@ export default function PatientAppointments() {
                   {pendingRequests.map((r) => (
                     <Card key={r.id} className={r.status === 'pending' ? 'border-amber-500/30' : 'border-rose-500/30'}>
                       <CardContent className="p-4 flex items-start gap-3">
-                        {/* Avatares: dentista + clínica sobrepostos */}
-                        <div className="relative h-12 w-12 shrink-0">
-                          <Avatar className="h-12 w-12">
+                        {/* Dentista em cima, clínica embaixo */}
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                          <Avatar className="h-10 w-10">
                             <AvatarImage src={r.dentist?.avatar_url ?? undefined} />
                             <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                               {r.dentist?.full_name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() ?? '?'}
                             </AvatarFallback>
                           </Avatar>
-                          {r.clinics?.logo_url && (
+                          {r.clinics?.logo_url ? (
                             <img
                               src={r.clinics.logo_url}
                               alt={r.clinics.name}
-                              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-background object-cover bg-white"
+                              className="h-7 w-7 rounded-full border border-border object-cover bg-white"
                             />
-                          )}
-                          {!r.clinics?.logo_url && (
-                            <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center ${r.status === 'pending' ? 'bg-amber-500/10' : 'bg-rose-500/10'}`}>
-                              <Clock className={`h-2.5 w-2.5 ${r.status === 'pending' ? 'text-amber-600' : 'text-rose-500'}`} />
+                          ) : (
+                            <div className="h-7 w-7 rounded-full border border-border bg-muted flex items-center justify-center">
+                              <span className="text-[9px] font-bold text-muted-foreground leading-none text-center">
+                                {r.clinics?.name?.slice(0, 2).toUpperCase() ?? 'CL'}
+                              </span>
                             </div>
                           )}
                         </div>
