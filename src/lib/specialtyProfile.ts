@@ -55,13 +55,13 @@ export interface SpecialtyProfile {
 
 const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'config'>> = {
   odonto: {
-    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes', 'odontogram', 'documents'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'odontogram', 'diagnosis', 'procedures', 'documents', 'conduct', 'notes'],
     patientTabs: ['info', 'anamnese', 'odontogram', 'appointments', 'budgets', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: true,
     showBudgets: true,
   },
   medical: {
-    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'notes', 'documents'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'procedures', 'documents', 'conduct', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
@@ -97,7 +97,7 @@ const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'confi
     showBudgets: false,
   },
   generic: {
-    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes', 'documents'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'procedures', 'documents', 'conduct', 'notes'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: true,
