@@ -60,6 +60,7 @@ import { HandoffPanel } from '@/components/secretaria-ia/HandoffPanel';
 import { OverviewMetrics } from '@/components/secretaria-ia/OverviewMetrics';
 import { KnowledgeShortcuts } from '@/components/secretaria-ia/KnowledgeShortcuts';
 import { AutomationsPanel } from '@/components/secretaria-ia/AutomationsPanel';
+import { NpsPanel } from '@/components/secretaria-ia/NpsPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
@@ -868,6 +869,11 @@ export default function SecretariaIA() {
                 <span className="hidden sm:inline">Automações</span>
                 <span className="sm:hidden">Auto</span>
               </TabsTrigger>
+              <TabsTrigger value="nps" className="gap-1.5">
+                <Activity className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">NPS</span>
+                <span className="sm:hidden">NPS</span>
+              </TabsTrigger>
               <TabsTrigger value="transferencia" className="gap-1.5">
                 <UserCog className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Transferência</span>
@@ -1104,6 +1110,10 @@ export default function SecretariaIA() {
             {/* Automações */}
             <TabsContent value="automacoes" className="space-y-4">
               <AutomationsPanel clinicId={currentClinicId ?? null} />
+            </TabsContent>
+
+            <TabsContent value="nps" className="space-y-4">
+              <NpsPanel clinicId={currentClinicId ?? null} />
             </TabsContent>
 
 
