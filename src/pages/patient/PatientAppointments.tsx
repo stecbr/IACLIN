@@ -58,17 +58,22 @@ export default function PatientAppointments() {
     if (error) { console.error('[loadRequests]', error); return; }
     if (!data || data.length === 0) { setPendingRequests([]); return; }
 
-    // Fetch clinic names separately to avoid FK join issues
+    // Fetch clinic names + logos and dentist avatars separately
     const clinicIds = [...new Set(data.map((r: any) => r.clinic_id).filter(Boolean))];
-    const { data: clinics } = await supabase
-      .from('clinics')
-      .select('id, name')
-      .in('id', clinicIds);
+    const dentistIds = [...new Set(data.map((r: any) => r.dentist_id).filter(Boolean))];
+
+    const [{ data: clinics }, { data: dentists }] = await Promise.all([
+      supabase.from('clinics').select('id, name, logo_url').in('id', clinicIds),
+      supabase.from('profiles').select('id, full_name, avatar_url').in('id', dentistIds),
+    ]);
+
     const clinicMap = new Map((clinics ?? []).map((c: any) => [c.id, c]));
+    const dentistMap = new Map((dentists ?? []).map((d: any) => [d.id, d]));
 
     setPendingRequests(data.map((r: any) => ({
       ...r,
       clinics: clinicMap.get(r.clinic_id) ?? null,
+      dentist: dentistMap.get(r.dentist_id) ?? null,
     })));
   };
 
@@ -150,21 +155,43 @@ export default function PatientAppointments() {
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pedidos pendentes</p>
                   {pendingRequests.map((r) => (
-                    <Card key={r.id} className="border-amber-500/30">
+                    <Card key={r.id} className={r.status === 'pending' ? 'border-amber-500/30' : 'border-rose-500/30'}>
                       <CardContent className="p-4 flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                          <Clock className="h-4 w-4 text-amber-600" />
+                        {/* Avatares: dentista + clínica sobrepostos */}
+                        <div className="relative h-12 w-12 shrink-0">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={r.dentist?.avatar_url ?? undefined} />
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                              {r.dentist?.full_name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() ?? '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          {r.clinics?.logo_url && (
+                            <img
+                              src={r.clinics.logo_url}
+                              alt={r.clinics.name}
+                              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-background object-cover bg-white"
+                            />
+                          )}
+                          {!r.clinics?.logo_url && (
+                            <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center ${r.status === 'pending' ? 'bg-amber-500/10' : 'bg-rose-500/10'}`}>
+                              <Clock className={`h-2.5 w-2.5 ${r.status === 'pending' ? 'text-amber-600' : 'text-rose-500'}`} />
+                            </div>
+                          )}
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium truncate">{r.clinics?.name ?? 'Clínica'}</p>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{r.dentist?.full_name ?? 'Profissional'}</p>
+                              <p className="text-xs text-muted-foreground truncate">{r.clinics?.name ?? 'Clínica'}</p>
+                            </div>
                             {r.status === 'pending' ? (
-                              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">Aguardando</Badge>
+                              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 shrink-0">Aguardando</Badge>
                             ) : (
-                              <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-500/30">Recusado</Badge>
+                              <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-500/30 shrink-0">Recusado</Badge>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground capitalize">
+                          <p className="text-sm text-muted-foreground capitalize mt-1">
                             {format(parseISO(r.start_time), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}
                           </p>
                           {r.specialty && <p className="text-xs text-muted-foreground capitalize">{r.specialty}</p>}
