@@ -637,6 +637,8 @@ export default function Attendance() {
       if (aptError) throw aptError;
       endSession(appointment.id);
       clearDraft();
+      // Limpa o rascunho da aba Documentos desta consulta
+      try { localStorage.removeItem(`doc-draft-apt-${appointment.id}`); } catch { /* ignore */ }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
