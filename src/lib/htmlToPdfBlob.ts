@@ -29,8 +29,8 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
     const doc = iframe.contentDocument;
     if (!doc) throw new Error('Falha ao acessar o documento do iframe');
     try {
-      // @ts-expect-error fonts API
-      if (doc.fonts?.ready) await doc.fonts.ready;
+      const fonts = (doc as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts;
+      if (fonts?.ready) await fonts.ready;
     } catch { /* ignore */ }
     await new Promise((r) => setTimeout(r, 100));
 
