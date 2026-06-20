@@ -174,7 +174,7 @@ async function buildDoctorsBatch(clinicId: string) {
 async function buildPatientsBatch(clinicId: string): Promise<SyncPatientPayload[]> {
   const { data: patients } = await supabase
     .from('patients')
-    .select('id, full_name, phone, cpf, patient_user_id')
+    .select('id, full_name, phone, cpf, patient_user_id, date_of_birth')
     .eq('clinic_id', clinicId)
     .eq('is_active', true);
 
@@ -184,6 +184,7 @@ async function buildPatientsBatch(clinicId: string): Promise<SyncPatientPayload[
     phone: string | null;
     cpf: string | null;
     patient_user_id: string | null;
+    date_of_birth: string | null;
   }>;
   if (list.length === 0) return [];
 
@@ -254,6 +255,7 @@ async function buildPatientsBatch(clinicId: string): Promise<SyncPatientPayload[
       account_id: acc?.id ?? null,
       full_name: p.full_name,
       phone: acc?.phone ?? p.phone ?? null,
+      date_of_birth: p.date_of_birth ?? null,
       balance: balanceMap.get(p.id) ?? 0,
       last_appointment: last
         ? {

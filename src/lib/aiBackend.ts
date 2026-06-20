@@ -123,6 +123,7 @@ export interface SyncPatientPayload {
   account_id: string | null;
   full_name: string;
   phone: string | null;
+  date_of_birth: string | null; // YYYY-MM-DD — usado pela automação de aniversário
   balance: number;
   last_appointment: SyncPatientAppointmentRef | null;
   next_appointment: SyncPatientAppointmentRef | null;
