@@ -1667,6 +1667,130 @@ export type Database = {
           },
         ]
       }
+      nps_responses: {
+        Row: {
+          answered_at: string | null
+          appointment_id: string | null
+          category: string | null
+          clinic_id: string
+          comment: string | null
+          id: string
+          patient_id: string | null
+          patient_phone: string | null
+          score: number | null
+          sent_at: string
+          status: string
+          survey_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          appointment_id?: string | null
+          category?: string | null
+          clinic_id: string
+          comment?: string | null
+          id?: string
+          patient_id?: string | null
+          patient_phone?: string | null
+          score?: number | null
+          sent_at?: string
+          status?: string
+          survey_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          appointment_id?: string | null
+          category?: string | null
+          clinic_id?: string
+          comment?: string | null
+          id?: string
+          patient_id?: string | null
+          patient_phone?: string | null
+          score?: number | null
+          sent_at?: string
+          status?: string
+          survey_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_responses_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "nps_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nps_surveys: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          question: string
+          scale_max: number
+          scale_min: number
+          send_after_hours: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          question: string
+          scale_max?: number
+          scale_min?: number
+          send_after_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          question?: string
+          scale_max?: number
+          scale_min?: number
+          send_after_hours?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_surveys_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       odontogram_entries: {
         Row: {
           condition: string

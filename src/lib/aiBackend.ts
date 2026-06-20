@@ -387,6 +387,37 @@ export const aiBackend = {
       `/api/clinics/${clinicId}/conversations/${conversationId}`,
       { method: 'DELETE' },
     ),
+
+  // ============================================================
+  // NPS — pesquisas de satisfação enviadas pela IA
+  // ============================================================
+
+  /** Envia ao backend a lista de questionários NPS ativos da clínica. */
+  syncNpsSurveys: (payload: SyncNpsSurveysPayload) =>
+    request<{ ok: boolean }>(`/api/sync/nps-surveys`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Lista respostas captadas pelo backend ainda não gravadas no Supabase. */
+  getNpsPendingResults: (clinicId: string) =>
+    request<{ ok: boolean; data: AiNpsPendingResult[] }>(
+      `/api/clinics/${clinicId}/nps/pending-results`,
+    ),
+
+  /** Confirma ao backend que uma resposta foi gravada no Supabase. */
+  confirmNpsResultSync: (
+    clinicId: string,
+    pendingId: string,
+    supabaseId: string,
+  ) =>
+    request<{ ok: boolean }>(
+      `/api/clinics/${clinicId}/nps/pending-results/${pendingId}/sync-confirm`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ supabase_id: supabaseId }),
+      },
+    ),
 };
 
 // ============================================================
@@ -417,4 +448,34 @@ export interface AiAutomationInput {
   enabled: boolean;
   trigger: string;
   template: string;
+}
+
+// ============================================================
+// Tipos de NPS
+// ============================================================
+export interface SyncNpsSurvey {
+  id: string;
+  name: string;
+  question: string;
+  scale_min: number;
+  scale_max: number;
+  send_after_hours: number;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+export interface SyncNpsSurveysPayload {
+  clinic_id: string;
+  surveys: SyncNpsSurvey[];
+}
+
+export interface AiNpsPendingResult {
+  id: string;
+  survey_id?: string | null;
+  appointment_id?: string | null;
+  patient_id?: string | null;
+  patient_phone?: string | null;
+  score: number;
+  comment?: string | null;
+  answered_at?: string | null;
 }
