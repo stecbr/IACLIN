@@ -156,12 +156,11 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
           const region = p.region ? ` — ${p.region}` : '';
           return name + region;
         }).filter(Boolean),
-        indication: exams.map((r) => r.payload?.justification).filter(Boolean).join(' | ') || undefined,
-        urgency: exams.some((r) => r.payload?.urgency === 'urgent') ? 'prioritario' : 'rotina',
+        clinicalIndication: exams.map((r) => r.payload?.justification).filter(Boolean).join(' | ') || undefined,
         patient,
-        dentist: professionalForDocs,
+        doctor: professionalForDocs,
         clinic,
-      } as any);
+      });
       await uploadPdf(patientId, folderId!, 'solicitacao-exames', 'Solicitação de Exames.pdf', html, base);
     } catch (e: any) {
       failures.push(`Exames: ${e.message ?? e}`);
@@ -178,9 +177,9 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
         reason: p.reason ?? '',
         urgency: p.urgency === 'urgent' ? 'prioritario' : 'rotina',
         patient,
-        dentist: professionalForDocs,
+        doctor: professionalForDocs,
         clinic,
-      } as any);
+      });
       const slug = `encaminhamento-${(p.specialty ?? 'geral').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
       await uploadPdf(patientId, folderId!, slug, `Encaminhamento — ${p.specialty || 'Especialidade'}.pdf`, html, base);
     } catch (e: any) {
