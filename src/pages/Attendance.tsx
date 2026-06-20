@@ -40,6 +40,7 @@ import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
 import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
+import { archiveAttendanceFiles } from '@/lib/archiveAttendanceFiles';
 
 interface ProcedureRow {
   tempId: string;
