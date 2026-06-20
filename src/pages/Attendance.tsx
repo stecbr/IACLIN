@@ -637,6 +637,8 @@ export default function Attendance() {
       if (aptError) throw aptError;
       endSession(appointment.id);
       clearDraft();
+      // Limpa o rascunho da aba Documentos desta consulta
+      try { localStorage.removeItem(`doc-draft-apt-${appointment.id}`); } catch { /* ignore */ }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
@@ -1144,7 +1146,13 @@ export default function Attendance() {
 
         {tabKeys.includes('documents') && (
           <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden">
-            <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />
+            <DocumentsTab
+              patientId={appointment.patient_id}
+              hypotheses={hypotheses}
+              clinicalRecordId={clinicalRecordId ?? undefined}
+              appointmentId={appointment.id}
+              appointmentStartTime={(appointment as any).start_time}
+            />
           </TabsContent>
         )}
       </Tabs>

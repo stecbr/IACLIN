@@ -25,6 +25,8 @@ import { buildPrescriptionHtml } from '@/lib/generatePrescriptionPdf';
 import type { PrescriptionItem } from '@/lib/prescriptionTemplates';
 import { buildReferralHtml } from '@/lib/generateReferralPdf';
 import { buildCertificateHtml } from '@/lib/generateCertificatePdf';
+import { ensureConsultationFolder, uploadPdfToFolder } from '@/lib/archiveAttendanceFiles';
+import { htmlToPdfBlob } from '@/lib/htmlToPdfBlob';
 
 // ── Sugestões ───────────────────────────────────────────────────────────────
 
@@ -254,9 +256,11 @@ interface DocumentsTabProps {
   patientId: string;
   hypotheses?: Hypothesis[];
   clinicalRecordId?: string;
+  appointmentId?: string;
+  appointmentStartTime?: string;
 }
 
-export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: DocumentsTabProps) {
+export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime }: DocumentsTabProps) {
   const { user, currentClinicId } = useAuth();
   const [step, setStep] = useState(0);
   const [printing, setPrinting] = useState(false);
@@ -288,8 +292,9 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
   const [certCidEdited, setCertCidEdited] = useState(false);
   const [certNotes, setCertNotes] = useState('');
 
-  // Draft persistence key: patient + calendar day so different consultations don't clash
-  const draftKey = `doc-draft-${patientId}-${today}`;
+  // Draft persistence key: por agendamento (não vaza entre consultas do mesmo dia).
+  // Fallback antigo só quando não houver appointmentId (ex.: telas fora do fluxo).
+  const draftKey = appointmentId ? `doc-draft-apt-${appointmentId}` : `doc-draft-${patientId}-${today}`;
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Restore draft from localStorage on first mount
@@ -493,6 +498,26 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId }: Docume
           await supabase.from('clinical_record_requests').insert(toInsert);
         }
       }
+
+      // Arquiva PDF "Documentos Médicos" na pasta da consulta do paciente
+      if (appointmentId && appointmentStartTime && user) {
+        try {
+          const folderId = await ensureConsultationFolder({
+            patientId, userId: user.id, appointmentId, startTime: appointmentStartTime,
+          });
+          await uploadPdfToFolder({
+            patientId, userId: user.id, appointmentId, folderId,
+            slug: 'documentos-medicos',
+            name: 'Documentos Médicos.pdf',
+            html: combined,
+          });
+        } catch (e: any) {
+          toast.warning('Documentos impressos, mas falhou arquivar na pasta: ' + (e?.message ?? e));
+        }
+      }
+
+      // Limpa rascunho — esta sessão de documentos foi concluída
+      try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar documentos.');
     } finally {
