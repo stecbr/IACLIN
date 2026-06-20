@@ -166,9 +166,10 @@ export const appointmentStatusMap: Record<
   string,
   { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
 > = {
-  scheduled: { label: 'Agendada', variant: 'default' },
-  confirmed: { label: 'Confirmada', variant: 'default' },
-  completed: { label: 'Realizada', variant: 'secondary' },
-  cancelled: { label: 'Cancelada', variant: 'destructive' },
-  no_show: { label: 'Faltou', variant: 'destructive' },
+  pending:   { label: 'Aguardando aprovação', variant: 'outline' },
+  scheduled: { label: 'Agendada',             variant: 'default' },
+  confirmed: { label: 'Confirmada',            variant: 'default' },
+  completed: { label: 'Realizada',             variant: 'secondary' },
+  cancelled: { label: 'Cancelada',             variant: 'destructive' },
+  no_show:   { label: 'Faltou',               variant: 'destructive' },
 };

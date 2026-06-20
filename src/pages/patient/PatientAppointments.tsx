@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO, isFuture, isPast } from 'date-fns';
+import { format, parseISO, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Calendar, Plus, Loader2, Stethoscope, ChevronRight, Clock, History, CalendarCheck, Search, X,
+  Calendar, Plus, Loader2, ChevronRight, Clock, History, CalendarCheck, Search, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -167,7 +167,7 @@ export default function PatientAppointments() {
               )}
 
               {/* Upcoming appointments */}
-              {upcoming.length === 0 ? (
+              {upcoming.length === 0 && pendingRequests.length === 0 ? (
                 <EmptyState
                   icon={Calendar}
                   title="Nenhuma consulta agendada"
@@ -175,7 +175,7 @@ export default function PatientAppointments() {
                   actionLabel="Agendar agora"
                   onAction={() => navigate('/paciente/agendar')}
                 />
-              ) : (
+              ) : upcoming.length === 0 ? null : (
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {upcoming.length} consulta{upcoming.length > 1 ? 's' : ''} agendada{upcoming.length > 1 ? 's' : ''}
