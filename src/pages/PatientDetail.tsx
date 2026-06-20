@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette, MoreHorizontal, FolderOpen, Smile } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Edit, Calendar, CreditCard, Clock, ClipboardList, Plus, Heart, Image, MessageCircle, FileDown, Activity, Utensils, Brain, Stethoscope, Share2, Loader2, Star, Palette, MoreHorizontal, FolderOpen, Smile, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,10 +33,34 @@ import { openFullChartPdf, fetchFullChartData } from '@/lib/generateFullChartPdf
 import { SharePatientChartDialog } from '@/components/patients/SharePatientChartDialog';
 import { PatientPersonalizeMenu } from '@/components/patients/PatientPersonalizeMenu';
 import { usePatientPersonalization } from '@/hooks/usePatientPersonalization';
+import { PatientAlertsBar } from '@/components/attendance/PatientAlertsBar';
+import { PatientVitalsChart } from '@/components/patients/PatientVitalsChart';
+import { PatientPrescriptionHistory } from '@/components/patients/PatientPrescriptionHistory';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 import { formatCpf, formatPhone } from '@/lib/cpf';
+
+function ClinicalAlertsSection({ patientId }: { patientId: string }) {
+  const { data } = useQuery({
+    queryKey: ['attendance-alerts', patientId],
+    queryFn: async () => {
+      const { data } = await supabase.from('anamneses')
+        .select('allergies, medications, medical_conditions')
+        .eq('patient_id', patientId)
+        .order('updated_at', { ascending: false })
+        .limit(1).maybeSingle();
+      return data;
+    },
+    enabled: !!patientId,
+  });
+  if (!data || (!data.allergies && !data.medications && !data.medical_conditions)) return null;
+  return (
+    <div className="rounded-lg border border-rose-200/60 bg-rose-50/50 dark:border-rose-900/30 dark:bg-rose-950/10 px-4 py-2.5">
+      <PatientAlertsBar patientId={patientId} />
+    </div>
+  );
+}
 
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -302,6 +326,9 @@ export default function PatientDetail() {
 
       {id && <PatientFinancialSummary patientId={id} />}
 
+      {/* Alertas clínicos — alergias, condições, medicações em uso */}
+      {id && <ClinicalAlertsSection patientId={id} />}
+
       {/* Tabs */}
       <Tabs defaultValue={profile.patientTabs[0] ?? 'info'} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -359,11 +386,36 @@ export default function PatientDetail() {
                 <CardContent className="text-sm">{patient.notes}</CardContent>
               </Card>
             )}
+            {(patient.emergency_contact_name || patient.emergency_contact_phone) && (
+              <Card className="border-rose-200/50 dark:border-rose-900/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    Contato de Emergência
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {patient.emergency_contact_name && (
+                    <div><span className="text-muted-foreground">Nome:</span> <span className="font-medium">{patient.emergency_contact_name}</span></div>
+                  )}
+                  {patient.emergency_contact_phone && (
+                    <div>
+                      <span className="text-muted-foreground">Telefone:</span>{' '}
+                      <a href={`tel:${patient.emergency_contact_phone}`} className="font-medium text-primary hover:underline">
+                        {formatPhone(patient.emergency_contact_phone)}
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {id && <PatientVitalsChart patientId={id} />}
           </div>
         </TabsContent>
 
         <TabsContent value="anamnese">
           <PatientAnamnese patientId={id!} />
+          {id && <div className="mt-4"><PatientPrescriptionHistory patientId={id} /></div>}
         </TabsContent>
 
         <TabsContent value="documents">

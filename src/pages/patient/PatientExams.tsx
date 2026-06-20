@@ -3,13 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  FileText, Download, Loader2, Pill, MessageCircle, ClipboardList,
+  FileText, Download, Loader2, Pill, MessageCircle,
   FlaskConical, Upload, Trash2, Send, FileCheck2, FolderOpen,
-  FileImage, File,
+  FileImage, File, Search, FileDown,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { openDocHistoryPdf, type DocHistoryEntry } from '@/lib/generateDocHistoryPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { usePatientData, type DocumentRow } from '@/hooks/usePatientData';
 import { generatePrescriptionPdf } from '@/lib/generatePrescriptionPdf';
@@ -62,6 +64,8 @@ export default function PatientExams() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [activeSection, setActiveSection] = useState('exames');
+  const [search, setSearch] = useState('');
+  const [period, setPeriod] = useState<'all' | '30d' | '90d' | '180d' | '1y'>('all');
   const targetPatientId = patientIds[0];
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,12 +171,103 @@ export default function PatientExams() {
   const referrals        = recordDocs?.referrals        ?? [];
   const certificates     = recordDocs?.certificates     ?? [];
 
+  const periodCutoff = useMemo<Date | null>(() => {
+    if (period === 'all') return null;
+    const d = new Date();
+    if (period === '30d')  d.setDate(d.getDate() - 30);
+    if (period === '90d')  d.setDate(d.getDate() - 90);
+    if (period === '180d') d.setDate(d.getDate() - 180);
+    if (period === '1y')   d.setFullYear(d.getFullYear() - 1);
+    return d;
+  }, [period]);
+
+  const filteredExamRequests = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return examRequests.filter(er => {
+      if (cutoff && parseISO(er.date) < cutoff) return false;
+      if (q) { const t = [...er.exams, er.dentist?.full_name ?? '', er.indication ?? ''].join(' ').toLowerCase(); if (!t.includes(q)) return false; }
+      return true;
+    });
+  }, [examRequests, periodCutoff, search]);
+
+  const filteredPrescriptions = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return prescriptions.filter(rx => {
+      if (cutoff && parseISO(rx.date) < cutoff) return false;
+      if (q) { const t = [...rx.items.map(i => i.medication ?? ''), rx.dentist?.full_name ?? ''].join(' ').toLowerCase(); if (!t.includes(q)) return false; }
+      return true;
+    });
+  }, [prescriptions, periodCutoff, search]);
+
+  const filteredDocPrescriptions = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return docPrescriptions.filter(rx => {
+      if (cutoff && parseISO(rx.date) < cutoff) return false;
+      if (q) { const t = [...rx.items.map(i => i.medication), rx.dentist?.full_name ?? ''].join(' ').toLowerCase(); if (!t.includes(q)) return false; }
+      return true;
+    });
+  }, [docPrescriptions, periodCutoff, search]);
+
+  const filteredReferrals = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return referrals.filter(ref => {
+      if (cutoff && parseISO(ref.date) < cutoff) return false;
+      if (q) { const t = [ref.specialty, ref.reason, ref.dentist?.full_name ?? ''].join(' ').toLowerCase(); if (!t.includes(q)) return false; }
+      return true;
+    });
+  }, [referrals, periodCutoff, search]);
+
+  const filteredCertificates = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return certificates.filter(cert => {
+      if (cutoff && parseISO(cert.date) < cutoff) return false;
+      if (q) { const t = [cert.mode, cert.cid ?? '', cert.dentist?.full_name ?? ''].join(' ').toLowerCase(); if (!t.includes(q)) return false; }
+      return true;
+    });
+  }, [certificates, periodCutoff, search]);
+
+  const filteredExams = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return exams.filter(d => {
+      if (cutoff && parseISO(d.created_at) < cutoff) return false;
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [exams, periodCutoff, search]);
+
+  const filteredPrescriptionDocs = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return prescriptionDocs.filter(d => {
+      if (cutoff && parseISO(d.created_at) < cutoff) return false;
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [prescriptionDocs, periodCutoff, search]);
+
+  const filteredCertificateDocs = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return certificateDocs.filter(d => {
+      if (cutoff && parseISO(d.created_at) < cutoff) return false;
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [certificateDocs, periodCutoff, search]);
+
+  const filteredOthers = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return others.filter(d => {
+      if (cutoff && parseISO(d.created_at) < cutoff) return false;
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [others, periodCutoff, search]);
+
   const counts = {
-    exames: exams.length + examRequests.length,
-    receitas: prescriptionDocs.length + prescriptions.length + docPrescriptions.length,
-    encaminhamentos: referrals.length,
-    atestados: certificateDocs.length + certificates.length,
-    outros: others.length,
+    exames: filteredExams.length + filteredExamRequests.length,
+    receitas: filteredPrescriptionDocs.length + filteredPrescriptions.length + filteredDocPrescriptions.length,
+    encaminhamentos: filteredReferrals.length,
+    atestados: filteredCertificateDocs.length + filteredCertificates.length,
+    outros: filteredOthers.length,
   };
 
   const navSections = [
@@ -191,20 +286,91 @@ export default function PatientExams() {
     } catch { toast.error('Não foi possível gerar o link.'); window.open(doc.file_url, '_blank'); }
   };
 
+  const downloadHistory = () => {
+    try {
+      const patientName =
+        prescriptions[0]?.patient?.full_name ??
+        examRequests[0]?.patient?.full_name ??
+        certificates[0]?.patient?.full_name ?? null;
+
+      const entries: DocHistoryEntry[] = [
+        ...filteredPrescriptions.map(rx => ({
+          type: 'receita' as const, date: rx.date, doctor: rx.dentist?.full_name,
+          details: rx.items.map(i => [i.medication, (i as any).concentration].filter(Boolean).join(' ')),
+        })),
+        ...filteredDocPrescriptions.map(rx => ({
+          type: 'receita' as const, date: rx.date, doctor: rx.dentist?.full_name,
+          details: rx.items.map(i => i.medication),
+        })),
+        ...filteredExamRequests.map(er => ({
+          type: 'exame' as const, date: er.date, doctor: er.dentist?.full_name,
+          details: er.exams, extra: er.indication ?? null,
+        })),
+        ...filteredReferrals.map(ref => ({
+          type: 'encaminhamento' as const, date: ref.date, doctor: ref.dentist?.full_name,
+          details: [ref.specialty], extra: ref.reason,
+        })),
+        ...filteredCertificates.map(cert => ({
+          type: 'atestado' as const, date: cert.date, doctor: cert.dentist?.full_name,
+          details: [cert.mode === 'attendance' ? 'Comparecimento' : `Afastamento — ${cert.leaveDays ?? 1} dia(s)`],
+          extra: cert.cid ? `CID: ${cert.cid}` : null,
+        })),
+        ...[...filteredExams, ...filteredPrescriptionDocs, ...filteredCertificateDocs, ...filteredOthers].map(d => ({
+          type: 'arquivo' as const, date: d.created_at, details: [d.name],
+        })),
+      ];
+
+      if (entries.length === 0) { toast.info('Nenhum documento encontrado para os filtros selecionados.'); return; }
+      openDocHistoryPdf({ patientName, entries });
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao gerar histórico.');
+    }
+  };
+
   if (loading || docsLoading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Meus Documentos</h1>
           <p className="text-sm text-muted-foreground mt-1">Exames, receitas e documentos da sua clínica.</p>
         </div>
-        <Button size="sm" className="gap-1.5 shrink-0" onClick={() => fileRef.current?.click()} disabled={uploading || !targetPatientId}>
-          <Upload className="h-3.5 w-3.5" />
-          {uploading ? 'Enviando…' : 'Enviar exame'}
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadHistory}>
+            <FileDown className="h-3.5 w-3.5" />
+            Baixar histórico
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()} disabled={uploading || !targetPatientId}>
+            <Upload className="h-3.5 w-3.5" />
+            {uploading ? 'Enviando…' : 'Enviar exame'}
+          </Button>
+        </div>
         <input ref={fileRef} type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleUpload} />
+      </div>
+
+      {/* Busca + período */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            className="pl-8 h-8 text-sm"
+            placeholder="Buscar por nome, medicamento, médico…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          className="h-8 text-sm border border-input rounded-md px-2 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          value={period}
+          onChange={e => setPeriod(e.target.value as typeof period)}
+        >
+          <option value="all">Todo período</option>
+          <option value="30d">Último mês</option>
+          <option value="90d">Últimos 3 meses</option>
+          <option value="180d">Últimos 6 meses</option>
+          <option value="1y">Último ano</option>
+        </select>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
@@ -237,67 +403,67 @@ export default function PatientExams() {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {activeSection === 'exames' && (
-            <SectionWrapper empty={counts.exames === 0} icon={FlaskConical} emptyTitle="Nenhum exame ainda" emptyDesc="Envie seus exames pelo botão acima ou aguarde a clínica anexar.">
-              {examRequests.length > 0 && (
-                <DocGrid label={exams.length > 0 ? 'Pedidos de exames' : undefined}>
-                  {examRequests.map((er) => <ExamRequestCard key={er.reqId} er={er} />)}
+            <SectionWrapper empty={counts.exames === 0} icon={FlaskConical} emptyTitle="Nenhum exame encontrado" emptyDesc="Tente ajustar a busca ou o período, ou envie um exame pelo botão acima.">
+              {filteredExamRequests.length > 0 && (
+                <DocGrid label={filteredExams.length > 0 ? 'Pedidos de exames' : undefined}>
+                  {filteredExamRequests.map((er) => <ExamRequestCard key={er.reqId} er={er} />)}
                 </DocGrid>
               )}
-              {exams.length > 0 && (
-                <DocGrid label={examRequests.length > 0 ? 'Arquivos' : undefined}>
-                  {exams.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} onDelete={d.category === 'patient_exam' ? handleDelete : undefined} />)}
+              {filteredExams.length > 0 && (
+                <DocGrid label={filteredExamRequests.length > 0 ? 'Arquivos' : undefined}>
+                  {filteredExams.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} onDelete={d.category === 'patient_exam' ? handleDelete : undefined} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
           )}
 
           {activeSection === 'receitas' && (
-            <SectionWrapper empty={counts.receitas === 0} icon={Pill} emptyTitle="Nenhuma receita ainda" emptyDesc="As receitas prescritas pelo seu médico aparecerão aqui.">
-              {prescriptions.length > 0 && (
+            <SectionWrapper empty={counts.receitas === 0} icon={Pill} emptyTitle="Nenhuma receita encontrada" emptyDesc="Tente ajustar a busca ou o período.">
+              {filteredPrescriptions.length > 0 && (
                 <DocGrid>
-                  {prescriptions.map((rx) => <PrescriptionCard key={`rx-${rx.id}`} rx={rx} />)}
+                  {filteredPrescriptions.map((rx) => <PrescriptionCard key={`rx-${rx.id}`} rx={rx} />)}
                 </DocGrid>
               )}
-              {docPrescriptions.length > 0 && (
+              {filteredDocPrescriptions.length > 0 && (
                 <DocGrid>
-                  {docPrescriptions.map((rx) => <DocPrescriptionCard key={`doc-rx-${rx.reqId}`} rx={rx} />)}
+                  {filteredDocPrescriptions.map((rx) => <DocPrescriptionCard key={`doc-rx-${rx.reqId}`} rx={rx} />)}
                 </DocGrid>
               )}
-              {prescriptionDocs.length > 0 && (
+              {filteredPrescriptionDocs.length > 0 && (
                 <DocGrid label="Arquivos">
-                  {prescriptionDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="rx" />)}
+                  {filteredPrescriptionDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="rx" />)}
                 </DocGrid>
               )}
             </SectionWrapper>
           )}
 
           {activeSection === 'encaminhamentos' && (
-            <SectionWrapper empty={counts.encaminhamentos === 0} icon={Send} emptyTitle="Nenhum encaminhamento" emptyDesc="Encaminhamentos emitidos pelo seu médico aparecerão aqui.">
+            <SectionWrapper empty={counts.encaminhamentos === 0} icon={Send} emptyTitle="Nenhum encaminhamento encontrado" emptyDesc="Tente ajustar a busca ou o período.">
               <DocGrid>
-                {referrals.map((ref) => <ReferralCard key={ref.reqId} referral={ref} />)}
+                {filteredReferrals.map((ref) => <ReferralCard key={ref.reqId} referral={ref} />)}
               </DocGrid>
             </SectionWrapper>
           )}
 
           {activeSection === 'atestados' && (
-            <SectionWrapper empty={counts.atestados === 0} icon={FileCheck2} emptyTitle="Nenhum atestado" emptyDesc="Atestados emitidos pelo seu médico aparecerão aqui.">
-              {certificates.length > 0 && (
+            <SectionWrapper empty={counts.atestados === 0} icon={FileCheck2} emptyTitle="Nenhum atestado encontrado" emptyDesc="Tente ajustar a busca ou o período.">
+              {filteredCertificates.length > 0 && (
                 <DocGrid>
-                  {certificates.map((cert) => <CertificateCard key={cert.reqId} cert={cert} />)}
+                  {filteredCertificates.map((cert) => <CertificateCard key={cert.reqId} cert={cert} />)}
                 </DocGrid>
               )}
-              {certificateDocs.length > 0 && (
-                <DocGrid label={certificates.length > 0 ? 'Arquivos' : undefined}>
-                  {certificateDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="cert" />)}
+              {filteredCertificateDocs.length > 0 && (
+                <DocGrid label={filteredCertificates.length > 0 ? 'Arquivos' : undefined}>
+                  {filteredCertificateDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="cert" />)}
                 </DocGrid>
               )}
             </SectionWrapper>
           )}
 
           {activeSection === 'outros' && (
-            <SectionWrapper empty={counts.outros === 0} icon={FolderOpen} emptyTitle="Nenhum documento" emptyDesc="Outros arquivos enviados aparecerão aqui.">
+            <SectionWrapper empty={counts.outros === 0} icon={FolderOpen} emptyTitle="Nenhum documento encontrado" emptyDesc="Tente ajustar a busca ou o período.">
               <DocGrid>
-                {others.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                {filteredOthers.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
               </DocGrid>
             </SectionWrapper>
           )}

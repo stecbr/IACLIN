@@ -146,6 +146,7 @@ export interface PlatformDoctor {
   clinic_name: string | null;
   created_at: string;
   subscription: PlatformSubscription | null;
+  subscription_source: 'doctor' | 'clinic' | null;
 }
 
 export const formatBRL = (cents: number) =>

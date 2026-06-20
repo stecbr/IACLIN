@@ -157,7 +157,7 @@ export default function Attendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider, patient_user_id), procedures(name, color, default_price)')
+        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider, patient_user_id, emergency_contact_name, emergency_contact_phone), procedures(name, color, default_price)')
         .eq('id', appointmentId!)
         .single();
       if (error) throw error;
@@ -726,8 +726,24 @@ export default function Attendance() {
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
-          <div className="mt-3">
+          <div className="mt-3 space-y-2">
             <PatientAlertsBar patientId={appointment.patient_id} />
+            {((appointment as any).patients?.emergency_contact_name || (appointment as any).patients?.emergency_contact_phone) && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                <span className="font-semibold">Emergência:</span>
+                {(appointment as any).patients?.emergency_contact_name && (
+                  <span>{(appointment as any).patients.emergency_contact_name}</span>
+                )}
+                {(appointment as any).patients?.emergency_contact_phone && (
+                  <a
+                    href={`tel:${(appointment as any).patients.emergency_contact_phone}`}
+                    className="font-medium hover:underline"
+                  >
+                    {(appointment as any).patients.emergency_contact_phone}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

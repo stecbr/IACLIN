@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Stethoscope, Pencil, Search, Crown } from 'lucide-react';
+import { Stethoscope, Pencil, Search, Crown, Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -186,9 +185,15 @@ export default function SuperAdminDoctors() {
                 </span>
 
                 {/* Plano */}
-                <span className="text-sm hidden md:block">
-                  {doc.subscription?.plan_name ?? '—'}
-                </span>
+                <div className="hidden md:block">
+                  <span className="text-sm">{doc.subscription?.plan_name ?? '—'}</span>
+                  {doc.subscription_source === 'clinic' && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                      <Building2 className="h-3 w-3" />
+                      via clínica
+                    </div>
+                  )}
+                </div>
 
                 {/* Vencimento + valor */}
                 <div className="hidden md:block text-sm">
