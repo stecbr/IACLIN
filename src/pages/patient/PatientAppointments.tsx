@@ -157,28 +157,12 @@ export default function PatientAppointments() {
                   {pendingRequests.map((r) => (
                     <Card key={r.id} className={r.status === 'pending' ? 'border-amber-500/30' : 'border-rose-500/30'}>
                       <CardContent className="p-4 flex items-start gap-3">
-                        {/* Dentista em cima, clínica embaixo */}
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={r.dentist?.avatar_url ?? undefined} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                              {r.dentist?.full_name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() ?? '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                          {r.clinics?.logo_url ? (
-                            <img
-                              src={r.clinics.logo_url}
-                              alt={r.clinics.name}
-                              className="h-7 w-7 rounded-full border border-border object-cover bg-white"
-                            />
-                          ) : (
-                            <div className="h-7 w-7 rounded-full border border-border bg-muted flex items-center justify-center">
-                              <span className="text-[9px] font-bold text-muted-foreground leading-none text-center">
-                                {r.clinics?.name?.slice(0, 2).toUpperCase() ?? 'CL'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        <Avatar className="h-12 w-12 shrink-0">
+                          <AvatarImage src={r.dentist?.avatar_url ?? undefined} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                            {r.dentist?.full_name?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() ?? '?'}
+                          </AvatarFallback>
+                        </Avatar>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
