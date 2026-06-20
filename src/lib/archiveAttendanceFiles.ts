@@ -24,29 +24,93 @@ interface Args {
 
 const BUCKET = 'patient-files';
 
-async function uploadPdf(
-  patientId: string,
-  folderId: string,
-  slug: string,
-  name: string,
-  html: string,
-  documentInsertBase: Record<string, unknown>,
-) {
+/**
+ * Cria (idempotente) a pasta da consulta nos documentos do paciente
+ * e retorna seu id. Reusada por archiveAttendanceFiles e DocumentsTab.
+ */
+export async function ensureConsultationFolder(args: {
+  patientId: string;
+  userId: string;
+  appointmentId: string;
+  startTime: string;
+}): Promise<string> {
+  const { patientId, userId, appointmentId, startTime } = args;
+  const folderName = `Consulta ${format(new Date(startTime), "dd/MM/yyyy 'às' HH:mm")}`;
+  const { data: existing } = await supabase
+    .from('documents')
+    .select('id')
+    .eq('patient_id', patientId)
+    .eq('uploaded_by', userId)
+    .eq('file_type', 'folder')
+    .eq('category', 'doctor_folder')
+    .eq('appointment_id', appointmentId)
+    .maybeSingle();
+  if (existing?.id) return existing.id;
+  const { data: ins, error: insErr } = await supabase
+    .from('documents')
+    .insert({
+      patient_id: patientId,
+      uploaded_by: userId,
+      file_url: '',
+      file_type: 'folder',
+      category: 'doctor_folder',
+      name: folderName,
+      appointment_id: appointmentId,
+    })
+    .select('id')
+    .single();
+  if (insErr) throw insErr;
+  return ins.id;
+}
+
+/**
+ * Gera PDF do HTML e arquiva como arquivo da pasta da consulta.
+ */
+export async function uploadPdfToFolder(args: {
+  patientId: string;
+  userId: string;
+  appointmentId: string;
+  folderId: string;
+  slug: string;
+  name: string;
+  html: string;
+}): Promise<void> {
+  const { patientId, userId, appointmentId, folderId, slug, name, html } = args;
   const blob = await htmlToPdfBlob(html, `${slug}.pdf`);
   const path = `${patientId}/consultas/${folderId}/${Date.now()}-${slug}.pdf`;
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
     .upload(path, blob, { contentType: 'application/pdf', upsert: false });
   if (upErr) throw upErr;
-  const row: any = {
-    ...documentInsertBase,
+  const { error: dbErr } = await supabase.from('documents').insert({
+    patient_id: patientId,
+    uploaded_by: userId,
+    appointment_id: appointmentId,
     name,
     file_url: path,
     file_type: 'application/pdf',
     category: `doctor_file:${folderId}`,
-  };
-  const { error: dbErr } = await supabase.from('documents').insert(row);
+  } as any);
   if (dbErr) throw dbErr;
+}
+
+async function uploadPdf(
+  patientId: string,
+  folderId: string,
+  slug: string,
+  name: string,
+  html: string,
+  documentInsertBase: { patient_id: string; uploaded_by: string; appointment_id: string },
+) {
+  await uploadPdfToFolder({
+    patientId,
+    userId: documentInsertBase.uploaded_by,
+    appointmentId: documentInsertBase.appointment_id,
+    folderId,
+    slug,
+    name,
+    html,
+  });
 }
 
 /**
@@ -59,38 +123,7 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
   const failures: string[] = [];
 
   // 1) Pasta — idempotente por appointment_id
-  const folderName = `Consulta ${format(new Date(startTime), "dd/MM/yyyy 'às' HH:mm")}`;
-  let folderId: string | null = null;
-  {
-    const { data: existing } = await supabase
-      .from('documents')
-      .select('id')
-      .eq('patient_id', patientId)
-      .eq('uploaded_by', userId)
-      .eq('file_type', 'folder')
-      .eq('category', 'doctor_folder')
-      .eq('appointment_id', appointmentId)
-      .maybeSingle();
-    if (existing?.id) {
-      folderId = existing.id;
-    } else {
-      const { data: ins, error: insErr } = await supabase
-        .from('documents')
-        .insert({
-          patient_id: patientId,
-          uploaded_by: userId,
-          file_url: '',
-          file_type: 'folder',
-          category: 'doctor_folder',
-          name: folderName,
-          appointment_id: appointmentId,
-        })
-        .select('id')
-        .single();
-      if (insErr) throw insErr;
-      folderId = ins.id;
-    }
-  }
+  const folderId = await ensureConsultationFolder({ patientId, userId, appointmentId, startTime });
 
   const base = {
     patient_id: patientId,
