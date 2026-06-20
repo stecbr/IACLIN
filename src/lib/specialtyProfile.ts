@@ -55,13 +55,13 @@ export interface SpecialtyProfile {
 
 const PROFILES: Record<SpecialtyFamily, Omit<SpecialtyProfile, 'family' | 'config'>> = {
   odonto: {
-    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'procedures', 'notes', 'odontogram', 'documents'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'procedures', 'notes', 'odontogram', 'documents'],
     patientTabs: ['info', 'anamnese', 'odontogram', 'appointments', 'budgets', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: true,
     showBudgets: true,
   },
   medical: {
-    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'requests', 'notes', 'documents'],
+    attendanceTabs: ['overview', 'assessment', 'vitals', 'diagnosis', 'conduct', 'notes', 'documents'],
     patientTabs: ['info', 'anamnese', 'appointments', 'documents', 'files', 'financial', 'timeline'],
     showToothProcedures: false,
     showBudgets: false,
