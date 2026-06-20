@@ -48,13 +48,28 @@ export default function PatientAppointments() {
 
   const loadRequests = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('appointment_requests')
-      .select('*, clinics(name)')
+      .select('*')
       .eq('patient_user_id', user.id)
       .in('status', ['pending', 'rejected'])
       .order('created_at', { ascending: false });
-    setPendingRequests(data ?? []);
+
+    if (error) { console.error('[loadRequests]', error); return; }
+    if (!data || data.length === 0) { setPendingRequests([]); return; }
+
+    // Fetch clinic names separately to avoid FK join issues
+    const clinicIds = [...new Set(data.map((r: any) => r.clinic_id).filter(Boolean))];
+    const { data: clinics } = await supabase
+      .from('clinics')
+      .select('id, name')
+      .in('id', clinicIds);
+    const clinicMap = new Map((clinics ?? []).map((c: any) => [c.id, c]));
+
+    setPendingRequests(data.map((r: any) => ({
+      ...r,
+      clinics: clinicMap.get(r.clinic_id) ?? null,
+    })));
   };
 
   useEffect(() => {
