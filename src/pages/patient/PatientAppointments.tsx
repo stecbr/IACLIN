@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { format, parseISO, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Calendar, Plus, Loader2, ChevronRight, Clock, History, CalendarCheck, Search, X,
+  Calendar, Plus, Loader2, ChevronRight, History, CalendarCheck, Search, X,
+  XCircle, CalendarClock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +36,7 @@ export default function PatientAppointments() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancellingApptId, setCancellingApptId] = useState<string | null>(null);
 
   // patient record IDs for the timeline
   const { data: patientIds = [] } = useQuery({
@@ -52,7 +54,7 @@ export default function PatientAppointments() {
       .from('appointment_requests')
       .select('*')
       .eq('patient_user_id', user.id)
-      .in('status', ['pending', 'rejected'])
+      .in('status', ['pending', 'rejected', 'approved'])
       .order('created_at', { ascending: false });
 
     if (error) { console.error('[loadRequests]', error); return; }
@@ -88,16 +90,35 @@ export default function PatientAppointments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  const cancelAppointment = async (id: string) => {
+    setCancellingApptId(id);
+    const { error } = await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', id);
+    setCancellingApptId(null);
+    if (error) { toast.error('Falha ao cancelar consulta'); return; }
+    toast.success('Consulta cancelada');
+    refetch();
+  };
+
   const cancelRequest = async (id: string) => {
     setCancellingId(id);
+    const req = pendingRequests.find((r) => r.id === id);
+    if (req?.status === 'approved' && req?.appointment_id) {
+      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', req.appointment_id);
+    }
     const { error } = await supabase.from('appointment_requests').update({ status: 'cancelled' }).eq('id', id);
     setCancellingId(null);
-    if (error) { toast.error('Falha ao cancelar pedido'); return; }
-    toast.success('Pedido cancelado');
+    if (error) { toast.error('Falha ao cancelar'); return; }
+    toast.success(req?.status === 'approved' ? 'Consulta cancelada' : 'Pedido cancelado');
     loadRequests();
+    if (req?.status === 'approved') refetch();
   };
 
   const upcoming = appointments.filter((a) => isFuture(parseISO(a.start_time)) && a.status !== 'cancelled');
+  const upcomingApptIds = new Set(upcoming.map((a) => a.id));
+  const requestsToShow = pendingRequests.filter((r) => {
+    if (r.status === 'approved' && r.appointment_id && upcomingApptIds.has(r.appointment_id)) return false;
+    return true;
+  });
   const open = (a: AppointmentRow) => { setSelected(a); setDrawerOpen(true); };
 
   if (loading) {
@@ -150,12 +171,19 @@ export default function PatientAppointments() {
         <div className="flex-1 min-w-0 space-y-4">
           {tab === 'proximo' && (
             <>
-              {/* Pending requests */}
-              {pendingRequests.length > 0 && (
+              {/* Pending / approved requests */}
+              {requestsToShow.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pedidos pendentes</p>
-                  {pendingRequests.map((r) => (
-                    <Card key={r.id} className={r.status === 'pending' ? 'border-amber-500/30' : 'border-rose-500/30'}>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Solicitações</p>
+                  {requestsToShow.map((r) => (
+                    <Card
+                      key={r.id}
+                      className={
+                        r.status === 'approved' ? 'border-emerald-500/30' :
+                        r.status === 'pending'  ? 'border-amber-500/30' :
+                        'border-rose-500/30'
+                      }
+                    >
                       <CardContent className="p-4 flex items-start gap-3">
                         <Avatar className="h-12 w-12 shrink-0">
                           <AvatarImage src={r.dentist?.avatar_url ?? undefined} />
@@ -170,7 +198,9 @@ export default function PatientAppointments() {
                               <p className="font-medium truncate">{r.dentist?.full_name ?? 'Profissional'}</p>
                               <p className="text-xs text-muted-foreground truncate">{r.clinics?.name ?? 'Clínica'}</p>
                             </div>
-                            {r.status === 'pending' ? (
+                            {r.status === 'approved' ? (
+                              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30 shrink-0">Agendada</Badge>
+                            ) : r.status === 'pending' ? (
                               <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 shrink-0">Aguardando</Badge>
                             ) : (
                               <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-500/30 shrink-0">Recusado</Badge>
@@ -181,9 +211,19 @@ export default function PatientAppointments() {
                           </p>
                           {r.specialty && <p className="text-xs text-muted-foreground capitalize">{r.specialty}</p>}
                           {r.rejection_reason && <p className="text-xs text-rose-600 mt-1">Motivo: {r.rejection_reason}</p>}
+                          {r.status === 'approved' && (
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => navigate('/paciente/agendar')}>
+                                <CalendarClock className="h-3 w-3" /> Remarcar
+                              </Button>
+                              <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-7 text-muted-foreground" disabled={cancellingId === r.id} onClick={() => cancelRequest(r.id)}>
+                                <XCircle className="h-3 w-3" /> {cancellingId === r.id ? 'Cancelando…' : 'Cancelar'}
+                              </Button>
+                            </div>
+                          )}
                           {r.status === 'pending' && (
                             <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs text-muted-foreground" disabled={cancellingId === r.id} onClick={() => cancelRequest(r.id)}>
-                              {cancellingId === r.id ? 'Cancelando…' : 'Cancelar pedido'}
+                              <XCircle className="h-3 w-3 mr-1" /> {cancellingId === r.id ? 'Cancelando…' : 'Cancelar pedido'}
                             </Button>
                           )}
                         </div>
@@ -194,7 +234,7 @@ export default function PatientAppointments() {
               )}
 
               {/* Upcoming appointments */}
-              {upcoming.length === 0 && pendingRequests.length === 0 ? (
+              {upcoming.length === 0 && requestsToShow.length === 0 ? (
                 <EmptyState
                   icon={Calendar}
                   title="Nenhuma consulta agendada"
@@ -207,7 +247,16 @@ export default function PatientAppointments() {
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {upcoming.length} consulta{upcoming.length > 1 ? 's' : ''} agendada{upcoming.length > 1 ? 's' : ''}
                   </p>
-                  {upcoming.map((a) => <AppointmentItem key={a.id} a={a} onClick={() => open(a)} />)}
+                  {upcoming.map((a) => (
+                    <AppointmentItem
+                      key={a.id}
+                      a={a}
+                      onClick={() => open(a)}
+                      onCancel={() => cancelAppointment(a.id)}
+                      onReschedule={() => navigate('/paciente/agendar')}
+                      cancelling={cancellingApptId === a.id}
+                    />
+                  ))}
                 </div>
               )}
             </>
@@ -249,12 +298,22 @@ export default function PatientAppointments() {
   );
 }
 
-function AppointmentItem({ a, onClick }: { a: AppointmentRow; onClick: () => void }) {
+function AppointmentItem({
+  a, onClick, onCancel, onReschedule, cancelling,
+}: {
+  a: AppointmentRow;
+  onClick: () => void;
+  onCancel: () => void;
+  onReschedule: () => void;
+  cancelling: boolean;
+}) {
+  const isPast = new Date(a.start_time) < new Date();
+  const canAct = !isPast && a.status !== 'cancelled' && a.status !== 'completed';
   const status = appointmentStatusMap[a.status] ?? { label: a.status, variant: 'outline' as const };
   return (
-    <Card className="cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all" onClick={onClick}>
+    <Card className="hover:border-primary/30 hover:shadow-sm transition-all">
       <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 cursor-pointer" onClick={onClick}>
           <Avatar className="h-12 w-12">
             <AvatarImage src={a.dentist_avatar ?? undefined} />
             <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
@@ -275,6 +334,16 @@ function AppointmentItem({ a, onClick }: { a: AppointmentRow; onClick: () => voi
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground self-center flex-shrink-0" />
         </div>
+        {canAct && (
+          <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={onReschedule}>
+              <CalendarClock className="h-3.5 w-3.5" /> Remarcar
+            </Button>
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs flex-1 text-muted-foreground" disabled={cancelling} onClick={onCancel}>
+              <XCircle className="h-3.5 w-3.5" /> {cancelling ? 'Cancelando…' : 'Cancelar'}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
