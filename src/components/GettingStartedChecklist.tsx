@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Check,
   Building2,
   Users,
   UserPlus,
