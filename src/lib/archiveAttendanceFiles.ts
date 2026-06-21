@@ -116,6 +116,8 @@ export async function uploadPdfToFolder(args: {
   html: string;
 }): Promise<void> {
   const { patientId, userId, appointmentId, folderId, slug, name, html } = args;
+  const blob = await htmlToPdfBlob(html, `${slug}.pdf`);
+
   const { data: existing } = await supabase
     .from('documents')
     .select('id, file_url')
@@ -128,7 +130,6 @@ export async function uploadPdfToFolder(args: {
   if (existingPaths.length) await supabase.storage.from(BUCKET).remove(existingPaths);
   if ((existing ?? []).length) await supabase.from('documents').delete().in('id', (existing ?? []).map((d) => d.id));
 
-  const blob = await htmlToPdfBlob(html, `${slug}.pdf`);
   const path = `${patientId}/consultas/${folderId}/${Date.now()}-${slug}.pdf`;
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
