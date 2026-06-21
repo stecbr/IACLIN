@@ -238,12 +238,22 @@ export default function PatientRecord() {
     queryFn: async () => {
       const { data } = await supabase
         .from('documents')
-        .select('id, name, file_url, file_type, category, created_at')
+        .select('id, name, file_url, file_type, category, created_at, uploaded_by')
         .in('patient_id', patientIdList)
         .not('category', 'eq', 'doctor_folder')
         .order('created_at', { ascending: false })
         .limit(100);
-      return (data ?? []).filter((d: any) => !d.file_url?.startsWith('generated://'));
+      const rows = (data ?? []).filter((d: any) => !d.file_url?.startsWith('generated://'));
+      const uploaderIds = [...new Set(rows.map((d: any) => d.uploaded_by).filter(Boolean))] as string[];
+      const drMap = new Map<string, DoctorData>();
+      if (uploaderIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name, specialty, avatar_url')
+          .in('id', uploaderIds);
+        (profs ?? []).forEach((p: any) => drMap.set(p.id, p));
+      }
+      return rows.map((d: any) => ({ ...d, doctor: d.uploaded_by ? drMap.get(d.uploaded_by) ?? null : null }));
     },
   });
 
@@ -251,6 +261,22 @@ export default function PatientRecord() {
   const allPrescriptions = allRequests.filter(r => ['prescription', 'doc_prescription'].includes(r.kind));
   const allExams         = allRequests.filter(r => ['lab_exam', 'imaging_exam', 'doc_exam_request'].includes(r.kind));
   const allReferrals     = allRequests.filter(r => ['referral', 'doc_referral'].includes(r.kind));
+
+  // Split archived docs by type using filename + category
+  const examDocs: any[]         = [];
+  const prescriptionDocs: any[] = [];
+  const referralDocs: any[]     = [];
+  const certificateDocs: any[]  = [];
+  const otherDocs: any[]        = [];
+  for (const d of documents as any[]) {
+    switch (classifyDoc(d)) {
+      case 'exam':         examDocs.push(d); break;
+      case 'prescription': prescriptionDocs.push(d); break;
+      case 'referral':     referralDocs.push(d); break;
+      case 'certificate':  certificateDocs.push(d); break;
+      default:             otherDocs.push(d);
+    }
+  }
 
   const patientForPdf = { full_name: patientName, cpf: patient?.cpf ?? undefined };
 
