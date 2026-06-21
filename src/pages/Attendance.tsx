@@ -1227,7 +1227,9 @@ export default function Attendance() {
           setShowSummary(o);
           if (!o && finishedNavigatePending) {
             setFinishedNavigatePending(false);
-            navigate('/agenda');
+            // Wait for the Radix Dialog close animation to finish before
+            // unmounting the page, otherwise a brief overlay/sheet flashes.
+            setTimeout(() => navigate('/agenda'), 220);
           }
         }}
       />
