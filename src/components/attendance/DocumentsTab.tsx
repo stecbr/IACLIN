@@ -464,7 +464,6 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
         }
       }
 
-      // Mantém o rascunho até finalizar a consulta, para também publicar no portal do paciente.
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar documentos.');
     } finally {
