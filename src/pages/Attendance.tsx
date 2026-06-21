@@ -76,6 +76,7 @@ export default function Attendance() {
   const [showSummary, setShowSummary] = useState(false);
   const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const documentsDraftRef = useRef<MedicalDocumentsDraft | null>(null);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -625,6 +626,7 @@ export default function Attendance() {
         const raw = localStorage.getItem(`doc-draft-apt-${appointment.id}`);
         medicalDraft = raw ? JSON.parse(raw) : null;
       } catch { /* ignore corrupt draft */ }
+      if (!hasMedicalDocumentsDraft(medicalDraft)) medicalDraft = documentsDraftRef.current;
 
       if (hasMedicalDocumentsDraft(medicalDraft)) {
         const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
