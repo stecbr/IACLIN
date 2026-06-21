@@ -15,18 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Hypothesis } from '@/components/attendance/HypothesesEditor';
 import { fetchClinicForDocs, fetchDentistForDocs } from '@/lib/clinicalDocsHelpers';
-import { buildExamRequestHtml } from '@/lib/generateExamRequestPdf';
-import { buildPrescriptionHtml } from '@/lib/generatePrescriptionPdf';
 import type { PrescriptionItem } from '@/lib/prescriptionTemplates';
-import { buildReferralHtml } from '@/lib/generateReferralPdf';
-import { buildCertificateHtml } from '@/lib/generateCertificatePdf';
-import { ensureConsultationFolder, uploadPdfToFolder } from '@/lib/archiveAttendanceFiles';
-import { htmlToPdfBlob } from '@/lib/htmlToPdfBlob';
+import { buildMedicalDocumentsHtml, ensureConsultationFolder, uploadPdfToFolder, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
 
 // ── Sugestões ───────────────────────────────────────────────────────────────
 
@@ -233,14 +229,6 @@ function Stepper({ current, hasData }: { current: number; hasData: boolean[] }) 
   );
 }
 
-// ── Extrai CSS + body de um HTML completo para combinar vários documentos ───
-function extractHtmlParts(fullHtml: string): { styles: string; body: string } {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(fullHtml, 'text/html');
-  const styles = Array.from(doc.querySelectorAll('style')).map(s => s.textContent ?? '').join('\n');
-  return { styles, body: doc.body.innerHTML.trim() };
-}
-
 // ── Tipos ───────────────────────────────────────────────────────────────────
 const EMPTY_RX: PrescriptionItem = { medication: '', dosage: '', frequency: '', duration: '', instructions: '' };
 const URGENCY_OPTS = [
@@ -258,9 +246,10 @@ interface DocumentsTabProps {
   clinicalRecordId?: string;
   appointmentId?: string;
   appointmentStartTime?: string;
+  onDraftChange?: (draft: MedicalDocumentsDraft) => void;
 }
 
-export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime }: DocumentsTabProps) {
+export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime, onDraftChange }: DocumentsTabProps) {
   const { user, currentClinicId } = useAuth();
   const [step, setStep] = useState(0);
   const [printing, setPrinting] = useState(false);
@@ -321,26 +310,26 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
       if (d.certCid != null)      setCertCid(d.certCid);
       if (d.certCidEdited != null) setCertCidEdited(d.certCidEdited);
       if (d.certNotes)      setCertNotes(d.certNotes);
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } catch { void 0; }
+  }, [draftKey]);
 
   // Auto-save to localStorage whenever any field changes (debounced 600ms)
   useEffect(() => {
+    const draft = {
+      exams, examIndication, rxItems, rxNotes,
+      refSpecialty, refUrgency, refReason, refSummary,
+      emitCert, certMode, certDate, certStart, certEnd,
+      leaveStart, leaveDays, certCid, certNotes,
+    };
+    onDraftChange?.(draft);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       try {
-        localStorage.setItem(draftKey, JSON.stringify({
-          exams, examIndication, rxItems, rxNotes,
-          refSpecialty, refUrgency, refReason, refSummary,
-          emitCert, certMode, certDate, certStart, certEnd,
-          leaveStart, leaveDays, certCid, certCidEdited, certNotes,
-        }));
-      } catch {}
+        localStorage.setItem(draftKey, JSON.stringify({ ...draft, certCidEdited }));
+      } catch { void 0; }
     }, 600);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes]);
+  }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes, onDraftChange]);
 
   // Sync CID from hypotheses
   useEffect(() => {
@@ -411,57 +400,18 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
       ]);
       const pat = { full_name: patient.full_name, cpf: patient.cpf };
 
-      const htmlStrings: string[] = [];
-
-      if (hasData[0]) {
-        htmlStrings.push(await buildExamRequestHtml({
-          exams: exams.filter(e => e.trim()),
-          clinicalIndication: examIndication || undefined,
-          patient: pat, doctor, clinic,
-        }));
-      }
-      if (hasData[1]) {
-        htmlStrings.push(await buildPrescriptionHtml({
-          items: rxItems.filter(it => it.medication.trim()),
-          notes: rxNotes || undefined,
-          patient: pat, dentist: doctor, clinic,
-        }));
-      }
-      if (hasData[2]) {
-        htmlStrings.push(await buildReferralHtml({
-          toSpecialty: refSpecialty.trim(),
-          reason: refReason.trim(),
-          summary: refSummary.trim() || undefined,
-          urgency: refUrgency,
-          patient: pat, doctor, clinic,
-        }));
-      }
-      if (hasData[3]) {
-        htmlStrings.push(await buildCertificateHtml({
-          mode: certMode,
-          patient: pat, dentist: doctor, clinic,
-          attendanceDate: certMode === 'attendance' ? certDate : undefined,
-          startTime: certMode === 'attendance' && certStart ? certStart : undefined,
-          endTime: certMode === 'attendance' && certEnd ? certEnd : undefined,
-          leaveStartDate: certMode === 'leave' ? leaveStart : undefined,
-          leaveDays: certMode === 'leave' ? (parseInt(leaveDays) || 1) : undefined,
-          cid: certCid.trim() || undefined,
-          notes: certNotes || undefined,
-        }));
-      }
-
-      // Combine all HTML strings into a single print window
-      const parts = htmlStrings.map(extractHtmlParts);
-      const allStyles = parts.map(p => p.styles).join('\n');
-      const bodyContent = parts.map((p, i) =>
-        i < parts.length - 1
-          ? `<div style="page-break-after:always">${p.body}</div>`
-          : p.body
-      ).join('\n');
-
-      const combined = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Documentos Médicos</title>
-<style>${allStyles}</style></head>
-<body>${bodyContent}</body></html>`;
+      const combined = await buildMedicalDocumentsHtml({
+        draft: {
+          exams, examIndication, rxItems, rxNotes,
+          refSpecialty, refUrgency, refReason, refSummary,
+          emitCert, certMode, certDate, certStart, certEnd,
+          leaveStart, leaveDays, certCid, certNotes,
+        },
+        patient: pat,
+        professional: doctor,
+        clinic,
+      });
+      if (!combined) throw new Error('Nenhum documento preenchido.');
 
       const w = window.open('', '_blank');
       if (!w) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');
@@ -479,14 +429,14 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
           .eq('clinical_record_id', clinicalRecordId)
           .in('kind', DOC_KINDS);
         if ((existing ?? []).length > 0) {
-          await supabase.from('clinical_record_requests').delete().in('id', (existing ?? []).map((r: any) => r.id));
+          await supabase.from('clinical_record_requests').delete().in('id', (existing ?? []).map((r) => r.id));
         }
-        const toInsert: any[] = [];
+        const toInsert: Array<{ clinical_record_id: string; kind: string; payload: Json }> = [];
         if (hasData[0]) {
           toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_exam_request', payload: { exams: exams.filter(e => e.trim()), indication: examIndication || null } });
         }
         if (hasData[1]) {
-          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_prescription', payload: { items: rxItems.filter(it => it.medication.trim()), notes: rxNotes || null } });
+          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_prescription', payload: { items: rxItems.filter(it => it.medication.trim()).map((it) => ({ medication: it.medication, dosage: it.dosage, frequency: it.frequency, duration: it.duration, instructions: it.instructions ?? null })), notes: rxNotes || null } });
         }
         if (hasData[2]) {
           toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_referral', payload: { toSpecialty: refSpecialty, reason: refReason, summary: refSummary || null, urgency: refUrgency } });
@@ -511,13 +461,11 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
             name: 'Documentos Médicos.pdf',
             html: combined,
           });
-        } catch (e: any) {
-          toast.warning('Documentos impressos, mas falhou arquivar na pasta: ' + (e?.message ?? e));
+        } catch (e: unknown) {
+          toast.warning('Documentos impressos, mas falhou arquivar na pasta: ' + (e instanceof Error ? e.message : String(e)));
         }
       }
 
-      // Limpa rascunho — esta sessão de documentos foi concluída
-      try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar documentos.');
     } finally {

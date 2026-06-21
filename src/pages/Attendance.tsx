@@ -40,7 +40,7 @@ import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
 import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
-import { archiveAttendanceFiles } from '@/lib/archiveAttendanceFiles';
+import { archiveAttendanceFiles, hasMedicalDocumentsDraft, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
 
 interface ProcedureRow {
   tempId: string;
@@ -76,6 +76,7 @@ export default function Attendance() {
   const [showSummary, setShowSummary] = useState(false);
   const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const documentsDraftRef = useRef<MedicalDocumentsDraft | null>(null);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -446,8 +447,8 @@ export default function Attendance() {
     setProcedures((prev) => prev.filter((p) => p.tempId !== tempId));
   };
 
-  const handleSave = async (): Promise<boolean> => {
-    if (!appointment || !user) return false;
+  const handleSave = async (): Promise<string | null> => {
+    if (!appointment || !user) return null;
     setSaving(true);
     try {
       let recordId = clinicalRecordId;
@@ -587,10 +588,10 @@ export default function Attendance() {
 
       clearDraft();
       toast.success('Atendimento salvo!');
-      return true;
+      return recordId;
     } catch (err: any) {
       toast.error(err.message);
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -614,18 +615,50 @@ export default function Attendance() {
     }
     setFinishing(true);
     try {
-      const saved = await handleSave();
-      if (!saved) {
+      const savedRecordId = await handleSave();
+      if (!savedRecordId) {
         setFinishing(false);
         return;
       }
 
+      let medicalDraft: MedicalDocumentsDraft | null = null;
+      try {
+        const raw = localStorage.getItem(`doc-draft-apt-${appointment.id}`);
+        medicalDraft = raw ? JSON.parse(raw) : null;
+      } catch { /* ignore corrupt draft */ }
+      if (!hasMedicalDocumentsDraft(medicalDraft)) medicalDraft = documentsDraftRef.current;
+
+      if (hasMedicalDocumentsDraft(medicalDraft)) {
+        const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
+        const { data: existingDocReqs } = await supabase
+          .from('clinical_record_requests')
+          .select('id')
+          .eq('clinical_record_id', savedRecordId)
+          .in('kind', DOC_KINDS);
+        if ((existingDocReqs ?? []).length > 0) {
+          await supabase.from('clinical_record_requests').delete().in('id', (existingDocReqs ?? []).map((r: any) => r.id));
+        }
+
+        const docReqs: any[] = [];
+        const draftExams = (medicalDraft.exams ?? []).filter((e) => e?.trim());
+        const draftRx = (medicalDraft.rxItems ?? []).filter((it) => it.medication?.trim());
+        if (draftExams.length) docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_exam_request', payload: { exams: draftExams, indication: medicalDraft.examIndication || null } });
+        if (draftRx.length) docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_prescription', payload: { items: draftRx, notes: medicalDraft.rxNotes || null } });
+        if (medicalDraft.refSpecialty?.trim() && medicalDraft.refReason?.trim()) {
+          docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_referral', payload: { toSpecialty: medicalDraft.refSpecialty, reason: medicalDraft.refReason, summary: medicalDraft.refSummary || null, urgency: medicalDraft.refUrgency || 'rotina' } });
+        }
+        if (medicalDraft.emitCert) {
+          docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_certificate', payload: { mode: medicalDraft.certMode || 'attendance', date: medicalDraft.certDate || null, startTime: medicalDraft.certStart || null, endTime: medicalDraft.certEnd || null, leaveStartDate: medicalDraft.leaveStart || null, leaveDays: medicalDraft.leaveDays || '1', cid: medicalDraft.certCid?.trim() || null, notes: medicalDraft.certNotes || null } });
+        }
+        if (docReqs.length > 0) await supabase.from('clinical_record_requests').insert(docReqs);
+      }
+
       // Update clinical record status
-      if (clinicalRecordId) {
+      if (savedRecordId) {
         const { error: recError } = await supabase
           .from('clinical_records')
           .update({ status: 'completed' })
-          .eq('id', clinicalRecordId);
+          .eq('id', savedRecordId);
         if (recError) throw recError;
       }
 
@@ -657,6 +690,7 @@ export default function Attendance() {
             userId: user.id,
             startTime: (appointment as any).start_time,
             requests,
+            medicalDraft,
             attendance: {
               appointment: {
                 start_time: (appointment as any).start_time,
@@ -759,7 +793,7 @@ export default function Attendance() {
               setClinicalNotes,
             }}
           />
-          <Button variant="outline" onClick={handleSave} disabled={saving} className="gap-2">
+          <Button variant="outline" onClick={() => void handleSave()} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
@@ -1152,6 +1186,7 @@ export default function Attendance() {
               clinicalRecordId={clinicalRecordId ?? undefined}
               appointmentId={appointment.id}
               appointmentStartTime={(appointment as any).start_time}
+              onDraftChange={(draft) => { documentsDraftRef.current = draft; }}
             />
           </TabsContent>
         )}

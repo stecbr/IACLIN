@@ -11,32 +11,41 @@ import html2pdf from 'html2pdf.js';
  * se renderizarmos via <iframe srcdoc>.
  */
 export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): Promise<Blob> {
-  const parser = new DOMParser();
-  const parsed = parser.parseFromString(html, 'text/html');
-  const styles = Array.from(parsed.querySelectorAll('style'))
-    .map((s) => s.textContent ?? '')
-    .join('\n');
-  const bodyInner = parsed.body?.innerHTML ?? '';
-
-  const container = document.createElement('div');
-  container.style.position = 'fixed';
-  container.style.left = '-10000px';
-  container.style.top = '0';
-  container.style.width = '794px'; // ~210mm @96dpi
-  container.style.background = '#ffffff';
-  container.setAttribute('aria-hidden', 'true');
-  container.innerHTML = `<style>${styles}</style><div class="pdf-body">${bodyInner}</div>`;
-  document.body.appendChild(container);
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '0';
+  iframe.style.top = '0';
+  iframe.style.width = '794px';
+  iframe.style.height = '1123px';
+  iframe.style.border = '0';
+  iframe.style.pointerEvents = 'none';
+  iframe.style.zIndex = '-1';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
 
   try {
+    await new Promise<void>((resolve, reject) => {
+      iframe.onload = () => resolve();
+      iframe.onerror = () => reject(new Error('Não foi possível preparar o PDF.'));
+      iframe.srcdoc = html;
+    });
+
+    const doc = iframe.contentDocument;
+    if (!doc?.documentElement || !doc.body) throw new Error('Não foi possível montar o PDF.');
+
+    const styles = Array.from(doc.querySelectorAll('style'))
+      .map((s) => s.textContent ?? '')
+      .join('\n');
+    if (styles) doc.body.insertAdjacentHTML('afterbegin', `<style>${styles}</style>`);
+
     // Aguarda fontes
     try {
-      const fonts = (document as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts;
+      const fonts = (doc as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts;
       if (fonts?.ready) await fonts.ready;
     } catch { /* ignore */ }
 
     // Aguarda imagens (logo) carregarem
-    const imgs = Array.from(container.querySelectorAll('img'));
+    const imgs = Array.from(doc.images);
     await Promise.all(
       imgs.map(
         (img) =>
@@ -58,14 +67,18 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: container.scrollWidth,
+        windowWidth: Math.max(doc.body.scrollWidth, doc.documentElement.scrollWidth, 794),
+        windowHeight: Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 1123),
+        scrollX: 0,
+        scrollY: 0,
       },
       jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const },
       pagebreak: { mode: ['css', 'legacy'] as const },
     };
-    const blob: Blob = await html2pdf().set(opt).from(container).outputPdf('blob');
+    const blob: Blob = await html2pdf().set(opt).from(doc.body).outputPdf('blob');
+    if (blob.size < 1024) throw new Error('PDF gerado vazio. Tente novamente.');
     return blob;
   } finally {
-    container.remove();
+    iframe.remove();
   }
 }

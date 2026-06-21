@@ -10,6 +10,7 @@ import {
 import { buildPrescriptionHtml } from './generatePrescriptionPdf';
 import { buildExamRequestHtml } from './generateExamRequestPdf';
 import { buildReferralHtml } from './generateReferralPdf';
+import { buildCertificateHtml } from './generateCertificatePdf';
 import type { RequestItem } from '@/components/attendance/RequestsEditor';
 
 interface Args {
@@ -20,9 +21,48 @@ interface Args {
   startTime: string;
   attendance: AttendancePdfData;
   requests: RequestItem[];
+  medicalDraft?: MedicalDocumentsDraft | null;
 }
 
 const BUCKET = 'patient-files';
+const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
+
+export interface MedicalDocumentsDraft {
+  exams?: string[];
+  examIndication?: string;
+  rxItems?: Array<{ medication?: string; dosage?: string; frequency?: string; duration?: string; instructions?: string }>;
+  rxNotes?: string;
+  refSpecialty?: string;
+  refUrgency?: 'rotina' | 'prioritario' | 'emergencia';
+  refReason?: string;
+  refSummary?: string;
+  emitCert?: boolean;
+  certMode?: 'attendance' | 'leave';
+  certDate?: string;
+  certStart?: string;
+  certEnd?: string;
+  leaveStart?: string;
+  leaveDays?: string;
+  certCid?: string;
+  certNotes?: string;
+}
+
+function extractHtmlParts(fullHtml: string): { styles: string; body: string } {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(fullHtml, 'text/html');
+  const styles = Array.from(doc.querySelectorAll('style')).map(s => s.textContent ?? '').join('\n');
+  return { styles, body: doc.body.innerHTML.trim() };
+}
+
+export function hasMedicalDocumentsDraft(draft: MedicalDocumentsDraft | null | undefined): draft is MedicalDocumentsDraft {
+  if (!draft) return false;
+  return Boolean(
+    draft.exams?.some((e) => e?.trim()) ||
+    draft.rxItems?.some((it) => it.medication?.trim()) ||
+    (draft.refSpecialty?.trim() && draft.refReason?.trim()) ||
+    draft.emitCert,
+  );
+}
 
 /**
  * Cria (idempotente) a pasta da consulta nos documentos do paciente
@@ -77,6 +117,19 @@ export async function uploadPdfToFolder(args: {
 }): Promise<void> {
   const { patientId, userId, appointmentId, folderId, slug, name, html } = args;
   const blob = await htmlToPdfBlob(html, `${slug}.pdf`);
+
+  const { data: existing } = await supabase
+    .from('documents')
+    .select('id, file_url')
+    .eq('patient_id', patientId)
+    .eq('uploaded_by', userId)
+    .eq('appointment_id', appointmentId)
+    .eq('category', `doctor_file:${folderId}`)
+    .eq('name', name);
+  const existingPaths = (existing ?? []).map((d) => d.file_url).filter(Boolean);
+  if (existingPaths.length) await supabase.storage.from(BUCKET).remove(existingPaths);
+  if ((existing ?? []).length) await supabase.from('documents').delete().in('id', (existing ?? []).map((d) => d.id));
+
   const path = `${patientId}/consultas/${folderId}/${Date.now()}-${slug}.pdf`;
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
@@ -90,8 +143,81 @@ export async function uploadPdfToFolder(args: {
     file_url: path,
     file_type: 'application/pdf',
     category: `doctor_file:${folderId}`,
-  } as any);
+  });
   if (dbErr) throw dbErr;
+}
+
+export async function buildMedicalDocumentsHtml(args: {
+  draft: MedicalDocumentsDraft;
+  patient: { full_name: string; cpf?: string | null; date_of_birth?: string | null };
+  professional: { full_name: string; registration_number?: string | null; specialty?: string | null; signature_url?: string | null };
+  clinic: Awaited<ReturnType<typeof fetchClinicForAttendancePdf>>;
+}): Promise<string | null> {
+  const { draft, patient, professional, clinic } = args;
+  const htmlStrings: string[] = [];
+
+  const exams = (draft.exams ?? []).filter((e) => e.trim());
+  if (exams.length) {
+    htmlStrings.push(await buildExamRequestHtml({
+      exams,
+      clinicalIndication: draft.examIndication || undefined,
+      patient,
+      doctor: professional,
+      clinic,
+    }));
+  }
+
+  const rxItems = (draft.rxItems ?? []).filter((it) => it.medication?.trim());
+  if (rxItems.length) {
+    htmlStrings.push(await buildPrescriptionHtml({
+      items: rxItems.map((it) => ({
+        medication: it.medication ?? '',
+        dosage: it.dosage ?? '',
+        frequency: it.frequency ?? '',
+        duration: it.duration ?? '',
+        instructions: it.instructions || undefined,
+      })),
+      notes: draft.rxNotes || undefined,
+      patient,
+      dentist: professional,
+      clinic,
+    }));
+  }
+
+  if (draft.refSpecialty?.trim() && draft.refReason?.trim()) {
+    htmlStrings.push(await buildReferralHtml({
+      toSpecialty: draft.refSpecialty.trim(),
+      reason: draft.refReason.trim(),
+      summary: draft.refSummary?.trim() || undefined,
+      urgency: draft.refUrgency ?? 'rotina',
+      patient,
+      doctor: professional,
+      clinic,
+    }));
+  }
+
+  if (draft.emitCert) {
+    htmlStrings.push(await buildCertificateHtml({
+      mode: draft.certMode ?? 'attendance',
+      patient,
+      dentist: professional,
+      clinic,
+      attendanceDate: (draft.certMode ?? 'attendance') === 'attendance' ? draft.certDate : undefined,
+      startTime: (draft.certMode ?? 'attendance') === 'attendance' ? draft.certStart || undefined : undefined,
+      endTime: (draft.certMode ?? 'attendance') === 'attendance' ? draft.certEnd || undefined : undefined,
+      leaveStartDate: draft.certMode === 'leave' ? draft.leaveStart : undefined,
+      leaveDays: draft.certMode === 'leave' ? (parseInt(draft.leaveDays ?? '1') || 1) : undefined,
+      cid: draft.certCid?.trim() || undefined,
+      notes: draft.certNotes || undefined,
+    }));
+  }
+
+  if (!htmlStrings.length) return null;
+  const parts = htmlStrings.map(extractHtmlParts);
+  const bodyContent = parts.map((p, i) =>
+    i < parts.length - 1 ? `<div style="page-break-after:always">${p.body}</div>` : p.body,
+  ).join('\n');
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Documentos Médicos</title><style>${parts.map(p => p.styles).join('\n')}</style></head><body>${bodyContent}</body></html>`;
 }
 
 async function uploadPdf(
@@ -119,7 +245,7 @@ async function uploadPdf(
  * Falhas individuais não bloqueiam a finalização — só são reportadas no array.
  */
 export async function archiveAttendanceFiles(args: Args): Promise<{ failures: string[] }> {
-  const { appointmentId, patientId, clinicId, userId, startTime, attendance, requests } = args;
+  const { appointmentId, patientId, clinicId, userId, startTime, attendance, requests, medicalDraft } = args;
   const failures: string[] = [];
 
   // 1) Pasta — idempotente por appointment_id
@@ -145,12 +271,22 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
     signature_url: null as string | null,
   };
 
+  // 2.1) Documentos Médicos vindos da aba Documentos (receituário/exames/encaminhamento/atestado)
+  if (hasMedicalDocumentsDraft(medicalDraft)) {
+    try {
+      const html = await buildMedicalDocumentsHtml({ draft: medicalDraft, patient, professional: professionalForDocs, clinic });
+      if (html) await uploadPdf(patientId, folderId!, 'documentos-medicos', 'Documentos Médicos.pdf', html, base);
+    } catch (e: unknown) {
+      failures.push(`Documentos Médicos: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   // 2) Resumo de atendimento (sempre)
   try {
     const html = await buildAttendanceHtml(attendance);
     await uploadPdf(patientId, folderId!, 'resumo-atendimento', 'Resumo de Atendimento.pdf', html, base);
-  } catch (e: any) {
-    failures.push(`Resumo: ${e.message ?? e}`);
+  } catch (e: unknown) {
+    failures.push(`Resumo: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   // 3) Receituário (prescription)
@@ -173,8 +309,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
         clinic,
       });
       await uploadPdf(patientId, folderId!, 'receituario', 'Receituário.pdf', html, base);
-    } catch (e: any) {
-      failures.push(`Receituário: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Receituário: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -195,8 +331,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
         clinic,
       });
       await uploadPdf(patientId, folderId!, 'solicitacao-exames', 'Solicitação de Exames.pdf', html, base);
-    } catch (e: any) {
-      failures.push(`Exames: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Exames: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -215,8 +351,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
       });
       const slug = `encaminhamento-${(p.specialty ?? 'geral').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
       await uploadPdf(patientId, folderId!, slug, `Encaminhamento — ${p.specialty || 'Especialidade'}.pdf`, html, base);
-    } catch (e: any) {
-      failures.push(`Encaminhamento: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Encaminhamento: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
