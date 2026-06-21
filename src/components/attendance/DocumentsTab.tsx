@@ -309,8 +309,7 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
       if (d.certCid != null)      setCertCid(d.certCid);
       if (d.certCidEdited != null) setCertCidEdited(d.certCidEdited);
       if (d.certNotes)      setCertNotes(d.certNotes);
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch { void 0; }
   }, []);
 
   // Auto-save to localStorage whenever any field changes (debounced 600ms)
@@ -326,10 +325,9 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
     saveTimerRef.current = setTimeout(() => {
       try {
         localStorage.setItem(draftKey, JSON.stringify({ ...draft, certCidEdited }));
-      } catch {}
+      } catch { void 0; }
     }, 600);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes, onDraftChange]);
 
   // Sync CID from hypotheses
