@@ -626,6 +626,31 @@ export default function Attendance() {
         medicalDraft = raw ? JSON.parse(raw) : null;
       } catch { /* ignore corrupt draft */ }
 
+      if (medicalDraft) {
+        const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
+        const { data: existingDocReqs } = await supabase
+          .from('clinical_record_requests')
+          .select('id')
+          .eq('clinical_record_id', savedRecordId)
+          .in('kind', DOC_KINDS);
+        if ((existingDocReqs ?? []).length > 0) {
+          await supabase.from('clinical_record_requests').delete().in('id', (existingDocReqs ?? []).map((r: any) => r.id));
+        }
+
+        const docReqs: any[] = [];
+        const draftExams = (medicalDraft.exams ?? []).filter((e) => e?.trim());
+        const draftRx = (medicalDraft.rxItems ?? []).filter((it) => it.medication?.trim());
+        if (draftExams.length) docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_exam_request', payload: { exams: draftExams, indication: medicalDraft.examIndication || null } });
+        if (draftRx.length) docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_prescription', payload: { items: draftRx, notes: medicalDraft.rxNotes || null } });
+        if (medicalDraft.refSpecialty?.trim() && medicalDraft.refReason?.trim()) {
+          docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_referral', payload: { toSpecialty: medicalDraft.refSpecialty, reason: medicalDraft.refReason, summary: medicalDraft.refSummary || null, urgency: medicalDraft.refUrgency || 'rotina' } });
+        }
+        if (medicalDraft.emitCert) {
+          docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_certificate', payload: { mode: medicalDraft.certMode || 'attendance', date: medicalDraft.certDate || null, startTime: medicalDraft.certStart || null, endTime: medicalDraft.certEnd || null, leaveStartDate: medicalDraft.leaveStart || null, leaveDays: medicalDraft.leaveDays || '1', cid: medicalDraft.certCid?.trim() || null, notes: medicalDraft.certNotes || null } });
+        }
+        if (docReqs.length > 0) await supabase.from('clinical_record_requests').insert(docReqs);
+      }
+
       // Update clinical record status
       if (savedRecordId) {
         const { error: recError } = await supabase
