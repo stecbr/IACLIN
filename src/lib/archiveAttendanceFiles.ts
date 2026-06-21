@@ -143,7 +143,7 @@ export async function uploadPdfToFolder(args: {
     file_url: path,
     file_type: 'application/pdf',
     category: `doctor_file:${folderId}`,
-  } as any);
+  });
   if (dbErr) throw dbErr;
 }
 
@@ -276,8 +276,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
     try {
       const html = await buildMedicalDocumentsHtml({ draft: medicalDraft, patient, professional: professionalForDocs, clinic });
       if (html) await uploadPdf(patientId, folderId!, 'documentos-medicos', 'Documentos Médicos.pdf', html, base);
-    } catch (e: any) {
-      failures.push(`Documentos Médicos: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Documentos Médicos: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -285,8 +285,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
   try {
     const html = await buildAttendanceHtml(attendance);
     await uploadPdf(patientId, folderId!, 'resumo-atendimento', 'Resumo de Atendimento.pdf', html, base);
-  } catch (e: any) {
-    failures.push(`Resumo: ${e.message ?? e}`);
+  } catch (e: unknown) {
+    failures.push(`Resumo: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   // 3) Receituário (prescription)
@@ -309,8 +309,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
         clinic,
       });
       await uploadPdf(patientId, folderId!, 'receituario', 'Receituário.pdf', html, base);
-    } catch (e: any) {
-      failures.push(`Receituário: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Receituário: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -331,8 +331,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
         clinic,
       });
       await uploadPdf(patientId, folderId!, 'solicitacao-exames', 'Solicitação de Exames.pdf', html, base);
-    } catch (e: any) {
-      failures.push(`Exames: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Exames: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -351,8 +351,8 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
       });
       const slug = `encaminhamento-${(p.specialty ?? 'geral').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
       await uploadPdf(patientId, folderId!, slug, `Encaminhamento — ${p.specialty || 'Especialidade'}.pdf`, html, base);
-    } catch (e: any) {
-      failures.push(`Encaminhamento: ${e.message ?? e}`);
+    } catch (e: unknown) {
+      failures.push(`Encaminhamento: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
