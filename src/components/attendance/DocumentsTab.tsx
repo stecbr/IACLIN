@@ -310,7 +310,7 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
       if (d.certCidEdited != null) setCertCidEdited(d.certCidEdited);
       if (d.certNotes)      setCertNotes(d.certNotes);
     } catch { void 0; }
-  }, []);
+  }, [draftKey]);
 
   // Auto-save to localStorage whenever any field changes (debounced 600ms)
   useEffect(() => {
@@ -428,9 +428,9 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
           .eq('clinical_record_id', clinicalRecordId)
           .in('kind', DOC_KINDS);
         if ((existing ?? []).length > 0) {
-          await supabase.from('clinical_record_requests').delete().in('id', (existing ?? []).map((r: any) => r.id));
+          await supabase.from('clinical_record_requests').delete().in('id', (existing ?? []).map((r) => r.id));
         }
-        const toInsert: any[] = [];
+        const toInsert: Array<{ clinical_record_id: string; kind: string; payload: Record<string, unknown> }> = [];
         if (hasData[0]) {
           toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_exam_request', payload: { exams: exams.filter(e => e.trim()), indication: examIndication || null } });
         }
@@ -460,8 +460,8 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
             name: 'Documentos Médicos.pdf',
             html: combined,
           });
-        } catch (e: any) {
-          toast.warning('Documentos impressos, mas falhou arquivar na pasta: ' + (e?.message ?? e));
+        } catch (e: unknown) {
+          toast.warning('Documentos impressos, mas falhou arquivar na pasta: ' + (e instanceof Error ? e.message : String(e)));
         }
       }
 
