@@ -398,45 +398,6 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
       ]);
       const pat = { full_name: patient.full_name, cpf: patient.cpf };
 
-      const htmlStrings: string[] = [];
-
-      if (hasData[0]) {
-        htmlStrings.push(await buildExamRequestHtml({
-          exams: exams.filter(e => e.trim()),
-          clinicalIndication: examIndication || undefined,
-          patient: pat, doctor, clinic,
-        }));
-      }
-      if (hasData[1]) {
-        htmlStrings.push(await buildPrescriptionHtml({
-          items: rxItems.filter(it => it.medication.trim()),
-          notes: rxNotes || undefined,
-          patient: pat, dentist: doctor, clinic,
-        }));
-      }
-      if (hasData[2]) {
-        htmlStrings.push(await buildReferralHtml({
-          toSpecialty: refSpecialty.trim(),
-          reason: refReason.trim(),
-          summary: refSummary.trim() || undefined,
-          urgency: refUrgency,
-          patient: pat, doctor, clinic,
-        }));
-      }
-      if (hasData[3]) {
-        htmlStrings.push(await buildCertificateHtml({
-          mode: certMode,
-          patient: pat, dentist: doctor, clinic,
-          attendanceDate: certMode === 'attendance' ? certDate : undefined,
-          startTime: certMode === 'attendance' && certStart ? certStart : undefined,
-          endTime: certMode === 'attendance' && certEnd ? certEnd : undefined,
-          leaveStartDate: certMode === 'leave' ? leaveStart : undefined,
-          leaveDays: certMode === 'leave' ? (parseInt(leaveDays) || 1) : undefined,
-          cid: certCid.trim() || undefined,
-          notes: certNotes || undefined,
-        }));
-      }
-
       const combined = await buildMedicalDocumentsHtml({
         draft: {
           exams, examIndication, rxItems, rxNotes,
