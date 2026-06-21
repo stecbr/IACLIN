@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import type { Hypothesis } from '@/components/attendance/HypothesesEditor';
 import { fetchClinicForDocs, fetchDentistForDocs } from '@/lib/clinicalDocsHelpers';
 import type { PrescriptionItem } from '@/lib/prescriptionTemplates';
-import { buildMedicalDocumentsHtml, ensureConsultationFolder, uploadPdfToFolder } from '@/lib/archiveAttendanceFiles';
+import { buildMedicalDocumentsHtml, ensureConsultationFolder, uploadPdfToFolder, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
 
 // ── Sugestões ───────────────────────────────────────────────────────────────
 
@@ -245,9 +245,10 @@ interface DocumentsTabProps {
   clinicalRecordId?: string;
   appointmentId?: string;
   appointmentStartTime?: string;
+  onDraftChange?: (draft: MedicalDocumentsDraft) => void;
 }
 
-export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime }: DocumentsTabProps) {
+export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime, onDraftChange }: DocumentsTabProps) {
   const { user, currentClinicId } = useAuth();
   const [step, setStep] = useState(0);
   const [printing, setPrinting] = useState(false);
