@@ -580,7 +580,8 @@ export default function Landing() {
         <HowItWorks content={content} />
         <SocialProof content={content} />
         <FAQSection content={content} />
-        <FinalCTA content={content} />
+        <PatientBanner />
+        <FinalCTASection content={content} />
       </main>
       <Footer />
     </div>
