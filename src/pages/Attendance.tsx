@@ -791,7 +791,7 @@ export default function Attendance() {
               setClinicalNotes,
             }}
           />
-          <Button variant="outline" onClick={handleSave} disabled={saving} className="gap-2">
+          <Button variant="outline" onClick={() => void handleSave()} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
