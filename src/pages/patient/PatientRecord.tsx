@@ -349,20 +349,26 @@ export default function PatientRecord() {
           </TabsTrigger>
           <TabsTrigger value="prescricoes" className="gap-1.5">
             <Pill className="h-3.5 w-3.5" /> Prescrições
-            {allPrescriptions.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allPrescriptions.length}</Badge>}
+            {(allPrescriptions.length + prescriptionDocs.length) > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allPrescriptions.length + prescriptionDocs.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="exames" className="gap-1.5">
             <FlaskConical className="h-3.5 w-3.5" /> Exames
-            {allExams.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allExams.length}</Badge>}
+            {(allExams.length + examDocs.length) > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allExams.length + examDocs.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="encaminhamentos" className="gap-1.5">
             <ArrowRight className="h-3.5 w-3.5" /> Encaminh.
-            {allReferrals.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allReferrals.length}</Badge>}
+            {(allReferrals.length + referralDocs.length) > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allReferrals.length + referralDocs.length}</Badge>}
           </TabsTrigger>
-          {documents.length > 0 && (
+          {certificateDocs.length > 0 && (
+            <TabsTrigger value="atestados" className="gap-1.5">
+              <FileCheck2 className="h-3.5 w-3.5" /> Atestados
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{certificateDocs.length}</Badge>
+            </TabsTrigger>
+          )}
+          {otherDocs.length > 0 && (
             <TabsTrigger value="documentos" className="gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Documentos
-              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{documents.length}</Badge>
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{otherDocs.length}</Badge>
             </TabsTrigger>
           )}
         </TabsList>
