@@ -20,11 +20,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Hypothesis } from '@/components/attendance/HypothesesEditor';
 import { fetchClinicForDocs, fetchDentistForDocs } from '@/lib/clinicalDocsHelpers';
-import { buildExamRequestHtml } from '@/lib/generateExamRequestPdf';
-import { buildPrescriptionHtml } from '@/lib/generatePrescriptionPdf';
 import type { PrescriptionItem } from '@/lib/prescriptionTemplates';
-import { buildReferralHtml } from '@/lib/generateReferralPdf';
-import { buildCertificateHtml } from '@/lib/generateCertificatePdf';
 import { buildMedicalDocumentsHtml, ensureConsultationFolder, uploadPdfToFolder } from '@/lib/archiveAttendanceFiles';
 
 // ── Sugestões ───────────────────────────────────────────────────────────────
@@ -230,14 +226,6 @@ function Stepper({ current, hasData }: { current: number; hasData: boolean[] }) 
       })}
     </div>
   );
-}
-
-// ── Extrai CSS + body de um HTML completo para combinar vários documentos ───
-function extractHtmlParts(fullHtml: string): { styles: string; body: string } {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(fullHtml, 'text/html');
-  const styles = Array.from(doc.querySelectorAll('style')).map(s => s.textContent ?? '').join('\n');
-  return { styles, body: doc.body.innerHTML.trim() };
 }
 
 // ── Tipos ───────────────────────────────────────────────────────────────────
