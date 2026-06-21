@@ -867,3 +867,58 @@ function Empty({ icon: Icon, label }: { icon: typeof Calendar; label: string }) 
     </div>
   );
 }
+
+// ── Archived files grid (shows doctor name + open button) ─────────────────────
+const ACCENT_BG: Record<string, string> = {
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  violet:  'bg-violet-500/10  text-violet-600  dark:text-violet-400',
+  amber:   'bg-amber-500/10   text-amber-600   dark:text-amber-400',
+  sky:     'bg-sky-500/10     text-sky-600     dark:text-sky-400',
+};
+
+function ArchivedFilesGrid({ label, docs, openDoc, accent = 'violet' }: {
+  label?: string;
+  docs: any[];
+  openDoc: (d: any) => void;
+  accent?: 'emerald' | 'violet' | 'amber' | 'sky';
+}) {
+  const bg = ACCENT_BG[accent] ?? ACCENT_BG.violet;
+  return (
+    <div className="space-y-2 pt-2">
+      {label && <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground pl-1">{label}</p>}
+      <div className="grid gap-2 sm:grid-cols-2">
+        {docs.map((d: any) => {
+          const dr = d.doctor;
+          const drInitials = dr?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+          return (
+            <button
+              key={d.id}
+              onClick={() => openDoc(d)}
+              className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/40 transition-all text-left"
+            >
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
+                <FileText className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" title={d.name}>{d.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {dr?.full_name ? `Dr(a). ${dr.full_name}` : 'Profissional'}
+                  {' · '}{format(parseISO(d.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                </p>
+              </div>
+              {dr ? (
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarImage src={dr.avatar_url ?? undefined} />
+                  <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
+                    {drInitials ?? <Stethoscope className="h-3 w-3 text-primary/60" />}
+                  </AvatarFallback>
+                </Avatar>
+              ) : null}
+              <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
