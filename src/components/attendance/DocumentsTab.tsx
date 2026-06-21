@@ -436,7 +436,7 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
           toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_exam_request', payload: { exams: exams.filter(e => e.trim()), indication: examIndication || null } });
         }
         if (hasData[1]) {
-          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_prescription', payload: { items: rxItems.filter(it => it.medication.trim()), notes: rxNotes || null } });
+          toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_prescription', payload: { items: rxItems.filter(it => it.medication.trim()).map((it) => ({ medication: it.medication, dosage: it.dosage, frequency: it.frequency, duration: it.duration, instructions: it.instructions ?? null })), notes: rxNotes || null } });
         }
         if (hasData[2]) {
           toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_referral', payload: { toSpecialty: refSpecialty, reason: refReason, summary: refSummary || null, urgency: refUrgency } });
