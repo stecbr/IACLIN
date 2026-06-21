@@ -1186,6 +1186,7 @@ export default function Attendance() {
               clinicalRecordId={clinicalRecordId ?? undefined}
               appointmentId={appointment.id}
               appointmentStartTime={(appointment as any).start_time}
+              onDraftChange={(draft) => { documentsDraftRef.current = draft; }}
             />
           </TabsContent>
         )}
