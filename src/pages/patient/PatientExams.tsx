@@ -475,7 +475,7 @@ export default function PatientExams() {
               )}
               {filteredExams.length > 0 && (
                 <DocGrid label={filteredExamRequests.length > 0 ? 'Arquivos' : undefined}>
-                  {filteredExams.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} onDelete={d.category === 'patient_exam' ? handleDelete : undefined} />)}
+                  {filteredExams.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} onDelete={d.category === 'patient_exam' ? handleDelete : undefined} doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -495,7 +495,7 @@ export default function PatientExams() {
               )}
               {filteredPrescriptionDocs.length > 0 && (
                 <DocGrid label="Arquivos">
-                  {filteredPrescriptionDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="rx" />)}
+                  {filteredPrescriptionDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="rx" doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -510,7 +510,7 @@ export default function PatientExams() {
               )}
               {filteredReferralDocs.length > 0 && (
                 <DocGrid label={filteredReferrals.length > 0 ? 'Arquivos' : undefined}>
-                  {filteredReferralDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                  {filteredReferralDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -525,7 +525,7 @@ export default function PatientExams() {
               )}
               {filteredCertificateDocs.length > 0 && (
                 <DocGrid label={filteredCertificates.length > 0 ? 'Arquivos' : undefined}>
-                  {filteredCertificateDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="cert" />)}
+                  {filteredCertificateDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="cert" doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -534,7 +534,7 @@ export default function PatientExams() {
           {activeSection === 'outros' && (
             <SectionWrapper empty={counts.outros === 0} icon={FolderOpen} emptyTitle="Nenhum documento encontrado" emptyDesc="Tente ajustar a busca ou o período.">
               <DocGrid>
-                {filteredOthers.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                {filteredOthers.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} doctorName={doctorNameFor(d)} />)}
               </DocGrid>
             </SectionWrapper>
           )}
