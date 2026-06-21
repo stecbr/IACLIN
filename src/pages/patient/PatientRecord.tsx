@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Phone, Mail, MapPin, CreditCard, FileText, Pill, FlaskConical, ArrowRight,
   ChevronDown, ChevronRight, Printer, Download, Loader2, Stethoscope,
-  User, Calendar, Share2, CalendarPlus, Image as ImageIcon, File, FileCheck2,
+  User, Calendar, Share2, CalendarPlus, Image as ImageIcon, File, FileCheck2, Eye,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -756,7 +756,7 @@ export default function PatientRecord() {
                       {/* Hover overlay */}
                       <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Button size="sm" variant="secondary" className="gap-1.5 shadow-sm" onClick={() => openDoc(d)}>
-                          <Download className="h-3.5 w-3.5" /> Baixar
+                          <Eye className="h-3.5 w-3.5" /> Visualizar
                         </Button>
                       </div>
                     </div>
@@ -773,7 +773,7 @@ export default function PatientRecord() {
                         className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
                         onClick={() => openDoc(d)}
                       >
-                        <Download className="h-3.5 w-3.5" />
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -914,7 +914,7 @@ function ArchivedFilesGrid({ label, docs, openDoc, accent = 'violet' }: {
                   </AvatarFallback>
                 </Avatar>
               ) : null}
-              <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </button>
           );
         })}
