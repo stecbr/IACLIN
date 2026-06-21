@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Check,
   Rocket,
   Sparkles,
   Menu,
@@ -9,12 +8,10 @@ import {
   Instagram,
   Linkedin,
   Mail,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SYSTEM_URL, SIGNUP_URL } from "@/config/landing";
-import { MarketplaceSection } from "@/components/landing/MarketplaceSection";
 import {
   Accordion,
   AccordionContent,
