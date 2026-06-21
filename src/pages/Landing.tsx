@@ -487,16 +487,18 @@ function Footer() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Produto</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><a href="#recursos" className="hover:text-foreground">Recursos</a></li>
-              <li><a href="#diferenciais" className="hover:text-foreground">Diferenciais</a></li>
-              <li><a href={SYSTEM_URL} className="hover:text-foreground">Acessar</a></li>
+              <li><a href="#solucao" className="hover:text-foreground">Solução</a></li>
+              <li><a href="#beneficios" className="hover:text-foreground">Benefícios</a></li>
+              <li><a href="#como-funciona" className="hover:text-foreground">Como funciona</a></li>
+              <li><a href={SYSTEM_URL} className="hover:text-foreground">Entrar</a></li>
             </ul>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Empresa</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Para pacientes</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><a href="#sobre" className="hover:text-foreground">Sobre</a></li>
-              <li><a href="#profissionais" className="hover:text-foreground">Para quem é</a></li>
+              <li><Link to="/marketplace" className="hover:text-foreground">Encontrar profissionais</Link></li>
+              <li><Link to="/marketplace" className="hover:text-foreground">Agendar consulta</Link></li>
+              <li><a href="#faq" className="hover:text-foreground">Dúvidas frequentes</a></li>
             </ul>
           </div>
           <div>
