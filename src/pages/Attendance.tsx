@@ -40,7 +40,7 @@ import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
 import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
-import { archiveAttendanceFiles, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
+import { archiveAttendanceFiles, hasMedicalDocumentsDraft, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
 
 interface ProcedureRow {
   tempId: string;
@@ -626,7 +626,7 @@ export default function Attendance() {
         medicalDraft = raw ? JSON.parse(raw) : null;
       } catch { /* ignore corrupt draft */ }
 
-      if (medicalDraft) {
+      if (hasMedicalDocumentsDraft(medicalDraft)) {
         const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
         const { data: existingDocReqs } = await supabase
           .from('clinical_record_requests')
