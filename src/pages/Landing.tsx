@@ -8,6 +8,8 @@ import {
   Instagram,
   Linkedin,
   Mail,
+  Search,
+  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -74,6 +76,12 @@ function Navbar() {
               {l.label}
             </a>
           ))}
+          <Link
+            to="/marketplace"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Sou paciente
+          </Link>
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           <Button asChild variant="ghost" size="sm">
