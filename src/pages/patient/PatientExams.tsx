@@ -25,6 +25,26 @@ import { useAuth } from '@/contexts/AuthContext';
 const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame', 'patient_exam']);
 const PRESCRIPTION_CATEGORIES = new Set(['prescription', 'receita']);
 const CERTIFICATE_CATEGORIES = new Set(['medical_certificate']);
+const REFERRAL_CATEGORIES = new Set(['referral', 'encaminhamento']);
+
+type DocBucket = 'exam' | 'prescription' | 'referral' | 'certificate' | 'other';
+function classifyDoc(d: { category: string | null; name: string }): DocBucket {
+  const cat = (d.category ?? '').toLowerCase();
+  if (PRESCRIPTION_CATEGORIES.has(cat)) return 'prescription';
+  if (EXAM_CATEGORIES.has(cat)) return 'exam';
+  if (CERTIFICATE_CATEGORIES.has(cat)) return 'certificate';
+  if (REFERRAL_CATEGORIES.has(cat)) return 'referral';
+  // Arquivos gerados automaticamente na pasta da consulta (doctor_file:<folderId>)
+  // são classificados pelo prefixo do nome.
+  if (cat.startsWith('doctor_file')) {
+    const n = (d.name ?? '').toLowerCase();
+    if (n.startsWith('solicitação de exames') || n.startsWith('solicitacao de exames')) return 'exam';
+    if (n.startsWith('receituário') || n.startsWith('receituario')) return 'prescription';
+    if (n.startsWith('encaminhamento')) return 'referral';
+    if (n.startsWith('atestado')) return 'certificate';
+  }
+  return 'other';
+}
 
 const URGENCY_PT: Record<string, string> = {
   routine: 'Rotina', urgent: 'Prioritário', emergency: 'Emergência',
@@ -170,16 +190,18 @@ export default function PatientExams() {
     },
   });
 
-  const { exams, prescriptionDocs, certificateDocs, others } = useMemo(() => {
-    const exams: DocumentRow[] = [], prescriptionDocs: DocumentRow[] = [], certificateDocs: DocumentRow[] = [], others: DocumentRow[] = [];
+  const { exams, prescriptionDocs, certificateDocs, referralDocs, others } = useMemo(() => {
+    const exams: DocumentRow[] = [], prescriptionDocs: DocumentRow[] = [], certificateDocs: DocumentRow[] = [], referralDocs: DocumentRow[] = [], others: DocumentRow[] = [];
     for (const d of documents) {
-      const cat = (d.category ?? '').toLowerCase();
-      if (PRESCRIPTION_CATEGORIES.has(cat)) prescriptionDocs.push(d);
-      else if (EXAM_CATEGORIES.has(cat)) exams.push(d);
-      else if (CERTIFICATE_CATEGORIES.has(cat)) certificateDocs.push(d);
-      else others.push(d);
+      switch (classifyDoc(d)) {
+        case 'prescription':  prescriptionDocs.push(d); break;
+        case 'exam':          exams.push(d); break;
+        case 'certificate':   certificateDocs.push(d); break;
+        case 'referral':      referralDocs.push(d); break;
+        default:              others.push(d);
+      }
     }
-    return { exams, prescriptionDocs, certificateDocs, others };
+    return { exams, prescriptionDocs, certificateDocs, referralDocs, others };
   }, [documents]);
 
   const prescriptions    = recordDocs?.prescriptions    ?? [];
