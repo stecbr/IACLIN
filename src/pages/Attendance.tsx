@@ -40,7 +40,7 @@ import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
 import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
-import { archiveAttendanceFiles } from '@/lib/archiveAttendanceFiles';
+import { archiveAttendanceFiles, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
 
 interface ProcedureRow {
   tempId: string;
@@ -446,8 +446,8 @@ export default function Attendance() {
     setProcedures((prev) => prev.filter((p) => p.tempId !== tempId));
   };
 
-  const handleSave = async (): Promise<boolean> => {
-    if (!appointment || !user) return false;
+  const handleSave = async (): Promise<string | null> => {
+    if (!appointment || !user) return null;
     setSaving(true);
     try {
       let recordId = clinicalRecordId;
@@ -587,10 +587,10 @@ export default function Attendance() {
 
       clearDraft();
       toast.success('Atendimento salvo!');
-      return true;
+      return recordId;
     } catch (err: any) {
       toast.error(err.message);
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -614,18 +614,24 @@ export default function Attendance() {
     }
     setFinishing(true);
     try {
-      const saved = await handleSave();
-      if (!saved) {
+      const savedRecordId = await handleSave();
+      if (!savedRecordId) {
         setFinishing(false);
         return;
       }
 
+      let medicalDraft: MedicalDocumentsDraft | null = null;
+      try {
+        const raw = localStorage.getItem(`doc-draft-apt-${appointment.id}`);
+        medicalDraft = raw ? JSON.parse(raw) : null;
+      } catch { /* ignore corrupt draft */ }
+
       // Update clinical record status
-      if (clinicalRecordId) {
+      if (savedRecordId) {
         const { error: recError } = await supabase
           .from('clinical_records')
           .update({ status: 'completed' })
-          .eq('id', clinicalRecordId);
+          .eq('id', savedRecordId);
         if (recError) throw recError;
       }
 
@@ -657,6 +663,7 @@ export default function Attendance() {
             userId: user.id,
             startTime: (appointment as any).start_time,
             requests,
+            medicalDraft,
             attendance: {
               appointment: {
                 start_time: (appointment as any).start_time,
