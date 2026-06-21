@@ -437,6 +437,44 @@ function FAQSection({ content }: { content: LandingContent }) {
 }
 
 function FinalCTA({ content }: { content: LandingContent }) {
+  return null as never; // placeholder, real defined below
+}
+
+function PatientBanner() {
+  return (
+    <section id="pacientes" className="container py-12">
+      <motion.div
+        {...fadeUp}
+        className="flex flex-col items-start justify-between gap-6 rounded-3xl border border-border bg-card p-8 shadow-card md:flex-row md:items-center md:p-10"
+      >
+        <div className="flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <Stethoscope className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Você é paciente?
+            </p>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+              Encontre profissionais de saúde e agende sua consulta.
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Acesse a rede de clínicas que usam o Iaclin e marque seu horário em poucos cliques.
+            </p>
+          </div>
+        </div>
+        <Button asChild size="lg" variant="outline" className="shrink-0">
+          <Link to="/marketplace">
+            <Search className="h-4 w-4" />
+            Buscar profissionais
+          </Link>
+        </Button>
+      </motion.div>
+    </section>
+  );
+}
+
+function FinalCTASection({ content }: { content: LandingContent }) {
   return (
     <section className="container py-20">
       <motion.div
