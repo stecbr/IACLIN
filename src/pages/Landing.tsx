@@ -8,6 +8,8 @@ import {
   Instagram,
   Linkedin,
   Mail,
+  Search,
+  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -74,6 +76,12 @@ function Navbar() {
               {l.label}
             </a>
           ))}
+          <Link
+            to="/marketplace"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Sou paciente
+          </Link>
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           <Button asChild variant="ghost" size="sm">
@@ -100,6 +108,12 @@ function Navbar() {
                   {l.label}
                 </a>
               ))}
+              <Link
+                to="/marketplace"
+                className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Sou paciente
+              </Link>
               <div className="mt-4 flex flex-col gap-2">
                 <Button asChild variant="outline">
                   <a href={SYSTEM_URL}>Entrar</a>
@@ -422,7 +436,41 @@ function FAQSection({ content }: { content: LandingContent }) {
   );
 }
 
-function FinalCTA({ content }: { content: LandingContent }) {
+function PatientBanner() {
+  return (
+    <section id="pacientes" className="container py-12">
+      <motion.div
+        {...fadeUp}
+        className="flex flex-col items-start justify-between gap-6 rounded-3xl border border-border bg-card p-8 shadow-card md:flex-row md:items-center md:p-10"
+      >
+        <div className="flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <Stethoscope className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Você é paciente?
+            </p>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+              Encontre profissionais de saúde e agende sua consulta.
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Acesse a rede de clínicas que usam o Iaclin e marque seu horário em poucos cliques.
+            </p>
+          </div>
+        </div>
+        <Button asChild size="lg" variant="outline" className="shrink-0">
+          <Link to="/marketplace">
+            <Search className="h-4 w-4" />
+            Buscar profissionais
+          </Link>
+        </Button>
+      </motion.div>
+    </section>
+  );
+}
+
+function FinalCTASection({ content }: { content: LandingContent }) {
   return (
     <section className="container py-20">
       <motion.div
@@ -473,16 +521,18 @@ function Footer() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Produto</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><a href="#recursos" className="hover:text-foreground">Recursos</a></li>
-              <li><a href="#diferenciais" className="hover:text-foreground">Diferenciais</a></li>
-              <li><a href={SYSTEM_URL} className="hover:text-foreground">Acessar</a></li>
+              <li><a href="#solucao" className="hover:text-foreground">Solução</a></li>
+              <li><a href="#beneficios" className="hover:text-foreground">Benefícios</a></li>
+              <li><a href="#como-funciona" className="hover:text-foreground">Como funciona</a></li>
+              <li><a href={SYSTEM_URL} className="hover:text-foreground">Entrar</a></li>
             </ul>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Empresa</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-foreground">Para pacientes</p>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><a href="#sobre" className="hover:text-foreground">Sobre</a></li>
-              <li><a href="#profissionais" className="hover:text-foreground">Para quem é</a></li>
+              <li><Link to="/marketplace" className="hover:text-foreground">Encontrar profissionais</Link></li>
+              <li><Link to="/marketplace" className="hover:text-foreground">Agendar consulta</Link></li>
+              <li><a href="#faq" className="hover:text-foreground">Dúvidas frequentes</a></li>
             </ul>
           </div>
           <div>
@@ -530,7 +580,8 @@ export default function Landing() {
         <HowItWorks content={content} />
         <SocialProof content={content} />
         <FAQSection content={content} />
-        <FinalCTA content={content} />
+        <PatientBanner />
+        <FinalCTASection content={content} />
       </main>
       <Footer />
     </div>
