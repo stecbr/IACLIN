@@ -589,7 +589,7 @@ function getFileVisuals(doc: DocumentRow, accent?: 'rx' | 'cert') {
   return { bg: 'bg-primary/10', icon: <File className="h-7 w-7 text-primary/60" /> };
 }
 
-function DriveFileCard({ doc, onDownload, onDelete, accent }: { doc: DocumentRow; onDownload: (d: DocumentRow) => void; onDelete?: (d: DocumentRow) => void; accent?: 'rx' | 'cert'; }) {
+function DriveFileCard({ doc, onDownload, onDelete, accent, doctorName }: { doc: DocumentRow; onDownload: (d: DocumentRow) => void; onDelete?: (d: DocumentRow) => void; accent?: 'rx' | 'cert'; doctorName?: string }) {
   const { bg, icon } = getFileVisuals(doc, accent);
   const ext = doc.name.split('.').pop()?.toUpperCase() ?? '';
   return (
@@ -627,6 +627,9 @@ function DriveFileCard({ doc, onDownload, onDelete, accent }: { doc: DocumentRow
       <div className="p-2.5 flex-1">
         <p className="text-xs font-medium truncate leading-snug" title={doc.name}>{doc.name}</p>
         <p className="text-[10px] text-muted-foreground mt-0.5">{format(parseISO(doc.created_at), "dd MMM yyyy", { locale: ptBR })}</p>
+        {doctorName && (
+          <p className="text-[10px] text-muted-foreground truncate" title={doctorName}>Dr(a). {doctorName}</p>
+        )}
         {doc.category === 'patient_exam' && (
           <Badge variant="outline" className="text-[9px] h-4 px-1 mt-1 leading-none">Enviado por você</Badge>
         )}
