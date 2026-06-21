@@ -10,6 +10,7 @@ import {
 import { buildPrescriptionHtml } from './generatePrescriptionPdf';
 import { buildExamRequestHtml } from './generateExamRequestPdf';
 import { buildReferralHtml } from './generateReferralPdf';
+import { buildCertificateHtml } from './generateCertificatePdf';
 import type { RequestItem } from '@/components/attendance/RequestsEditor';
 
 interface Args {
@@ -23,6 +24,44 @@ interface Args {
 }
 
 const BUCKET = 'patient-files';
+const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
+
+export interface MedicalDocumentsDraft {
+  exams?: string[];
+  examIndication?: string;
+  rxItems?: Array<{ medication?: string; dosage?: string; frequency?: string; duration?: string; instructions?: string }>;
+  rxNotes?: string;
+  refSpecialty?: string;
+  refUrgency?: 'rotina' | 'prioritario' | 'emergencia';
+  refReason?: string;
+  refSummary?: string;
+  emitCert?: boolean;
+  certMode?: 'attendance' | 'leave';
+  certDate?: string;
+  certStart?: string;
+  certEnd?: string;
+  leaveStart?: string;
+  leaveDays?: string;
+  certCid?: string;
+  certNotes?: string;
+}
+
+function extractHtmlParts(fullHtml: string): { styles: string; body: string } {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(fullHtml, 'text/html');
+  const styles = Array.from(doc.querySelectorAll('style')).map(s => s.textContent ?? '').join('\n');
+  return { styles, body: doc.body.innerHTML.trim() };
+}
+
+export function hasMedicalDocumentsDraft(draft: MedicalDocumentsDraft | null | undefined): draft is MedicalDocumentsDraft {
+  if (!draft) return false;
+  return Boolean(
+    draft.exams?.some((e) => e?.trim()) ||
+    draft.rxItems?.some((it) => it.medication?.trim()) ||
+    (draft.refSpecialty?.trim() && draft.refReason?.trim()) ||
+    draft.emitCert,
+  );
+}
 
 /**
  * Cria (idempotente) a pasta da consulta nos documentos do paciente
