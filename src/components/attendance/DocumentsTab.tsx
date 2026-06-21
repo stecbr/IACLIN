@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -430,7 +431,7 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
         if ((existing ?? []).length > 0) {
           await supabase.from('clinical_record_requests').delete().in('id', (existing ?? []).map((r) => r.id));
         }
-        const toInsert: Array<{ clinical_record_id: string; kind: string; payload: Record<string, unknown> }> = [];
+        const toInsert: Array<{ clinical_record_id: string; kind: string; payload: Json }> = [];
         if (hasData[0]) {
           toInsert.push({ clinical_record_id: clinicalRecordId, kind: 'doc_exam_request', payload: { exams: exams.filter(e => e.trim()), indication: examIndication || null } });
         }
