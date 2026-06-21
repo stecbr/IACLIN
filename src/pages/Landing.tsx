@@ -108,6 +108,12 @@ function Navbar() {
                   {l.label}
                 </a>
               ))}
+              <Link
+                to="/marketplace"
+                className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Sou paciente
+              </Link>
               <div className="mt-4 flex flex-col gap-2">
                 <Button asChild variant="outline">
                   <a href={SYSTEM_URL}>Entrar</a>
