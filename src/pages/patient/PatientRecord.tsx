@@ -217,6 +217,7 @@ export default function PatientRecord() {
         .from('documents')
         .select('id, name, file_url, file_type, category, created_at')
         .in('patient_id', patientIdList)
+        .not('category', 'eq', 'doctor_folder')
         .order('created_at', { ascending: false })
         .limit(100);
       return (data ?? []).filter((d: any) => !d.file_url?.startsWith('generated://'));
