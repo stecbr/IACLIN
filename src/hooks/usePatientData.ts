@@ -61,6 +61,7 @@ export interface DocumentRow {
   category: string | null;
   created_at: string;
   patient_id: string;
+  uploaded_by?: string | null;
 }
 
 export function usePatientData() {
@@ -101,7 +102,7 @@ export function usePatientData() {
           .order('start_time', { ascending: false }),
         supabase
           .from('documents')
-          .select('id, name, file_url, file_type, category, created_at, patient_id')
+          .select('id, name, file_url, file_type, category, created_at, patient_id, uploaded_by')
           .in('patient_id', patientIds)
           .not('category', 'eq', 'doctor_folder')
           .order('created_at', { ascending: false }),
