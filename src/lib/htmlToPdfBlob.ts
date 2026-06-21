@@ -67,15 +67,15 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: Math.max(doc.documentElement.scrollWidth, 794),
-        windowHeight: Math.max(doc.documentElement.scrollHeight, 1123),
+        windowWidth: Math.max(doc.body.scrollWidth, doc.documentElement.scrollWidth, 794),
+        windowHeight: Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 1123),
         scrollX: 0,
         scrollY: 0,
       },
       jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const },
       pagebreak: { mode: ['css', 'legacy'] as const },
     };
-    const blob: Blob = await html2pdf().set(opt).from(doc.documentElement).outputPdf('blob');
+    const blob: Blob = await html2pdf().set(opt).from(doc.body).outputPdf('blob');
     if (blob.size < 1024) throw new Error('PDF gerado vazio. Tente novamente.');
     return blob;
   } finally {
