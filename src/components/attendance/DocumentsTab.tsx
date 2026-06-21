@@ -25,8 +25,7 @@ import { buildPrescriptionHtml } from '@/lib/generatePrescriptionPdf';
 import type { PrescriptionItem } from '@/lib/prescriptionTemplates';
 import { buildReferralHtml } from '@/lib/generateReferralPdf';
 import { buildCertificateHtml } from '@/lib/generateCertificatePdf';
-import { ensureConsultationFolder, uploadPdfToFolder } from '@/lib/archiveAttendanceFiles';
-import { htmlToPdfBlob } from '@/lib/htmlToPdfBlob';
+import { buildMedicalDocumentsHtml, ensureConsultationFolder, uploadPdfToFolder } from '@/lib/archiveAttendanceFiles';
 
 // ── Sugestões ───────────────────────────────────────────────────────────────
 
@@ -450,18 +449,18 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
         }));
       }
 
-      // Combine all HTML strings into a single print window
-      const parts = htmlStrings.map(extractHtmlParts);
-      const allStyles = parts.map(p => p.styles).join('\n');
-      const bodyContent = parts.map((p, i) =>
-        i < parts.length - 1
-          ? `<div style="page-break-after:always">${p.body}</div>`
-          : p.body
-      ).join('\n');
-
-      const combined = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Documentos Médicos</title>
-<style>${allStyles}</style></head>
-<body>${bodyContent}</body></html>`;
+      const combined = await buildMedicalDocumentsHtml({
+        draft: {
+          exams, examIndication, rxItems, rxNotes,
+          refSpecialty, refUrgency, refReason, refSummary,
+          emitCert, certMode, certDate, certStart, certEnd,
+          leaveStart, leaveDays, certCid, certNotes,
+        },
+        patient: pat,
+        professional: doctor,
+        clinic,
+      });
+      if (!combined) throw new Error('Nenhum documento preenchido.');
 
       const w = window.open('', '_blank');
       if (!w) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');
