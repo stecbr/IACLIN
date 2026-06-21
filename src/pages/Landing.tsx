@@ -436,10 +436,6 @@ function FAQSection({ content }: { content: LandingContent }) {
   );
 }
 
-function FinalCTA({ content }: { content: LandingContent }) {
-  return null as never; // placeholder, real defined below
-}
-
 function PatientBanner() {
   return (
     <section id="pacientes" className="container py-12">
