@@ -25,6 +25,26 @@ import { useAuth } from '@/contexts/AuthContext';
 const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame', 'patient_exam']);
 const PRESCRIPTION_CATEGORIES = new Set(['prescription', 'receita']);
 const CERTIFICATE_CATEGORIES = new Set(['medical_certificate']);
+const REFERRAL_CATEGORIES = new Set(['referral', 'encaminhamento']);
+
+type DocBucket = 'exam' | 'prescription' | 'referral' | 'certificate' | 'other';
+function classifyDoc(d: { category: string | null; name: string }): DocBucket {
+  const cat = (d.category ?? '').toLowerCase();
+  if (PRESCRIPTION_CATEGORIES.has(cat)) return 'prescription';
+  if (EXAM_CATEGORIES.has(cat)) return 'exam';
+  if (CERTIFICATE_CATEGORIES.has(cat)) return 'certificate';
+  if (REFERRAL_CATEGORIES.has(cat)) return 'referral';
+  // Arquivos gerados automaticamente na pasta da consulta (doctor_file:<folderId>)
+  // são classificados pelo prefixo do nome.
+  if (cat.startsWith('doctor_file')) {
+    const n = (d.name ?? '').toLowerCase();
+    if (n.startsWith('solicitação de exames') || n.startsWith('solicitacao de exames')) return 'exam';
+    if (n.startsWith('receituário') || n.startsWith('receituario')) return 'prescription';
+    if (n.startsWith('encaminhamento')) return 'referral';
+    if (n.startsWith('atestado')) return 'certificate';
+  }
+  return 'other';
+}
 
 const URGENCY_PT: Record<string, string> = {
   routine: 'Rotina', urgent: 'Prioritário', emergency: 'Emergência',
@@ -170,16 +190,18 @@ export default function PatientExams() {
     },
   });
 
-  const { exams, prescriptionDocs, certificateDocs, others } = useMemo(() => {
-    const exams: DocumentRow[] = [], prescriptionDocs: DocumentRow[] = [], certificateDocs: DocumentRow[] = [], others: DocumentRow[] = [];
+  const { exams, prescriptionDocs, certificateDocs, referralDocs, others } = useMemo(() => {
+    const exams: DocumentRow[] = [], prescriptionDocs: DocumentRow[] = [], certificateDocs: DocumentRow[] = [], referralDocs: DocumentRow[] = [], others: DocumentRow[] = [];
     for (const d of documents) {
-      const cat = (d.category ?? '').toLowerCase();
-      if (PRESCRIPTION_CATEGORIES.has(cat)) prescriptionDocs.push(d);
-      else if (EXAM_CATEGORIES.has(cat)) exams.push(d);
-      else if (CERTIFICATE_CATEGORIES.has(cat)) certificateDocs.push(d);
-      else others.push(d);
+      switch (classifyDoc(d)) {
+        case 'prescription':  prescriptionDocs.push(d); break;
+        case 'exam':          exams.push(d); break;
+        case 'certificate':   certificateDocs.push(d); break;
+        case 'referral':      referralDocs.push(d); break;
+        default:              others.push(d);
+      }
     }
-    return { exams, prescriptionDocs, certificateDocs, others };
+    return { exams, prescriptionDocs, certificateDocs, referralDocs, others };
   }, [documents]);
 
   const prescriptions    = recordDocs?.prescriptions    ?? [];
@@ -270,6 +292,15 @@ export default function PatientExams() {
     });
   }, [certificateDocs, periodCutoff, search]);
 
+  const filteredReferralDocs = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return referralDocs.filter(d => {
+      if (cutoff && parseISO(d.created_at) < cutoff) return false;
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [referralDocs, periodCutoff, search]);
+
   const filteredOthers = useMemo(() => {
     const cutoff = periodCutoff; const q = search.toLowerCase();
     return others.filter(d => {
@@ -282,7 +313,7 @@ export default function PatientExams() {
   const counts = {
     exames: filteredExams.length + filteredExamRequests.length,
     receitas: filteredPrescriptionDocs.length + filteredPrescriptions.length + filteredDocPrescriptions.length,
-    encaminhamentos: filteredReferrals.length,
+    encaminhamentos: filteredReferrals.length + filteredReferralDocs.length,
     atestados: filteredCertificateDocs.length + filteredCertificates.length,
     outros: filteredOthers.length,
   };
@@ -456,9 +487,16 @@ export default function PatientExams() {
 
           {activeSection === 'encaminhamentos' && (
             <SectionWrapper empty={counts.encaminhamentos === 0} icon={Send} emptyTitle="Nenhum encaminhamento encontrado" emptyDesc="Tente ajustar a busca ou o período.">
-              <DocGrid>
-                {filteredReferrals.map((ref) => <ReferralCard key={ref.reqId} referral={ref} />)}
-              </DocGrid>
+              {filteredReferrals.length > 0 && (
+                <DocGrid>
+                  {filteredReferrals.map((ref) => <ReferralCard key={ref.reqId} referral={ref} />)}
+                </DocGrid>
+              )}
+              {filteredReferralDocs.length > 0 && (
+                <DocGrid label={filteredReferrals.length > 0 ? 'Arquivos' : undefined}>
+                  {filteredReferralDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                </DocGrid>
+              )}
             </SectionWrapper>
           )}
 

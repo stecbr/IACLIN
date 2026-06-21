@@ -279,6 +279,82 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
     } catch (e: unknown) {
       failures.push(`Documentos Médicos: ${e instanceof Error ? e.message : String(e)}`);
     }
+
+    // 2.1.b) Também salvar versões individuais por tipo (para classificação na tela do paciente)
+    const draft = medicalDraft;
+    const draftExams = (draft.exams ?? []).filter((e) => e.trim());
+    if (draftExams.length) {
+      try {
+        const html = await buildExamRequestHtml({
+          exams: draftExams,
+          clinicalIndication: draft.examIndication || undefined,
+          patient,
+          doctor: professionalForDocs,
+          clinic,
+        });
+        await uploadPdf(patientId, folderId!, 'solicitacao-exames-doc', 'Solicitação de Exames.pdf', html, base);
+      } catch (e: unknown) {
+        failures.push(`Exames (doc): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    const draftRx = (draft.rxItems ?? []).filter((it) => it.medication?.trim());
+    if (draftRx.length) {
+      try {
+        const html = await buildPrescriptionHtml({
+          items: draftRx.map((it) => ({
+            medication: it.medication ?? '',
+            dosage: it.dosage ?? '',
+            frequency: it.frequency ?? '',
+            duration: it.duration ?? '',
+            instructions: it.instructions || undefined,
+          })),
+          notes: draft.rxNotes || undefined,
+          patient,
+          dentist: professionalForDocs,
+          clinic,
+        });
+        await uploadPdf(patientId, folderId!, 'receituario-doc', 'Receituário.pdf', html, base);
+      } catch (e: unknown) {
+        failures.push(`Receituário (doc): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (draft.refSpecialty?.trim() && draft.refReason?.trim()) {
+      try {
+        const html = await buildReferralHtml({
+          toSpecialty: draft.refSpecialty.trim(),
+          reason: draft.refReason.trim(),
+          summary: draft.refSummary?.trim() || undefined,
+          urgency: draft.refUrgency ?? 'rotina',
+          patient,
+          doctor: professionalForDocs,
+          clinic,
+        });
+        const slug = `encaminhamento-doc-${draft.refSpecialty.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+        await uploadPdf(patientId, folderId!, slug, `Encaminhamento — ${draft.refSpecialty}.pdf`, html, base);
+      } catch (e: unknown) {
+        failures.push(`Encaminhamento (doc): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (draft.emitCert) {
+      try {
+        const html = await buildCertificateHtml({
+          mode: draft.certMode ?? 'attendance',
+          patient,
+          dentist: professionalForDocs,
+          clinic,
+          attendanceDate: (draft.certMode ?? 'attendance') === 'attendance' ? draft.certDate : undefined,
+          startTime: (draft.certMode ?? 'attendance') === 'attendance' ? draft.certStart || undefined : undefined,
+          endTime: (draft.certMode ?? 'attendance') === 'attendance' ? draft.certEnd || undefined : undefined,
+          leaveStartDate: draft.certMode === 'leave' ? draft.leaveStart : undefined,
+          leaveDays: draft.certMode === 'leave' ? (parseInt(draft.leaveDays ?? '1') || 1) : undefined,
+          cid: draft.certCid?.trim() || undefined,
+          notes: draft.certNotes || undefined,
+        });
+        await uploadPdf(patientId, folderId!, 'atestado-doc', 'Atestado.pdf', html, base);
+      } catch (e: unknown) {
+        failures.push(`Atestado (doc): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
   }
 
   // 2) Resumo de atendimento (sempre)
