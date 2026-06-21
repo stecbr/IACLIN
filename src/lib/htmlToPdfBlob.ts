@@ -20,7 +20,7 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
 
   const container = document.createElement('div');
   container.style.position = 'fixed';
-  container.style.left = '0';
+  container.style.left = '-10000px';
   container.style.top = '0';
   container.style.width = '794px'; // ~210mm @96dpi
   container.style.minHeight = '1123px'; // ~297mm @96dpi
@@ -29,6 +29,7 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
   container.style.zIndex = '-1';
   container.style.overflow = 'visible';
   container.setAttribute('aria-hidden', 'true');
+  container.setAttribute('data-pdf-root', 'true');
   container.innerHTML = `<style>${styles}</style><div class="pdf-body">${bodyInner}</div>`;
   document.body.appendChild(container);
 
@@ -66,6 +67,14 @@ export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): P
         windowHeight: Math.max(container.scrollHeight, 1123),
         scrollX: 0,
         scrollY: 0,
+        onclone: (clonedDoc: Document) => {
+          const clonedRoot = clonedDoc.querySelector('[data-pdf-root]') as HTMLElement | null;
+          if (!clonedRoot) return;
+          clonedRoot.style.position = 'relative';
+          clonedRoot.style.left = '0';
+          clonedRoot.style.top = '0';
+          clonedRoot.style.zIndex = '0';
+        },
       },
       jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const },
       pagebreak: { mode: ['css', 'legacy'] as const },
