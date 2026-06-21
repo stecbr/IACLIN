@@ -1,41 +1,36 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Calendar,
-  FileText,
-  Users,
-  History,
-  HeartHandshake,
-  BarChart3,
-  Building2,
-  ShieldCheck,
   Check,
   Rocket,
   Sparkles,
-  Stethoscope,
-  Brain,
-  Scissors,
-  Activity,
-  Apple,
-  Bluetooth,
   Menu,
   ArrowRight,
   Instagram,
   Linkedin,
   Mail,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SYSTEM_URL, SIGNUP_URL } from "@/config/landing";
-import { Input } from "@/components/ui/input";
-import type { DoctorData } from "@/components/marketplace/DoctorCard";
-import { Badge } from "@/components/ui/badge";
-import { Search, MapPin } from "lucide-react";
 import { MarketplaceSection } from "@/components/landing/MarketplaceSection";
-import { addDays, format } from "date-fns";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
+  LANDING_CONTENT,
+  resolveSegment,
+  type LandingContent,
+  type Segment,
+} from "@/config/landingContent";
 import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
 const logoLight = iaclinLogoAsset.url;
-const logoDark = iaclinLogoAsset.url;
 import landingDashboard from "@/assets/landing-dashboard.png";
 
 const fadeUp = {
@@ -62,11 +57,11 @@ function Logo({ className = "" }: { className?: string }) {
 
 function Navbar() {
   const links = [
-    { href: "#sobre", label: "Sobre" },
-    { href: "#recursos", label: "Recursos" },
-    { href: "#diferenciais", label: "Diferenciais" },
-    { href: "#profissionais", label: "Para quem é" },
-    { href: "#marketplace", label: "Rede Médica" },
+    { href: "#problema", label: "Problema" },
+    { href: "#solucao", label: "Solução" },
+    { href: "#beneficios", label: "Benefícios" },
+    { href: "#como-funciona", label: "Como funciona" },
+    { href: "#faq", label: "FAQ" },
   ];
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
@@ -88,7 +83,7 @@ function Navbar() {
             <a href={SYSTEM_URL}>Entrar</a>
           </Button>
           <Button asChild size="sm" className="shadow-card">
-            <a href={SYSTEM_URL}>Acessar o Iaclin</a>
+            <a href={SIGNUP_URL}>Começar grátis</a>
           </Button>
         </div>
         <Sheet>
@@ -113,7 +108,7 @@ function Navbar() {
                   <a href={SYSTEM_URL}>Entrar</a>
                 </Button>
                 <Button asChild>
-                  <a href={SYSTEM_URL}>Acessar o Iaclin</a>
+                  <a href={SIGNUP_URL}>Começar grátis</a>
                 </Button>
               </div>
             </div>
@@ -150,7 +145,7 @@ function DashboardMockup() {
   );
 }
 
-function Hero() {
+function Hero({ content }: { content: LandingContent }) {
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.08),transparent_60%)]" />
@@ -158,31 +153,31 @@ function Hero() {
         <motion.div {...fadeUp}>
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-card">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Plataforma clínica inteligente
+            {content.hero.eyebrow}
           </span>
           <h1 className="mt-5 text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            Gestão clínica inteligente, moderna e humanizada.
+            {content.hero.title}
           </h1>
           <p className="mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
-            O Iaclin foi criado para simplificar atendimentos, prontuários, agenda e gestão clínica
-            em uma única plataforma.
+            {content.hero.subtitle}
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <Button asChild size="lg" className="shadow-card-hover">
-              <a href={SYSTEM_URL}>
+              <a href={SIGNUP_URL}>
                 <Rocket className="h-4 w-4" />
-                Acessar o Iaclin
+                {content.hero.cta}
               </a>
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="#recursos">
-                Ver recursos
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </Button>
+            <a
+              href="#como-funciona"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Ver como funciona
+              <ArrowRight className="h-4 w-4" />
+            </a>
           </div>
           <p className="mt-6 text-xs text-muted-foreground">
-            Para clínicas odontológicas, médicas, estética, psicologia, fisioterapia e nutrição.
+            Sem cartão de crédito. Cancele quando quiser.
           </p>
         </motion.div>
         <motion.div {...fadeUp} transition={{ duration: 0.6, delay: 0.1 }}>
@@ -193,74 +188,34 @@ function Hero() {
   );
 }
 
-function About() {
-  const chips = ["Agenda", "Prontuário", "Atendimento", "Gestão"];
+function Problem({ content }: { content: LandingContent }) {
   return (
-    <section id="sobre" className="container py-20">
-      <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Sobre o sistema</p>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-          Tudo o que sua clínica precisa, em um só lugar.
-        </h2>
-        <p className="mt-4 text-muted-foreground">
-          O Iaclin é uma plataforma completa de gestão clínica que conecta agenda, prontuários,
-          pacientes e financeiro em um fluxo simples — pensada para profissionais que valorizam
-          produtividade, segurança e uma experiência elegante no dia a dia.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {chips.map((c) => (
-            <span
-              key={c}
-              className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground shadow-card"
-            >
-              {c}
-            </span>
-          ))}
-        </div>
-      </motion.div>
-    </section>
-  );
-}
-
-const FEATURES = [
-  { icon: Calendar, title: "Agenda Inteligente", desc: "Encaixes, bloqueios e lembretes automáticos por WhatsApp." },
-  { icon: FileText, title: "Prontuário Digital", desc: "Fichas clínicas completas, organizadas e seguras." },
-  { icon: Users, title: "Gestão de Pacientes", desc: "Cadastro, anamnese e histórico em um só perfil." },
-  { icon: History, title: "Histórico Clínico", desc: "Linha do tempo completa de cada paciente." },
-  { icon: HeartHandshake, title: "Atendimento Humanizado", desc: "Fluxos pensados para acolher e otimizar tempo." },
-  { icon: BarChart3, title: "Relatórios e Organização", desc: "Indicadores claros para decisões melhores." },
-  { icon: Building2, title: "Controle da Clínica", desc: "Times, salas, especialidades e operação centralizadas." },
-  { icon: ShieldCheck, title: "Segurança de Dados", desc: "Criptografia, RLS e conformidade com LGPD." },
-];
-
-function Features() {
-  return (
-    <section id="recursos" className="bg-secondary/40 py-20">
+    <section id="problema" className="bg-secondary/40 py-20">
       <div className="container">
         <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Funcionalidades</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">O problema</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            Recursos pensados para a rotina clínica.
+            A rotina da clínica não deveria ser tão difícil.
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Tudo o que você precisa para atender melhor, com menos esforço.
+            Os principais gargalos que travam o crescimento de quem atende todos os dias.
           </p>
         </motion.div>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map((f, i) => (
+          {content.problems.map((p, i) => (
             <motion.div
-              key={f.title}
+              key={p.title}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.4, delay: i * 0.04 }}
-              className="group rounded-2xl border border-border bg-card p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
+              className="rounded-2xl border border-border bg-card p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
             >
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <f.icon className="h-5 w-5" />
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-destructive/10 text-destructive">
+                <p.icon className="h-5 w-5" />
               </span>
-              <h3 className="mt-4 text-base font-semibold text-foreground">{f.title}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{f.desc}</p>
+              <h3 className="mt-4 text-base font-semibold text-foreground">{p.title}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{p.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -269,96 +224,68 @@ function Features() {
   );
 }
 
-function Differentials() {
-  const items = [
-    "Interface simples e intuitiva",
-    "Visual moderno e elegante",
-    "Fácil de usar por toda a equipe",
-    "Totalmente responsivo",
-    "Segurança e conformidade LGPD",
-    "Organização profissional",
-    "Experiência premium do início ao fim",
-  ];
+function Solution({ content }: { content: LandingContent }) {
   return (
-    <section id="diferenciais" className="container py-20">
+    <section id="solucao" className="container py-20">
       <div className="grid items-center gap-12 lg:grid-cols-2">
         <motion.div {...fadeUp}>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Diferenciais</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">A solução</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            Feito com cuidado em cada detalhe.
+            {content.solution.title}
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Cada decisão de design e tecnologia foi tomada para entregar uma experiência clínica
-            premium, fluida e confiável.
+            {content.solution.desc}
           </p>
           <ul className="mt-6 space-y-3">
-            {items.map((it) => (
-              <li key={it} className="flex items-start gap-3">
-                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                  <Check className="h-3 w-3" />
+            {content.solution.pillars.map((it) => (
+              <li key={it.title} className="flex items-start gap-3">
+                <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <it.icon className="h-4 w-4" />
                 </span>
-                <span className="text-sm text-foreground">{it}</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{it.title}</p>
+                  <p className="text-sm text-muted-foreground">{it.desc}</p>
+                </div>
               </li>
             ))}
           </ul>
         </motion.div>
         <motion.div {...fadeUp} transition={{ duration: 0.6, delay: 0.1 }}>
-          <div className="rounded-2xl border border-border bg-card p-8 shadow-card">
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { k: "99.9%", v: "Uptime" },
-                { k: "<200ms", v: "Resposta" },
-                { k: "LGPD", v: "Compliance" },
-                { k: "24/7", v: "Disponibilidade" },
-              ].map((s) => (
-                <div key={s.v} className="rounded-xl border border-border bg-background/60 p-5">
-                  <p className="text-2xl font-semibold text-foreground">{s.k}</p>
-                  <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {s.v}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <DashboardMockup />
         </motion.div>
       </div>
     </section>
   );
 }
 
-const SPECIALTIES = [
-  { icon: Bluetooth, label: "Dentistas" },
-  { icon: Stethoscope, label: "Clínicos" },
-  { icon: Brain, label: "Psicólogos" },
-  { icon: Scissors, label: "Estética" },
-  { icon: Activity, label: "Fisioterapia" },
-  { icon: Apple, label: "Nutrição" },
-];
-
-function Professionals() {
+function Benefits({ content }: { content: LandingContent }) {
   return (
-    <section id="profissionais" className="bg-secondary/40 py-20">
+    <section id="beneficios" className="bg-secondary/40 py-20">
       <div className="container">
         <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Para profissionais</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Benefícios</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            Feito para médicos, dentistas, clínicas e profissionais da saúde.
+            Resultados reais para sua clínica.
           </h2>
+          <p className="mt-4 text-muted-foreground">
+            Mais que funcionalidades — uma operação mais leve, lucrativa e previsível.
+          </p>
         </motion.div>
-        <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {SPECIALTIES.map((s, i) => (
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {content.benefits.map((b, i) => (
             <motion.div
-              key={s.label}
+              key={b.title}
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.35, delay: i * 0.04 }}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-5 text-center shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover"
+              className="group rounded-2xl border border-border bg-card p-6 shadow-card transition-all hover:-translate-y-1 hover:shadow-card-hover"
             >
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                <b.icon className="h-5 w-5" />
               </span>
-              <span className="text-sm font-medium text-foreground">{s.label}</span>
+              <h3 className="mt-4 text-base font-semibold text-foreground">{b.title}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{b.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -367,64 +294,138 @@ function Professionals() {
   );
 }
 
-const PREVIEW_SPECIALTIES = [
-  "Clínico Geral",
-  "Ortodontia",
-  "Implantodontia",
-  "Endodontia",
-  "Periodontia",
-  "Estética",
-];
-
-function buildPreviewShifts() {
-  const today = new Date();
-  return [0, 1, 2, 3].flatMap((d) => {
-    const date = format(addDays(today, d), "yyyy-MM-dd");
-    return [
-      { date, start: "09:00:00", end: "12:00:00" },
-      { date, start: "14:00:00", end: "17:00:00" },
-    ];
-  });
+function HowItWorks({ content }: { content: LandingContent }) {
+  return (
+    <section id="como-funciona" className="container py-20">
+      <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Como funciona</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+          Em 3 passos simples.
+        </h2>
+        <p className="mt-4 text-muted-foreground">
+          Do cadastro ao primeiro atendimento — em minutos.
+        </p>
+      </motion.div>
+      <div className="mt-12 grid gap-4 md:grid-cols-3">
+        {content.howItWorks.map((s, i) => (
+          <motion.div
+            key={s.title}
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: i * 0.06 }}
+            className="relative rounded-2xl border border-border bg-card p-6 shadow-card"
+          >
+            <span className="absolute -top-3 left-6 inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-semibold text-primary">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+              <s.icon className="h-5 w-5" />
+            </span>
+            <h3 className="mt-4 text-base font-semibold text-foreground">{s.title}</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">{s.desc}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
-const PREVIEW_DOCTORS = ([
-  {
-    userId: "preview-1",
-    specialty: "Ortodontia",
-    fullName: "Dra. Camila Ribeiro",
-    avatarUrl: null,
-    clinicId: "preview-clinic-1",
-    clinicName: "Clínica Sorria+",
-    clinicCity: "São Paulo",
-    clinicState: "SP",
-    clinicPhone: "(11) 99999-0001",
-    clinicAddress: null,
-    clinicZipCode: null,
-    shifts: buildPreviewShifts(),
-    appointments: [],
-  },
-  {
-    userId: "preview-2",
-    specialty: "Implantodontia",
-    fullName: "Dr. Rafael Almeida",
-    avatarUrl: null,
-    clinicId: "preview-clinic-2",
-    clinicName: "Instituto OdontoVida",
-    clinicCity: "Rio de Janeiro",
-    clinicState: "RJ",
-    clinicPhone: "(21) 98888-0002",
-    clinicAddress: null,
-    clinicZipCode: null,
-    shifts: buildPreviewShifts(),
-    appointments: [],
-  },
-] as unknown) as DoctorData[];
+function SocialProof({ content }: { content: LandingContent }) {
+  return (
+    <section id="prova-social" className="bg-secondary/40 py-20">
+      <div className="container">
+        <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Prova social</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            Clínicas que confiam no Iaclin.
+          </h2>
+        </motion.div>
 
-function MarketplacePreview() {
-  return <MarketplaceSection />;
+        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+          {content.social.metrics.map((m) => (
+            <div
+              key={m.label}
+              className="rounded-2xl border border-border bg-card p-6 text-center shadow-card"
+            >
+              <p className="text-3xl font-semibold text-foreground">{m.value}</p>
+              <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {m.label}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {content.social.testimonials.map((t) => (
+            <motion.figure
+              key={t.name}
+              {...fadeUp}
+              className="rounded-2xl border border-border bg-card p-6 shadow-card"
+            >
+              <blockquote className="text-sm text-foreground md:text-base">
+                “{t.quote}”
+              </blockquote>
+              <figcaption className="mt-4 flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  {t.name
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((p) => p[0])
+                    .join("")}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.role}</p>
+                </div>
+              </figcaption>
+            </motion.figure>
+          ))}
+        </div>
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-70">
+          {content.social.partners.map((p) => (
+            <span
+              key={p}
+              className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function FinalCTA() {
+function FAQSection({ content }: { content: LandingContent }) {
+  return (
+    <section id="faq" className="container py-20">
+      <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">FAQ</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+          Perguntas frequentes.
+        </h2>
+      </motion.div>
+      <div className="mx-auto mt-10 max-w-3xl">
+        <Accordion type="single" collapsible className="w-full">
+          {content.faq.map((f, i) => (
+            <AccordionItem key={f.q} value={`item-${i}`} className="border-border">
+              <AccordionTrigger className="text-left text-base font-medium text-foreground">
+                {f.q}
+              </AccordionTrigger>
+              <AccordionContent className="text-sm text-muted-foreground">
+                {f.a}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
+    </section>
+  );
+}
+
+function FinalCTA({ content }: { content: LandingContent }) {
   return (
     <section className="container py-20">
       <motion.div
@@ -437,26 +438,25 @@ function FinalCTA() {
           Comece em minutos
         </span>
         <h2 className="mx-auto mt-5 max-w-2xl text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-          Transforme sua rotina clínica com o Iaclin.
+          {content.finalCta.title}
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-          Entre na plataforma e descubra como organizar atendimentos, prontuários e gestão em
-          poucos cliques.
+          {content.finalCta.desc}
         </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button asChild size="lg" className="shadow-card-hover">
-            <a href={SYSTEM_URL}>
+            <a href={SIGNUP_URL}>
               <Rocket className="h-4 w-4" />
-              Acessar o Iaclin
+              {content.finalCta.cta}
             </a>
           </Button>
-          <Button asChild size="lg" variant="secondary">
-            <a href={SIGNUP_URL}>Criar Conta</a>
-          </Button>
           <Button asChild size="lg" variant="ghost">
-            <a href={SYSTEM_URL}>Entrar no Sistema</a>
+            <a href={SYSTEM_URL}>Já tenho conta</a>
           </Button>
         </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Sem cartão de crédito · Cancele quando quiser
+        </p>
       </motion.div>
     </section>
   );
@@ -516,17 +516,24 @@ function Footer() {
 }
 
 export default function Landing() {
+  const [params] = useSearchParams();
+  const content = useMemo<LandingContent>(() => {
+    const seg = resolveSegment(params.get("segmento") || params.get("segment"));
+    return LANDING_CONTENT[seg];
+  }, [params]);
+
   return (
     <div className="min-h-screen scroll-smooth bg-background text-foreground">
       <Navbar />
       <main>
-        <Hero />
-        <About />
-        <Features />
-        <Differentials />
-        <Professionals />
-        <MarketplacePreview />
-        <FinalCTA />
+        <Hero content={content} />
+        <Problem content={content} />
+        <Solution content={content} />
+        <Benefits content={content} />
+        <HowItWorks content={content} />
+        <SocialProof content={content} />
+        <FAQSection content={content} />
+        <FinalCTA content={content} />
       </main>
       <Footer />
     </div>
