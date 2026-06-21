@@ -315,20 +315,22 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
 
   // Auto-save to localStorage whenever any field changes (debounced 600ms)
   useEffect(() => {
+    const draft = {
+      exams, examIndication, rxItems, rxNotes,
+      refSpecialty, refUrgency, refReason, refSummary,
+      emitCert, certMode, certDate, certStart, certEnd,
+      leaveStart, leaveDays, certCid, certNotes,
+    };
+    onDraftChange?.(draft);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       try {
-        localStorage.setItem(draftKey, JSON.stringify({
-          exams, examIndication, rxItems, rxNotes,
-          refSpecialty, refUrgency, refReason, refSummary,
-          emitCert, certMode, certDate, certStart, certEnd,
-          leaveStart, leaveDays, certCid, certCidEdited, certNotes,
-        }));
+        localStorage.setItem(draftKey, JSON.stringify({ ...draft, certCidEdited }));
       } catch {}
     }, 600);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes]);
+  }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes, onDraftChange]);
 
   // Sync CID from hypotheses
   useEffect(() => {
