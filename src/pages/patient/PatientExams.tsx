@@ -190,6 +190,22 @@ export default function PatientExams() {
     },
   });
 
+  // Map uploader (doctor) name for archived files shown in DriveFileCard.
+  const { data: docDoctorMap } = useQuery({
+    queryKey: ['patient-docs-doctors', documents.map(d => d.uploaded_by).filter(Boolean).join(',')],
+    enabled: documents.some(d => !!d.uploaded_by),
+    queryFn: async () => {
+      const ids = [...new Set(documents.map(d => d.uploaded_by).filter(Boolean))] as string[];
+      if (!ids.length) return new Map<string, string>();
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const m = new Map<string, string>();
+      (data ?? []).forEach((p: any) => m.set(p.id, p.full_name ?? 'Médico(a)'));
+      return m;
+    },
+  });
+  const doctorNameFor = (d: DocumentRow): string | undefined =>
+    d.uploaded_by ? docDoctorMap?.get(d.uploaded_by) : undefined;
+
   const { exams, prescriptionDocs, certificateDocs, referralDocs, others } = useMemo(() => {
     const exams: DocumentRow[] = [], prescriptionDocs: DocumentRow[] = [], certificateDocs: DocumentRow[] = [], referralDocs: DocumentRow[] = [], others: DocumentRow[] = [];
     for (const d of documents) {
