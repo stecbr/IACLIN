@@ -21,6 +21,7 @@ interface Args {
   startTime: string;
   attendance: AttendancePdfData;
   requests: RequestItem[];
+  medicalDraft?: MedicalDocumentsDraft | null;
 }
 
 const BUCKET = 'patient-files';
@@ -243,7 +244,7 @@ async function uploadPdf(
  * Falhas individuais não bloqueiam a finalização — só são reportadas no array.
  */
 export async function archiveAttendanceFiles(args: Args): Promise<{ failures: string[] }> {
-  const { appointmentId, patientId, clinicId, userId, startTime, attendance, requests } = args;
+  const { appointmentId, patientId, clinicId, userId, startTime, attendance, requests, medicalDraft } = args;
   const failures: string[] = [];
 
   // 1) Pasta — idempotente por appointment_id
@@ -268,6 +269,16 @@ export async function archiveAttendanceFiles(args: Args): Promise<{ failures: st
     specialty: prof?.specialty ?? null,
     signature_url: null as string | null,
   };
+
+  // 2.1) Documentos Médicos vindos da aba Documentos (receituário/exames/encaminhamento/atestado)
+  if (hasMedicalDocumentsDraft(medicalDraft)) {
+    try {
+      const html = await buildMedicalDocumentsHtml({ draft: medicalDraft, patient, professional: professionalForDocs, clinic });
+      if (html) await uploadPdf(patientId, folderId!, 'documentos-medicos', 'Documentos Médicos.pdf', html, base);
+    } catch (e: any) {
+      failures.push(`Documentos Médicos: ${e.message ?? e}`);
+    }
+  }
 
   // 2) Resumo de atendimento (sempre)
   try {
