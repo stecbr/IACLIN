@@ -557,7 +557,7 @@ export default function PatientRecord() {
 
         {/* ── Prescrições ─────────────────────────────────────────────────── */}
         <TabsContent value="prescricoes">
-          {allPrescriptions.length === 0
+          {allPrescriptions.length === 0 && prescriptionDocs.length === 0
             ? <Empty icon={Pill} label="Sem prescrições registradas" />
             : (
               <div className="space-y-2">
@@ -609,6 +609,9 @@ export default function PatientRecord() {
                     </Card>
                   );
                 })}
+                {prescriptionDocs.length > 0 && (
+                  <ArchivedFilesGrid label="Arquivos" docs={prescriptionDocs} openDoc={openDoc} accent="emerald" />
+                )}
               </div>
             )
           }
@@ -616,7 +619,7 @@ export default function PatientRecord() {
 
         {/* ── Exames ──────────────────────────────────────────────────────── */}
         <TabsContent value="exames">
-          {allExams.length === 0
+          {allExams.length === 0 && examDocs.length === 0
             ? <Empty icon={FlaskConical} label="Sem solicitações de exames" />
             : (
               <div className="space-y-2">
@@ -663,6 +666,9 @@ export default function PatientRecord() {
                     </Card>
                   );
                 })}
+                {examDocs.length > 0 && (
+                  <ArchivedFilesGrid label="Arquivos" docs={examDocs} openDoc={openDoc} accent="violet" />
+                )}
               </div>
             )
           }
@@ -670,7 +676,7 @@ export default function PatientRecord() {
 
         {/* ── Encaminhamentos ─────────────────────────────────────────────── */}
         <TabsContent value="encaminhamentos">
-          {allReferrals.length === 0
+          {allReferrals.length === 0 && referralDocs.length === 0
             ? <Empty icon={ArrowRight} label="Sem encaminhamentos registrados" />
             : (
               <div className="space-y-2">
@@ -712,16 +718,26 @@ export default function PatientRecord() {
                     </Card>
                   );
                 })}
+                {referralDocs.length > 0 && (
+                  <ArchivedFilesGrid label="Arquivos" docs={referralDocs} openDoc={openDoc} accent="amber" />
+                )}
               </div>
             )
           }
         </TabsContent>
 
+        {/* ── Atestados ───────────────────────────────────────────────────── */}
+        {certificateDocs.length > 0 && (
+          <TabsContent value="atestados">
+            <ArchivedFilesGrid docs={certificateDocs} openDoc={openDoc} accent="sky" />
+          </TabsContent>
+        )}
+
         {/* ── Documentos ──────────────────────────────────────────────────── */}
-        {documents.length > 0 && (
+        {otherDocs.length > 0 && (
           <TabsContent value="documentos">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {documents.map((d: any) => {
+              {otherDocs.map((d: any) => {
                 const isImage = /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(d.file_url ?? '') || d.file_type?.startsWith('image/');
                 return (
                   <div key={d.id} className="group rounded-lg border border-border/50 overflow-hidden hover:border-primary/30 hover:shadow-sm transition-all">
