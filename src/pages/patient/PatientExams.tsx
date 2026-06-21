@@ -292,6 +292,15 @@ export default function PatientExams() {
     });
   }, [certificateDocs, periodCutoff, search]);
 
+  const filteredReferralDocs = useMemo(() => {
+    const cutoff = periodCutoff; const q = search.toLowerCase();
+    return referralDocs.filter(d => {
+      if (cutoff && parseISO(d.created_at) < cutoff) return false;
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [referralDocs, periodCutoff, search]);
+
   const filteredOthers = useMemo(() => {
     const cutoff = periodCutoff; const q = search.toLowerCase();
     return others.filter(d => {
@@ -304,7 +313,7 @@ export default function PatientExams() {
   const counts = {
     exames: filteredExams.length + filteredExamRequests.length,
     receitas: filteredPrescriptionDocs.length + filteredPrescriptions.length + filteredDocPrescriptions.length,
-    encaminhamentos: filteredReferrals.length,
+    encaminhamentos: filteredReferrals.length + filteredReferralDocs.length,
     atestados: filteredCertificateDocs.length + filteredCertificates.length,
     outros: filteredOthers.length,
   };
@@ -478,9 +487,16 @@ export default function PatientExams() {
 
           {activeSection === 'encaminhamentos' && (
             <SectionWrapper empty={counts.encaminhamentos === 0} icon={Send} emptyTitle="Nenhum encaminhamento encontrado" emptyDesc="Tente ajustar a busca ou o período.">
-              <DocGrid>
-                {filteredReferrals.map((ref) => <ReferralCard key={ref.reqId} referral={ref} />)}
-              </DocGrid>
+              {filteredReferrals.length > 0 && (
+                <DocGrid>
+                  {filteredReferrals.map((ref) => <ReferralCard key={ref.reqId} referral={ref} />)}
+                </DocGrid>
+              )}
+              {filteredReferralDocs.length > 0 && (
+                <DocGrid label={filteredReferrals.length > 0 ? 'Arquivos' : undefined}>
+                  {filteredReferralDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                </DocGrid>
+              )}
             </SectionWrapper>
           )}
 
