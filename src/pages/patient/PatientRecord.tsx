@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Phone, Mail, MapPin, CreditCard, FileText, Pill, FlaskConical, ArrowRight,
   ChevronDown, ChevronRight, Printer, Download, Loader2, Stethoscope,
-  User, Calendar, Share2, CalendarPlus, Image as ImageIcon, File,
+  User, Calendar, Share2, CalendarPlus, Image as ImageIcon, File, FileCheck2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,29 @@ const URGENCY: Record<string, string> = {
   prioritario: 'Prioritário', urgent: 'Prioritário',
   emergencia: 'Emergência', emergency: 'Emergência',
 };
+
+// ── Doc classifier (mirror of PatientExams) ───────────────────────────────────
+const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame', 'patient_exam']);
+const PRESCRIPTION_CATEGORIES = new Set(['prescription', 'receita']);
+const CERTIFICATE_CATEGORIES = new Set(['medical_certificate']);
+const REFERRAL_CATEGORIES = new Set(['referral', 'encaminhamento']);
+
+type DocBucket = 'exam' | 'prescription' | 'referral' | 'certificate' | 'other';
+function classifyDoc(d: { category: string | null; name: string }): DocBucket {
+  const cat = (d.category ?? '').toLowerCase();
+  if (PRESCRIPTION_CATEGORIES.has(cat)) return 'prescription';
+  if (EXAM_CATEGORIES.has(cat)) return 'exam';
+  if (CERTIFICATE_CATEGORIES.has(cat)) return 'certificate';
+  if (REFERRAL_CATEGORIES.has(cat)) return 'referral';
+  if (cat.startsWith('doctor_file')) {
+    const n = (d.name ?? '').toLowerCase();
+    if (n.startsWith('solicitação de exames') || n.startsWith('solicitacao de exames')) return 'exam';
+    if (n.startsWith('receituário') || n.startsWith('receituario')) return 'prescription';
+    if (n.startsWith('encaminhamento')) return 'referral';
+    if (n.startsWith('atestado')) return 'certificate';
+  }
+  return 'other';
+}
 
 // ── PDF helpers ───────────────────────────────────────────────────────────────
 function openPrintBlob(html: string) {
