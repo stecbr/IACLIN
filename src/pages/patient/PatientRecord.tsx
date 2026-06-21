@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Phone, Mail, MapPin, CreditCard, FileText, Pill, FlaskConical, ArrowRight,
   ChevronDown, ChevronRight, Printer, Download, Loader2, Stethoscope,
-  User, Calendar, Share2, CalendarPlus, Image as ImageIcon, File,
+  User, Calendar, Share2, CalendarPlus, Image as ImageIcon, File, FileCheck2,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,29 @@ const URGENCY: Record<string, string> = {
   prioritario: 'Prioritário', urgent: 'Prioritário',
   emergencia: 'Emergência', emergency: 'Emergência',
 };
+
+// ── Doc classifier (mirror of PatientExams) ───────────────────────────────────
+const EXAM_CATEGORIES = new Set(['image', 'exam', 'lab_exam', 'imaging_exam', 'exame', 'patient_exam']);
+const PRESCRIPTION_CATEGORIES = new Set(['prescription', 'receita']);
+const CERTIFICATE_CATEGORIES = new Set(['medical_certificate']);
+const REFERRAL_CATEGORIES = new Set(['referral', 'encaminhamento']);
+
+type DocBucket = 'exam' | 'prescription' | 'referral' | 'certificate' | 'other';
+function classifyDoc(d: { category: string | null; name: string }): DocBucket {
+  const cat = (d.category ?? '').toLowerCase();
+  if (PRESCRIPTION_CATEGORIES.has(cat)) return 'prescription';
+  if (EXAM_CATEGORIES.has(cat)) return 'exam';
+  if (CERTIFICATE_CATEGORIES.has(cat)) return 'certificate';
+  if (REFERRAL_CATEGORIES.has(cat)) return 'referral';
+  if (cat.startsWith('doctor_file')) {
+    const n = (d.name ?? '').toLowerCase();
+    if (n.startsWith('solicitação de exames') || n.startsWith('solicitacao de exames')) return 'exam';
+    if (n.startsWith('receituário') || n.startsWith('receituario')) return 'prescription';
+    if (n.startsWith('encaminhamento')) return 'referral';
+    if (n.startsWith('atestado')) return 'certificate';
+  }
+  return 'other';
+}
 
 // ── PDF helpers ───────────────────────────────────────────────────────────────
 function openPrintBlob(html: string) {
@@ -215,12 +238,22 @@ export default function PatientRecord() {
     queryFn: async () => {
       const { data } = await supabase
         .from('documents')
-        .select('id, name, file_url, file_type, category, created_at')
+        .select('id, name, file_url, file_type, category, created_at, uploaded_by')
         .in('patient_id', patientIdList)
         .not('category', 'eq', 'doctor_folder')
         .order('created_at', { ascending: false })
         .limit(100);
-      return (data ?? []).filter((d: any) => !d.file_url?.startsWith('generated://'));
+      const rows = (data ?? []).filter((d: any) => !d.file_url?.startsWith('generated://'));
+      const uploaderIds = [...new Set(rows.map((d: any) => d.uploaded_by).filter(Boolean))] as string[];
+      const drMap = new Map<string, DoctorData>();
+      if (uploaderIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name, specialty, avatar_url')
+          .in('id', uploaderIds);
+        (profs ?? []).forEach((p: any) => drMap.set(p.id, p));
+      }
+      return rows.map((d: any) => ({ ...d, doctor: d.uploaded_by ? drMap.get(d.uploaded_by) ?? null : null }));
     },
   });
 
@@ -228,6 +261,22 @@ export default function PatientRecord() {
   const allPrescriptions = allRequests.filter(r => ['prescription', 'doc_prescription'].includes(r.kind));
   const allExams         = allRequests.filter(r => ['lab_exam', 'imaging_exam', 'doc_exam_request'].includes(r.kind));
   const allReferrals     = allRequests.filter(r => ['referral', 'doc_referral'].includes(r.kind));
+
+  // Split archived docs by type using filename + category
+  const examDocs: any[]         = [];
+  const prescriptionDocs: any[] = [];
+  const referralDocs: any[]     = [];
+  const certificateDocs: any[]  = [];
+  const otherDocs: any[]        = [];
+  for (const d of documents as any[]) {
+    switch (classifyDoc(d)) {
+      case 'exam':         examDocs.push(d); break;
+      case 'prescription': prescriptionDocs.push(d); break;
+      case 'referral':     referralDocs.push(d); break;
+      case 'certificate':  certificateDocs.push(d); break;
+      default:             otherDocs.push(d);
+    }
+  }
 
   const patientForPdf = { full_name: patientName, cpf: patient?.cpf ?? undefined };
 
@@ -300,20 +349,26 @@ export default function PatientRecord() {
           </TabsTrigger>
           <TabsTrigger value="prescricoes" className="gap-1.5">
             <Pill className="h-3.5 w-3.5" /> Prescrições
-            {allPrescriptions.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allPrescriptions.length}</Badge>}
+            {(allPrescriptions.length + prescriptionDocs.length) > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allPrescriptions.length + prescriptionDocs.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="exames" className="gap-1.5">
             <FlaskConical className="h-3.5 w-3.5" /> Exames
-            {allExams.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allExams.length}</Badge>}
+            {(allExams.length + examDocs.length) > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allExams.length + examDocs.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="encaminhamentos" className="gap-1.5">
             <ArrowRight className="h-3.5 w-3.5" /> Encaminh.
-            {allReferrals.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allReferrals.length}</Badge>}
+            {(allReferrals.length + referralDocs.length) > 0 && <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{allReferrals.length + referralDocs.length}</Badge>}
           </TabsTrigger>
-          {documents.length > 0 && (
+          {certificateDocs.length > 0 && (
+            <TabsTrigger value="atestados" className="gap-1.5">
+              <FileCheck2 className="h-3.5 w-3.5" /> Atestados
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{certificateDocs.length}</Badge>
+            </TabsTrigger>
+          )}
+          {otherDocs.length > 0 && (
             <TabsTrigger value="documentos" className="gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Documentos
-              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{documents.length}</Badge>
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">{otherDocs.length}</Badge>
             </TabsTrigger>
           )}
         </TabsList>
@@ -502,7 +557,7 @@ export default function PatientRecord() {
 
         {/* ── Prescrições ─────────────────────────────────────────────────── */}
         <TabsContent value="prescricoes">
-          {allPrescriptions.length === 0
+          {allPrescriptions.length === 0 && prescriptionDocs.length === 0
             ? <Empty icon={Pill} label="Sem prescrições registradas" />
             : (
               <div className="space-y-2">
@@ -554,6 +609,9 @@ export default function PatientRecord() {
                     </Card>
                   );
                 })}
+                {prescriptionDocs.length > 0 && (
+                  <ArchivedFilesGrid label="Arquivos" docs={prescriptionDocs} openDoc={openDoc} accent="emerald" />
+                )}
               </div>
             )
           }
@@ -561,7 +619,7 @@ export default function PatientRecord() {
 
         {/* ── Exames ──────────────────────────────────────────────────────── */}
         <TabsContent value="exames">
-          {allExams.length === 0
+          {allExams.length === 0 && examDocs.length === 0
             ? <Empty icon={FlaskConical} label="Sem solicitações de exames" />
             : (
               <div className="space-y-2">
@@ -608,6 +666,9 @@ export default function PatientRecord() {
                     </Card>
                   );
                 })}
+                {examDocs.length > 0 && (
+                  <ArchivedFilesGrid label="Arquivos" docs={examDocs} openDoc={openDoc} accent="violet" />
+                )}
               </div>
             )
           }
@@ -615,7 +676,7 @@ export default function PatientRecord() {
 
         {/* ── Encaminhamentos ─────────────────────────────────────────────── */}
         <TabsContent value="encaminhamentos">
-          {allReferrals.length === 0
+          {allReferrals.length === 0 && referralDocs.length === 0
             ? <Empty icon={ArrowRight} label="Sem encaminhamentos registrados" />
             : (
               <div className="space-y-2">
@@ -657,16 +718,26 @@ export default function PatientRecord() {
                     </Card>
                   );
                 })}
+                {referralDocs.length > 0 && (
+                  <ArchivedFilesGrid label="Arquivos" docs={referralDocs} openDoc={openDoc} accent="amber" />
+                )}
               </div>
             )
           }
         </TabsContent>
 
+        {/* ── Atestados ───────────────────────────────────────────────────── */}
+        {certificateDocs.length > 0 && (
+          <TabsContent value="atestados">
+            <ArchivedFilesGrid docs={certificateDocs} openDoc={openDoc} accent="sky" />
+          </TabsContent>
+        )}
+
         {/* ── Documentos ──────────────────────────────────────────────────── */}
-        {documents.length > 0 && (
+        {otherDocs.length > 0 && (
           <TabsContent value="documentos">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {documents.map((d: any) => {
+              {otherDocs.map((d: any) => {
                 const isImage = /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(d.file_url ?? '') || d.file_type?.startsWith('image/');
                 return (
                   <div key={d.id} className="group rounded-lg border border-border/50 overflow-hidden hover:border-primary/30 hover:shadow-sm transition-all">
@@ -793,6 +864,61 @@ function Empty({ icon: Icon, label }: { icon: typeof Calendar; label: string }) 
     <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
       <Icon className="h-8 w-8 text-muted-foreground mb-2" />
       <p className="text-sm text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+// ── Archived files grid (shows doctor name + open button) ─────────────────────
+const ACCENT_BG: Record<string, string> = {
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  violet:  'bg-violet-500/10  text-violet-600  dark:text-violet-400',
+  amber:   'bg-amber-500/10   text-amber-600   dark:text-amber-400',
+  sky:     'bg-sky-500/10     text-sky-600     dark:text-sky-400',
+};
+
+function ArchivedFilesGrid({ label, docs, openDoc, accent = 'violet' }: {
+  label?: string;
+  docs: any[];
+  openDoc: (d: any) => void;
+  accent?: 'emerald' | 'violet' | 'amber' | 'sky';
+}) {
+  const bg = ACCENT_BG[accent] ?? ACCENT_BG.violet;
+  return (
+    <div className="space-y-2 pt-2">
+      {label && <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground pl-1">{label}</p>}
+      <div className="grid gap-2 sm:grid-cols-2">
+        {docs.map((d: any) => {
+          const dr = d.doctor;
+          const drInitials = dr?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+          return (
+            <button
+              key={d.id}
+              onClick={() => openDoc(d)}
+              className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-muted/40 transition-all text-left"
+            >
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
+                <FileText className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" title={d.name}>{d.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {dr?.full_name ? `Dr(a). ${dr.full_name}` : 'Profissional'}
+                  {' · '}{format(parseISO(d.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                </p>
+              </div>
+              {dr ? (
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarImage src={dr.avatar_url ?? undefined} />
+                  <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
+                    {drInitials ?? <Stethoscope className="h-3 w-3 text-primary/60" />}
+                  </AvatarFallback>
+                </Avatar>
+              ) : null}
+              <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

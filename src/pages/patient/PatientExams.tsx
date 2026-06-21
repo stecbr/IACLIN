@@ -190,6 +190,22 @@ export default function PatientExams() {
     },
   });
 
+  // Map uploader (doctor) name for archived files shown in DriveFileCard.
+  const { data: docDoctorMap } = useQuery({
+    queryKey: ['patient-docs-doctors', documents.map(d => d.uploaded_by).filter(Boolean).join(',')],
+    enabled: documents.some(d => !!d.uploaded_by),
+    queryFn: async () => {
+      const ids = [...new Set(documents.map(d => d.uploaded_by).filter(Boolean))] as string[];
+      if (!ids.length) return new Map<string, string>();
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const m = new Map<string, string>();
+      (data ?? []).forEach((p: any) => m.set(p.id, p.full_name ?? 'Médico(a)'));
+      return m;
+    },
+  });
+  const doctorNameFor = (d: DocumentRow): string | undefined =>
+    d.uploaded_by ? docDoctorMap?.get(d.uploaded_by) : undefined;
+
   const { exams, prescriptionDocs, certificateDocs, referralDocs, others } = useMemo(() => {
     const exams: DocumentRow[] = [], prescriptionDocs: DocumentRow[] = [], certificateDocs: DocumentRow[] = [], referralDocs: DocumentRow[] = [], others: DocumentRow[] = [];
     for (const d of documents) {
@@ -459,7 +475,7 @@ export default function PatientExams() {
               )}
               {filteredExams.length > 0 && (
                 <DocGrid label={filteredExamRequests.length > 0 ? 'Arquivos' : undefined}>
-                  {filteredExams.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} onDelete={d.category === 'patient_exam' ? handleDelete : undefined} />)}
+                  {filteredExams.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} onDelete={d.category === 'patient_exam' ? handleDelete : undefined} doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -479,7 +495,7 @@ export default function PatientExams() {
               )}
               {filteredPrescriptionDocs.length > 0 && (
                 <DocGrid label="Arquivos">
-                  {filteredPrescriptionDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="rx" />)}
+                  {filteredPrescriptionDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="rx" doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -494,7 +510,7 @@ export default function PatientExams() {
               )}
               {filteredReferralDocs.length > 0 && (
                 <DocGrid label={filteredReferrals.length > 0 ? 'Arquivos' : undefined}>
-                  {filteredReferralDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                  {filteredReferralDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -509,7 +525,7 @@ export default function PatientExams() {
               )}
               {filteredCertificateDocs.length > 0 && (
                 <DocGrid label={filteredCertificates.length > 0 ? 'Arquivos' : undefined}>
-                  {filteredCertificateDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="cert" />)}
+                  {filteredCertificateDocs.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} accent="cert" doctorName={doctorNameFor(d)} />)}
                 </DocGrid>
               )}
             </SectionWrapper>
@@ -518,7 +534,7 @@ export default function PatientExams() {
           {activeSection === 'outros' && (
             <SectionWrapper empty={counts.outros === 0} icon={FolderOpen} emptyTitle="Nenhum documento encontrado" emptyDesc="Tente ajustar a busca ou o período.">
               <DocGrid>
-                {filteredOthers.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} />)}
+                {filteredOthers.map((d) => <DriveFileCard key={d.id} doc={d} onDownload={downloadDoc} doctorName={doctorNameFor(d)} />)}
               </DocGrid>
             </SectionWrapper>
           )}
@@ -573,7 +589,7 @@ function getFileVisuals(doc: DocumentRow, accent?: 'rx' | 'cert') {
   return { bg: 'bg-primary/10', icon: <File className="h-7 w-7 text-primary/60" /> };
 }
 
-function DriveFileCard({ doc, onDownload, onDelete, accent }: { doc: DocumentRow; onDownload: (d: DocumentRow) => void; onDelete?: (d: DocumentRow) => void; accent?: 'rx' | 'cert'; }) {
+function DriveFileCard({ doc, onDownload, onDelete, accent, doctorName }: { doc: DocumentRow; onDownload: (d: DocumentRow) => void; onDelete?: (d: DocumentRow) => void; accent?: 'rx' | 'cert'; doctorName?: string }) {
   const { bg, icon } = getFileVisuals(doc, accent);
   const ext = doc.name.split('.').pop()?.toUpperCase() ?? '';
   return (
@@ -611,6 +627,9 @@ function DriveFileCard({ doc, onDownload, onDelete, accent }: { doc: DocumentRow
       <div className="p-2.5 flex-1">
         <p className="text-xs font-medium truncate leading-snug" title={doc.name}>{doc.name}</p>
         <p className="text-[10px] text-muted-foreground mt-0.5">{format(parseISO(doc.created_at), "dd MMM yyyy", { locale: ptBR })}</p>
+        {doctorName && (
+          <p className="text-[10px] text-muted-foreground truncate" title={doctorName}>Dr(a). {doctorName}</p>
+        )}
         {doc.category === 'patient_exam' && (
           <Badge variant="outline" className="text-[9px] h-4 px-1 mt-1 leading-none">Enviado por você</Badge>
         )}
