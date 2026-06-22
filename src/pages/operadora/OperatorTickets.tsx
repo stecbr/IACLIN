@@ -93,6 +93,8 @@ interface Ticket {
   created_at: string;
   updated_at: string;
   creatorName?: string;
+  clinicName?: string;
+  clinicLogo?: string | null;
 }
 
 interface TicketMessage {
@@ -237,9 +239,17 @@ export default function OperatorTickets() {
         .in('id', creatorIds);
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? 'Profissional']));
 
+      const clinicIds = [...new Set(rawTickets.map((t) => t.clinic_id).filter(Boolean) as string[])];
+      const { data: clinicRows } = clinicIds.length
+        ? await supabase.from('clinics').select('id, name, logo_url').in('id', clinicIds)
+        : { data: [] as any[] };
+      const clinicMap = new Map((clinicRows ?? []).map((c: any) => [c.id, { name: c.name as string, logo: (c.logo_url ?? null) as string | null }]));
+
       return rawTickets.map((t) => ({
         ...t,
         creatorName: profileMap.get(t.created_by) ?? 'Profissional',
+        clinicName: t.clinic_id ? clinicMap.get(t.clinic_id)?.name ?? 'Clínica' : 'Clínica',
+        clinicLogo: t.clinic_id ? clinicMap.get(t.clinic_id)?.logo ?? null : null,
       })) as Ticket[];
     },
   });
