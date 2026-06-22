@@ -514,26 +514,33 @@ function OperatorTicketDialog({
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between gap-3 pr-6">
-            <div className="min-w-0 space-y-1">
-              <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
-                {STATUS_LABELS[ticket.status]}
-              </Badge>
-              <DialogTitle className="text-base leading-tight">{ticket.subject}</DialogTitle>
+            <div className="flex items-start gap-3 min-w-0">
+              <Avatar className="h-11 w-11 shrink-0">
+                {ticket.clinicLogo && <AvatarImage src={ticket.clinicLogo} alt={ticket.clinicName ?? 'Clínica'} />}
+                <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                  {(ticket.clinicName ?? 'C').slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 space-y-1">
+                <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
+                  {STATUS_LABELS[ticket.status]}
+                </Badge>
+                <DialogTitle className="text-base leading-tight">{ticket.clinicName ?? 'Clínica'}</DialogTitle>
+                <p className="text-xs text-muted-foreground leading-tight">{ticket.subject}</p>
+              </div>
             </div>
             {!isClosed && (
               <button
                 type="button"
                 onClick={handleCloseTicket}
-                className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                className="shrink-0 flex items-center gap-1.5 text-xs font-medium rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Encerrar chamado
               </button>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>De {ticket.creatorName}</span>
-            <span>·</span>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground pl-14">
             <span>
               {format(parseISO(ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
