@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Cake, Star, AlertTriangle } from 'lucide-react';
@@ -360,27 +360,12 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
         <div className="space-y-2">
           {/* Aniversário: anexar imagem (cartão) */}
           {isBirthday && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Imagem do cartão (opcional)</Label>
-              {imageUrl ? (
-                <div className="flex items-center gap-2">
-                  <img src={imageUrl} alt="Cartão" className="h-14 w-14 rounded-md object-cover border" />
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setImageUrl('')} disabled={!active}>
-                    Remover
-                  </Button>
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="Cole a URL da imagem (ex: https://...)"
-                  disabled={!active}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              )}
-              <p className="text-[11px] text-muted-foreground">A imagem é enviada junto com a mensagem de parabéns.</p>
-            </div>
+            <BirthdayImageUpload
+              clinicId={clinicId}
+              imageUrl={imageUrl}
+              setImageUrl={setImageUrl}
+              active={active}
+            />
           )}
 
           {/* Botão para revelar o editor — fluxo comum nem abre */}
