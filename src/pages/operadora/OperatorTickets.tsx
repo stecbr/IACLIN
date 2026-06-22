@@ -604,6 +604,11 @@ function OperatorTicketDialog({
                   }
                 }}
               />
+              <AttachmentsList
+                files={files}
+                onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                onView={openLocalFileViewer}
+              />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <label className="cursor-pointer text-muted-foreground hover:text-primary transition-colors">
@@ -613,23 +618,13 @@ function OperatorTicketDialog({
                       multiple
                       accept="image/*,.pdf"
                       className="sr-only"
-                      onChange={(e) =>
-                        setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])
-                      }
+                      onChange={(e) => {
+                        const picked = Array.from(e.target.files ?? []);
+                        setFiles((prev) => [...prev, ...picked]);
+                        e.target.value = '';
+                      }}
                     />
                   </label>
-                  {files.length > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span>{files.length} anexo(s)</span>
-                      <button
-                        type="button"
-                        onClick={() => setFiles([])}
-                        className="text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
                   <button
                     type="button"
                     onClick={handleCloseTicket}
