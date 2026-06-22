@@ -672,6 +672,22 @@ function CreateOperatorTicketDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
+  const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
+  const viewerUrlRef = useRef<string | null>(null);
+
+  const openLocalFileViewer = (file: File) => {
+    if (viewerUrlRef.current) URL.revokeObjectURL(viewerUrlRef.current);
+    const url = URL.createObjectURL(file);
+    viewerUrlRef.current = url;
+    setViewerFile({ url, file_name: file.name });
+  };
+  const closeViewer = () => {
+    setViewerFile(null);
+    if (viewerUrlRef.current) {
+      URL.revokeObjectURL(viewerUrlRef.current);
+      viewerUrlRef.current = null;
+    }
+  };
 
   const matchedPreset = PRESET_SUBJECTS.find(
     (s) => s.label.toLowerCase() === subject.trim().toLowerCase()
