@@ -51,28 +51,28 @@ const AUTOMATION_DEFS: Array<{
     title: 'Lembrete de consulta',
     description: 'Enviado automaticamente 24h antes da consulta',
     icon: Bell,
-    defaultMessage: 'Olá {patient_name}, lembrete da sua consulta em {date} às {time}.',
+    defaultMessage: 'Olá! Passando para lembrar da sua próxima consulta. Qualquer dúvida, estamos à disposição.',
   },
   {
     type: 'confirmation',
     title: 'Confirmação de agendamento',
     description: 'Enviado logo após o agendamento ser criado',
     icon: CheckCircle2,
-    defaultMessage: 'Olá {patient_name}, sua consulta foi agendada para {date} às {time}.',
+    defaultMessage: 'Olá! Sua consulta foi agendada com sucesso. Em breve confirmamos os detalhes.',
   },
   {
     type: 'return',
     title: 'Mensagem de retorno',
     description: 'Enviado X dias após a última consulta',
     icon: RotateCcw,
-    defaultMessage: 'Olá {patient_name}, já faz um tempo desde sua última visita à {clinic_name}. Que tal agendar um retorno?',
+    defaultMessage: 'Olá! Já faz um tempo desde sua última visita. Que tal agendar um retorno?',
   },
   {
     type: 'reschedule',
     title: 'Reagendamento',
     description: 'Enviado quando uma consulta é cancelada',
     icon: CalendarClock,
-    defaultMessage: 'Olá {patient_name}, sua consulta foi cancelada. Quer reagendar?',
+    defaultMessage: 'Olá! Sua consulta foi cancelada. Quer reagendar?',
   },
   {
     type: 'escalate',
@@ -86,14 +86,14 @@ const AUTOMATION_DEFS: Array<{
     title: 'Feliz aniversário',
     description: 'Enviado no dia do aniversário do paciente (de manhã)',
     icon: Cake,
-    defaultMessage: 'Olá {patient_name}, a equipe da {clinic_name} deseja um feliz aniversário! 🎉',
+    defaultMessage: 'Olá! A nossa equipe deseja um feliz aniversário! 🎉',
   },
   {
     type: 'nps',
     title: 'Pesquisa de satisfação (NPS)',
     description: 'Enviado algumas horas após a consulta realizada',
     icon: Star,
-    defaultMessage: 'Olá {patient_name}, como foi seu atendimento hoje? De 0 a 10, o quanto você recomendaria a {clinic_name}?',
+    defaultMessage: 'Olá! Como foi seu atendimento? De 0 a 10, o quanto você recomendaria nossa clínica?',
   },
 ];
 
@@ -412,12 +412,6 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
                 disabled={!active}
                 className="resize-none text-sm"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Você pode usar: <code className="rounded bg-muted px-1">{'{patient_name}'}</code>{' '}
-                <code className="rounded bg-muted px-1">{'{date}'}</code>{' '}
-                <code className="rounded bg-muted px-1">{'{time}'}</code>{' '}
-                <code className="rounded bg-muted px-1">{'{clinic_name}'}</code> — serão preenchidos automaticamente.
-              </p>
             </div>
           )}
         </div>
