@@ -193,41 +193,6 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           ))}
         </nav>
 
-        {/* Footer (user card) */}
-        <div className="px-3 py-3 border-t border-sidebar-border">
-          <TooltipProvider>
-            <div className="w-full flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
-                  {profile?.full_name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-sidebar-accent-foreground truncate">
-                  {profile?.full_name ?? user?.email ?? "Usuário"}
-                </p>
-                <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={signOut}
-                    className="p-2 rounded-xl border border-sidebar-border text-sidebar-accent-foreground hover:bg-sidebar-accent/40 transition-colors"
-                    aria-label="Sair"
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Sair</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
-        </div>
       </aside>
 
       {/* Collapsed icon rail */}
@@ -305,16 +270,6 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                   </Tooltip>
                 );
               })}
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
-                {profile?.full_name
-                  ?.split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase() ?? "U"}
-              </AvatarFallback>
-            </Avatar>
           </div>
         </TooltipProvider>
       </aside>
@@ -354,6 +309,55 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                 {resolved === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
               <NotificationBell />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="ml-1 rounded-full focus:outline-none focus:ring-2 focus:ring-sidebar-ring/50"
+                    aria-label="Conta"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-muted-foreground/10 text-sidebar-accent-foreground text-xs font-medium">
+                        {profile?.full_name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase() ?? "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-0 overflow-hidden">
+                  <div className="flex flex-col items-center text-center px-5 py-6 bg-muted/30">
+                    <Avatar className="h-16 w-16 mb-3">
+                      <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+                        {profile?.full_name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase() ?? "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="text-sm font-semibold text-foreground truncate max-w-full">
+                      {profile?.full_name ?? "Usuário"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate max-w-full mt-0.5">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <div className="p-2 border-t border-border">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-2 text-sm"
+                      onClick={signOut}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sair da conta
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </header>
         )}
