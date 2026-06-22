@@ -40,6 +40,26 @@ import { ptBR } from 'date-fns/locale';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+const TICKET_SUBJECT_OPTIONS = [
+  'Achado / Divergência em Auditoria',
+  'Atualização Cadastral Credenciado',
+  'Autorizações',
+  'Biometria',
+  'Cancelamento - SE',
+  'Comunicado Dentista',
+  'Corpo Clínico',
+  'Descredenciamento de Dentista',
+  'Descredenciamento de Especialidade',
+  'Diversas',
+  'Elogio',
+  'Inclusões de Procedimentos',
+  'Pagamento de Dentista',
+  'Produtividade',
+  'Reajuste Tabela Credenciado',
+  'Sistema',
+  'Outro',
+];
+
 interface Ticket {
   id: string;
   subject: string;
