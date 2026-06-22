@@ -271,6 +271,7 @@ const AppRoutes = () => (
     <Route path="/sala-de-espera" element={<ProtectedRoute><WaitingRoom /></ProtectedRoute>} />
     <Route path="/pacientes-do-dia" element={<ProtectedRoute><PatientsOfDay /></ProtectedRoute>} />
     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+    <Route path="/pacientes" element={<Navigate to="/patients" replace />} />
     <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
     <Route path="/prontuarios" element={<ProtectedRoute><OpenChart /></ProtectedRoute>} />
     <Route path="/clinica" element={<ProtectedRoute><ClinicaHome /></ProtectedRoute>} />
@@ -281,6 +282,9 @@ const AppRoutes = () => (
     <Route path="/odontogram" element={<ProtectedRoute><Odontogram /></ProtectedRoute>} />
     <Route path="/mapa-clinico" element={<Navigate to="/" replace />} />
     <Route path="/ferramentas" element={<ProtectedRoute><ToolsHomeUnified /></ProtectedRoute>} />
+    <Route path="/tools" element={<Navigate to="/ferramentas" replace />} />
+    <Route path="/waiting-room" element={<Navigate to="/sala-de-espera" replace />} />
+    <Route path="/availability" element={<Navigate to="/disponibilidade" replace />} />
     <Route path="/psi/ferramentas" element={<Navigate to="/ferramentas" replace />} />
     <Route path="/estetica/ferramentas" element={<Navigate to="/ferramentas" replace />} />
     <Route path="/medico/ferramentas" element={<Navigate to="/ferramentas" replace />} />
