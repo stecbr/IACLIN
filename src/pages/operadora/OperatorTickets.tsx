@@ -55,7 +55,6 @@ import {
   FileText,
   Eye,
   Trash2,
-  ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
