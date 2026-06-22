@@ -915,25 +915,25 @@ function CreateOperatorTicketDialog({
             <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5">
               <Paperclip className="h-4 w-4 shrink-0" />
               <span className="truncate">
-                {files.length > 0 ? `${files.length} arquivo(s) selecionado(s)` : 'Clique para anexar'}
+                {files.length > 0 ? 'Adicionar mais arquivos' : 'Clique para anexar (você pode enviar vários)'}
               </span>
               <input
                 type="file"
                 multiple
                 accept="image/*,.pdf,.doc,.docx"
                 className="sr-only"
-                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files ?? []);
+                  setFiles((prev) => [...prev, ...picked]);
+                  e.target.value = '';
+                }}
               />
             </label>
-            {files.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setFiles([])}
-                className="text-xs text-destructive hover:underline"
-              >
-                Remover anexos
-              </button>
-            )}
+            <AttachmentsList
+              files={files}
+              onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+              onView={openLocalFileViewer}
+            />
           </div>
         </div>
 
@@ -945,6 +945,7 @@ function CreateOperatorTicketDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <DocumentFullscreenViewer file={viewerFile} open={!!viewerFile} onClose={closeViewer} />
     </Dialog>
   );
 }
