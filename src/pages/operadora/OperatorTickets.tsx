@@ -40,6 +40,26 @@ import { ptBR } from 'date-fns/locale';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+const TICKET_SUBJECT_OPTIONS = [
+  'Achado / Divergência em Auditoria',
+  'Atualização Cadastral Credenciado',
+  'Autorizações',
+  'Biometria',
+  'Cancelamento - SE',
+  'Comunicado Dentista',
+  'Corpo Clínico',
+  'Descredenciamento de Dentista',
+  'Descredenciamento de Especialidade',
+  'Diversas',
+  'Elogio',
+  'Inclusões de Procedimentos',
+  'Pagamento de Dentista',
+  'Produtividade',
+  'Reajuste Tabela Credenciado',
+  'Sistema',
+  'Outro',
+];
+
 interface Ticket {
   id: string;
   subject: string;
@@ -685,11 +705,16 @@ function CreateOperatorTicketDialog({
 
           <div className="space-y-2">
             <Label>Assunto</Label>
-            <Input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Ex: Atualização cadastral pendente"
-            />
+            <Select value={subject} onValueChange={setSubject}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o assunto" />
+              </SelectTrigger>
+              <SelectContent>
+                {TICKET_SUBJECT_OPTIONS.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
