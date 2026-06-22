@@ -651,6 +651,7 @@ function OperatorTicketDialog({
           )}
         </div>
       </DialogContent>
+      <DocumentFullscreenViewer file={viewerFile} open={!!viewerFile} onClose={closeViewer} />
     </Dialog>
   );
 }
