@@ -136,7 +136,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
     <div className={`operator-scope ${resolved === "dark" ? "dark" : ""} min-h-screen flex w-full bg-background`}>
       {/* Full sidebar */}
       <aside
-        className={`hidden ${sidebarOpen ? "md:flex" : "md:hidden"} w-72 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen overflow-hidden`}
+        className={`hidden ${sidebarOpen ? "md:flex" : "md:hidden"} w-72 flex-col bg-sidebar text-sidebar-foreground sticky top-0 h-screen overflow-hidden`}
       >
         {/* Operator brand block: logo, status badge above name, and description */}
         <div className="px-5 py-5 border-sidebar-border">
@@ -230,7 +230,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
       {/* Collapsed icon rail */}
       <aside
-        className={`hidden ${!sidebarOpen ? "md:flex" : "md:hidden"} w-16 flex-col items-center bg-sidebar text-sidebar-foreground border-r border-sidebar-border sticky top-0 h-screen`}
+        className={`hidden ${!sidebarOpen ? "md:flex" : "md:hidden"} w-16 flex-col items-center bg-sidebar text-sidebar-foreground sticky top-0 h-screen`}
       >
         <div className="py-4 w-full flex items-center justify-center">
           <div className="h-10 w-10 flex items-center justify-center">
@@ -322,7 +322,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {location.pathname !== "/operadora/profissionais" && (
-          <header className="h-16 flex items-center justify-between border-b border-sidebar-border px-4 md:px-6 bg-sidebar sticky top-0 z-10">
+          <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-sidebar sticky top-0 z-10">
             <div className="flex items-center gap-3 min-w-0">
               <div className="hidden md:flex items-center gap-3">
                 <button
@@ -358,18 +358,20 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
             </div>
           </header>
         )}
-        <main className="flex-1 p-4 md:p-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              {children ?? <Outlet />}
-            </motion.div>
-          </AnimatePresence>
+        <main className="flex-1 p-3 md:p-4 bg-sidebar">
+          <div className="h-full bg-background rounded-xl border border-sidebar-border overflow-auto p-4 md:p-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {children ?? <Outlet />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </main>
       </div>
       <GettingStartedChecklist />
