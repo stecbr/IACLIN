@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
 import {
   Loader2,
   Paperclip,
@@ -51,6 +52,10 @@ import {
   Monitor,
   PenLine,
   Info,
+  FileText,
+  Eye,
+  Trash2,
+  ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
