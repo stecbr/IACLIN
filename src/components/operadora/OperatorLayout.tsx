@@ -133,7 +133,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
     .toUpperCase();
 
   return (
-    <div className={`operator-scope ${resolved === "dark" ? "dark" : ""} min-h-screen flex w-full bg-background`}>
+    <div className={`operator-scope ${resolved === "dark" ? "dark" : ""} h-screen overflow-hidden flex w-full bg-background`}>
       {/* Full sidebar */}
       <aside
         className={`hidden ${sidebarOpen ? "md:flex" : "md:hidden"} w-72 flex-col bg-sidebar text-sidebar-foreground sticky top-0 h-screen overflow-hidden`}
@@ -320,7 +320,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </TooltipProvider>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {location.pathname !== "/operadora/profissionais" && (
           <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-sidebar sticky top-0 z-10">
             <div className="flex items-center gap-3 min-w-0">
@@ -358,8 +358,8 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
             </div>
           </header>
         )}
-        <main className="flex-1 p-3 md:p-4 bg-sidebar">
-          <div className="h-full bg-background rounded-xl overflow-auto p-4 md:p-6">
+        <main className="flex-1 min-h-0 p-3 md:p-4 bg-sidebar">
+          <div className="h-full bg-background rounded-xl overflow-y-auto p-4 md:p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
