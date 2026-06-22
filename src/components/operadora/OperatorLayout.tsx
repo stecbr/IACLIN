@@ -149,7 +149,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
               />
             </div>
             <div className="min-w-0">
-              <div className="text-base font-semibold text-white truncate">{op?.name ?? "Operadora"}</div>
+              <div className="text-base font-semibold text-sidebar-foreground truncate">{op?.name ?? "Operadora"}</div>
               <div className="text-[11px] text-sidebar-foreground/60 truncate">Gestão de Operadora</div>
               {op?.cnpj && <div className="text-[10px] text-sidebar-foreground/60 truncate">CNPJ {op.cnpj}</div>}
             </div>
@@ -172,8 +172,8 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     className={({ isActive }) =>
                       `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
                         isActive
-                          ? "bg-sidebar-accent/70 text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary -ml-px pl-[calc(0.75rem-1px)]"
-                          : "text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent/60"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary -ml-px pl-[calc(0.75rem-1px)]"
+                          : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                       }`
                     }
                   >
@@ -263,7 +263,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                             className={`relative flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
                               active
                                 ? "bg-sidebar-accent text-sidebar-primary"
-                                : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
+                                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                             }`}
                           >
                             <item.icon size={18} strokeWidth={2} className="block shrink-0" />
@@ -296,7 +296,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                         className={`flex items-center justify-center h-10 w-10 leading-none rounded-xl transition-colors ${
                           active
                             ? "bg-sidebar-accent text-sidebar-primary"
-                            : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/60"
+                            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                         }`}
                       >
                         <item.icon size={18} strokeWidth={2} className="block shrink-0" />
