@@ -85,18 +85,25 @@ async function fetchDoctors(): Promise<PlatformDoctor[]> {
     throw error;
   }
   const doctors: any[] = Array.isArray(data) ? data : [];
-  return doctors.map((m: any) => ({
-    user_id:      m.user_id,
-    full_name:    m.full_name    ?? null,
-    specialty:    m.specialty   ?? null,
-    registration: m.registration_number ?? null,
-    role:         m.role,
-    is_owner:     m.is_owner,
-    clinic_id:    m.clinic_id   ?? null,
-    clinic_name:  m.clinic_name ?? null,
-    created_at:   m.created_at,
-    subscription: subsMap.get(`doctor:${m.user_id}`) ?? null,
-  }));
+  return doctors.map((m: any) => {
+    const doctorSub = subsMap.get(`doctor:${m.user_id}`) ?? null;
+    const clinicSub = m.clinic_id ? (subsMap.get(`clinic:${m.clinic_id}`) ?? null) : null;
+    const subscription = doctorSub ?? clinicSub;
+    const subscription_source = doctorSub ? 'doctor' : clinicSub ? 'clinic' : null;
+    return {
+      user_id:      m.user_id,
+      full_name:    m.full_name    ?? null,
+      specialty:    m.specialty   ?? null,
+      registration: m.registration_number ?? null,
+      role:         m.role,
+      is_owner:     m.is_owner,
+      clinic_id:    m.clinic_id   ?? null,
+      clinic_name:  m.clinic_name ?? null,
+      created_at:   m.created_at,
+      subscription,
+      subscription_source,
+    };
+  });
 }
 
 // ── Plans ───────────────────────────────────────────────────

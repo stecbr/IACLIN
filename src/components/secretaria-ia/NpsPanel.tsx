@@ -76,14 +76,7 @@ interface NpsResponse {
 }
 
 const DEFAULT_QUESTION =
-  'Olá {patient_name}, como foi seu atendimento hoje? De 0 a 10, o quanto você recomendaria a {clinic_name}?';
-
-function renderPreview(message: string, clinicName: string): string {
-  return (message || '')
-    .replace(/\{patient_name\}/g, 'Maria')
-    .replace(/\{clinic_name\}/g, clinicName || 'sua clínica')
-    .replace(/\{procedure\}/g, 'Limpeza');
-}
+  'Como foi seu atendimento hoje? De 0 a 10, o quanto você recomendaria nossa clínica?';
 
 function categoryOf(score: number | null): 'promoter' | 'passive' | 'detractor' | null {
   if (score === null || score === undefined) return null;
@@ -154,14 +147,6 @@ function SurveysSection({ clinicId }: { clinicId: string }) {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data as unknown as NpsSurvey[]) ?? [];
-    },
-  });
-
-  const { data: clinicName = '' } = useQuery({
-    queryKey: ['clinic-name', clinicId],
-    queryFn: async () => {
-      const { data } = await supabase.from('clinics').select('name').eq('id', clinicId).maybeSingle();
-      return (data as any)?.name ?? '';
     },
   });
 
@@ -241,14 +226,6 @@ function SurveysSection({ clinicId }: { clinicId: string }) {
                     onCheckedChange={(v) => toggleActive.mutate({ id: s.id, is_active: v })}
                   />
                 </div>
-                <div className="rounded-lg border bg-muted/40 p-2.5">
-                  <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Como o paciente recebe
-                  </p>
-                  <p className="text-sm leading-snug text-foreground/90">
-                    {renderPreview(s.question, clinicName)}
-                  </p>
-                </div>
                 <div className="mt-auto flex justify-end gap-1.5">
                   <Button size="sm" variant="ghost" onClick={() => setEditing(s)} className="h-8 gap-1">
                     <Pencil className="h-3.5 w-3.5" />
@@ -272,7 +249,6 @@ function SurveysSection({ clinicId }: { clinicId: string }) {
 
       <SurveyFormDialog
         clinicId={clinicId}
-        clinicName={clinicName}
         open={creating || !!editing}
         survey={editing}
         onClose={() => { setCreating(false); setEditing(null); }}
@@ -304,13 +280,11 @@ function SurveysSection({ clinicId }: { clinicId: string }) {
 // ─── Form de questionário ─────────────────────────────────────────────────────
 function SurveyFormDialog({
   clinicId,
-  clinicName,
   open,
   survey,
   onClose,
 }: {
   clinicId: string;
-  clinicName: string;
   open: boolean;
   survey: NpsSurvey | null;
   onClose: () => void;
@@ -404,20 +378,6 @@ function SurveyFormDialog({
               onChange={(e) => setQuestion(e.target.value)}
               className="resize-none text-sm"
             />
-            <p className="text-[11px] text-muted-foreground">
-              Você pode usar: <code className="rounded bg-muted px-1">{'{patient_name}'}</code>{' '}
-              <code className="rounded bg-muted px-1">{'{clinic_name}'}</code>{' '}
-              <code className="rounded bg-muted px-1">{'{procedure}'}</code>
-            </p>
-          </div>
-
-          <div className="rounded-lg border bg-primary/5 p-2.5">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Prévia
-            </p>
-            <p className="text-sm leading-snug text-foreground/90">
-              {renderPreview(question, clinicName)}
-            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">

@@ -68,7 +68,7 @@ const requestKindLabels: Record<string, string> = {
   referral: 'Encaminhamento',
 };
 
-export async function generateAttendancePdf(data: AttendancePdfData) {
+export async function buildAttendanceHtml(data: AttendancePdfData): Promise<string> {
   const { appointment, record, patient, professional, clinic } = data;
   const dateLabel = format(new Date(appointment.start_time), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
 
@@ -179,6 +179,11 @@ ${strip(record.notes) ? `<div class="section"><h3>Evolução / Anotações</h3><
 
 </body></html>`;
 
+  return html;
+}
+
+export async function generateAttendancePdf(data: AttendancePdfData) {
+  const html = await buildAttendanceHtml(data);
   const w = window.open('', '_blank');
   if (!w) throw new Error('Pop-up bloqueado. Permita pop-ups para gerar o PDF.');
   w.document.write(html);

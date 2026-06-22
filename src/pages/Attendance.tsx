@@ -40,6 +40,7 @@ import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
 import { ShieldCheck, AlertTriangle, Lock } from 'lucide-react';
+import { archiveAttendanceFiles, hasMedicalDocumentsDraft, type MedicalDocumentsDraft } from '@/lib/archiveAttendanceFiles';
 
 interface ProcedureRow {
   tempId: string;
@@ -75,6 +76,7 @@ export default function Attendance() {
   const [showSummary, setShowSummary] = useState(false);
   const [finishedNavigatePending, setFinishedNavigatePending] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const documentsDraftRef = useRef<MedicalDocumentsDraft | null>(null);
 
   // Expanded clinical fields
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -157,7 +159,7 @@ export default function Attendance() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider, patient_user_id), procedures(name, color, default_price)')
+        .select('*, patients(id, full_name, phone, email, date_of_birth, gender, cpf, address, city, state, zip_code, photo_url, insurance_provider, patient_user_id, emergency_contact_name, emergency_contact_phone), procedures(name, color, default_price)')
         .eq('id', appointmentId!)
         .single();
       if (error) throw error;
@@ -256,6 +258,23 @@ export default function Attendance() {
       return data;
     },
     enabled: !!appointmentId,
+  });
+
+  // Load patient's current medications from anamnese (for drug interaction alerts)
+  const patientId = (appointment as any)?.patient_id as string | undefined;
+  const { data: patientMedications } = useQuery({
+    queryKey: ['anamnese-medications', patientId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('anamneses')
+        .select('medications')
+        .eq('patient_id', patientId!)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data?.medications as string | null) ?? null;
+    },
+    enabled: !!patientId,
   });
 
   // Odontogram tab shows only when the professional's own specialty profile includes it
@@ -428,8 +447,8 @@ export default function Attendance() {
     setProcedures((prev) => prev.filter((p) => p.tempId !== tempId));
   };
 
-  const handleSave = async (): Promise<boolean> => {
-    if (!appointment || !user) return false;
+  const handleSave = async (): Promise<string | null> => {
+    if (!appointment || !user) return null;
     setSaving(true);
     try {
       let recordId = clinicalRecordId;
@@ -569,10 +588,10 @@ export default function Attendance() {
 
       clearDraft();
       toast.success('Atendimento salvo!');
-      return true;
+      return recordId;
     } catch (err: any) {
       toast.error(err.message);
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -596,18 +615,50 @@ export default function Attendance() {
     }
     setFinishing(true);
     try {
-      const saved = await handleSave();
-      if (!saved) {
+      const savedRecordId = await handleSave();
+      if (!savedRecordId) {
         setFinishing(false);
         return;
       }
 
+      let medicalDraft: MedicalDocumentsDraft | null = null;
+      try {
+        const raw = localStorage.getItem(`doc-draft-apt-${appointment.id}`);
+        medicalDraft = raw ? JSON.parse(raw) : null;
+      } catch { /* ignore corrupt draft */ }
+      if (!hasMedicalDocumentsDraft(medicalDraft)) medicalDraft = documentsDraftRef.current;
+
+      if (hasMedicalDocumentsDraft(medicalDraft)) {
+        const DOC_KINDS = ['doc_exam_request', 'doc_prescription', 'doc_referral', 'doc_certificate'];
+        const { data: existingDocReqs } = await supabase
+          .from('clinical_record_requests')
+          .select('id')
+          .eq('clinical_record_id', savedRecordId)
+          .in('kind', DOC_KINDS);
+        if ((existingDocReqs ?? []).length > 0) {
+          await supabase.from('clinical_record_requests').delete().in('id', (existingDocReqs ?? []).map((r: any) => r.id));
+        }
+
+        const docReqs: any[] = [];
+        const draftExams = (medicalDraft.exams ?? []).filter((e) => e?.trim());
+        const draftRx = (medicalDraft.rxItems ?? []).filter((it) => it.medication?.trim());
+        if (draftExams.length) docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_exam_request', payload: { exams: draftExams, indication: medicalDraft.examIndication || null } });
+        if (draftRx.length) docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_prescription', payload: { items: draftRx, notes: medicalDraft.rxNotes || null } });
+        if (medicalDraft.refSpecialty?.trim() && medicalDraft.refReason?.trim()) {
+          docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_referral', payload: { toSpecialty: medicalDraft.refSpecialty, reason: medicalDraft.refReason, summary: medicalDraft.refSummary || null, urgency: medicalDraft.refUrgency || 'rotina' } });
+        }
+        if (medicalDraft.emitCert) {
+          docReqs.push({ clinical_record_id: savedRecordId, kind: 'doc_certificate', payload: { mode: medicalDraft.certMode || 'attendance', date: medicalDraft.certDate || null, startTime: medicalDraft.certStart || null, endTime: medicalDraft.certEnd || null, leaveStartDate: medicalDraft.leaveStart || null, leaveDays: medicalDraft.leaveDays || '1', cid: medicalDraft.certCid?.trim() || null, notes: medicalDraft.certNotes || null } });
+        }
+        if (docReqs.length > 0) await supabase.from('clinical_record_requests').insert(docReqs);
+      }
+
       // Update clinical record status
-      if (clinicalRecordId) {
+      if (savedRecordId) {
         const { error: recError } = await supabase
           .from('clinical_records')
           .update({ status: 'completed' })
-          .eq('id', clinicalRecordId);
+          .eq('id', savedRecordId);
         if (recError) throw recError;
       }
 
@@ -619,9 +670,74 @@ export default function Attendance() {
       if (aptError) throw aptError;
       endSession(appointment.id);
       clearDraft();
+      // Limpa o rascunho da aba Documentos desta consulta
+      try { localStorage.removeItem(`doc-draft-apt-${appointment.id}`); } catch { /* ignore */ }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Atendimento finalizado!');
+
+      // Auto-arquivar PDFs (resumo + receituário + exames + encaminhamentos)
+      // na pasta privada do médico do paciente. Falhas não bloqueiam.
+      (async () => {
+        try {
+          const symptomDuration = durationValue.trim()
+            ? `${durationValue} ${durationUnit}`
+            : null;
+          const { failures } = await archiveAttendanceFiles({
+            appointmentId: appointment.id,
+            patientId: appointment.patient_id,
+            clinicId: currentClinicId ?? null,
+            userId: user.id,
+            startTime: (appointment as any).start_time,
+            requests,
+            medicalDraft,
+            attendance: {
+              appointment: {
+                start_time: (appointment as any).start_time,
+                procedures: (appointment as any).procedures ?? null,
+              },
+              record: {
+                chief_complaint: chiefComplaint,
+                history_present_illness: hpi,
+                symptom_duration: symptomDuration,
+                physical_exam: physicalExam,
+                vital_signs: vitalSigns as Record<string, unknown>,
+                hypotheses: hypotheses
+                  .filter((h) => h.text.trim())
+                  .map((h) => ({ text: h.text, cid: h.cid10 || null })),
+                diagnosis,
+                severity,
+                treatment_plan: treatmentPlan,
+                follow_up_date: followUpDate || null,
+                follow_up_reason: followUpReason,
+                notes: clinicalNotes,
+                procedures: procedures
+                  .filter((p) => p.procedure_id || (p.is_manual && p.custom_name.trim()))
+                  .map((p) => ({
+                    name: p.custom_name || 'Procedimento',
+                    tooth: p.tooth_number,
+                    price: p.price,
+                    notes: p.notes,
+                  })),
+              },
+              patient: {
+                full_name: (appointment as any).patients?.full_name ?? 'Paciente',
+                cpf: (appointment as any).patients?.cpf ?? null,
+                date_of_birth: (appointment as any).patients?.date_of_birth ?? null,
+              },
+            },
+          });
+          if (failures.length === 0) {
+            toast.success('Documentos arquivados nos Arquivos do paciente.');
+          } else {
+            toast.warning(`Alguns documentos não foram arquivados: ${failures.join(' • ')}`);
+          }
+          queryClient.invalidateQueries({ queryKey: ['patient-private-folders', appointment.patient_id, user.id] });
+        } catch (e: any) {
+          toast.warning('Não foi possível arquivar os PDFs automaticamente: ' + (e.message ?? e));
+        }
+      })();
+
       setFinishedNavigatePending(true);
       // Pagamento NÃO é responsabilidade do médico — fica a cargo da secretária
       // através da Sala de Espera. Aqui apenas exibimos o resumo do atendimento.
@@ -677,7 +793,7 @@ export default function Attendance() {
               setClinicalNotes,
             }}
           />
-          <Button variant="outline" onClick={handleSave} disabled={saving} className="gap-2">
+          <Button variant="outline" onClick={() => void handleSave()} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
@@ -726,8 +842,24 @@ export default function Attendance() {
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
-          <div className="mt-3">
+          <div className="mt-3 space-y-2">
             <PatientAlertsBar patientId={appointment.patient_id} />
+            {((appointment as any).patients?.emergency_contact_name || (appointment as any).patients?.emergency_contact_phone) && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+                <span className="font-semibold">Emergência:</span>
+                {(appointment as any).patients?.emergency_contact_name && (
+                  <span>{(appointment as any).patients.emergency_contact_name}</span>
+                )}
+                {(appointment as any).patients?.emergency_contact_phone && (
+                  <a
+                    href={`tel:${(appointment as any).patients.emergency_contact_phone}`}
+                    className="font-medium hover:underline"
+                  >
+                    {(appointment as any).patients.emergency_contact_phone}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -810,7 +942,7 @@ export default function Attendance() {
         </TabsContent>
 
         <TabsContent value="requests">
-          <RequestsEditor items={requests} onChange={setRequests} />
+          <RequestsEditor items={requests} onChange={setRequests} patientMedications={patientMedications} />
         </TabsContent>
 
         {/* Clinical Notes Tab */}
@@ -1048,7 +1180,14 @@ export default function Attendance() {
 
         {tabKeys.includes('documents') && (
           <TabsContent value="documents" forceMount className="data-[state=inactive]:hidden">
-            <DocumentsTab patientId={appointment.patient_id} hypotheses={hypotheses} clinicalRecordId={clinicalRecordId ?? undefined} />
+            <DocumentsTab
+              patientId={appointment.patient_id}
+              hypotheses={hypotheses}
+              clinicalRecordId={clinicalRecordId ?? undefined}
+              appointmentId={appointment.id}
+              appointmentStartTime={(appointment as any).start_time}
+              onDraftChange={(draft) => { documentsDraftRef.current = draft; }}
+            />
           </TabsContent>
         )}
       </Tabs>
@@ -1088,7 +1227,9 @@ export default function Attendance() {
           setShowSummary(o);
           if (!o && finishedNavigatePending) {
             setFinishedNavigatePending(false);
-            navigate('/agenda');
+            // Wait for the Radix Dialog close animation to finish before
+            // unmounting the page, otherwise a brief overlay/sheet flashes.
+            setTimeout(() => navigate('/agenda'), 220);
           }
         }}
       />

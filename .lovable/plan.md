@@ -1,42 +1,95 @@
-## Mudanças solicitadas
 
-### 1. Remover coluna "Em Negociação" do Kanban de Orçamentos
-**Arquivo:** `src/pages/Budgets.tsx`
-- Remover o objeto `{ id: 'negotiating', label: 'Em Negociação', bar: 'bg-blue-400' }` do array `COLUMNS`.
-- O Kanban passará a ter 3 colunas: Pendente, Aprovado, Perdido.
-- Orçamentos já existentes com status `negotiating` (se houver) cairão no fallback `pending` na função `columnData`. Não vamos alterar dados no banco — apenas a UI deixa de exibir a coluna.
+# Assinatura Digital ICP-Brasil — Como funciona e como adicionar
 
-### 2. Cancelamento de consulta libera o horário
-**Arquivos a inspecionar/editar:**
-- `src/components/agenda/AppointmentDetailDialog.tsx` (ação cancelar pelo médico/secretária)
-- `src/lib/appointmentConflicts.ts` (lógica de conflito de horário)
-- `src/pages/Agenda.tsx` (renderização do slot)
+## 1. Contexto rápido (o que é ICP-Brasil)
 
-**Comportamento atual:** Hoje uma appointment cancelada continua ocupando o slot visualmente e a verificação de conflito pode considerá-la.
+ICP-Brasil é a infraestrutura oficial de chaves públicas do governo. Para documentos médicos/odontológicos (atestado, receituário, encaminhamento, laudo), a assinatura precisa ser **PAdES** (PDF Assinado) usando um certificado **e-CPF A1, A3 ou em nuvem** do profissional. A receita digital de medicamentos controlados exige isso por força do CFM/CFO + Anvisa (RDC 471/2021).
 
-**Mudança:**
-- Garantir que `appointmentConflicts` ignore registros com `status IN ('cancelled', 'no_show')`.
-- Na grade da Agenda, ocultar (ou estilizar como livre) appointments cancelados, de forma que o slot apareça disponível para nova marcação.
-- O registro continua no banco para histórico — apenas não bloqueia nem ocupa visualmente o horário.
+Tipos de certificado relevantes:
+- **A1**: arquivo `.pfx` no computador (validade 1 ano) — barato, mas o profissional tem que carregar o arquivo.
+- **A3**: token/cartão físico (validade 3 anos) — exige hardware na máquina, **inviável em SaaS web puro**.
+- **Nuvem (A1 nuvem / "Bird ID", "VidaaS", "Safeweb Cloud", "Soluti Birdid")**: o certificado fica em HSM da AC, profissional libera por app/biometria/PIN — **é o caminho correto para SaaS**.
 
-### 3. Remover passo de pagamento ao finalizar consulta (médico)
-**Arquivos a inspecionar/editar:**
-- `src/components/attendance/ConsultationPaymentDialog.tsx` — deixará de ser aberto no fluxo do médico
-- `src/pages/Attendance.tsx` (ou componente equivalente em `src/components/attendance/`) que dispara o dialog ao finalizar
+## 2. Estratégia recomendada para o IaClin
 
-**Mudança:**
-- Ao finalizar a consulta, NÃO abrir `ConsultationPaymentDialog`. A consulta vai para "encerrada" diretamente e a `financial_transaction` permanece com `status = 'pending'` (sem `payment_method`/`paid_date`).
-- O componente `ConsultationPaymentDialog` continua existindo para ser usado pela secretária na Sala de Espera / fluxo do paciente presencial.
+Adotar **certificado em nuvem via provedor parceiro** (não tentar implementar HSM próprio — exige homologação ICP-Brasil, fora do MVP). Opções de mercado já com API REST:
 
-### 4. Secretária gerencia pagamento na chegada do paciente
-**Arquivos a inspecionar/editar:**
-- `src/pages/WaitingRoom.tsx` e `src/components/waiting-room/WaitingRoomCard.tsx`
-- Possivelmente `src/pages/PatientsOfDay.tsx` / `src/components/patients-of-day/DayAppointmentRow.tsx`
+| Provedor | Pontos fortes |
+|---|---|
+| **BirdID (Soluti)** | API REST madura, mais usado no setor saúde, app mobile p/ autorizar |
+| **VIDaaS (Serpro)** | Oficial governo, integra com gov.br |
+| **Safeweb Cloud** | Boa documentação, suporte BR |
+| **Lacuna Signer / RestPKI** | Camada acima, abstrai vários provedores |
 
-**Mudança:**
-- Adicionar ação "Registrar pagamento" no card do paciente em espera (visível apenas para `admin` / `secretary`, conforme `useRoleAccess`), que abre o `ConsultationPaymentDialog` já existente com a `financial_transaction` pendente daquela consulta.
-- Se a transação ainda não existir (consulta não finalizada), criar o registro `pending` no momento ou usar o orçamento/valor da consulta como base — definir na implementação após ler os arquivos.
+Sugestão: começar com **BirdID** (mais adotado por prontuários — Memed, iClinic usam) e, opcionalmente, adicionar VIDaaS depois.
 
-## Pontos a confirmar antes de implementar
-1. Na Agenda, quando o horário é cancelado, prefere **ocultar** completamente o card cancelado do grid (slot vira "vazio") ou **mostrar** discreto/riscado com badge "Cancelado" mas permitir clicar e criar uma nova consulta por cima?
-2. A ação "Registrar pagamento" da secretária deve aparecer (a) no card da Sala de Espera quando o paciente chega, (b) na linha de Pacientes do Dia, ou (c) em ambos?
+## 3. Fluxo de assinatura (UX no app)
+
+```
+[Médico clica "Assinar e gerar PDF"]
+        ↓
+Edge Function monta PDF (já temos generateCertificatePdf, generatePrescriptionPdf, etc.)
+        ↓
+Edge Function envia hash do PDF + access_token do médico → API do provedor (BirdID)
+        ↓
+Médico recebe push no app BirdID → confirma com PIN/biometria
+        ↓
+Provedor devolve assinatura CMS/PAdES → Edge Function embute no PDF
+        ↓
+PDF assinado salvo em storage (clinic-documents) + registro em `documents`
+```
+
+Primeiro uso: médico faz **OAuth com o provedor** dentro do IaClin (uma vez) → recebemos `refresh_token` armazenado criptografado → reusado nas próximas assinaturas (TTL ~ algumas horas, renovação automática).
+
+## 4. Mudanças técnicas no projeto
+
+### Backend (Edge Functions novas)
+- `icpbrasil-oauth-start` → gera URL de autorização do provedor.
+- `icpbrasil-oauth-callback` → troca `code` por tokens, salva em `professional_signature_credentials`.
+- `sign-clinical-document` → recebe `document_id` (ou HTML), gera PDF, calcula hash, chama API do provedor, embute assinatura PAdES, devolve URL assinada.
+- Secrets necessários: `BIRDID_CLIENT_ID`, `BIRDID_CLIENT_SECRET`, `BIRDID_API_URL`.
+
+### Banco (1 migration)
+- `professional_signature_credentials` (user_id, provider, access_token_encrypted, refresh_token_encrypted, expires_at, certificate_subject, certificate_valid_until) — RLS: dono só vê o próprio.
+- Em `documents`: adicionar `signature_status` (`unsigned|signed|failed`), `signature_provider`, `signed_at`, `signature_verification_url`, `signed_file_url`.
+
+### Frontend
+- **Configurações → Assinatura digital**: tela para conectar/desconectar ICP-Brasil, mostrar nome no certificado + validade.
+- Em **CertificateGenerator**, **PrescriptionPad**, **ExamRequestPad**, **ReferralLetterPad**: substituir o botão único "Gerar PDF" por:
+  - "Gerar PDF" (rascunho, marca-d'água "SEM VALIDADE LEGAL"),
+  - "Assinar com ICP-Brasil" (só habilitado se certificado conectado e válido) → chama edge function, mostra modal "Aguardando confirmação no app BirdID…".
+- Badge visual "Assinado digitalmente — ICP-Brasil" + link de verificação no Validador ITI ([validar.iti.gov.br](https://validar.iti.gov.br)).
+
+### PDF
+- O PDF já é gerado via `window.print()` no cliente. Para PAdES isso **precisa migrar para geração server-side** (a edge function precisa do binário do PDF para assinar). Usar `pdf-lib` (Deno-compatível) ou enviar HTML para um serviço headless. Recomendo refatorar `generate*Pdf.ts` para devolver HTML, e uma única edge function `render-pdf` converte HTML→PDF→assina.
+
+## 5. Custos e compliance (avisar o usuário)
+
+- Cada profissional precisa adquirir o próprio e-CNPJ/e-CPF em nuvem (~R$ 200–400/ano) numa AC credenciada — **a clínica/SaaS não emite certificado**.
+- BirdID/VIDaaS cobram por assinatura ou por mensalidade na API (varia: R$ 0,30–1,00 por assinatura, ou pacotes).
+- Para **receituário de controlados (B/A)** é obrigatório também usar a Receita Digital integrada ao SNGPC — escopo maior, fica para fase 2.
+- Atestado, encaminhamento, receita simples e laudo: **PAdES ICP-Brasil já é suficiente** legalmente (CFM 2.299/2021, CFO 196/2019).
+
+## 6. Plano de entrega sugerido (fases)
+
+**Fase 1 (MVP da assinatura, ~1 sprint)**
+- Migration + tela de conexão BirdID.
+- Edge function `sign-clinical-document` só para **Atestado** (caso mais simples).
+- Refatorar `generateCertificatePdf` para HTML→PDF server-side.
+- Badge "Assinado digitalmente" + link de verificação.
+
+**Fase 2 (~1 sprint)**
+- Estender para Receituário, Encaminhamento e Solicitação de exame.
+- Suporte a múltiplos provedores (VIDaaS).
+- Verificador interno (mostrar dados do certificado dentro do app).
+
+**Fase 3 (futuro)**
+- Receita digital de controlados (integração Memed/SNGPC).
+- Carimbo do tempo (LTV — Long Term Validation) para validade jurídica de longo prazo.
+
+## 7. Decisões que preciso de você antes de implementar
+
+1. Vamos começar com **BirdID** ou prefere outro provedor (VIDaaS, Safeweb)?
+2. Aceita o modelo de **cada médico conectar o próprio certificado em nuvem** (recomendado) ou quer também suportar upload de `.pfx` A1?
+3. Posso refatorar a geração de PDF de cliente para servidor (necessário para assinar)? Isso afeta atestado/receita/encaminhamento/exame.
+4. Implementamos só Atestado na Fase 1 ou já os 4 documentos de uma vez?

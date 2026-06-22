@@ -4,9 +4,10 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CID10_DATA } from '@/lib/cid10Data';
+import { getSymptomCidSuggestions } from '@/lib/symptomCidSuggestions';
 
 export interface Hypothesis {
   id: string;
@@ -51,19 +52,29 @@ function Cid10Autocomplete({ textValue, cid10Value, onTextChange, onCid10Change,
 
   const query = activeField === 'text' ? textValue : activeField === 'cid10' ? cid10Value : '';
 
-  const results = useMemo(() => {
+  // Sugestões clássicas — busca direta no CID10_DATA por código ou descrição
+  const cid10Results = useMemo(() => {
     const term = normalize(query.trim());
     if (!term || term.length < 2) return [];
     return CID10_DATA.filter(
       (c) => normalize(c.code).includes(term) || normalize(c.description).includes(term)
-    ).slice(0, 8);
+    ).slice(0, 6);
   }, [query]);
 
-  const showDropdown = activeField !== null && results.length > 0;
+  // Sugestões inteligentes por sintoma — só quando o campo de texto estiver ativo
+  const symptomResults = useMemo(() => {
+    if (activeField !== 'text' || textValue.length < 3) return [];
+    const suggestions = getSymptomCidSuggestions(textValue);
+    // Remove os que já aparecem no CID10Results para não duplicar
+    const existingCodes = new Set(cid10Results.map(r => r.code));
+    return suggestions.filter(s => !existingCodes.has(s.code));
+  }, [activeField, textValue, cid10Results]);
 
-  useEffect(() => { setHighlightIndex(0); }, [results]);
+  const totalResults = cid10Results.length + symptomResults.length;
+  const showDropdown = activeField !== null && totalResults > 0;
 
-  // Close on outside click
+  useEffect(() => { setHighlightIndex(0); }, [totalResults]);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -79,17 +90,23 @@ function Cid10Autocomplete({ textValue, cid10Value, onTextChange, onCid10Change,
     setActiveField(null);
   };
 
+  // Lista unificada para navegação por teclado
+  const allItems = useMemo(() => [
+    ...cid10Results.map(r => ({ code: r.code, description: r.description, isSymptom: false })),
+    ...symptomResults.map(r => ({ code: r.code, description: r.description, isSymptom: true })),
+  ], [cid10Results, symptomResults]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showDropdown) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightIndex((i) => Math.min(i + 1, results.length - 1));
+      setHighlightIndex((i) => Math.min(i + 1, allItems.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const item = results[highlightIndex];
+      const item = allItems[highlightIndex];
       if (item) pick(item.code, item.description);
     } else if (e.key === 'Escape') {
       setActiveField(null);
@@ -122,25 +139,67 @@ function Cid10Autocomplete({ textValue, cid10Value, onTextChange, onCid10Change,
       {showDropdown && (
         <ul
           ref={listRef}
-          className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg"
+          className="absolute top-full left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg"
         >
-          {results.map((item, idx) => (
-            <li key={item.code}>
-              <button
-                type="button"
-                onMouseDown={(e) => { e.preventDefault(); pick(item.code, item.description); }}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors',
-                  idx === highlightIndex ? 'bg-primary/10 text-foreground' : 'hover:bg-muted/60'
-                )}
-              >
-                <span className="inline-flex h-5 min-w-[52px] items-center justify-center rounded bg-primary/10 text-primary text-[11px] font-bold tracking-wider px-1.5 flex-shrink-0">
-                  {item.code}
+          {/* Sugestões clássicas do CID10 */}
+          {cid10Results.length > 0 && (
+            <>
+              {symptomResults.length > 0 && (
+                <li className="px-3 pt-2 pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">CID-10</span>
+                </li>
+              )}
+              {cid10Results.map((item, idx) => (
+                <li key={item.code}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); pick(item.code, item.description); }}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors',
+                      idx === highlightIndex ? 'bg-primary/10 text-foreground' : 'hover:bg-muted/60'
+                    )}
+                  >
+                    <span className="inline-flex h-5 min-w-[52px] items-center justify-center rounded bg-primary/10 text-primary text-[11px] font-bold tracking-wider px-1.5 flex-shrink-0">
+                      {item.code}
+                    </span>
+                    <span className="truncate">{item.description}</span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
+
+          {/* Sugestões inteligentes por sintoma */}
+          {symptomResults.length > 0 && (
+            <>
+              <li className="px-3 pt-2 pb-1 flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-violet-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+                  Sugestão por sintoma
                 </span>
-                <span className="truncate">{item.description}</span>
-              </button>
-            </li>
-          ))}
+              </li>
+              {symptomResults.map((item, idx) => {
+                const globalIdx = cid10Results.length + idx;
+                return (
+                  <li key={item.code}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); pick(item.code, item.description); }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors',
+                        globalIdx === highlightIndex ? 'bg-violet-500/10 text-foreground' : 'hover:bg-muted/60'
+                      )}
+                    >
+                      <span className="inline-flex h-5 min-w-[52px] items-center justify-center rounded bg-violet-500/15 text-violet-600 dark:text-violet-400 text-[11px] font-bold tracking-wider px-1.5 flex-shrink-0">
+                        {item.code}
+                      </span>
+                      <span className="truncate">{item.description}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </>
+          )}
         </ul>
       )}
     </div>

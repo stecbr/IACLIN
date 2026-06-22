@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Check,
   Building2,
   Users,
   UserPlus,
@@ -223,6 +222,7 @@ export function GettingStartedChecklist() {
 
   const totalDone = items.filter((i) => i.done).length;
   const pct = items.length ? Math.round((totalDone / items.length) * 100) : 0;
+  const pendingItems = items.filter((i) => !i.done);
 
   const dismiss = () => {
     if (storageKey) localStorage.setItem(`${storageKey}.dismissed`, '1');
@@ -293,36 +293,20 @@ export function GettingStartedChecklist() {
               className="overflow-hidden"
             >
               <ul className="p-2">
-                {items.map((item) => {
+                {pendingItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <li key={item.key}>
                       <Link
                         to={item.to}
-                        className={`flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-muted/60 ${
-                          item.done ? 'opacity-60' : ''
-                        }`}
+                        className="flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-muted/60"
                       >
                         <span
-                          className={`flex h-6 w-6 items-center justify-center rounded-full border ${
-                            item.done
-                              ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                              : 'border-border bg-muted/40 text-muted-foreground'
-                          }`}
+                          className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground"
                         >
-                          {item.done ? (
-                            <Check className="h-3.5 w-3.5" />
-                          ) : (
-                            <Icon className="h-3.5 w-3.5" />
-                          )}
+                          <Icon className="h-3.5 w-3.5" />
                         </span>
-                        <span
-                          className={`flex-1 ${
-                            item.done ? 'line-through text-muted-foreground' : 'text-foreground'
-                          }`}
-                        >
-                          {item.label}
-                        </span>
+                        <span className="flex-1 text-foreground">{item.label}</span>
                       </Link>
                     </li>
                   );
