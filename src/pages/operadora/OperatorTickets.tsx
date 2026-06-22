@@ -600,11 +600,31 @@ function CreateOperatorTicketDialog({
   onCreated: () => void;
 }) {
   const [subject, setSubject] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [body, setBody] = useState('');
   const [clinicId, setClinicId] = useState('');
   const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
+
+  const matchedPreset = PRESET_SUBJECTS.find(
+    (s) => s.label.toLowerCase() === subject.trim().toLowerCase()
+  );
+  const suggestions = PRESET_SUBJECTS.filter(
+    (s) => !subject || s.label.toLowerCase().includes(subject.toLowerCase())
+  );
+  const handleSelectSuggestion = (label: string, id: string) => {
+    if (id === 'outro') {
+      setSubject('');
+      setShowSuggestions(false);
+      setTimeout(() => subjectInputRef.current?.focus(), 50);
+    } else {
+      setSubject(label);
+      setShowSuggestions(false);
+      subjectInputRef.current?.blur();
+    }
+  };
 
   const { data: clinics = [], isLoading: loadingClinics } = useQuery({
     queryKey: ['operator-credentialed-clinics', operatorId],
@@ -721,18 +741,61 @@ function CreateOperatorTicketDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Assunto</Label>
-            <Select value={subject} onValueChange={setSubject}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o assunto" />
-              </SelectTrigger>
-              <SelectContent>
-                {TICKET_SUBJECT_OPTIONS.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5">
+            <Label>Assunto <span className="text-destructive">*</span></Label>
+            <div className="relative">
+              <div className="relative flex items-center">
+                {matchedPreset && (
+                  <matchedPreset.icon className={`absolute left-3 h-4 w-4 shrink-0 ${matchedPreset.color}`} />
+                )}
+                <Input
+                  ref={subjectInputRef}
+                  placeholder="Digite ou selecione o assunto..."
+                  value={subject}
+                  className={matchedPreset ? 'pl-9' : ''}
+                  onChange={(e) => { setSubject(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  autoComplete="off"
+                />
+                {subject && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => { setSubject(''); setShowSuggestions(true); subjectInputRef.current?.focus(); }}
+                    className="absolute right-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border bg-popover shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                  {suggestions.map((s) => {
+                    const Icon = s.icon;
+                    const isSelected = subject === s.label;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onMouseDown={() => handleSelectSuggestion(s.label, s.id)}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors hover:bg-muted ${
+                          isSelected ? 'bg-muted/60' : ''
+                        }`}
+                      >
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${s.bg}`}>
+                          <Icon className={`h-3.5 w-3.5 ${s.color}`} />
+                        </span>
+                        <span className="font-medium">{s.label}</span>
+                        {isSelected && (
+                          <span className="ml-auto text-xs text-primary">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -751,11 +814,15 @@ function CreateOperatorTicketDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Mensagem</Label>
+            <Label>Mensagem <span className="text-destructive">*</span></Label>
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Descreva a solicitação ou comunicado..."
+              placeholder={
+                subject
+                  ? `Descreva com detalhes sobre "${subject}"...\n\nInclua informações como: protocolo, dentista, paciente, data, etc.`
+                  : 'Selecione o assunto acima e descreva a solicitação em detalhes...'
+              }
               rows={5}
             />
           </div>
