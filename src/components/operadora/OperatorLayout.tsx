@@ -322,7 +322,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {location.pathname !== "/operadora/profissionais" && (
-          <header className="h-16 flex items-center justify-between border-b border-border px-4 md:px-6 bg-card sticky top-0 z-10">
+          <header className="h-16 flex items-center justify-between border-b border-sidebar-border px-4 md:px-6 bg-sidebar sticky top-0 z-10">
             <div className="flex items-center gap-3 min-w-0">
               <div className="hidden md:flex items-center gap-3">
                 <button

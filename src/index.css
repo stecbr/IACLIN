@@ -388,7 +388,7 @@
  * Navy + steel blue + amber accent. Tighter radius, denser feel.
  * ============================================================ */
 .operator-scope {
-  --background: 214 32% 97%;
+  --background: 0 0% 100%;
   --foreground: 215 69% 19%;
 
   --card: 0 0% 100%;
