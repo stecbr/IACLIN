@@ -121,27 +121,37 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Auth: either platform admin token OR shared QA_SEED_TOKEN (header).
-    const seedToken = Deno.env.get("QA_SEED_TOKEN") ?? "";
-    const provided = req.headers.get("x-seed-token") ?? "";
+    // Auth: platform admin token always works. Otherwise allow ONLY if no QA
+    // seed user already exists (first-run bootstrap). After the first run the
+    // function will require platform admin auth for subsequent calls.
     let authorized = false;
-    if (seedToken && provided && seedToken === provided) {
-      authorized = true;
-    } else {
-      const authHeader = req.headers.get("Authorization") ?? "";
-      const token = authHeader.replace(/^Bearer\s+/i, "");
-      if (token) {
-        const { data: userData } = await admin.auth.getUser(token);
-        if ((userData?.user?.email ?? "").toLowerCase() === "iaclin@gmail.com") {
-          authorized = true;
-        }
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const bearer = authHeader.replace(/^Bearer\s+/i, "");
+    if (bearer) {
+      const { data: userData } = await admin.auth.getUser(bearer);
+      if ((userData?.user?.email ?? "").toLowerCase() === "iaclin@gmail.com") {
+        authorized = true;
       }
     }
     if (!authorized) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const { data: existingList } = await admin.auth.admin.listUsers({
+        page: 1,
+        perPage: 200,
       });
+      const anyQaUser = existingList?.users?.some((u) =>
+        (u.email ?? "").toLowerCase().startsWith("qa+") &&
+        (u.email ?? "").toLowerCase().endsWith("@iaclin.test"),
+      );
+      if (!anyQaUser) authorized = true;
+    }
+    if (!authorized) {
+      return new Response(
+        JSON.stringify({ error: "forbidden — QA seed already initialized" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const results: Record<string, unknown> = {};
