@@ -661,16 +661,6 @@ function OperatorTicketDialog({
                   )}
                 </Button>
               </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleCloseTicket}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" />
-                  Encerrar chamado
-                </button>
-              </div>
             </>
           )}
         </div>
