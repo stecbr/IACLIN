@@ -219,20 +219,20 @@ Deno.serve(async (req) => {
     // 3) Create a default availability for the dentist member so booking works.
     const dentistId = ids["qa+dentista@iaclin.test"];
     if (dentistId) {
-      // weekday 1..5 (mon-fri), 09:00-18:00, 30-min slots
-      for (let dow = 1; dow <= 5; dow++) {
-        await admin.from("professional_schedule_template").upsert(
-          {
-            user_id: dentistId,
-            day_of_week: dow,
-            start_time: "09:00",
-            end_time: "18:00",
-            slot_duration_minutes: 30,
-            is_active: true,
-          },
-          { onConflict: "user_id,day_of_week" },
-        );
-      }
+      // Reset to idempotent baseline: weekday 1..5 (mon-fri), 09:00-18:00.
+      await admin
+        .from("professional_schedule_template")
+        .delete()
+        .eq("user_id", dentistId);
+      const rows = [1, 2, 3, 4, 5].map((dow) => ({
+        user_id: dentistId,
+        weekday: dow,
+        start_time: "09:00",
+        end_time: "18:00",
+        is_active: true,
+        mode: "ambos",
+      }));
+      await admin.from("professional_schedule_template").insert(rows);
       results["availability"] = "ok";
     }
 
