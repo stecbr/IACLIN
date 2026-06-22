@@ -358,7 +358,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
             </div>
           </header>
         )}
-        <main className="flex-1 min-h-0 p-3 md:p-4 bg-sidebar">
+        <main className="flex-1 min-h-0 pr-3 pb-3 md:pr-4 md:pb-4 bg-sidebar">
           <div className="h-full bg-background rounded-xl overflow-y-auto p-4 md:p-6">
             <AnimatePresence mode="wait">
               <motion.div
