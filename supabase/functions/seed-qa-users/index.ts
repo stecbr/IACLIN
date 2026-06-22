@@ -121,23 +121,23 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify caller is platform admin
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    if (!token) {
-      return new Response(JSON.stringify({ error: "missing token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Auth: either platform admin token OR shared QA_SEED_TOKEN (header).
+    const seedToken = Deno.env.get("QA_SEED_TOKEN") ?? "";
+    const provided = req.headers.get("x-seed-token") ?? "";
+    let authorized = false;
+    if (seedToken && provided && seedToken === provided) {
+      authorized = true;
+    } else {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      if (token) {
+        const { data: userData } = await admin.auth.getUser(token);
+        if ((userData?.user?.email ?? "").toLowerCase() === "iaclin@gmail.com") {
+          authorized = true;
+        }
+      }
     }
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if ((userData.user.email ?? "").toLowerCase() !== "iaclin@gmail.com") {
+    if (!authorized) {
       return new Response(JSON.stringify({ error: "forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
