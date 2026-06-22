@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
 import {
   Loader2,
@@ -553,14 +554,37 @@ function OperatorTicketDialog({
               </div>
             </div>
             {!isClosed && (
-              <button
-                type="button"
-                onClick={handleCloseTicket}
-                className="shrink-0 flex items-center gap-1.5 text-xs font-medium rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-              >
-                <CheckCheck className="h-3.5 w-3.5" />
-                Encerrar chamado
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleCloseTicket}
+                  className="hidden sm:flex shrink-0 items-center gap-1.5 text-xs font-medium rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Encerrar chamado
+                </button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Mais opções"
+                      className="sm:hidden shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-border hover:bg-muted transition-colors text-muted-foreground"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-52 p-1">
+                    <button
+                      type="button"
+                      onClick={handleCloseTicket}
+                      className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                    >
+                      <CheckCheck className="h-4 w-4" />
+                      Encerrar chamado
+                    </button>
+                  </PopoverContent>
+                </Popover>
+              </>
             )}
           </div>
         </DialogHeader>
