@@ -30,6 +30,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
+import iaclinLogo from '@/assets/iaclin-logo.png.asset.json';
 
 interface Req {
   id: string;
@@ -47,6 +48,7 @@ interface Req {
   requested_by_name?: string | null;
   specialty?: string | null;
   clinic_name?: string | null;
+  clinic_logo_url?: string | null;
 }
 
 interface ClinicProfessional {
@@ -137,17 +139,18 @@ export default function OperatorRequests() {
     const [{ data: profiles }, { data: members }, { data: clinics }] = await Promise.all([
       supabase.from('profiles').select('id, full_name').in('id', userIds),
       supabase.from('clinic_members').select('id, specialty').in('id', memberIds),
-      supabase.from('clinics').select('id, name').in('id', clinicIds),
+      supabase.from('clinics').select('id, name, logo_url').in('id', clinicIds),
     ]);
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
     const mmap = new Map((members ?? []).map((m) => [m.id, m.specialty]));
-    const cmap = new Map((clinics ?? []).map((c) => [c.id, c.name]));
+    const cmap = new Map((clinics ?? []).map((c: any) => [c.id, c]));
     setReqs(list.map((r) => ({
       ...r,
       full_name: pmap.get(r.professional_user_id) ?? '—',
       requested_by_name: r.requested_by ? pmap.get(r.requested_by) ?? null : null,
       specialty: mmap.get(r.clinic_member_id) ?? null,
-      clinic_name: cmap.get(r.clinic_id) ?? '—',
+      clinic_name: cmap.get(r.clinic_id)?.name ?? '—',
+      clinic_logo_url: cmap.get(r.clinic_id)?.logo_url ?? null,
     })));
     setLoading(false);
   };
@@ -376,11 +379,20 @@ export default function OperatorRequests() {
         <div className="space-y-3">
           {visible.map((r) => (
             <Card key={r.id} className="rounded-xl p-4 flex flex-col gap-4">
+              <Badge variant="outline" className={`${STATUS_CLASSES[r.status] ?? ''} self-start`}>
+                {STATUS_LABELS[r.status] ?? r.status}
+              </Badge>
               <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="min-w-0 flex-1">
-                  <Badge variant="outline" className={`${STATUS_CLASSES[r.status] ?? ''} mb-1.5`}>
-                    {STATUS_LABELS[r.status] ?? r.status}
-                  </Badge>
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <div className="shrink-0 h-14 w-14 rounded-xl overflow-hidden border bg-muted flex items-center justify-center">
+                    <img
+                      src={r.clinic_logo_url || iaclinLogo.url}
+                      alt={r.clinic_name ?? 'Clínica'}
+                      className="h-full w-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinLogo.url; }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
                   <div className="font-medium">{r.clinic_name}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
@@ -395,6 +407,7 @@ export default function OperatorRequests() {
                   {r.rejection_reason && (
                     <div className="text-xs text-destructive mt-1">Motivo: {r.rejection_reason}</div>
                   )}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { ClipboardCheck, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { syncAgendaAppointments } from '@/hooks/useAiSync';
 import { PageHeader } from '@/components/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -96,6 +97,8 @@ export default function ClinicaAprovacoes() {
       qc.invalidateQueries({ queryKey: ['patients-of-day'] });
       qc.invalidateQueries({ queryKey: ['today-apt-count'] });
       qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
+      // Notifica o backend da IA → dispara automação "Confirmação" no WhatsApp.
+      if (currentClinicId) void syncAgendaAppointments(currentClinicId);
     } catch (err: any) {
       toast.error('Falha ao aprovar', { description: err?.message });
     } finally {
@@ -117,6 +120,9 @@ export default function ClinicaAprovacoes() {
       setRejectReason('');
       qc.invalidateQueries({ queryKey: ['appointment-requests', currentClinicId] });
       qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
+      // Notifica o backend da IA → dispara automação "Reagendamento" no WhatsApp
+      // caso houvesse um appointment vinculado que foi marcado como cancelled.
+      if (currentClinicId) void syncAgendaAppointments(currentClinicId);
     } catch (err: any) {
       toast.error('Falha ao recusar', { description: err?.message });
     } finally {

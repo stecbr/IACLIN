@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: request } = await admin
       .from('appointment_requests')
-      .select('clinic_id, status')
+      .select('clinic_id, status, appointment_id')
       .eq('id', requestId)
       .maybeSingle();
 
@@ -81,6 +81,16 @@ Deno.serve(async (req) => {
       .eq('id', requestId);
 
     if (updErr) throw updErr;
+
+    // Se já existia um appointment vinculado (ex.: aprovação revertida),
+    // marca-o como cancelled para o hook do backend IA disparar a automação
+    // de reagendamento via sync.
+    if ((request as any).appointment_id) {
+      await admin
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', (request as any).appointment_id);
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

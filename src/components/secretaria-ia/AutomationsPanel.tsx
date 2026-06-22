@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Cake, Star, AlertTriangle } from 'lucide-react';
@@ -360,27 +360,12 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
         <div className="space-y-2">
           {/* Aniversário: anexar imagem (cartão) */}
           {isBirthday && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Imagem do cartão (opcional)</Label>
-              {imageUrl ? (
-                <div className="flex items-center gap-2">
-                  <img src={imageUrl} alt="Cartão" className="h-14 w-14 rounded-md object-cover border" />
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setImageUrl('')} disabled={!active}>
-                    Remover
-                  </Button>
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="Cole a URL da imagem (ex: https://...)"
-                  disabled={!active}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              )}
-              <p className="text-[11px] text-muted-foreground">A imagem é enviada junto com a mensagem de parabéns.</p>
-            </div>
+            <BirthdayImageUpload
+              clinicId={clinicId}
+              imageUrl={imageUrl}
+              setImageUrl={setImageUrl}
+              active={active}
+            />
           )}
 
           {/* Botão para revelar o editor — fluxo comum nem abre */}
@@ -480,5 +465,105 @@ function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps)
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+const BUCKET = 'clinic-assets';
+const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
+function BirthdayImageUpload({
+  clinicId,
+  imageUrl,
+  setImageUrl,
+  active,
+}: {
+  clinicId: string;
+  imageUrl: string;
+  setImageUrl: (v: string) => void;
+  active: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione um arquivo de imagem.');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      toast.error('Imagem muito grande (máx. 5MB).');
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const path = `automation-media/${clinicId}/birthday-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      setImageUrl(data.publicUrl);
+      toast.success('Imagem enviada');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao enviar imagem');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Imagem do cartão (opcional)</Label>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
+      {imageUrl ? (
+        <div className="flex items-center gap-2">
+          <img src={imageUrl} alt="Cartão" className="h-14 w-14 rounded-md object-cover border" />
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => inputRef.current?.click()}
+            disabled={!active || uploading}
+          >
+            {uploading ? 'Enviando...' : 'Trocar'}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => setImageUrl('')}
+            disabled={!active || uploading}
+          >
+            Remover
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+          disabled={!active || uploading}
+          className="gap-2"
+        >
+          {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {uploading ? 'Enviando...' : 'Escolher imagem'}
+        </Button>
+      )}
+      <p className="text-[11px] text-muted-foreground">
+        A imagem é enviada junto com a mensagem de parabéns. Máx. 5MB.
+      </p>
+    </div>
   );
 }
