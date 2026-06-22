@@ -685,11 +685,16 @@ function CreateOperatorTicketDialog({
 
           <div className="space-y-2">
             <Label>Assunto</Label>
-            <Input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Ex: Atualização cadastral pendente"
-            />
+            <Select value={subject} onValueChange={setSubject}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o assunto" />
+              </SelectTrigger>
+              <SelectContent>
+                {TICKET_SUBJECT_OPTIONS.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
