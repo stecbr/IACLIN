@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
 import {
   Loader2,
   Paperclip,
@@ -51,6 +52,9 @@ import {
   Monitor,
   PenLine,
   Info,
+  FileText,
+  Eye,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -105,6 +109,66 @@ interface TicketAttachment {
   file_url: string;
   file_name: string;
   file_type: string | null;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentsList({
+  files,
+  onRemove,
+  onView,
+}: {
+  files: File[];
+  onRemove: (idx: number) => void;
+  onView: (file: File) => void;
+}) {
+  if (files.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      {files.map((file, idx) => {
+        const isImage = file.type.startsWith('image/');
+        return (
+          <div
+            key={`${file.name}-${idx}`}
+            className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border border-border">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{file.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(file.size)}
+                {isImage ? ' · Imagem' : file.type.includes('pdf') ? ' · PDF' : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onView(file)}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
+              title="Visualizar"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove(idx)}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+              title="Remover"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -327,6 +391,21 @@ function OperatorTicketDialog({
   const [sending, setSending] = useState(false);
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
+  const viewerUrlRef = useRef<string | null>(null);
+  const openLocalFileViewer = (file: File) => {
+    if (viewerUrlRef.current) URL.revokeObjectURL(viewerUrlRef.current);
+    const url = URL.createObjectURL(file);
+    viewerUrlRef.current = url;
+    setViewerFile({ url, file_name: file.name });
+  };
+  const closeViewer = () => {
+    setViewerFile(null);
+    if (viewerUrlRef.current) {
+      URL.revokeObjectURL(viewerUrlRef.current);
+      viewerUrlRef.current = null;
+    }
+  };
 
   const { data: messages = [], refetch } = useQuery({
     queryKey: ['ticket-messages', ticket.id],
@@ -525,6 +604,11 @@ function OperatorTicketDialog({
                   }
                 }}
               />
+              <AttachmentsList
+                files={files}
+                onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                onView={openLocalFileViewer}
+              />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <label className="cursor-pointer text-muted-foreground hover:text-primary transition-colors">
@@ -534,23 +618,13 @@ function OperatorTicketDialog({
                       multiple
                       accept="image/*,.pdf"
                       className="sr-only"
-                      onChange={(e) =>
-                        setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])
-                      }
+                      onChange={(e) => {
+                        const picked = Array.from(e.target.files ?? []);
+                        setFiles((prev) => [...prev, ...picked]);
+                        e.target.value = '';
+                      }}
                     />
                   </label>
-                  {files.length > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span>{files.length} anexo(s)</span>
-                      <button
-                        type="button"
-                        onClick={() => setFiles([])}
-                        className="text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
                   <button
                     type="button"
                     onClick={handleCloseTicket}
@@ -577,6 +651,7 @@ function OperatorTicketDialog({
           )}
         </div>
       </DialogContent>
+      <DocumentFullscreenViewer file={viewerFile} open={!!viewerFile} onClose={closeViewer} />
     </Dialog>
   );
 }
@@ -608,6 +683,22 @@ function CreateOperatorTicketDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
+  const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
+  const viewerUrlRef = useRef<string | null>(null);
+
+  const openLocalFileViewer = (file: File) => {
+    if (viewerUrlRef.current) URL.revokeObjectURL(viewerUrlRef.current);
+    const url = URL.createObjectURL(file);
+    viewerUrlRef.current = url;
+    setViewerFile({ url, file_name: file.name });
+  };
+  const closeViewer = () => {
+    setViewerFile(null);
+    if (viewerUrlRef.current) {
+      URL.revokeObjectURL(viewerUrlRef.current);
+      viewerUrlRef.current = null;
+    }
+  };
 
   const matchedPreset = PRESET_SUBJECTS.find(
     (s) => s.label.toLowerCase() === subject.trim().toLowerCase()
@@ -835,25 +926,25 @@ function CreateOperatorTicketDialog({
             <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5">
               <Paperclip className="h-4 w-4 shrink-0" />
               <span className="truncate">
-                {files.length > 0 ? `${files.length} arquivo(s) selecionado(s)` : 'Clique para anexar'}
+                {files.length > 0 ? 'Adicionar mais arquivos' : 'Clique para anexar (você pode enviar vários)'}
               </span>
               <input
                 type="file"
                 multiple
                 accept="image/*,.pdf,.doc,.docx"
                 className="sr-only"
-                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files ?? []);
+                  setFiles((prev) => [...prev, ...picked]);
+                  e.target.value = '';
+                }}
               />
             </label>
-            {files.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setFiles([])}
-                className="text-xs text-destructive hover:underline"
-              >
-                Remover anexos
-              </button>
-            )}
+            <AttachmentsList
+              files={files}
+              onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+              onView={openLocalFileViewer}
+            />
           </div>
         </div>
 
@@ -865,6 +956,7 @@ function CreateOperatorTicketDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <DocumentFullscreenViewer file={viewerFile} open={!!viewerFile} onClose={closeViewer} />
     </Dialog>
   );
 }
