@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
         clinic_id: request.clinic_id,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
-        status: 'scheduled',
+        status: 'confirmed',
         label: request.specialty ?? request.procedure ?? null,
         notes: request.notes,
       })
