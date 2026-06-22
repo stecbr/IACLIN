@@ -280,6 +280,24 @@ async function buildPatientsBatch(clinicId: string): Promise<SyncPatientPayload[
   });
 }
 
+async function buildNpsSurveys(clinicId: string) {
+  const { data } = await supabase
+    .from('nps_surveys')
+    .select('id, name, question, scale_min, scale_max, send_after_hours, is_active, is_default')
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+  return (data ?? []) as Array<{
+    id: string;
+    name: string;
+    question: string;
+    scale_min: number;
+    scale_max: number;
+    send_after_hours: number;
+    is_active: boolean;
+    is_default: boolean;
+  }>;
+}
+
 async function buildAvailabilitySlots(clinicId: string): Promise<SyncAvailabilitySlot[]> {
   const { data } = await supabase
     .from('professional_availability')
@@ -426,11 +444,12 @@ export function useAiSync(clinicId: string | null | undefined) {
     let cancelled = false;
     (async () => {
       try {
-        const [config, doctors, patients, availability] = await Promise.all([
+        const [config, doctors, patients, availability, npsSurveys] = await Promise.all([
           buildConfigSnapshot(clinicId),
           buildDoctorsBatch(clinicId),
           buildPatientsBatch(clinicId),
           buildAvailabilitySlots(clinicId),
+          buildNpsSurveys(clinicId),
         ]);
         if (cancelled) return;
         await Promise.all([
@@ -438,6 +457,7 @@ export function useAiSync(clinicId: string | null | undefined) {
           silent(aiBackend.syncDoctors({ clinic_id: clinicId, doctors })),
           silent(aiBackend.syncPatients(patients)),
           silent(aiBackend.syncAvailability({ clinic_id: clinicId, availability })),
+          silent(aiBackend.syncNpsSurveys({ clinic_id: clinicId, surveys: npsSurveys })),
         ]);
       } catch (err) {
         if (import.meta.env.DEV) console.warn('[ai-sync] snapshot inicial:', err);
@@ -493,6 +513,42 @@ export function useAiSync(clinicId: string | null | undefined) {
         }
       } catch (err) {
         if (import.meta.env.DEV) console.warn('[ai-sync] polling:', err);
+      }
+
+      // NPS: respostas (notas 0–10) captadas pela IA → grava em nps_responses
+      try {
+        const npsRes = await aiBackend.getNpsPendingResults(clinicId);
+        const results = npsRes?.data ?? [];
+        for (const r of results) {
+          if (stopped) break;
+          try {
+            const { data: inserted, error } = await supabase
+              .from('nps_responses')
+              .insert({
+                clinic_id: clinicId,
+                survey_id: r.survey_id ?? null,
+                appointment_id: r.appointment_id ?? null,
+                patient_id: r.patient_id ?? null,
+                patient_phone: r.patient_phone ?? null,
+                score: r.score,
+                comment: r.comment ?? null,
+                category: r.category ?? null,
+                status: 'answered',
+                answered_at: r.answered_at ?? new Date().toISOString(),
+              } as any)
+              .select('id')
+              .single();
+            if (error || !inserted) {
+              if (import.meta.env.DEV) console.warn('[ai-sync] insert nps falhou:', error?.message);
+              continue;
+            }
+            await silent(aiBackend.confirmNpsResultSync(clinicId, r.id, inserted.id));
+          } catch (err) {
+            if (import.meta.env.DEV) console.warn('[ai-sync] processar nps:', err);
+          }
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn('[ai-sync] polling nps:', err);
       }
     };
 
