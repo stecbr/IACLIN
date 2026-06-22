@@ -157,7 +157,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         </div>
 
         {/* Nav groups (scrollable) */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        <nav className="operator-main-scroll flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {navGroups.map((group) => (
             <div key={group.label}>
               <div className="px-3 mb-1.5 text-[10px] uppercase tracking-widest text-sidebar-foreground/50 font-semibold">
@@ -242,10 +242,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           </div>
         </div>
         <TooltipProvider delayDuration={100}>
-          <nav
-            className="flex-1 w-full py-2 flex flex-col items-center gap-1 overflow-y-auto"
-            style={{ scrollbarWidth: "none" }}
-          >
+          <nav className="operator-main-scroll flex-1 w-full py-2 flex flex-col items-center gap-1 overflow-y-auto">
             {navGroups
               .filter((g) => g.label !== "Conta")
               .map((group, gi, arr) => (
