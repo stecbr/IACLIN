@@ -601,6 +601,7 @@ function CreateOperatorTicketDialog({
 }) {
   const [subject, setSubject] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [freeText, setFreeText] = useState(false);
   const [body, setBody] = useState('');
   const [clinicId, setClinicId] = useState('');
   const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
@@ -617,10 +618,12 @@ function CreateOperatorTicketDialog({
   const handleSelectSuggestion = (label: string, id: string) => {
     if (id === 'outro') {
       setSubject('');
+      setFreeText(true);
       setShowSuggestions(false);
       setTimeout(() => subjectInputRef.current?.focus(), 50);
     } else {
       setSubject(label);
+      setFreeText(false);
       setShowSuggestions(false);
       subjectInputRef.current?.blur();
     }
@@ -753,8 +756,8 @@ function CreateOperatorTicketDialog({
                   placeholder="Digite ou selecione o assunto..."
                   value={subject}
                   className={matchedPreset ? 'pl-9' : ''}
-                  onChange={(e) => { setSubject(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
+                  onChange={(e) => { setSubject(e.target.value); setFreeText(false); setShowSuggestions(true); }}
+                  onFocus={() => { if (!freeText) setShowSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   autoComplete="off"
                 />
@@ -762,7 +765,7 @@ function CreateOperatorTicketDialog({
                   <button
                     type="button"
                     tabIndex={-1}
-                    onClick={() => { setSubject(''); setShowSuggestions(true); subjectInputRef.current?.focus(); }}
+                    onClick={() => { setSubject(''); setFreeText(false); setShowSuggestions(true); subjectInputRef.current?.focus(); }}
                     className="absolute right-2.5 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
