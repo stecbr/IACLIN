@@ -148,7 +148,6 @@ export default function SupportTickets() {
         .from('support_tickets')
         .select('*')
         .eq('clinic_id', currentClinicId!)
-        .eq('status', 'pending_owner')
         .neq('created_by', user!.id)
         .order('updated_at', { ascending: false });
       if (error) throw error;
