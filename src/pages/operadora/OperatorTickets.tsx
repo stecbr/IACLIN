@@ -391,6 +391,21 @@ function OperatorTicketDialog({
   const [sending, setSending] = useState(false);
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
+  const viewerUrlRef = useRef<string | null>(null);
+  const openLocalFileViewer = (file: File) => {
+    if (viewerUrlRef.current) URL.revokeObjectURL(viewerUrlRef.current);
+    const url = URL.createObjectURL(file);
+    viewerUrlRef.current = url;
+    setViewerFile({ url, file_name: file.name });
+  };
+  const closeViewer = () => {
+    setViewerFile(null);
+    if (viewerUrlRef.current) {
+      URL.revokeObjectURL(viewerUrlRef.current);
+      viewerUrlRef.current = null;
+    }
+  };
 
   const { data: messages = [], refetch } = useQuery({
     queryKey: ['ticket-messages', ticket.id],
