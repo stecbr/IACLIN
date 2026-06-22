@@ -111,6 +111,66 @@ interface TicketAttachment {
   file_type: string | null;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentsList({
+  files,
+  onRemove,
+  onView,
+}: {
+  files: File[];
+  onRemove: (idx: number) => void;
+  onView: (file: File) => void;
+}) {
+  if (files.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      {files.map((file, idx) => {
+        const isImage = file.type.startsWith('image/');
+        return (
+          <div
+            key={`${file.name}-${idx}`}
+            className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border border-border">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{file.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(file.size)}
+                {isImage ? ' · Imagem' : file.type.includes('pdf') ? ' · PDF' : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onView(file)}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
+              title="Visualizar"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove(idx)}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+              title="Remover"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
