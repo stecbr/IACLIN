@@ -603,18 +603,29 @@ function OperatorTicketDialog({
                     <p className="text-[10px] font-medium mb-1 opacity-70">{senderName}</p>
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   </div>
-                  {msg.support_ticket_attachments?.map((att) => (
-                    <a
-                      key={att.id}
-                      href={att.file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                    >
-                      <Paperclip className="h-3 w-3" />
-                      {att.file_name}
-                    </a>
-                  ))}
+                  {msg.support_ticket_attachments?.map((att) => {
+                    const isImg = /\.(png|jpe?g|webp|gif|bmp|svg)($|\?)/i.test(att.file_name);
+                    const isPdf = /\.pdf($|\?)/i.test(att.file_name);
+                    return (
+                      <button
+                        key={att.id}
+                        type="button"
+                        onClick={() => setViewerFile({ url: att.file_url, file_name: att.file_name })}
+                        className="flex w-full items-center gap-2 rounded-xl border border-border bg-background hover:bg-muted/50 transition-colors px-3 py-2 text-left max-w-[260px]"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted border border-border">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-foreground">{att.file_name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {isImg ? 'Imagem' : isPdf ? 'PDF' : 'Arquivo'} · Clique para visualizar
+                          </p>
+                        </div>
+                        <Eye className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    );
+                  })}
                   <span className="text-[10px] text-muted-foreground">
                     {format(parseISO(msg.created_at), 'HH:mm', { locale: ptBR })}
                   </span>
