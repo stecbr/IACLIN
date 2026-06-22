@@ -532,7 +532,7 @@ export function useAiSync(clinicId: string | null | undefined) {
                 patient_phone: r.patient_phone ?? null,
                 score: r.score,
                 comment: r.comment ?? null,
-                category: r.category ?? null,
+                category: (r as any).category ?? null,
                 status: 'answered',
                 answered_at: r.answered_at ?? new Date().toISOString(),
               } as any)
