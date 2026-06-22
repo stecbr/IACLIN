@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { syncAgendaAppointments } from '@/hooks/useAiSync';
 
 interface AiRequest {
   id: string;
@@ -165,6 +166,9 @@ export function AiAppointmentRequestsPanel({ compact = false }: PanelProps = {})
       setApproveOpen(false);
       setSelected(null);
       qc.invalidateQueries({ queryKey: ['ai-appointment-requests', currentClinicId] });
+      // Dispara o sync para o backend da IA notificar o paciente no WhatsApp
+      // (automação "Confirmação de agendamento").
+      if (currentClinicId) void syncAgendaAppointments(currentClinicId);
     },
     onError: (e: any) => toast.error(e.message ?? 'Falha ao aprovar'),
   });
@@ -185,6 +189,7 @@ export function AiAppointmentRequestsPanel({ compact = false }: PanelProps = {})
       setSelected(null);
       setReason('');
       qc.invalidateQueries({ queryKey: ['ai-appointment-requests', currentClinicId] });
+      if (currentClinicId) void syncAgendaAppointments(currentClinicId);
     },
     onError: (e: any) => toast.error(e.message ?? 'Falha ao rejeitar'),
   });
