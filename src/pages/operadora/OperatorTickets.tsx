@@ -609,7 +609,7 @@ function OperatorTicketDialog({
                 onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
                 onView={openLocalFileViewer}
               />
-              <div className="flex items-end gap-2 rounded-2xl border bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
+              <div className="flex items-end gap-2 rounded-2xl border bg-transparent px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
                 <label className="shrink-0 cursor-pointer p-2 text-muted-foreground hover:text-primary transition-colors rounded-full">
                   <Paperclip className="h-5 w-5" />
                   <input
