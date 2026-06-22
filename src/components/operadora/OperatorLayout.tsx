@@ -359,7 +359,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           </header>
         )}
         <main className="flex-1 p-3 md:p-4 bg-sidebar">
-          <div className="h-full bg-background rounded-xl border border-sidebar-border overflow-auto p-4 md:p-6">
+          <div className="h-full bg-background rounded-xl overflow-auto p-4 md:p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
