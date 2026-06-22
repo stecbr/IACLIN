@@ -332,24 +332,47 @@ export default function OperatorTickets() {
         <div className="space-y-3">
           {tickets.map((t) => (
             <button key={t.id} onClick={() => setSelectedTicket(t)} className="w-full text-left">
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
+              <Card className="rounded-xl hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <Badge variant={STATUS_VARIANT[t.status]} className="shrink-0 text-[10px] px-2 py-0.5">
+                      {STATUS_LABELS[t.status]}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground">
+                      {format(parseISO(t.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-11 w-11 shrink-0">
+                      {t.clinicLogo && <AvatarImage src={t.clinicLogo} alt={t.clinicName ?? 'Clínica'} />}
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                        {(t.clinicName ?? 'C').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-semibold leading-tight truncate">{t.clinicName ?? 'Clínica'}</p>
+                      {(() => {
+                        const preset = PRESET_SUBJECTS.find(
+                          (s) => s.label.toLowerCase() === t.subject.trim().toLowerCase(),
+                        ) ?? PRESET_SUBJECTS.find((s) => s.id === 'outro')!;
+                        const Icon = preset.icon;
+                        return (
+                          <span
+                            className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${preset.bg} ${preset.color}`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {t.subject}
+                          </span>
+                        );
+                      })()}
                       {t.priority !== 'normal' && (
-                        <span className={`text-xs font-medium ${PRIORITY_COLOR[t.priority]}`}>
-                          {PRIORITY_LABELS[t.priority]}
-                        </span>
+                        <p className={`text-[11px] mt-0.5 ${PRIORITY_COLOR[t.priority]}`}>
+                          Prioridade {PRIORITY_LABELS[t.priority].toLowerCase()}
+                        </p>
                       )}
                     </div>
-                    <p className="font-medium truncate">{t.subject}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Por {t.creatorName} ·{' '}
-                      {format(parseISO(t.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground self-center" />
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </CardContent>
               </Card>
             </button>
