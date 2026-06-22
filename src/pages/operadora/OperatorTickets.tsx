@@ -531,7 +531,20 @@ function OperatorTicketDialog({
               </Avatar>
               <div className="min-w-0">
                 <DialogTitle className="text-base leading-tight">{ticket.clinicName ?? 'Clínica'}</DialogTitle>
-                <p className="text-xs text-muted-foreground leading-tight mt-0.5">{ticket.subject}</p>
+                {(() => {
+                  const preset = PRESET_SUBJECTS.find(
+                    (s) => s.label.toLowerCase() === ticket.subject.trim().toLowerCase(),
+                  ) ?? PRESET_SUBJECTS.find((s) => s.id === 'outro')!;
+                  const Icon = preset.icon;
+                  return (
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${preset.bg} ${preset.color}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {ticket.subject}
+                    </span>
+                  );
+                })()}
                 {ticket.priority !== 'normal' && (
                   <p className={`text-[11px] mt-0.5 ${PRIORITY_COLOR[ticket.priority]}`}>
                     Prioridade {PRIORITY_LABELS[ticket.priority].toLowerCase()}
