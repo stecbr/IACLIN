@@ -10,8 +10,18 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Loader2,
@@ -21,6 +31,8 @@ import {
   MessageSquareDot,
   CheckCheck,
   X,
+  Plus,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -95,6 +107,7 @@ export default function OperatorTickets() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['operator-tickets', operatorId, statusFilter],
@@ -153,20 +166,26 @@ export default function OperatorTickets() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Chamados</h1>
-        <p className="text-sm text-muted-foreground">
-          Dúvidas e solicitações recebidas de profissionais credenciados
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">Chamados</h1>
+          <p className="text-sm text-muted-foreground">
+            Converse com clínicas e profissionais credenciados
+          </p>
+        </div>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo chamado
+        </Button>
       </div>
 
       {/* Status tabs */}
-      <div className="inline-flex rounded-lg bg-muted p-1 flex-wrap">
+      <div className="inline-flex rounded-xl bg-muted p-1 flex-wrap">
         {TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setStatusFilter(tab.value)}
-            className={`relative px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`relative px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               statusFilter === tab.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -232,6 +251,18 @@ export default function OperatorTickets() {
           onClose={() => setSelectedTicket(null)}
           onUpdated={(updated) => {
             setSelectedTicket(updated);
+            qc.invalidateQueries({ queryKey: ['operator-tickets'] });
+          }}
+        />
+      )}
+
+      {showCreate && operatorId && (
+        <CreateOperatorTicketDialog
+          operatorId={operatorId}
+          userId={user!.id}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false);
             qc.invalidateQueries({ queryKey: ['operator-tickets'] });
           }}
         />
