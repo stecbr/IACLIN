@@ -504,10 +504,22 @@ function OperatorTicketDialog({
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between gap-3 pr-6">
-            <DialogTitle className="text-base leading-tight">{ticket.subject}</DialogTitle>
-            <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
-              {STATUS_LABELS[ticket.status]}
-            </Badge>
+            <div className="min-w-0 space-y-1">
+              <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
+                {STATUS_LABELS[ticket.status]}
+              </Badge>
+              <DialogTitle className="text-base leading-tight">{ticket.subject}</DialogTitle>
+            </div>
+            {!isClosed && (
+              <button
+                type="button"
+                onClick={handleCloseTicket}
+                className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Encerrar chamado
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>De {ticket.creatorName}</span>
@@ -587,7 +599,7 @@ function OperatorTicketDialog({
         </div>
 
         {/* Reply area */}
-        <div className="border-t px-6 py-4 space-y-2">
+        <div className="px-6 py-4 space-y-2 bg-transparent">
           {isClosed ? (
             <p className="text-center text-sm text-muted-foreground">Este chamado está encerrado.</p>
           ) : (
