@@ -513,20 +513,30 @@ function OperatorTicketDialog({
       <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 p-0">
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <div className="flex items-center justify-between gap-3 pr-6 mb-2">
+            <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0 text-[10px] px-2 py-0.5">
+              {STATUS_LABELS[ticket.status]}
+            </Badge>
+            <span className="text-[11px] text-muted-foreground">
+              {format(parseISO(ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+          </div>
           <div className="flex items-start justify-between gap-3 pr-6">
-            <div className="flex items-start gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               <Avatar className="h-11 w-11 shrink-0">
                 {ticket.clinicLogo && <AvatarImage src={ticket.clinicLogo} alt={ticket.clinicName ?? 'Clínica'} />}
                 <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
                   {(ticket.clinicName ?? 'C').slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="min-w-0 space-y-1">
-                <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
-                  {STATUS_LABELS[ticket.status]}
-                </Badge>
+              <div className="min-w-0">
                 <DialogTitle className="text-base leading-tight">{ticket.clinicName ?? 'Clínica'}</DialogTitle>
-                <p className="text-xs text-muted-foreground leading-tight">{ticket.subject}</p>
+                <p className="text-xs text-muted-foreground leading-tight mt-0.5">{ticket.subject}</p>
+                {ticket.priority !== 'normal' && (
+                  <p className={`text-[11px] mt-0.5 ${PRIORITY_COLOR[ticket.priority]}`}>
+                    Prioridade {PRIORITY_LABELS[ticket.priority].toLowerCase()}
+                  </p>
+                )}
               </div>
             </div>
             {!isClosed && (
@@ -538,19 +548,6 @@ function OperatorTicketDialog({
                 <CheckCheck className="h-3.5 w-3.5" />
                 Encerrar chamado
               </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground pl-14">
-            <span>
-              {format(parseISO(ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </span>
-            {ticket.priority !== 'normal' && (
-              <>
-                <span>·</span>
-                <span className={PRIORITY_COLOR[ticket.priority]}>
-                  Prioridade {PRIORITY_LABELS[ticket.priority].toLowerCase()}
-                </span>
-              </>
             )}
           </div>
         </DialogHeader>
