@@ -592,53 +592,44 @@ function OperatorTicketDialog({
             <p className="text-center text-sm text-muted-foreground">Este chamado está encerrado.</p>
           ) : (
             <>
-              <Textarea
-                placeholder="Escreva sua resposta... (Enter para enviar, Shift+Enter para nova linha)"
-                rows={2}
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-              />
               <AttachmentsList
                 files={files}
                 onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))}
                 onView={openLocalFileViewer}
               />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <label className="cursor-pointer text-muted-foreground hover:text-primary transition-colors">
-                    <Paperclip className="h-4 w-4" />
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf"
-                      className="sr-only"
-                      onChange={(e) => {
-                        const picked = Array.from(e.target.files ?? []);
-                        setFiles((prev) => [...prev, ...picked]);
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleCloseTicket}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <CheckCheck className="h-3.5 w-3.5" />
-                    Encerrar chamado
-                  </button>
-                </div>
+              <div className="flex items-end gap-2 rounded-2xl border bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
+                <label className="shrink-0 cursor-pointer p-2 text-muted-foreground hover:text-primary transition-colors rounded-full">
+                  <Paperclip className="h-5 w-5" />
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const picked = Array.from(e.target.files ?? []);
+                      setFiles((prev) => [...prev, ...picked]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <Textarea
+                  placeholder="Escreva sua resposta..."
+                  rows={1}
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  className="flex-1 min-h-[40px] max-h-40 resize-none border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
                 <Button
-                  size="sm"
+                  size="icon"
                   onClick={handleSend}
                   disabled={sending || (!reply.trim() && files.length === 0)}
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  className="shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 text-white h-10 w-10"
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -646,6 +637,16 @@ function OperatorTicketDialog({
                     <Send className="h-4 w-4" />
                   )}
                 </Button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleCloseTicket}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Encerrar chamado
+                </button>
               </div>
             </>
           )}
