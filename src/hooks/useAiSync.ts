@@ -484,26 +484,30 @@ export function useAiSync(clinicId: string | null | undefined) {
         for (const item of items) {
           if (stopped) break;
           try {
+            // O pedido da IA vai para a FILA DE APROVAÇÃO (ai_appointment_requests),
+            // que o painel lê. O paciente é provisório/anônimo do WhatsApp, então
+            // patient_id pode ser nulo — a clínica escolhe o dentista ao aprovar.
             const insertPayload: Record<string, unknown> = {
               clinic_id: clinicId,
-              dentist_id: item.dentist_id,
-              patient_id: item.patient_id,
-              start_time: item.start_time,
-              end_time: item.end_time,
-              status: item.status ?? 'scheduled',
+              patient_name: item.patient_name ?? null,
+              patient_phone: item.patient_phone ?? '',
+              patient_id: item.patient_id ?? null,
+              procedure: item.procedure ?? null,
+              suggested_dentist_id: item.suggested_dentist_id ?? null,
               notes: item.notes ?? null,
-              procedure_id: item.procedure_id ?? null,
+              requested_at: item.start_time ?? new Date().toISOString(),
+              status: 'pending',
+              source: 'ai',
+              external_ref: item.id ?? null,
             };
-            // patient_id é obrigatório no Supabase; pular se IA ainda não vinculou
-            if (!insertPayload.patient_id) continue;
 
             const { data: inserted, error } = await supabase
-              .from('appointments')
+              .from('ai_appointment_requests')
               .insert(insertPayload as any)
               .select('id')
               .single();
             if (error || !inserted) {
-              if (import.meta.env.DEV) console.warn('[ai-sync] insert appointment falhou:', error?.message);
+              if (import.meta.env.DEV) console.warn('[ai-sync] insert ai_appointment_request falhou:', error?.message);
               continue;
             }
             await silent(aiBackend.confirmAiAppointmentSync(clinicId, item.id, inserted.id));

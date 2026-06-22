@@ -478,5 +478,6 @@ export interface AiNpsPendingResult {
   patient_phone?: string | null;
   score: number;
   comment?: string | null;
+  category?: string | null; // 'promoter' | 'passive' | 'detractor'
   answered_at?: string | null;
 }
