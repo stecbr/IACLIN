@@ -379,6 +379,9 @@ export default function OperatorRequests() {
         <div className="space-y-3">
           {visible.map((r) => (
             <Card key={r.id} className="rounded-xl p-4 flex flex-col gap-4">
+              <Badge variant="outline" className={`${STATUS_CLASSES[r.status] ?? ''} self-start`}>
+                {STATUS_LABELS[r.status] ?? r.status}
+              </Badge>
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                   <div className="shrink-0 h-14 w-14 rounded-xl overflow-hidden border bg-muted flex items-center justify-center">
@@ -390,9 +393,6 @@ export default function OperatorRequests() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                  <Badge variant="outline" className={`${STATUS_CLASSES[r.status] ?? ''} mb-1.5`}>
-                    {STATUS_LABELS[r.status] ?? r.status}
-                  </Badge>
                   <div className="font-medium">{r.clinic_name}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Responsável: {r.requested_by_name ?? r.full_name ?? '—'}{r.specialty ? ` · ${r.specialty}` : ''}
