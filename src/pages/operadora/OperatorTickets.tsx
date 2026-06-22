@@ -542,3 +542,216 @@ function OperatorTicketDialog({
     </Dialog>
   );
 }
+
+// ── Create Ticket Dialog (operator → clinic) ──────────────────────────────────
+
+interface ClinicOption {
+  id: string;
+  name: string;
+}
+
+function CreateOperatorTicketDialog({
+  operatorId,
+  userId,
+  onClose,
+  onCreated,
+}: {
+  operatorId: string;
+  userId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [clinicId, setClinicId] = useState('');
+  const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
+  const [files, setFiles] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const { data: clinics = [], isLoading: loadingClinics } = useQuery({
+    queryKey: ['operator-credentialed-clinics', operatorId],
+    queryFn: async () => {
+      const { data: creds } = await supabase
+        .from('operator_credentialings')
+        .select('clinic_id')
+        .eq('operator_id', operatorId)
+        .eq('status', 'approved')
+        .not('clinic_id', 'is', null);
+      const ids = [...new Set((creds ?? []).map((c) => c.clinic_id as string))];
+      if (ids.length === 0) return [];
+      const { data } = await supabase
+        .from('clinics')
+        .select('id, name')
+        .in('id', ids)
+        .order('name');
+      return (data ?? []) as ClinicOption[];
+    },
+  });
+
+  const canSubmit = !!subject.trim() && !!body.trim() && !!clinicId;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSaving(true);
+    try {
+      const { data: ticket, error: tErr } = await supabase
+        .from('support_tickets')
+        .insert({
+          subject: subject.trim(),
+          status: 'open',
+          priority,
+          created_by: userId,
+          clinic_id: clinicId,
+          operator_id: operatorId,
+        })
+        .select()
+        .single();
+      if (tErr) throw tErr;
+
+      const { data: msg, error: mErr } = await supabase
+        .from('support_ticket_messages')
+        .insert({ ticket_id: ticket.id, sender_id: userId, content: body.trim() })
+        .select()
+        .single();
+      if (mErr) throw mErr;
+
+      for (const file of files) {
+        const path = `tickets/${ticket.id}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file);
+        if (upErr) continue;
+        const { data: urlData } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+        await supabase.from('support_ticket_attachments').insert({
+          message_id: msg.id,
+          file_url: urlData.publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        });
+      }
+
+      toast.success('Chamado enviado à clínica');
+      onCreated();
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao criar chamado');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loadingClinics && clinics.length === 0) {
+    return (
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Sem clínicas credenciadas</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <AlertCircle className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Você ainda não possui clínicas credenciadas aprovadas para enviar chamados.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Novo chamado para clínica</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label>Clínica destinatária</Label>
+            <Select value={clinicId} onValueChange={setClinicId} disabled={loadingClinics}>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingClinics ? 'Carregando...' : 'Selecione a clínica'} />
+              </SelectTrigger>
+              <SelectContent>
+                {clinics.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Assunto</Label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Ex: Atualização cadastral pendente"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Prioridade</Label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as typeof priority)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Baixa</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="high">Alta</SelectItem>
+                <SelectItem value="urgent">Urgente</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Mensagem</Label>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Descreva a solicitação ou comunicado..."
+              rows={5}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Anexos <span className="font-normal text-muted-foreground text-xs">(opcional)</span></Label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5">
+              <Paperclip className="h-4 w-4 shrink-0" />
+              <span className="truncate">
+                {files.length > 0 ? `${files.length} arquivo(s) selecionado(s)` : 'Clique para anexar'}
+              </span>
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                className="sr-only"
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+              />
+            </label>
+            {files.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setFiles([])}
+                className="text-xs text-destructive hover:underline"
+              >
+                Remover anexos
+              </button>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={saving || !canSubmit}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar chamado
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
