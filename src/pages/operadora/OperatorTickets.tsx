@@ -33,6 +33,24 @@ import {
   X,
   Plus,
   AlertCircle,
+  ClipboardCheck,
+  FileSearch,
+  UserCog,
+  Fingerprint,
+  XCircle,
+  Megaphone,
+  Users,
+  UserMinus,
+  CircleMinus,
+  MoreHorizontal,
+  Star,
+  ListPlus,
+  Wallet,
+  TrendingUp,
+  RefreshCw,
+  Monitor,
+  PenLine,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -40,24 +58,24 @@ import { ptBR } from 'date-fns/locale';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-const TICKET_SUBJECT_OPTIONS = [
-  'Achado / Divergência em Auditoria',
-  'Atualização Cadastral Credenciado',
-  'Autorizações',
-  'Biometria',
-  'Cancelamento - SE',
-  'Comunicado Dentista',
-  'Corpo Clínico',
-  'Descredenciamento de Dentista',
-  'Descredenciamento de Especialidade',
-  'Diversas',
-  'Elogio',
-  'Inclusões de Procedimentos',
-  'Pagamento de Dentista',
-  'Produtividade',
-  'Reajuste Tabela Credenciado',
-  'Sistema',
-  'Outro',
+const PRESET_SUBJECTS = [
+  { id: 'auditoria',          label: 'Achado / Divergência em Auditoria',   icon: FileSearch,    color: 'text-orange-600 dark:text-orange-400',  bg: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800' },
+  { id: 'atualizacao',        label: 'Atualização Cadastral Credenciado',   icon: UserCog,       color: 'text-blue-600 dark:text-blue-400',       bg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' },
+  { id: 'autorizacoes',       label: 'Autorizações',                        icon: ClipboardCheck,color: 'text-green-600 dark:text-green-400',     bg: 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' },
+  { id: 'biometria',          label: 'Biometria',                           icon: Fingerprint,   color: 'text-purple-600 dark:text-purple-400',   bg: 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800' },
+  { id: 'cancelamento',       label: 'Cancelamento - SE',                   icon: XCircle,       color: 'text-red-600 dark:text-red-400',         bg: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' },
+  { id: 'comunicado',         label: 'Comunicado Dentista',                 icon: Megaphone,     color: 'text-yellow-600 dark:text-yellow-400',   bg: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' },
+  { id: 'corpo-clinico',      label: 'Corpo Clínico',                       icon: Users,         color: 'text-indigo-600 dark:text-indigo-400',   bg: 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800' },
+  { id: 'desc-dentista',      label: 'Descredenciamento de Dentista',       icon: UserMinus,     color: 'text-rose-600 dark:text-rose-400',       bg: 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800' },
+  { id: 'desc-especialidade', label: 'Descredenciamento de Especialidade',  icon: CircleMinus,   color: 'text-pink-600 dark:text-pink-400',       bg: 'bg-pink-50 dark:bg-pink-950/30 border-pink-200 dark:border-pink-800' },
+  { id: 'diversas',           label: 'Diversas',                            icon: MoreHorizontal,color: 'text-slate-600 dark:text-slate-400',     bg: 'bg-slate-50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-800' },
+  { id: 'elogio',             label: 'Elogio',                              icon: Star,          color: 'text-amber-500 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800' },
+  { id: 'inclusao-proc',      label: 'Inclusões de Procedimentos',          icon: ListPlus,      color: 'text-teal-600 dark:text-teal-400',       bg: 'bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800' },
+  { id: 'pagamento',          label: 'Pagamento de Dentista',               icon: Wallet,        color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' },
+  { id: 'produtividade',      label: 'Produtividade',                       icon: TrendingUp,    color: 'text-cyan-600 dark:text-cyan-400',       bg: 'bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800' },
+  { id: 'reajuste',           label: 'Reajuste Tabela Credenciado',         icon: RefreshCw,     color: 'text-violet-600 dark:text-violet-400',   bg: 'bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800' },
+  { id: 'sistema',            label: 'Sistema',                             icon: Monitor,       color: 'text-gray-600 dark:text-gray-400',       bg: 'bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800' },
+  { id: 'outro',              label: 'Outro',                               icon: PenLine,       color: 'text-muted-foreground',                  bg: 'bg-muted/40 border-border' },
 ];
 
 interface Ticket {
@@ -582,11 +600,31 @@ function CreateOperatorTicketDialog({
   onCreated: () => void;
 }) {
   const [subject, setSubject] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [body, setBody] = useState('');
   const [clinicId, setClinicId] = useState('');
   const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
+
+  const matchedPreset = PRESET_SUBJECTS.find(
+    (s) => s.label.toLowerCase() === subject.trim().toLowerCase()
+  );
+  const suggestions = PRESET_SUBJECTS.filter(
+    (s) => !subject || s.label.toLowerCase().includes(subject.toLowerCase())
+  );
+  const handleSelectSuggestion = (label: string, id: string) => {
+    if (id === 'outro') {
+      setSubject('');
+      setShowSuggestions(false);
+      setTimeout(() => subjectInputRef.current?.focus(), 50);
+    } else {
+      setSubject(label);
+      setShowSuggestions(false);
+      subjectInputRef.current?.blur();
+    }
+  };
 
   const { data: clinics = [], isLoading: loadingClinics } = useQuery({
     queryKey: ['operator-credentialed-clinics', operatorId],
@@ -703,18 +741,61 @@ function CreateOperatorTicketDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Assunto</Label>
-            <Select value={subject} onValueChange={setSubject}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o assunto" />
-              </SelectTrigger>
-              <SelectContent>
-                {TICKET_SUBJECT_OPTIONS.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5">
+            <Label>Assunto <span className="text-destructive">*</span></Label>
+            <div className="relative">
+              <div className="relative flex items-center">
+                {matchedPreset && (
+                  <matchedPreset.icon className={`absolute left-3 h-4 w-4 shrink-0 ${matchedPreset.color}`} />
+                )}
+                <Input
+                  ref={subjectInputRef}
+                  placeholder="Digite ou selecione o assunto..."
+                  value={subject}
+                  className={matchedPreset ? 'pl-9' : ''}
+                  onChange={(e) => { setSubject(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  autoComplete="off"
+                />
+                {subject && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => { setSubject(''); setShowSuggestions(true); subjectInputRef.current?.focus(); }}
+                    className="absolute right-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border bg-popover shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                  {suggestions.map((s) => {
+                    const Icon = s.icon;
+                    const isSelected = subject === s.label;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onMouseDown={() => handleSelectSuggestion(s.label, s.id)}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors hover:bg-muted ${
+                          isSelected ? 'bg-muted/60' : ''
+                        }`}
+                      >
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${s.bg}`}>
+                          <Icon className={`h-3.5 w-3.5 ${s.color}`} />
+                        </span>
+                        <span className="font-medium">{s.label}</span>
+                        {isSelected && (
+                          <span className="ml-auto text-xs text-primary">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -733,11 +814,15 @@ function CreateOperatorTicketDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Mensagem</Label>
+            <Label>Mensagem <span className="text-destructive">*</span></Label>
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Descreva a solicitação ou comunicado..."
+              placeholder={
+                subject
+                  ? `Descreva com detalhes sobre "${subject}"...\n\nInclua informações como: protocolo, dentista, paciente, data, etc.`
+                  : 'Selecione o assunto acima e descreva a solicitação em detalhes...'
+              }
               rows={5}
             />
           </div>
