@@ -86,7 +86,6 @@ export default function Auth() {
   const [tradeName, setTradeName] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [responsibleName, setResponsibleName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [operatorType, setOperatorType] = useState('ambos');
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
   const [cnpjFetched, setCnpjFetched] = useState(false);
@@ -306,11 +305,6 @@ export default function Auth() {
           }
           if (!legalName.trim() || !tradeName.trim() || !responsibleName.trim() || !phone.trim()) {
             toast.error('Preencha todos os campos obrigatórios');
-            setSubmitting(false);
-            return;
-          }
-          if (password !== confirmPassword) {
-            toast.error('As senhas não coincidem');
             setSubmitting(false);
             return;
           }
@@ -907,13 +901,6 @@ export default function Auth() {
                     </button>
                   </div>
                 </motion.div>
-
-                {isClinicSignup && (
-                  <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.21 }}>
-                    <Label htmlFor="confirm-password">Confirmar Senha</Label>
-                    <Input id="confirm-password" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10" />
-                  </motion.div>
-                )}
 
                 {isPatientSignup && (
                   <>

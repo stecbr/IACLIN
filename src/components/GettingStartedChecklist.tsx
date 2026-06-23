@@ -151,16 +151,19 @@ export function GettingStartedChecklist() {
       if (persona === 'patient') {
         const [profile, account, patientRow, appts] = await Promise.all([
           supabase.from('profiles').select('full_name, phone, avatar_url, address, zip_code').eq('id', user!.id).maybeSingle(),
-          supabase.from('patient_accounts').select('address, zip_code, insurance_provider').eq('user_id', user!.id).maybeSingle(),
-          supabase.from('patients').select('insurance_provider, address, zip_code').eq('patient_user_id', user!.id).maybeSingle(),
+          supabase.from('patient_accounts').select('full_name, phone, photo_url, address, zip_code, insurance_provider').eq('user_id', user!.id).maybeSingle(),
+          supabase.from('patients').select('full_name, phone, photo_url, insurance_provider, address, zip_code').eq('patient_user_id', user!.id).maybeSingle(),
           supabase.from('appointments').select('id, patients!inner(patient_user_id)', { count: 'exact', head: true }).eq('patients.patient_user_id', user!.id),
         ]);
         const pr: any = profile.data ?? {};
         const acc: any = account.data ?? {};
         const pa: any = patientRow.data ?? {};
         return {
-          profileComplete: !!(pr.full_name && pr.phone),
-          hasPhoto: !!pr.avatar_url,
+          profileComplete: !!(
+            (pr.full_name || acc.full_name || pa.full_name) &&
+            (pr.phone || acc.phone || pa.phone)
+          ),
+          hasPhoto: !!(pr.avatar_url || acc.photo_url || pa.photo_url),
           hasAddress: !!(
             (pr.address && pr.zip_code) ||
             (acc.address && acc.zip_code) ||
@@ -185,7 +188,8 @@ export function GettingStartedChecklist() {
         hasCredentialing: (credentialings.count ?? 0) > 0,
       };
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const items: ChecklistItem[] = useMemo(() => {
