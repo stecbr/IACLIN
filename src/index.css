@@ -211,13 +211,10 @@
   }
 }
 
-/* ── Premium scrollbar ─────────────────────────────────────────────────────── */
+/* ── Unified scrollbar (matches sidebar style) ────────────────────────────── */
 :root {
   scrollbar-width: thin;
-  scrollbar-color: hsl(215 80% 52% / 0.25) transparent;
-}
-.dark {
-  scrollbar-color: hsl(215 80% 56% / 0.22) transparent;
+  scrollbar-color: hsl(var(--sidebar-accent)) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -231,54 +228,23 @@
 }
 
 ::-webkit-scrollbar-thumb {
+  background: hsl(var(--sidebar-accent));
   border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    hsl(215 80% 60% / 0.35) 0%,
-    hsl(230 70% 55% / 0.22) 100%
-  );
-  transition: background 0.2s ease, width 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    hsl(215 80% 52% / 0.65) 0%,
-    hsl(230 70% 48% / 0.50) 100%
-  );
+  background: hsl(var(--sidebar-accent) / 0.8);
 }
 
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    hsl(215 80% 70% / 0.28) 0%,
-    hsl(230 70% 65% / 0.16) 100%
-  );
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    hsl(215 80% 65% / 0.60) 0%,
-    hsl(230 70% 58% / 0.45) 100%
-  );
-}
-
-/* Operator main scroll — uses sidebar accent color */
+/* Alias kept for existing usages */
 .operator-main-scroll {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--sidebar-accent)) transparent;
-}
-.operator-main-scroll::-webkit-scrollbar-thumb {
-  background: hsl(var(--sidebar-accent));
-  border-radius: 999px;
-}
-.operator-main-scroll::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--sidebar-accent) / 0.8);
 }
 
 @keyframes fade-in {
