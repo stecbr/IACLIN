@@ -531,7 +531,7 @@ export default function OperatorProfessionals() {
   const noResults = searched && !mapLoading && filtered.length === 0;
 
   return (
-    <div className="-m-4 md:-m-8 relative h-[calc(100vh-0rem)] md:h-screen overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden">
       {/* Center Leaflet zoom controls vertically on the right */}
       <style>{`
         .rede-busca-map .leaflet-top.leaflet-right {
