@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePatientData } from '@/hooks/usePatientData';
 import { ShareMyChartDialog } from '@/components/patient/ShareMyChartDialog';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CitySelect } from '@/components/address/CitySelect';
 
 const sections = [
@@ -117,6 +117,7 @@ function PhoneInput({ value, onChange, placeholder, id }: {
 function ProfileSection() {
   const { user, signOut, profile, refreshClinics } = useAuth();
   const { account, loading, refetch, patientIds } = usePatientData();
+  const queryClient = useQueryClient();
   const photoRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -307,6 +308,7 @@ function ProfileSection() {
     toast.success('Perfil atualizado!');
     refetch();
     refreshClinics();
+    queryClient.invalidateQueries({ queryKey: ['getting-started'] });
   };
 
   const initials = (form.full_name || user?.email || 'P')
