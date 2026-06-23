@@ -220,13 +220,18 @@ function AccountSection({ user, profile }: { user: any; profile: any }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [displayed, setDisplayed] = useState<{ full_name: string | null; avatar_url: string | null }>({
+    full_name: profile?.full_name ?? null,
+    avatar_url: profile?.avatar_url ?? null,
+  });
 
   useEffect(() => {
     setFullName(profile?.full_name ?? '');
     setAvatarUrl(profile?.avatar_url ?? null);
+    setDisplayed({ full_name: profile?.full_name ?? null, avatar_url: profile?.avatar_url ?? null });
   }, [profile?.full_name, profile?.avatar_url]);
 
-  const initials = (profile?.full_name ?? user?.email ?? '?')
+  const initials = (displayed.full_name ?? user?.email ?? '?')
     .split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase();
 
   const uploadAvatar = async (file: File) => {
@@ -248,10 +253,8 @@ function AccountSection({ user, profile }: { user: any; profile: any }) {
       .upsert({ id: user.id, full_name: fullName, avatar_url: avatarUrl }, { onConflict: 'id' });
     setSaving(false);
     if (error) return toast.error('Erro ao salvar: ' + error.message);
+    setDisplayed({ full_name: fullName, avatar_url: avatarUrl });
     queryClient.invalidateQueries();
-    // Force AuthContext to re-read profile by reloading the page state via window event,
-    // but simpler: trigger a soft reload of profile by toggling location no-op — instead,
-    // we rely on invalidateQueries + local prop update on next render.
     setEditOpen(false);
     toast.success('Perfil atualizado');
   };
@@ -266,12 +269,12 @@ function AccountSection({ user, profile }: { user: any; profile: any }) {
         <CardContent className="space-y-5">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden text-lg font-semibold text-muted-foreground">
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+              {displayed.avatar_url
+                ? <img src={displayed.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
                 : initials}
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium">{profile?.full_name || <span className="italic text-muted-foreground">Sem nome</span>}</p>
+              <p className="text-sm font-medium">{displayed.full_name || <span className="italic text-muted-foreground">Sem nome</span>}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
