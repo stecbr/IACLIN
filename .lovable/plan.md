@@ -1,26 +1,31 @@
-## Problema
+## Conta encontrada
 
-No checklist "Comece por aqui" do paciente:
+- **Nome:** Flavio Batista
+- **User ID:** `1290ae8f-b23d-48b0-b6fb-c6b66451eccb`
+- **Tipo:** Paciente
 
-1. **Endereço sempre aparece como pendente**, mesmo após o paciente preencher tudo em Configurações.
-   - Causa: a query lê `patients.address / zip_code` filtrando por `patient_user_id`. Mas o `save()` em `PatientSettings.tsx` só atualiza a tabela `patients` quando o usuário já tem `patientIds.length > 0` (ou seja, já está vinculado a alguma clínica). Para um paciente "solto" (sem clínica vinculada), o endereço só é gravado em `profiles` e `patient_accounts`, então o checklist nunca detecta.
-   - Os campos `profile.address / zip_code` (que são gravados sempre) e/ou `patient_accounts.address / zip_code` são as fontes confiáveis.
+## Dados vinculados que serão removidos
 
-2. **"Vincule seu plano de saúde" deve ser opcional**, pois nem todo paciente tem plano — não deveria contar como pendente nem reduzir o percentual de progresso.
+- 1 `patient_account` (cadastro do paciente na plataforma)
+- 3 registros em `patients` (vinculados em clínicas diferentes via CPF)
+- 9 `appointments` ligadas a esses registros de paciente
+- 1 entrada em `user_roles`
+- 1 entrada em `profiles`
+- A conta de autenticação em `auth.users`
 
-## Mudanças
+> ⚠️ **Ação irreversível.** Não há "lixeira" — uma vez executada, o paciente perderá o acesso e o histórico dele será apagado nas clínicas onde estava cadastrado.
 
-Arquivo único: `src/components/GettingStartedChecklist.tsx`, bloco `persona === 'patient'`.
+## Como será feito
 
-1. Trocar a fonte do endereço para ler também de `profiles` e `patient_accounts`:
-   - Adicionar `address, zip_code` ao `select` do `profiles`.
-   - Buscar `patient_accounts` (`address, zip_code, insurance_provider`) por `user_id`.
-   - `hasAddress = !!((pr.address && pr.zip_code) || (acc.address && acc.zip_code) || (pa.address && pa.zip_code))`.
-   - `hasInsurance` lido da mesma forma (account OR patients).
+Migration única que executa, em ordem:
 
-2. Marcar o item "plano de saúde" como opcional:
-   - Adicionar campo `optional?: boolean` na interface `ChecklistItem`.
-   - Marcar o item `insurance` do paciente com `optional: true` e exibir um chip discreto "Opcional" ao lado do label.
-   - Excluir itens opcionais dos cálculos de `totalDone`, `items.length` usado no denominador, e `pct` — eles continuam visíveis na lista de pendentes, mas não bloqueiam o 100%.
+1. `DELETE FROM public.appointments WHERE patient_id IN (SELECT id FROM public.patients WHERE patient_user_id = '<id>')`
+2. `DELETE FROM public.patients WHERE patient_user_id = '<id>'`
+3. `DELETE FROM public.patient_accounts WHERE user_id = '<id>'`
+4. `DELETE FROM public.user_roles WHERE user_id = '<id>'`
+5. `DELETE FROM public.profiles WHERE id = '<id>'`
+6. `DELETE FROM auth.users WHERE id = '<id>'` (remove autenticação)
 
-Nenhuma mudança em schema, RLS ou outras telas.
+Outras tabelas que possam referenciar o usuário (notificações, etc.) serão limpas via `ON DELETE CASCADE` ou ficarão órfãs sem impacto. Posso confirmar isso ao aplicar.
+
+Confirma a exclusão?
