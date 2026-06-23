@@ -95,9 +95,22 @@ Deno.serve(async (req) => {
 
     // Resolve patient
     let patientId = request.patient_id as string | null;
+    const reqCpf = ((request as any).patient_cpf as string | null | undefined)?.replace(/\D/g, '') || null;
+    const reqDob = ((request as any).patient_date_of_birth as string | null | undefined) || null;
     if (!patientId) {
+      // 1) Dedup por CPF (mais confiável que telefone). Se já existir paciente
+      //    com esse CPF na clínica, vincula em vez de duplicar.
+      if (reqCpf) {
+        const { data: byCpf } = await admin
+          .from('patients')
+          .select('id')
+          .eq('clinic_id', request.clinic_id)
+          .eq('cpf', reqCpf)
+          .maybeSingle();
+        if (byCpf) patientId = byCpf.id;
+      }
       const phone = (request.patient_phone ?? '').trim();
-      if (phone) {
+      if (!patientId && phone) {
         const { data: existing } = await admin
           .from('patients')
           .select('id')
@@ -113,11 +126,26 @@ Deno.serve(async (req) => {
             clinic_id: request.clinic_id,
             full_name: request.patient_name ?? 'Paciente WhatsApp',
             phone: phone || null,
+            cpf: reqCpf,
+            date_of_birth: reqDob,
           })
           .select('id')
           .single();
         if (cerr) throw cerr;
         patientId = created.id;
+      } else if (reqCpf || reqDob) {
+        // Paciente já existia — completa apenas campos vazios.
+        const { data: cur } = await admin
+          .from('patients')
+          .select('cpf, date_of_birth')
+          .eq('id', patientId)
+          .maybeSingle();
+        const patch: Record<string, unknown> = {};
+        if (reqCpf && !cur?.cpf) patch.cpf = reqCpf;
+        if (reqDob && !cur?.date_of_birth) patch.date_of_birth = reqDob;
+        if (Object.keys(patch).length > 0) {
+          await admin.from('patients').update(patch).eq('id', patientId);
+        }
       }
     }
 

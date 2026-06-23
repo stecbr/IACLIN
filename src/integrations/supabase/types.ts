@@ -24,6 +24,8 @@ export type Database = {
           external_ref: string | null
           id: string
           notes: string | null
+          patient_cpf: string | null
+          patient_date_of_birth: string | null
           patient_id: string | null
           patient_name: string | null
           patient_phone: string
@@ -45,6 +47,8 @@ export type Database = {
           external_ref?: string | null
           id?: string
           notes?: string | null
+          patient_cpf?: string | null
+          patient_date_of_birth?: string | null
           patient_id?: string | null
           patient_name?: string | null
           patient_phone: string
@@ -66,6 +70,8 @@ export type Database = {
           external_ref?: string | null
           id?: string
           notes?: string | null
+          patient_cpf?: string | null
+          patient_date_of_birth?: string | null
           patient_id?: string | null
           patient_name?: string | null
           patient_phone?: string
