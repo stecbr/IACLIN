@@ -104,7 +104,7 @@ export default function OperatorNetwork() {
     const clinicIds = [...new Set(list.map((r) => r.clinic_id))];
     const [{ data: clinics }, { data: clinicMembers }, { data: profiles }] = await Promise.all([
       supabase.from('clinics').select('id, name, city, cnpj, phone, email, address, neighborhood, state, category, category_label, logo_url, responsible_name, created_at').in('id', clinicIds),
-      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role, is_owner, created_at').in('clinic_id', clinicIds).eq('role', 'dentist'),
+      supabase.from('clinic_members').select('id, clinic_id, user_id, specialty, registration_number, role, is_owner, created_at').in('clinic_id', clinicIds).in('role', ['admin', 'dentist']),
       supabase.from('profiles').select('id, full_name, avatar_url'),
     ]);
 
@@ -141,6 +141,9 @@ export default function OperatorNetwork() {
 
     const merged: Row[] = list.map((r) => {
       const c: any = clinicMap.get(r.clinic_id);
+      const doctorList = doctorsByClinic.get(r.clinic_id) ?? [];
+      const owner = doctorList.find((d) => d.is_owner);
+      const responsibleFromOwner = owner?.name && owner.name !== '—' ? owner.name : null;
       return {
         ...r,
         clinic_name: c?.name ?? '—',
@@ -154,9 +157,9 @@ export default function OperatorNetwork() {
         clinic_category: c?.category ?? null,
         clinic_category_label: c?.category_label ?? null,
         clinic_logo_url: c?.logo_url ?? null,
-        clinic_responsible: c?.responsible_name ?? null,
+        clinic_responsible: c?.responsible_name ?? responsibleFromOwner ?? null,
         clinic_created_at: c?.created_at ?? null,
-        doctors: doctorsByClinic.get(r.clinic_id) ?? [],
+        doctors: doctorList,
       };
     });
     setRows(merged);
