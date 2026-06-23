@@ -557,8 +557,8 @@ export default function OperatorProfessionals() {
 
       {/* Centered search panel (before search) */}
       {!searched && (
-        <div className="absolute inset-0 z-[600] flex items-center justify-center p-4 bg-background/40 backdrop-blur-sm">
-          <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md">
+        <div className="absolute inset-0 z-[600] flex items-start sm:items-center justify-center p-4 bg-background/40 backdrop-blur-sm overflow-y-auto">
+          <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md max-h-[calc(100vh-2rem)] overflow-y-auto my-auto">
             <div className="flex items-center gap-2 mb-1">
               <SlidersHorizontal className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
@@ -689,7 +689,7 @@ export default function OperatorProfessionals() {
 
       {/* Floating back button (after search) */}
       {searched && (
-        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-[550] flex items-center gap-2">
+        <div className="absolute top-6 left-6 md:top-8 md:left-8 z-[550] flex items-center gap-2">
           <Button
             variant="secondary"
             size="icon"
