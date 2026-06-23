@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, ChevronRight, Lock, Eye, EyeOff, Search, Loader2, Mail, Check, Info, X } from 'lucide-react';
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
+import { formatCnpj, isValidCnpj } from '@/lib/cnpj';
 import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
 import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
 const logoLight = iaclinLogoAsset.url;
@@ -26,15 +27,6 @@ import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
-
-function formatCnpj(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 14);
-  return digits
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2');
-}
 
 const fade = {
   initial: { opacity: 0, y: 12 },
@@ -160,6 +152,10 @@ export default function Auth() {
     const digits = cnpj.replace(/\D/g, '');
     if (digits.length !== 14) {
       if (!silent) setCnpjHint('Informe os 14 dígitos do CNPJ.');
+      return;
+    }
+    if (!isValidCnpj(digits)) {
+      if (!silent) setCnpjHint('CNPJ inválido. Confira os dígitos.');
       return;
     }
     setFetchingCnpj(true);
@@ -303,8 +299,8 @@ export default function Auth() {
 
         // Validate clinic-specific fields
         if (userType === 'clinica') {
-          if (cnpj.replace(/\D/g, '').length !== 14) {
-            toast.error('CNPJ deve ter 14 dígitos');
+          if (!isValidCnpj(cnpj)) {
+            toast.error('CNPJ inválido. Confira os dígitos.');
             setSubmitting(false);
             return;
           }
@@ -322,8 +318,8 @@ export default function Auth() {
 
         // Validate operator-specific fields
         if (userType === 'operadora') {
-          if (cnpj.replace(/\D/g, '').length !== 14) {
-            toast.error('CNPJ deve ter 14 dígitos');
+          if (!isValidCnpj(cnpj)) {
+            toast.error('CNPJ inválido. Confira os dígitos.');
             setSubmitting(false);
             return;
           }

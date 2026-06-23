@@ -14,6 +14,8 @@ import { Save, Building2, User, QrCode, Landmark, AlertCircle, CheckCircle2, Che
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { BRAZILIAN_BANKS } from '@/lib/brazilianBanks';
+import { isValidCnpj } from '@/lib/cnpj';
+import { isValidCpf } from '@/lib/cpf';
 
 type PaymentAccount = {
   id?: string;
@@ -137,12 +139,12 @@ export default function PaymentAccountSection() {
     // Validate PIX key format
     if (form.pix_key_type && form.pix_key) {
       const digits = form.pix_key.replace(/\D/g, '');
-      if (form.pix_key_type === 'cpf' && digits.length !== 11) {
-        toast.error('CPF da chave PIX deve ter 11 dígitos');
+      if (form.pix_key_type === 'cpf' && !isValidCpf(digits)) {
+        toast.error('CPF da chave PIX inválido');
         return;
       }
-      if (form.pix_key_type === 'cnpj' && digits.length !== 14) {
-        toast.error('CNPJ da chave PIX deve ter 14 dígitos');
+      if (form.pix_key_type === 'cnpj' && !isValidCnpj(digits)) {
+        toast.error('CNPJ da chave PIX inválido');
         return;
       }
       if (form.pix_key_type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.pix_key.trim())) {

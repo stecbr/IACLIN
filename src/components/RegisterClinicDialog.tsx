@@ -18,19 +18,11 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 import { SmartAddressFields } from '@/components/address/SmartAddressFields';
+import { formatCnpj, isValidCnpj } from '@/lib/cnpj';
 
 interface RegisterClinicDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function formatCnpj(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 14);
-  return digits
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2');
 }
 
 function formatCpf(value: string) {
@@ -132,6 +124,10 @@ export function RegisterClinicDialog({ open, onOpenChange }: RegisterClinicDialo
     const digits = cnpj.replace(/\D/g, '');
     if (digits.length !== 14) {
       toast.error('Informe os 14 dígitos do CNPJ.');
+      return;
+    }
+    if (!isValidCnpj(digits)) {
+      toast.error('CNPJ inválido. Confira os dígitos.');
       return;
     }
     setFetching(true);
