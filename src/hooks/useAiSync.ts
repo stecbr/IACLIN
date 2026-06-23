@@ -548,7 +548,13 @@ export function useAiSync(clinicId: string | null | undefined) {
                 if (import.meta.env.DEV) console.warn('[ai-sync] cancelar appt IA:', err);
               }
 
-              await silent(aiBackend.confirmAiAppointmentSync(clinicId, item.id, appointmentIdHint(item)));
+              await silent(
+                aiBackend.confirmAiAppointmentSync(
+                  clinicId,
+                  item.id,
+                  ((item as any).supabase_id as string | undefined) ?? item.id,
+                ),
+              );
               continue;
             }
 
