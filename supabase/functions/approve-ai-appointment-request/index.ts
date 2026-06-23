@@ -133,13 +133,18 @@ Deno.serve(async (req) => {
           .single();
         if (cerr) throw cerr;
         patientId = created.id;
-      } else {
-        // Paciente já existia — completa CPF/nascimento se ainda faltarem
+      } else if (reqCpf || reqDob) {
+        // Paciente já existia — completa apenas campos vazios.
+        const { data: cur } = await admin
+          .from('patients')
+          .select('cpf, date_of_birth')
+          .eq('id', patientId)
+          .maybeSingle();
         const patch: Record<string, unknown> = {};
-        if (reqCpf) patch.cpf = reqCpf;
-        if (reqDob) patch.date_of_birth = reqDob;
+        if (reqCpf && !cur?.cpf) patch.cpf = reqCpf;
+        if (reqDob && !cur?.date_of_birth) patch.date_of_birth = reqDob;
         if (Object.keys(patch).length > 0) {
-          await admin.from('patients').update(patch).eq('id', patientId).is('cpf', null);
+          await admin.from('patients').update(patch).eq('id', patientId);
         }
       }
     }
