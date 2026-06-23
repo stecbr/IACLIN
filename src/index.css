@@ -241,6 +241,11 @@
   background: transparent;
 }
 
+/* Radix popper wrappers (Popover/Dropdown/Tooltip) must sit above in-page overlays */
+[data-radix-popper-content-wrapper] {
+  z-index: 1000 !important;
+}
+
 /* Alias kept for existing usages */
 .operator-main-scroll {
   scrollbar-width: thin;
