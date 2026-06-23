@@ -569,7 +569,7 @@ export default function Auth() {
               </Button>
 
               <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
-                <button type="button" onClick={() => { setIsLogin(false); setUserType(null); setProfSubType(null); }} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                <button type="button" onClick={() => { setIsLogin(false); setUserType(null); setProfSubType(null); setEmail(''); setPassword(''); }} className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   Não tem conta? Cadastre-se
                 </button>
               </motion.div>
@@ -632,7 +632,7 @@ export default function Auth() {
               </motion.div>
 
               <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                <button type="button" onClick={() => setIsLogin(true)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                <button type="button" onClick={() => { setIsLogin(true); setEmail(''); setPassword(''); }} className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   Já tem conta? Entrar
                 </button>
               </motion.div>
@@ -884,12 +884,12 @@ export default function Auth() {
 
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.15 }}>
                   <Label htmlFor="signup-email">{isClinicSignup || isOperatorSignup ? 'E-mail Corporativo' : 'E-mail'}</Label>
-                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : isClinicSignup || isOperatorSignup ? 'contato@operadora.com' : 'joao@clinica.com'} required className="h-10" />
+                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={isPatientSignup ? 'seu@email.com' : isClinicSignup || isOperatorSignup ? 'contato@operadora.com' : 'joao@clinica.com'} required className="h-10" autoComplete="off" />
                 </motion.div>
                 <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.2 }}>
                   <Label htmlFor="signup-password">Senha</Label>
                   <div className="relative">
-                    <Input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10 pr-10" />
+                    <Input id="signup-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-10 pr-10" autoComplete="new-password" />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
@@ -968,7 +968,7 @@ export default function Auth() {
               </form>
 
               <motion.div className="mt-6 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-                <button type="button" onClick={() => setIsLogin(true)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                <button type="button" onClick={() => { setIsLogin(true); setEmail(''); setPassword(''); }} className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   Já tem conta? Entrar
                 </button>
               </motion.div>
