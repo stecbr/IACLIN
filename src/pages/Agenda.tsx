@@ -96,10 +96,10 @@ export default function Agenda() {
         .select('*, patients(full_name), procedures(name, color)')
         .gte('start_time', range.start.toISOString())
         .lte('start_time', addDays(range.end, 1).toISOString())
-        // Mostrar tudo exceto canceladas pela clínica.
-        // Canceladas pelo paciente (via IA/WhatsApp) continuam visíveis
-        // — destacadas em vermelho — para a clínica perceber que o horário abriu.
-        .or('status.neq.cancelled,cancelled_by.eq.patient')
+        // Mostrar tudo, inclusive canceladas que tenham origem registrada
+        // (cancelled_by = patient | clinic) — ficam riscadas em vermelho
+        // para que a clínica perceba que o horário abriu.
+        .or('status.neq.cancelled,cancelled_by.not.is.null')
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       else if (isPersonalMode && user) query = query.is('clinic_id', null).eq('dentist_id', user.id);
