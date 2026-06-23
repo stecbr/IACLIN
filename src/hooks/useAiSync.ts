@@ -484,6 +484,74 @@ export function useAiSync(clinicId: string | null | undefined) {
         for (const item of items) {
           if (stopped) break;
           try {
+            // ---------- Cancelamento vindo do paciente (via IA/WhatsApp) ----------
+            // O backend marca o pedido com status: 'cancelled' e cancelled_by: 'patient'.
+            // Em vez de inserir um novo request, propagamos o cancelamento para a
+            // consulta correspondente em `appointments` (se já existir), para que
+            // ela apareça na agenda riscada como "Cancelada pelo paciente".
+            if ((item as any).status === 'cancelled') {
+              try {
+                const cancelledBy = ((item as any).cancelled_by as string) ?? 'patient';
+                const cancelledAt =
+                  ((item as any).cancelled_at as string) ?? new Date().toISOString();
+
+                // 1) Localiza o request original pelo external_ref (id do backend)
+                const { data: reqRow } = await supabase
+                  .from('ai_appointment_requests')
+                  .select('id, appointment_id')
+                  .eq('external_ref', item.id)
+                  .maybeSingle();
+
+                let appointmentId: string | null =
+                  (reqRow as any)?.appointment_id ??
+                  ((item as any).appointment_id as string | undefined) ??
+                  ((item as any).supabase_id as string | undefined) ??
+                  null;
+
+                // 2) Fallback: localizar appointment por telefone + horário aproximado
+                if (!appointmentId && item.patient_phone && item.start_time) {
+                  const t = new Date(item.start_time).getTime();
+                  const from = new Date(t - 60_000).toISOString();
+                  const to = new Date(t + 60_000).toISOString();
+                  const { data: matches } = await supabase
+                    .from('appointments')
+                    .select('id, patients(phone)')
+                    .eq('clinic_id', clinicId)
+                    .gte('start_time', from)
+                    .lte('start_time', to);
+                  const phoneDigits = (item.patient_phone ?? '').replace(/\D/g, '');
+                  const hit = (matches ?? []).find(
+                    (a: any) => ((a.patients?.phone ?? '') as string).replace(/\D/g, '') === phoneDigits,
+                  );
+                  appointmentId = hit?.id ?? null;
+                }
+
+                if (appointmentId) {
+                  await supabase
+                    .from('appointments')
+                    .update({
+                      status: 'cancelled',
+                      cancelled_by: cancelledBy,
+                      cancelled_at: cancelledAt,
+                    } as any)
+                    .eq('id', appointmentId);
+                }
+
+                // 3) Marca o request como cancelado também (mantém auditoria)
+                if ((reqRow as any)?.id) {
+                  await supabase
+                    .from('ai_appointment_requests')
+                    .update({ status: 'cancelled' } as any)
+                    .eq('id', (reqRow as any).id);
+                }
+              } catch (err) {
+                if (import.meta.env.DEV) console.warn('[ai-sync] cancelar appt IA:', err);
+              }
+
+              await silent(aiBackend.confirmAiAppointmentSync(clinicId, item.id, appointmentIdHint(item)));
+              continue;
+            }
+
             // O pedido da IA vai para a FILA DE APROVAÇÃO (ai_appointment_requests),
             // que o painel lê. O paciente é provisório/anônimo do WhatsApp, então
             // patient_id pode ser nulo — a clínica escolhe o dentista ao aprovar.
