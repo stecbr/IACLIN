@@ -126,6 +126,12 @@ export default function OperatorNetwork() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Row | null>(null);
   const [doctorViewing, setDoctorViewing] = useState<Doctor | null>(null);
+  const [viewerFile, setViewerFile] = useState<FullscreenDocFile | null>(null);
+
+  const isDocumentViewerEvent = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    return !!target?.closest('[data-document-fullscreen-viewer]');
+  };
 
   const load = async () => {
     if (!operatorId) return;
