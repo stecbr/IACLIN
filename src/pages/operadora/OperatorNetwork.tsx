@@ -456,9 +456,6 @@ export default function OperatorNetwork() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="ghost" className="rounded-xl" onClick={() => setViewing(null)}>
-              Fechar
-            </Button>
             <Button
               variant="destructive"
               className="rounded-xl"
