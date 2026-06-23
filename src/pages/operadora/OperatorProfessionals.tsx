@@ -557,8 +557,8 @@ export default function OperatorProfessionals() {
 
       {/* Centered search panel (before search) */}
       {!searched && (
-        <div className="absolute inset-0 z-[600] flex items-start sm:items-center justify-center p-4 bg-background/40 backdrop-blur-sm overflow-y-auto">
-          <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md max-h-[calc(100vh-2rem)] overflow-y-auto my-auto">
+        <div className="absolute inset-0 z-[600] flex items-start sm:items-center justify-center p-4 bg-background/40 backdrop-blur-sm overflow-y-auto overscroll-contain">
+          <Card className="w-full max-w-xl rounded-3xl border border-border/60 bg-background/95 p-6 md:p-8 shadow-2xl backdrop-blur-md my-auto">
             <div className="flex items-center gap-2 mb-1">
               <SlidersHorizontal className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
