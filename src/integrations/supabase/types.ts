@@ -324,6 +324,8 @@ export type Database = {
       appointments: {
         Row: {
           arrived_at: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           clinic_id: string | null
           created_at: string
           dentist_id: string
@@ -343,6 +345,8 @@ export type Database = {
         }
         Insert: {
           arrived_at?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           clinic_id?: string | null
           created_at?: string
           dentist_id: string
@@ -362,6 +366,8 @@ export type Database = {
         }
         Update: {
           arrived_at?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           clinic_id?: string | null
           created_at?: string
           dentist_id?: string
