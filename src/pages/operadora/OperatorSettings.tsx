@@ -11,9 +11,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Upload, Settings, UserCircle, CheckCircle2, Loader2, Pencil } from 'lucide-react';
+import { Upload, Settings, UserCircle, CheckCircle2, Loader2, Pencil, Sun, Moon, Monitor } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
+import { useTheme } from '@/components/ThemeProvider';
 
 export default function OperatorSettings() {
   const { operatorId, user, profile } = useAuth();
@@ -207,6 +208,7 @@ export default function OperatorSettings() {
         <TabsContent value="conta" className="space-y-6">
           <AccountSection user={user} profile={profile} />
           <SecuritySection user={user} />
+          <AppearanceSection />
         </TabsContent>
       </Tabs>
     </div>
