@@ -347,6 +347,46 @@ function AccountSection({ user, profile }: { user: any; profile: any }) {
   );
 }
 
+function AppearanceSection() {
+  const { theme, setTheme } = useTheme();
+  const options = [
+    { value: 'light' as const, label: 'Claro', icon: Sun },
+    { value: 'dark' as const, label: 'Escuro', icon: Moon },
+    { value: 'system' as const, label: 'Sistema', icon: Monitor },
+  ];
+  return (
+    <Card className="shadow-card border-border/50">
+      <CardHeader>
+        <CardTitle className="text-base">Aparência</CardTitle>
+        <CardDescription>Escolha como a plataforma deve ser exibida. Sua preferência fica salva neste navegador.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3">
+          {options.map((opt) => {
+            const Icon = opt.icon;
+            const active = theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setTheme(opt.value)}
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${
+                  active
+                    ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-sm font-medium">{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SecuritySection({ user }: { user: any }) {
   const [editOpen, setEditOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
