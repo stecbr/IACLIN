@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
+import { formatCnpj, isValidCnpj } from '@/lib/cnpj';
 
 function UfSelect({ value, onChange }: { value: string; onChange: (uf: string) => void }) {
   return (
@@ -73,15 +74,6 @@ const TOP_INSURANCE = [
   'Interodonto', 'Uniodonto', 'SulAmérica Odonto', 'Dental Uni', 'Golden Cross',
 ];
 
-function formatCnpj(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 14);
-  return digits
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2');
-}
-
 // ── Componente ───────────────────────────────────────────────────────────────
 
 export default function Onboarding() {
@@ -111,6 +103,7 @@ export default function Onboarding() {
   const fetchCnpj = async () => {
     const digits = form.cnpj.replace(/\D/g, '');
     if (digits.length !== 14) { toast.error('CNPJ deve ter 14 dígitos'); return; }
+    if (!isValidCnpj(digits)) { toast.error('CNPJ inválido. Confira os dígitos.'); return; }
     setFetching(true);
     try {
       const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
