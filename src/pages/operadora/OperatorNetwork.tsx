@@ -132,7 +132,7 @@ export default function OperatorNetwork() {
     setLoading(true);
     const { data: creds } = await supabase
       .from('operator_credentialings')
-      .select('id, clinic_id, status, requested_at, updated_at')
+      .select('id, clinic_id, status, requested_at, updated_at, notes')
       .eq('operator_id', operatorId)
       .order('requested_at', { ascending: false });
     const all = (creds ?? []) as Row[];
@@ -202,6 +202,7 @@ export default function OperatorNetwork() {
       const responsibleFromOwner = owner?.name && owner.name !== '—' ? owner.name : null;
       return {
         ...r,
+        notes: r.notes ?? null,
         clinic_name: c?.name ?? '—',
         clinic_cnpj: c?.cnpj ?? null,
         clinic_city: c?.city ?? null,
