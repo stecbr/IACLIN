@@ -301,13 +301,6 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Alternar tema"
-              >
-                {resolved === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
               <NotificationBell />
               <Popover>
                 <PopoverTrigger asChild>
