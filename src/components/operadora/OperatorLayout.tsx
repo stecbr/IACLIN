@@ -378,7 +378,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                     </Avatar>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-72 p-0 overflow-hidden">
+                <PopoverContent align="end" className="w-72 p-0 overflow-hidden z-[1000]">
                   <div className="flex flex-col items-center text-center px-5 py-6 bg-muted/30">
                     <Avatar className="h-16 w-16 mb-3">
                       <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
