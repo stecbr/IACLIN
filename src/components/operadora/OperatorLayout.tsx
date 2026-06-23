@@ -11,8 +11,6 @@ import {
   LogOut,
   ArrowRight,
   PanelLeft,
-  Sun,
-  Moon,
   Building2,
   Send,
   ClipboardCheck,
@@ -81,7 +79,7 @@ interface OperatorInfo {
 
 export function OperatorLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
-  const { resolved, setTheme } = useTheme();
+  const { resolved } = useTheme();
   const { signOut, profile, operatorId, user } = useAuth();
   const [op, setOp] = useState<OperatorInfo | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
