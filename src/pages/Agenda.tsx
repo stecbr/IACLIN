@@ -349,12 +349,15 @@ export default function Agenda() {
                           const isInService = presence === 'in_service';
                           const isPatientCancelled =
                             apt.status === 'cancelled' && apt.cancelled_by === 'patient';
+                          const isClinicCancelled =
+                            apt.status === 'cancelled' && apt.cancelled_by === 'clinic';
+                          const isCancelled = isPatientCancelled || isClinicCancelled;
                           return (
                             <Tooltip key={apt.id}>
                               <TooltipTrigger asChild>
                                 <div
                                   className={`relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${
-                                    isPatientCancelled
+                                    isCancelled
                                       ? 'ring-1 ring-destructive/60 opacity-70'
                                       : isArrived
                                       ? 'ring-1 ring-amber-500/60'
@@ -364,10 +367,10 @@ export default function Agenda() {
                                   }`}
                                   onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   style={{
-                                    backgroundColor: isPatientCancelled
+                                    backgroundColor: isCancelled
                                       ? 'hsl(var(--destructive) / 0.10)'
                                       : `${procedureColor}15`,
-                                    borderLeft: isPatientCancelled
+                                    borderLeft: isCancelled
                                       ? '3px solid hsl(var(--destructive))'
                                       : `3px solid ${procedureColor}`,
                                   }}
@@ -383,21 +386,21 @@ export default function Agenda() {
                                   )}
                                   <p
                                     className={`font-medium truncate text-foreground ${
-                                      isPatientCancelled ? 'line-through' : ''
+                                      isCancelled ? 'line-through' : ''
                                     }`}
                                   >
                                     {(apt as any).patients?.full_name}
                                   </p>
                                   <p
                                     className={`text-muted-foreground truncate ${
-                                      isPatientCancelled ? 'line-through' : ''
+                                      isCancelled ? 'line-through' : ''
                                     }`}
                                   >
                                     {(apt as any).procedures?.name ?? 'Consulta'}
                                   </p>
-                                  {isPatientCancelled && (
+                                  {isCancelled && (
                                     <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-semibold text-destructive-foreground">
-                                      Cancelada pelo paciente
+                                      {isPatientCancelled ? 'Cancelada pelo paciente' : 'Cancelada pela clínica'}
                                     </div>
                                   )}
                                   {isArrived && (
