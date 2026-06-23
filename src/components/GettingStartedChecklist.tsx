@@ -30,6 +30,7 @@ interface ChecklistItem {
   to: string;
   icon: typeof Building2;
   done: boolean;
+  optional?: boolean;
 }
 
 const STORAGE_KEY_PREFIX = 'iaclin.gettingStarted';
@@ -148,18 +149,24 @@ export function GettingStartedChecklist() {
       }
 
       if (persona === 'patient') {
-        const [profile, patientRow, appts] = await Promise.all([
-          supabase.from('profiles').select('full_name, phone, avatar_url').eq('id', user!.id).maybeSingle(),
+        const [profile, account, patientRow, appts] = await Promise.all([
+          supabase.from('profiles').select('full_name, phone, avatar_url, address, zip_code').eq('id', user!.id).maybeSingle(),
+          supabase.from('patient_accounts').select('address, zip_code, insurance_provider').eq('user_id', user!.id).maybeSingle(),
           supabase.from('patients').select('insurance_provider, address, zip_code').eq('patient_user_id', user!.id).maybeSingle(),
           supabase.from('appointments').select('id, patients!inner(patient_user_id)', { count: 'exact', head: true }).eq('patients.patient_user_id', user!.id),
         ]);
         const pr: any = profile.data ?? {};
+        const acc: any = account.data ?? {};
         const pa: any = patientRow.data ?? {};
         return {
           profileComplete: !!(pr.full_name && pr.phone),
           hasPhoto: !!pr.avatar_url,
-          hasAddress: !!(pa.address && pa.zip_code),
-          hasInsurance: !!pa.insurance_provider,
+          hasAddress: !!(
+            (pr.address && pr.zip_code) ||
+            (acc.address && acc.zip_code) ||
+            (pa.address && pa.zip_code)
+          ),
+          hasInsurance: !!(pa.insurance_provider || acc.insurance_provider),
           hasAppointment: (appts.count ?? 0) > 0,
         };
       }
@@ -207,7 +214,7 @@ export function GettingStartedChecklist() {
         { key: 'profile',     label: 'Complete seus dados (nome e telefone)', to: '/paciente/configuracoes', icon: UserIcon,  done: !!progress.profileComplete },
         { key: 'photo',       label: 'Adicione uma foto de perfil',           to: '/paciente/configuracoes', icon: ImageIcon, done: !!progress.hasPhoto },
         { key: 'address',     label: 'Cadastre seu endereço',                 to: '/paciente/configuracoes', icon: Building2, done: !!progress.hasAddress },
-        { key: 'insurance',   label: 'Vincule seu plano de saúde',            to: '/paciente/plano',         icon: Shield,    done: !!progress.hasInsurance },
+        { key: 'insurance',   label: 'Vincule seu plano de saúde',            to: '/paciente/plano',         icon: Shield,    done: !!progress.hasInsurance, optional: true },
         { key: 'appointment', label: 'Agende sua primeira consulta',          to: '/paciente/agendar',       icon: Calendar,  done: !!progress.hasAppointment },
       ];
     }
@@ -220,8 +227,9 @@ export function GettingStartedChecklist() {
     ];
   }, [persona, progress]);
 
-  const totalDone = items.filter((i) => i.done).length;
-  const pct = items.length ? Math.round((totalDone / items.length) * 100) : 0;
+  const requiredItems = items.filter((i) => !i.optional);
+  const totalDone = requiredItems.filter((i) => i.done).length;
+  const pct = requiredItems.length ? Math.round((totalDone / requiredItems.length) * 100) : 0;
   const pendingItems = items.filter((i) => !i.done);
 
   const dismiss = () => {
@@ -261,7 +269,7 @@ export function GettingStartedChecklist() {
               Comece por aqui
             </p>
             <p className="text-xs text-muted-foreground">
-              {totalDone} de {items.length} concluído{totalDone === 1 ? '' : 's'}
+              {totalDone} de {requiredItems.length} concluído{totalDone === 1 ? '' : 's'}
             </p>
           </div>
           <span className="text-xs font-semibold text-primary tabular-nums">{pct}%</span>
@@ -307,6 +315,11 @@ export function GettingStartedChecklist() {
                           <Icon className="h-3.5 w-3.5" />
                         </span>
                         <span className="flex-1 text-foreground">{item.label}</span>
+                        {item.optional && (
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground/70 px-1.5 py-0.5 rounded-full bg-muted/60 border border-border/60">
+                            Opcional
+                          </span>
+                        )}
                       </Link>
                     </li>
                   );
