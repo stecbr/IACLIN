@@ -290,13 +290,68 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                   <PanelLeft className="h-4 w-4" />
                 </button>
               </div>
-              <div className="md:hidden h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center overflow-hidden">
-                <img
-                  src={op?.logo_url || iaclinDefaultLogo.url}
-                  alt=""
-                  className="h-full w-full object-contain"
-                />
-              </div>
+              <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+                <SheetTrigger asChild>
+                  <button
+                    className="md:hidden p-2 rounded-xl text-muted-foreground hover:bg-muted/5 transition-colors"
+                    aria-label="Abrir menu"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+                  <div className="flex h-full flex-col">
+                    <div className="px-5 py-5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 shrink-0 flex items-center justify-center">
+                          <img
+                            src={op?.logo_url || iaclinDefaultLogo.url}
+                            alt={op?.name ?? "Operadora"}
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-base font-semibold truncate">{op?.name ?? "Operadora"}</div>
+                          <div className="text-[11px] text-sidebar-foreground/60 truncate">Gestão de Operadora</div>
+                        </div>
+                      </div>
+                    </div>
+                    <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-5">
+                      {navGroups.map((group) => (
+                        <div key={group.label}>
+                          <div className="px-3 mb-1.5 text-[10px] uppercase tracking-widest text-sidebar-foreground/50 font-semibold">
+                            {group.label}
+                          </div>
+                          <div className="space-y-0.5">
+                            {group.items.map((item) => (
+                              <NavLink
+                                key={item.to}
+                                to={item.to}
+                                end={item.end}
+                                className={({ isActive }) =>
+                                  `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                                    isActive
+                                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                                      : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                                  }`
+                                }
+                              >
+                                <item.icon className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{item.label}</span>
+                                {badgeFor(item.to) !== null && (
+                                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-semibold">
+                                    {badgeFor(item.to)}
+                                  </span>
+                                )}
+                              </NavLink>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </nav>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
 
             <div className="flex-1 px-4">
@@ -359,8 +414,8 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         {(() => {
           const isMap = location.pathname === "/operadora/profissionais";
           return (
-        <main className="flex-1 min-h-0 pr-3 pb-3 md:pr-4 md:pb-4 bg-sidebar">
-          <div className={`h-full bg-background rounded-xl ${isMap ? "overflow-hidden p-0" : "operator-main-scroll overflow-y-auto p-4 md:p-6"}`}>
+        <main className="flex-1 min-h-0 md:pr-4 md:pb-4 bg-sidebar">
+          <div className={`h-full bg-background md:rounded-xl ${isMap ? "overflow-hidden p-0" : "operator-main-scroll overflow-y-auto p-4 md:p-6"}`}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
