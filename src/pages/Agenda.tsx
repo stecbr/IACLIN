@@ -96,7 +96,10 @@ export default function Agenda() {
         .select('*, patients(full_name), procedures(name, color)')
         .gte('start_time', range.start.toISOString())
         .lte('start_time', addDays(range.end, 1).toISOString())
-        .neq('status', 'cancelled')
+        // Mostrar tudo exceto canceladas pela clínica.
+        // Canceladas pelo paciente (via IA/WhatsApp) continuam visíveis
+        // — destacadas em vermelho — para a clínica perceber que o horário abriu.
+        .or('status.neq.cancelled,cancelled_by.eq.patient')
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       else if (isPersonalMode && user) query = query.is('clinic_id', null).eq('dentist_id', user.id);
@@ -344,17 +347,29 @@ export default function Agenda() {
                           const presence = apt.presence_status as string | undefined;
                           const isArrived = presence === 'arrived' && apt.arrived_at;
                           const isInService = presence === 'in_service';
+                          const isPatientCancelled =
+                            apt.status === 'cancelled' && apt.cancelled_by === 'patient';
                           return (
                             <Tooltip key={apt.id}>
                               <TooltipTrigger asChild>
                                 <div
                                   className={`relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${
-                                    isArrived ? 'ring-1 ring-amber-500/60' : isInService ? 'ring-1 ring-emerald-500/60' : ''
+                                    isPatientCancelled
+                                      ? 'ring-1 ring-destructive/60 opacity-70'
+                                      : isArrived
+                                      ? 'ring-1 ring-amber-500/60'
+                                      : isInService
+                                      ? 'ring-1 ring-emerald-500/60'
+                                      : ''
                                   }`}
                                   onClick={(e) => { e.stopPropagation(); setSelectedAppointment(apt); }}
                                   style={{
-                                    backgroundColor: `${procedureColor}15`,
-                                    borderLeft: `3px solid ${procedureColor}`,
+                                    backgroundColor: isPatientCancelled
+                                      ? 'hsl(var(--destructive) / 0.10)'
+                                      : `${procedureColor}15`,
+                                    borderLeft: isPatientCancelled
+                                      ? '3px solid hsl(var(--destructive))'
+                                      : `3px solid ${procedureColor}`,
                                   }}
                                 >
                                   {showDoctorBadge && (
@@ -366,10 +381,25 @@ export default function Agenda() {
                                       {getInitials(doctor?.full_name ?? '?')}
                                     </span>
                                   )}
-                                  <p className="font-medium truncate text-foreground">{(apt as any).patients?.full_name}</p>
-                                  <p className="text-muted-foreground truncate">
+                                  <p
+                                    className={`font-medium truncate text-foreground ${
+                                      isPatientCancelled ? 'line-through' : ''
+                                    }`}
+                                  >
+                                    {(apt as any).patients?.full_name}
+                                  </p>
+                                  <p
+                                    className={`text-muted-foreground truncate ${
+                                      isPatientCancelled ? 'line-through' : ''
+                                    }`}
+                                  >
                                     {(apt as any).procedures?.name ?? 'Consulta'}
                                   </p>
+                                  {isPatientCancelled && (
+                                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-semibold text-destructive-foreground">
+                                      Cancelada pelo paciente
+                                    </div>
+                                  )}
                                   {isArrived && (
                                     <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
                                       <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
