@@ -85,6 +85,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
   const { signOut, profile, operatorId, user } = useAuth();
   const [op, setOp] = useState<OperatorInfo | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -96,6 +97,9 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
       .single()
       .then(({ data }) => data && setOp(data as OperatorInfo));
   }, [operatorId]);
+
+  // Close mobile drawer on route change
+  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     if (!operatorId) return;
