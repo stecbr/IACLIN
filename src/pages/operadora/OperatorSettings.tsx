@@ -349,40 +349,74 @@ function AccountSection({ user, profile }: { user: any; profile: any }) {
 
 function AppearanceSection() {
   const { theme, setTheme } = useTheme();
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState<'light' | 'dark' | 'system'>(theme);
   const options = [
     { value: 'light' as const, label: 'Claro', icon: Sun },
     { value: 'dark' as const, label: 'Escuro', icon: Moon },
     { value: 'system' as const, label: 'Sistema', icon: Monitor },
   ];
+  const current = options.find((o) => o.value === theme) ?? options[0];
+  const CurrentIcon = current.icon;
+  const openEdit = () => { setDraft(theme); setEditOpen(true); };
+  const save = () => { setTheme(draft); setEditOpen(false); toast.success('Aparência atualizada'); };
   return (
     <Card className="shadow-card border-border/50">
       <CardHeader>
         <CardTitle className="text-base">Aparência</CardTitle>
         <CardDescription>Escolha como a plataforma deve ser exibida. Sua preferência fica salva neste navegador.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-3 gap-3">
-          {options.map((opt) => {
-            const Icon = opt.icon;
-            const active = theme === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setTheme(opt.value)}
-                className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${
-                  active
-                    ? 'border-primary bg-primary/5 text-primary shadow-sm'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-sm font-medium">{opt.label}</span>
-              </button>
-            );
-          })}
+      <CardContent className="space-y-6">
+        <div>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tema atual</Label>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <CurrentIcon className="h-5 w-5 text-foreground" />
+            </div>
+            <span className="text-sm font-medium text-foreground">{current.label}</span>
+          </div>
+        </div>
+        <div className="border-t border-border" />
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={openEdit} className="gap-2">
+            <Pencil className="h-3.5 w-3.5" /> Editar
+          </Button>
         </div>
       </CardContent>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Alterar aparência</DialogTitle>
+            <DialogDescription>Selecione o tema da plataforma.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-3 py-2">
+            {options.map((opt) => {
+              const Icon = opt.icon;
+              const active = draft === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDraft(opt.value)}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${
+                    active
+                      ? 'border-primary bg-primary/5 text-primary shadow-sm'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-sm font-medium">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={save}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
