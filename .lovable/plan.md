@@ -1,85 +1,63 @@
-
-# Plano de QA E2E — IACLIN
-
 ## Objetivo
-Auditar e testar end-to-end os 4 perfis (Paciente, Profissional, Clínica/Admin/Secretária, Operadora) combinando análise de código + Playwright real contra o preview, e entregar um único **Relatório de QA** estruturado conforme solicitado.
+Corrigir o bug **H-1** (CNPJ aceito sem validação de checksum, permitindo `00000000000000`) e validar o estado atual da **geolocalização** de clínicas usada nos mapas.
 
-## Etapa 1 — Seed de contas de teste (migration + script)
-Criar uma migration idempotente que insere via `auth.admin` (edge function `seed-qa-users`) os seguintes usuários, todos com senha `QaTest!2026`:
+---
 
-| Perfil | Email | Notas |
-|---|---|---|
-| Paciente | qa+paciente@iaclin.test | CPF válido fictício, plano de saúde mock |
-| Dentista solo | qa+dentista@iaclin.test | cria clínica própria |
-| Médico membro | qa+medico@iaclin.test | aguarda vínculo |
-| Clínica/Admin | qa+clinica@iaclin.test | CNPJ válido fictício, categoria Odonto |
-| Secretária | qa+secretaria@iaclin.test | vinculada à clínica acima |
-| Auxiliar | qa+auxiliar@iaclin.test | vinculada à clínica acima |
-| Operadora | qa+operadora@iaclin.test | ANS mock |
+## Parte 1 — Validação de CNPJ (checksum)
 
-Seed também cria 1 especialidade, 1 horário de disponibilidade do médico, 1 plano de saúde da operadora e vínculo dentista↔operadora — pré-requisitos para os fluxos E2E.
+### 1.1 Criar helper em `src/lib/cnpj.ts`
+Análogo ao `src/lib/cpf.ts`, com:
+- `formatCnpj(value)` — máscara `00.000.000/0000-00` (centraliza o que hoje está duplicado em 3 arquivos).
+- `unmaskCnpj(value)` — só dígitos.
+- `isValidCnpj(value)` — algoritmo oficial dos 2 DVs, rejeita comprimento ≠ 14 e sequências repetidas (`00000000000000`, `11111111111111`, …).
 
-## Etapa 2 — Auditoria estática (leitura de código)
-Cobertura por área, com checklist documentado no relatório:
+### 1.2 Aplicar `isValidCnpj` nos pontos de entrada
+Substituir a checagem fraca `digits.length !== 14` por validação real, com mensagem `"CNPJ inválido. Confira os dígitos."`:
 
-1. **Auth & cadastro** (`Auth.tsx`, `handle_new_user`, dialogs de signup): validação de CPF/CNPJ/e-mail/senha, espelhamento metadata → `profiles`/`patient_accounts`/`clinics`/`insurance_operators` → tela de Configurações.
-2. **RBAC** (`useRoleAccess`, `useStaffPermissions`, RLS das tabelas críticas: `clinical_records`, `financial_transactions`, `appointments`): garantir que secretária/auxiliar não leem prontuário, dentista sem vínculo não atende, paciente só vê o próprio.
-3. **Agendamento** (`request-appointment`, `approve/reject-appointment-request`, triggers `notify_*`, `sync_*_cancel`): consistência de status, liberação de slot ao cancelar, prevenção de cancelamento de consulta passada.
-4. **Operadora** (`OperatorLayout`, `operator_credentialings`, `operator-beneficiary-spend`): visualização de rede, faturamento, autorizações.
-5. **UX/Escrita**: varredura por strings em inglês misturadas, botões sem handler, toasts ausentes em erros (grep por `catch` sem `toast`).
+- **`src/pages/Auth.tsx`** — fluxos de signup `clinic` e `operadora` (linhas 306, 325) + dentro de `fetchCnpjData` antes de chamar a BrasilAPI.
+- **`src/components/RegisterClinicDialog.tsx`** — submit + `fetchCnpj`.
+- **`src/pages/Onboarding.tsx`** — `fetchCnpj` + submit do passo de identificação.
+- **`src/components/settings/PaymentAccountSection.tsx`** — quando `pix_key_type === 'cnpj'` (linha 144).
+- Também trocar os `formatCnpj` locais por import único do helper (remove duplicação).
 
-## Etapa 3 — E2E Playwright (scripts em `/tmp/browser/qa/`)
-Um script por perfil, todos restaurando sessão Supabase via `LOVABLE_BROWSER_SUPABASE_*` (re-mintada após login com cada conta seed). Screenshots em cada passo crítico.
+### 1.3 (Opcional, mesma onda) Pequena dica de UX
+Mostrar o aviso `"CNPJ inválido"` inline (abaixo do input) quando o usuário digitar 14 dígitos com checksum errado, sem esperar o submit — usando o estado `cnpjHint` que já existe em `Auth.tsx`/`RegisterClinicDialog.tsx`.
 
-**Cenários por perfil** (caminho feliz + 1–2 edge cases cada):
+### 1.4 Sem mudanças de schema/backend
+A edge function `create-own-clinic` apenas persiste o `cnpj` recebido — a validação é client-side (consistente com como o CPF é tratado hoje). Não há migration.
 
-- **Paciente**: cadastro → login → espelhamento Perfil → agendar consulta (especialidade/médico/horário) → tentar cancelar consulta passada (deve falhar) → cancelar consulta futura aprovada → verificar liberação na agenda do médico → ver exames → compartilhar prontuário → editar plano.
-- **Médico/Dentista**: criar disponibilidade → receber pedido → aprovar → atender (prontuário + receituário) → finalizar → resgatar código de paciente → dentista solicita vínculo a clínica existente.
-- **Clínica/Admin**: configurar dados da clínica → convidar médico/secretária/auxiliar → definir permissões de staff → login como secretária e tentar abrir prontuário (deve ser bloqueado) → secretária agenda e confirma consulta.
-- **Operadora**: login → ver rede credenciada → aprovar/rejeitar credenciamento → conferir consulta realizada para faturamento.
+---
 
-**Edge cases obrigatórios**:
-- E-mail duplicado no cadastro
-- CPF/CNPJ inválido
-- Senha fraca
-- Conflito de horário no agendamento
-- Dentista atendendo sem vínculo ativo
-- Secretária acessando `/atendimento` direto pela URL (deve redirecionar)
-- Paciente cancelando consulta `completed`
+## Parte 2 — Verificação da Geolocalização
 
-## Etapa 4 — Correções (escopo controlado)
-Para cada bug encontrado classificado como **Crítico** (segurança/RBAC, perda de dados, quebra de fluxo) eu corrijo imediatamente.
-Para **Médio/Baixo** (UX, escrita, falta de toast), listo no relatório e pergunto antes de aplicar em lote — para não sair do escopo do que você pediu.
+A geocodificação já existe e é razoavelmente robusta (`src/lib/geocode.ts`: cache em `localStorage` v5, BrasilAPI CEP, Nominatim com ranking por rua/bairro/cidade, fallbacks). Os consumidores principais são:
 
-## Etapa 5 — Relatório final
-Documento único em chat seguindo exatamente o formato solicitado:
+- `src/components/superadmin/ClinicsMapWidget.tsx` (mapa do superadmin)
+- `src/components/marketplace/MarketplaceMap.tsx`
+- `src/components/landing/LandingNetworkMap.tsx`
+- `src/components/clinical-map/*`
 
-```
-📑 RELATÓRIO DE QA & CENÁRIOS DE TESTE
-1. Erros Encontrados (ou Riscos de Negócio)
-   • [Crítico] ...
-   • [Médio]  ...
-   • [Baixo]  ...
-2. Resultados dos Testes E2E
-   - Cadastro e Configurações: Ok/Falha (+ evidência)
-   - Fluxo do Paciente: ...
-   - Fluxo do Médico/Dentista: ...
-   - Fluxo da Clínica/Secretária: ...
-   - Fluxo da Operadora: ...
-3. Ações Corretivas Aplicadas
-   • commit/arquivo: o que mudou e por quê
-```
+### Verificação a executar (após aprovar a Parte 1)
+Auditoria estática + smoke-test E2E:
 
-Cada falha referencia arquivo:linha + screenshot Playwright quando aplicável.
+1. **Estática:** confirmar que todas as clínicas seed do QA (`qa+clinica@iaclin.test`) terminam o cadastro com `city/state/zip_code` preenchidos — sem isso o `ClinicsMapWidget` filtra a clínica fora (linha `clinics.filter(c => c.city || c.state)`).
+2. **E2E Playwright** (script novo `/tmp/browser/qa/geo.py`):
+   - Login como super admin → abrir `/superadmin` → aguardar o widget de mapa → ler o contador "Mapeando X de Y" e confirmar `X === Y` para a clínica seed.
+   - Abrir `/marketplace` sem filtro → checar marcadores renderizados.
+   - Screenshot de cada passo em `/tmp/browser/qa/screenshots/`.
+3. **Riscos conhecidos a reportar (não corrigir agora):**
+   - Nominatim sem `User-Agent` customizado pode ser rate-limited (HTTP 403) em produção — boa prática do OSM, mas hoje funciona.
+   - CEPs genéricos `…000` caem direto pra busca por rua/cidade (já tratado em `isGenericCep`).
+   - Sem fallback se a clínica tiver só endereço sem cidade.
 
-## Detalhes técnicos
-- Seed via edge function `seed-qa-users` (usa `SUPABASE_SERVICE_ROLE_KEY` interno, idempotente por email).
-- Playwright headless, viewport 1280×1800, sessão restaurada via `localStorage`.
-- Para cada perfil de teste eu logo via UI uma vez, capturo o token, e reaproveito nos próximos scripts.
-- Tempo estimado: ~6–8 rodadas longas de execução (seed → 4 scripts E2E → correções → re-teste).
+O resultado da verificação volta como um mini-relatório (Ok/Falha por consumidor + screenshots), sem alterações de código a menos que algo realmente quebre — nesse caso peço aprovação de uma nova onda.
 
-## O que está fora do escopo
-- Performance/carga
-- Testes de pagamento real (Stripe/MercadoPago) — apenas validação de UI dos fluxos
-- WhatsApp real — apenas validação dos handlers/edge functions
-- Acessibilidade (WCAG) profunda — apenas verificações básicas
+---
+
+## Arquivos afetados (Parte 1)
+- **Criar:** `src/lib/cnpj.ts`
+- **Editar:** `src/pages/Auth.tsx`, `src/components/RegisterClinicDialog.tsx`, `src/pages/Onboarding.tsx`, `src/components/settings/PaymentAccountSection.tsx`
+
+## Fora de escopo
+- Validar CNPJ no backend (edge function) — fica para uma onda futura junto com hardening de `create-own-clinic`.
+- Reescrever pipeline de geocode (já está bom).
