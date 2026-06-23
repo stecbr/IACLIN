@@ -5,12 +5,67 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Search, Building2, MapPin, Stethoscope, Users, Eye, Phone, Mail, FileText, IdCard, Calendar, User as UserIcon } from 'lucide-react';
+import { Search, Building2, MapPin, Stethoscope, Users, Eye, Phone, Mail, FileText, IdCard, Calendar, User as UserIcon, Hash, Clock, FolderArchive, Landmark, Image as ImageIcon, StickyNote, X } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
+import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
+
+const DOC_LABELS: Record<string, string> = {
+  cro_dentista: 'CRO/CRM do profissional',
+  cro_clinica: 'CRO/CRM da clínica (responsável técnico)',
+  cartao_cnpj: 'Cartão CNPJ',
+  contrato_social: 'Contrato Social',
+  alvara: 'Alvará de funcionamento',
+  licenca_sanitaria: 'Licença sanitária',
+  cnes_doc: 'Comprovante CNES',
+  fotos_clinica: 'Fotos da clínica',
+  especializacao: 'Certificado de especialização',
+};
+
+function parseNotes(raw: string | null | undefined) {
+  if (!raw) return null;
+  try { return JSON.parse(raw) as any; } catch { return null; }
+}
+
+function formatBusinessHours(
+  value: unknown,
+): Array<{ day: string; open?: string; close?: string; closed: boolean; raw?: string }> {
+  const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const dayLabels: Record<string, string> = {
+    mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado', sun: 'Domingo',
+  };
+  let parsed: any = value;
+  if (typeof value === 'string') {
+    try { parsed = JSON.parse(value); } catch {
+      const dayNames = Object.values(dayLabels);
+      const regex = new RegExp(
+        `(${dayNames.join('|')}):\\s*(Fechado|\\d{1,2}:\\d{2}\\s*[-–às]+\\s*\\d{1,2}:\\d{2})`,
+        'gi',
+      );
+      const matches = Array.from(value.matchAll(regex));
+      if (matches.length === 0) return [{ day: '', closed: false, raw: value }];
+      return matches.map((m) => {
+        const day = m[1];
+        const rest = m[2].trim();
+        if (/fechado/i.test(rest)) return { day, closed: true };
+        const times = rest.match(/(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/);
+        return { day, open: times?.[1], close: times?.[2], closed: false };
+      });
+    }
+  }
+  if (!parsed || typeof parsed !== 'object') return [];
+  return dayOrder
+    .map((k) => {
+      const d = parsed?.[k];
+      if (!d || typeof d !== 'object') return null;
+      if (d.enabled === false) return { day: dayLabels[k], closed: true };
+      return { day: dayLabels[k], open: d.open ?? '--:--', close: d.close ?? '--:--', closed: false };
+    })
+    .filter(Boolean) as Array<{ day: string; open?: string; close?: string; closed: boolean }>;
+}
 
 function InfoField({
   icon, label, value, className,
@@ -42,6 +97,7 @@ interface Row {
   status: string;
   requested_at?: string;
   updated_at?: string;
+  notes?: string | null;
   clinic_name?: string | null;
   clinic_cnpj?: string | null;
   clinic_city?: string | null;
