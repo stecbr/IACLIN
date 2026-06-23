@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Cake, Star, AlertTriangle } from 'lucide-react';
+import { Bell, CheckCircle2, RotateCcw, CalendarClock, UserCog, Loader2, Cake, AlertTriangle } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,7 @@ type AutomationType =
   | 'return'
   | 'reschedule'
   | 'escalate'
-  | 'birthday'
-  | 'nps';
+  | 'birthday';
 
 interface AutomationRecord {
   id?: string;
@@ -88,13 +87,8 @@ const AUTOMATION_DEFS: Array<{
     icon: Cake,
     defaultMessage: 'Olá! A nossa equipe deseja um feliz aniversário! 🎉',
   },
-  {
-    type: 'nps',
-    title: 'Pesquisa de satisfação (NPS)',
-    description: 'Enviado algumas horas após a consulta realizada',
-    icon: Star,
-    defaultMessage: 'Olá! Como foi seu atendimento? De 0 a 10, o quanto você recomendaria nossa clínica?',
-  },
+  // NPS removido daqui — agora vive na aba dedicada "NPS" (questionários +
+  // respostas). Manter só lá evita duplicação/confusão.
 ];
 
 function normalize(payload: unknown): AutomationRecord[] {
@@ -230,7 +224,6 @@ const AUTOMATION_DATA_REQUIREMENTS: Record<AutomationType, Array<'phone' | 'birt
   reschedule: ['phone'],
   escalate: [],
   birthday: ['phone', 'birthDate'],
-  nps: ['phone'],
 };
 
 function AutomationCard({ def, record, clinicId, coverage, onSaved }: CardProps) {
