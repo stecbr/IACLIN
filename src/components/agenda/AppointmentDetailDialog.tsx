@@ -102,11 +102,10 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   const handleStatusChange = async (newStatus: string) => {
     setUpdatingStatus(true);
     try {
-      const update: Record<string, any> = { status: newStatus };
-      if (newStatus === 'cancelled') {
-        update.cancelled_by = 'clinic';
-        update.cancelled_at = new Date().toISOString();
-      }
+      const update =
+        newStatus === 'cancelled'
+          ? { status: newStatus, cancelled_by: 'clinic', cancelled_at: new Date().toISOString() }
+          : { status: newStatus };
       const { error } = await supabase
         .from('appointments')
         .update(update)
