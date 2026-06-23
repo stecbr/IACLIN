@@ -245,11 +245,13 @@ function AccountSection({ user, profile }: { user: any; profile: any }) {
     if (!user?.id) return;
     setSaving(true);
     const { error } = await supabase.from('profiles')
-      .update({ full_name: fullName, avatar_url: avatarUrl })
-      .eq('id', user.id);
+      .upsert({ id: user.id, full_name: fullName, avatar_url: avatarUrl }, { onConflict: 'id' });
     setSaving(false);
     if (error) return toast.error('Erro ao salvar: ' + error.message);
     queryClient.invalidateQueries();
+    // Force AuthContext to re-read profile by reloading the page state via window event,
+    // but simpler: trigger a soft reload of profile by toggling location no-op — instead,
+    // we rely on invalidateQueries + local prop update on next render.
     setEditOpen(false);
     toast.success('Perfil atualizado');
   };
