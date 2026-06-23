@@ -329,53 +329,56 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="flex flex-wrap gap-1.5 pt-2">
             {isCompleted && (
-              <Button className="flex-1 gap-2" onClick={() => setShowSummary(true)}>
-                <Eye className="h-4 w-4" />
+              <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs font-normal" onClick={() => setShowSummary(true)}>
+                <Eye className="h-3.5 w-3.5" />
                 Ver resumo do atendimento
               </Button>
             )}
             {canStartAttendance && (
               <Button
-                className={`flex-1 gap-2 ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
+                size="sm"
+                className={`flex-1 gap-1.5 text-xs font-normal ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
                 onClick={handleStartAttendance}
               >
-                <Play className="h-4 w-4" />
+                <Play className="h-3.5 w-3.5" />
                 {isStartingSoon ? 'Iniciar atendimento agora' : 'Iniciar Atendimento'}
               </Button>
             )}
             {isInProgress && (
               <>
-                <Button className="flex-1 gap-2" onClick={handleStartAttendance}>
-                  <Play className="h-4 w-4" />
+                <Button size="sm" className="flex-1 gap-1.5 text-xs font-normal" onClick={handleStartAttendance}>
+                  <Play className="h-3.5 w-3.5" />
                   Continuar Atendimento
                 </Button>
-                <Button variant="outline" className="gap-2" onClick={() => setShowSummary(true)}>
-                  <Eye className="h-4 w-4" />
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs font-normal" onClick={() => setShowSummary(true)}>
+                  <Eye className="h-3.5 w-3.5" />
                   Resumo parcial
                 </Button>
               </>
             )}
             {canReschedule && (
               <Button
-                variant="outline"
-                className="gap-2"
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 text-xs font-normal text-muted-foreground hover:text-foreground"
                 onClick={openReschedule}
                 disabled={updatingStatus}
               >
-                <CalendarClock className="h-4 w-4" />
+                <CalendarClock className="h-3.5 w-3.5" />
                 Alterar data/horário
               </Button>
             )}
             {canCancel && (
               <Button
-                variant="destructive"
-                className="gap-2"
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 text-xs font-normal text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => setShowCancelConfirm(true)}
                 disabled={updatingStatus}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
                 Cancelar consulta
               </Button>
             )}
