@@ -11,12 +11,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Upload, Settings, KeyRound, CheckCircle2, Loader2, Pencil } from 'lucide-react';
+import { Upload, Settings, UserCircle, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import iaclinDefaultLogo from '@/assets/iaclin-logo.png.asset.json';
 
 export default function OperatorSettings() {
-  const { operatorId, user } = useAuth();
+  const { operatorId, user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [op, setOp] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -98,8 +98,8 @@ export default function OperatorSettings() {
           <TabsTrigger value="dados" className="gap-2">
             <Settings className="h-4 w-4" /> Dados da Operadora
           </TabsTrigger>
-          <TabsTrigger value="seguranca" className="gap-2">
-            <KeyRound className="h-4 w-4" /> Segurança
+          <TabsTrigger value="conta" className="gap-2">
+            <UserCircle className="h-4 w-4" /> Conta
           </TabsTrigger>
         </TabsList>
 
@@ -203,8 +203,9 @@ export default function OperatorSettings() {
 
         </TabsContent>
 
-        {/* ── Segurança ── */}
-        <TabsContent value="seguranca">
+        {/* ── Conta ── */}
+        <TabsContent value="conta" className="space-y-6">
+          <AccountSection user={user} profile={profile} />
           <SecuritySection user={user} />
         </TabsContent>
       </Tabs>
@@ -212,7 +213,135 @@ export default function OperatorSettings() {
   );
 }
 
+function AccountSection({ user, profile }: { user: any; profile: any }) {
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [fullName, setFullName] = useState<string>(profile?.full_name ?? '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    setFullName(profile?.full_name ?? '');
+    setAvatarUrl(profile?.avatar_url ?? null);
+  }, [profile?.full_name, profile?.avatar_url]);
+
+  const initials = (profile?.full_name ?? user?.email ?? '?')
+    .split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase();
+
+  const uploadAvatar = async (file: File) => {
+    if (!user?.id) return;
+    setUploading(true);
+    const ext = file.name.split('.').pop();
+    const path = `users/${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file, { upsert: true });
+    if (upErr) { setUploading(false); return toast.error('Erro no upload: ' + upErr.message); }
+    const { data: pub } = supabase.storage.from('clinic-assets').getPublicUrl(path);
+    setAvatarUrl(pub.publicUrl);
+    setUploading(false);
+  };
+
+  const save = async () => {
+    if (!user?.id) return;
+    setSaving(true);
+    const { error } = await supabase.from('profiles')
+      .update({ full_name: fullName, avatar_url: avatarUrl })
+      .eq('id', user.id);
+    setSaving(false);
+    if (error) return toast.error('Erro ao salvar: ' + error.message);
+    queryClient.invalidateQueries();
+    setEditOpen(false);
+    toast.success('Perfil atualizado');
+  };
+
+  return (
+    <>
+      <Card className="shadow-card border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base">Perfil</CardTitle>
+          <CardDescription>Suas informações pessoais.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden text-lg font-semibold text-muted-foreground">
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                : initials}
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{profile?.full_name || <span className="italic text-muted-foreground">Sem nome</span>}</p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2 rounded-xl mt-3">
+              <Pencil className="h-4 w-4" /> Editar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar perfil</DialogTitle>
+            <DialogDescription>Atualize seu nome e foto de perfil.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden text-lg font-semibold text-muted-foreground">
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                  : initials}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])}
+                  />
+                  <span className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-input hover:bg-muted transition">
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {avatarUrl ? 'Substituir foto' : 'Enviar foto'}
+                  </span>
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground text-left"
+                  >
+                    Remover foto
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <Label>Nome</Label>
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome" />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input value={user?.email ?? ''} disabled />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={save} disabled={saving || uploading}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function SecuritySection({ user }: { user: any }) {
+  const [editOpen, setEditOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -235,6 +364,7 @@ function SecuritySection({ user }: { user: any }) {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setEditOpen(false);
       setShowSuccess(true);
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao alterar senha'),
@@ -245,43 +375,64 @@ function SecuritySection({ user }: { user: any }) {
       <Card className="shadow-card border-border/50">
         <CardHeader>
           <CardTitle className="text-base">Segurança</CardTitle>
-          <CardDescription>Altere sua senha de acesso à plataforma.</CardDescription>
+          <CardDescription>Sua senha de acesso à plataforma.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="op-currentPwd">Senha atual</Label>
-            <Input
-              id="op-currentPwd"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Digite sua senha atual"
-              autoComplete="current-password"
-            />
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Senha</p>
+            <p className="text-sm font-mono">••••••••</p>
           </div>
-          <div>
-            <Label htmlFor="op-newPwd">Nova senha</Label>
-            <Input
-              id="op-newPwd"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              autoComplete="new-password"
-            />
+          <div className="flex justify-end pt-2 border-t border-border">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2 rounded-xl mt-3">
+              <Pencil className="h-4 w-4" /> Alterar senha
+            </Button>
           </div>
-          <div>
-            <Label htmlFor="op-confirmPwd">Confirmar nova senha</Label>
-            <Input
-              id="op-confirmPwd"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Repita a nova senha"
-              autoComplete="new-password"
-            />
+        </CardContent>
+      </Card>
+
+      <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Alterar senha</DialogTitle>
+            <DialogDescription>Altere sua senha de acesso à plataforma.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="op-currentPwd">Senha atual</Label>
+              <Input
+                id="op-currentPwd"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Digite sua senha atual"
+                autoComplete="current-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="op-newPwd">Nova senha</Label>
+              <Input
+                id="op-newPwd"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="op-confirmPwd">Confirmar nova senha</Label>
+              <Input
+                id="op-confirmPwd"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repita a nova senha"
+                autoComplete="new-password"
+              />
+            </div>
           </div>
-          <div className="flex justify-end">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={changePassword.isPending}>Cancelar</Button>
             <Button
               onClick={() => changePassword.mutate()}
               disabled={!currentPassword || !newPassword || !confirmPassword || changePassword.isPending}
@@ -290,9 +441,9 @@ function SecuritySection({ user }: { user: any }) {
               {changePassword.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Alterar senha
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
         <DialogContent className="sm:max-w-sm text-center">
