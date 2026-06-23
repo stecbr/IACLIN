@@ -50,7 +50,10 @@ type ClinicSearchRow = {
 type ProfessionalTypeFilter = "all" | "medico" | "dentista";
 type ProfileRow = { id: string; full_name: string | null; avatar_url: string | null; phone: string | null };
 type SpecialtyRow = { user_id: string; specialty: string };
-type ClinicRow = Omit<ClinicSearchRow, "clinic_id" | "professionals_count" | "professionals" | "specialties" | "source"> & {
+type ClinicRow = Omit<
+  ClinicSearchRow,
+  "clinic_id" | "professionals_count" | "professionals" | "specialties" | "source"
+> & {
   id: string;
   name: string | null;
 };
@@ -258,18 +261,14 @@ export default function OperatorProfessionals() {
   );
 
   const specialtyOptions = useMemo(() => {
-    return [...new Set(activeRows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b),
-    );
+    return [...new Set(activeRows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   }, [activeRows]);
 
   const stateOptions = useMemo(() => BR_STATES, []);
 
   const cityOptions = useMemo(() => {
     const source =
-      stateFilter === "all"
-        ? activeRows
-        : activeRows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
+      stateFilter === "all" ? activeRows : activeRows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
     return [...new Set(source.map((r) => r.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
   }, [activeRows, stateFilter]);
 
@@ -426,9 +425,7 @@ export default function OperatorProfessionals() {
           setGeocodeProgress((p) => ({ done: p.done + 1, total: p.total }));
           const fallbackCoords = resolveFallbackCoords(r);
           const resolvedCoords =
-            r.source === "servdonto" && c && !isManausLikeCoords(c)
-              ? fallbackCoords
-              : c ?? fallbackCoords;
+            r.source === "servdonto" && c && !isManausLikeCoords(c) ? fallbackCoords : (c ?? fallbackCoords);
           if (resolvedCoords) {
             buffer.push([r.clinic_id, resolvedCoords]);
             scheduleFlush();
@@ -462,18 +459,16 @@ export default function OperatorProfessionals() {
     const bounds: L.LatLng[] = [];
     const visibleClinics = filtered
       .map((clinic) => ({ clinic, coords: coords.get(clinic.clinic_id) }))
-      .filter((item): item is { clinic: ClinicSearchRow; coords: { lat: number; lng: number } } => Boolean(item.coords));
+      .filter((item): item is { clinic: ClinicSearchRow; coords: { lat: number; lng: number } } =>
+        Boolean(item.coords),
+      );
 
     visibleClinics.forEach(({ clinic, coords: c }) => {
       const realLatLng = L.latLng(c.lat, c.lng);
       bounds.push(realLatLng);
       const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
       const logoBg =
-        clinic.source === "servdonto"
-          ? GENERAL_NETWORK_LOGO_BG
-          : resolved === "dark"
-            ? DARK_LOGO_BACKGROUND
-            : "#fff";
+        clinic.source === "servdonto" ? GENERAL_NETWORK_LOGO_BG : resolved === "dark" ? DARK_LOGO_BACKGROUND : "#fff";
       const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};padding:${clinic.source === "servdonto" ? 4 : 0}px;" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
       const icon = L.divIcon({
         className: "",
@@ -481,7 +476,9 @@ export default function OperatorProfessionals() {
         iconSize: [markerSize, markerSize + 6],
         iconAnchor: [markerAnchorX, markerAnchorY],
       });
-      const marker = L.marker(realLatLng, { icon, zIndexOffset: selectedId === clinic.clinic_id ? 1000 : 0 }).addTo(map);
+      const marker = L.marker(realLatLng, { icon, zIndexOffset: selectedId === clinic.clinic_id ? 1000 : 0 }).addTo(
+        map,
+      );
       marker.on("click", () => {
         setSelectedId(clinic.clinic_id);
         map.setView(realLatLng, Math.max(map.getZoom(), 14), { animate: true });
@@ -563,7 +560,9 @@ export default function OperatorProfessionals() {
               <SlidersHorizontal className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">Busca de clínicas e profissionais</h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">Encontre clínicas e profissionais da sua rede credenciada no mapa.</p>
+            <p className="text-sm text-muted-foreground mb-5">
+              Encontre clínicas e profissionais da sua rede credenciada no mapa.
+            </p>
             <div className="mb-4 inline-flex w-full rounded-xl border border-border/60 bg-muted/40 p-1">
               <button
                 type="button"
@@ -605,7 +604,10 @@ export default function OperatorProfessionals() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Tipo de profissional</label>
-                  <Select value={professionalType} onValueChange={(v) => setProfessionalType(v as ProfessionalTypeFilter)}>
+                  <Select
+                    value={professionalType}
+                    onValueChange={(v) => setProfessionalType(v as ProfessionalTypeFilter)}
+                  >
                     <SelectTrigger className="h-10 rounded-2xl">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
@@ -689,7 +691,7 @@ export default function OperatorProfessionals() {
 
       {/* Floating back button (after search) */}
       {searched && (
-        <div className="absolute top-6 left-6 md:top-8 md:left-8 z-[550] flex items-center gap-2">
+        <div className="absolute top-4 left-4 md:top-8 md:left-8 z-[550] flex items-center gap-2">
           <Button
             variant="secondary"
             size="icon"
@@ -750,11 +752,7 @@ export default function OperatorProfessionals() {
             <div className="flex items-start gap-4">
               <Avatar
                 className="h-14 w-14 shrink-0"
-                style={
-                  selected.source === "servdonto"
-                    ? { backgroundColor: GENERAL_NETWORK_LOGO_BG }
-                    : undefined
-                }
+                style={selected.source === "servdonto" ? { backgroundColor: GENERAL_NETWORK_LOGO_BG } : undefined}
               >
                 <AvatarImage
                   src={selected.logo_url ?? undefined}
