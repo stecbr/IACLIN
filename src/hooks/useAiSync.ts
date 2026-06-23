@@ -573,6 +573,13 @@ export function useAiSync(clinicId: string | null | undefined) {
               status: 'pending',
               source: 'ai',
               external_ref: item.id ?? null,
+              // Dados de cadastro coletados pela IA no WhatsApp (paciente novo).
+              patient_cpf:
+                ((item as any).patient_cpf as string | undefined)?.replace(/\D/g, '') || null,
+              patient_date_of_birth:
+                ((item as any).patient_date_of_birth as string | undefined) ??
+                ((item as any).date_of_birth as string | undefined) ??
+                null,
             };
 
             const { data: inserted, error } = await supabase
