@@ -759,6 +759,12 @@ export default function OperatorNetwork() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DocumentFullscreenViewer
+        file={viewerFile}
+        open={!!viewerFile}
+        onClose={() => setViewerFile(null)}
+      />
     </div>
   );
 }
