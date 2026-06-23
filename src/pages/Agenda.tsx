@@ -356,7 +356,7 @@ export default function Agenda() {
                             <Tooltip key={apt.id}>
                               <TooltipTrigger asChild>
                                 <div
-                                  className={`relative rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${
+                                  className={`relative overflow-hidden rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${
                                     isCancelled
                                       ? 'ring-1 ring-destructive/60 opacity-70'
                                       : isArrived
@@ -399,9 +399,9 @@ export default function Agenda() {
                                     {(apt as any).procedures?.name ?? 'Consulta'}
                                   </p>
                                   {isCancelled && (
-                                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-semibold text-destructive-foreground">
-                                      {isPatientCancelled ? 'Cancelada pelo paciente' : 'Cancelada pela clínica'}
-                                    </div>
+                                    <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-wide text-destructive">
+                                      {isPatientCancelled ? 'Cancelada · paciente' : 'Cancelada · clínica'}
+                                    </p>
                                   )}
                                   {isArrived && (
                                     <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
