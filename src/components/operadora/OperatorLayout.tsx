@@ -11,8 +11,6 @@ import {
   LogOut,
   ArrowRight,
   PanelLeft,
-  Sun,
-  Moon,
   Building2,
   Send,
   ClipboardCheck,
@@ -81,7 +79,7 @@ interface OperatorInfo {
 
 export function OperatorLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
-  const { resolved, setTheme } = useTheme();
+  const { resolved } = useTheme();
   const { signOut, profile, operatorId, user } = useAuth();
   const [op, setOp] = useState<OperatorInfo | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -301,13 +299,6 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
-                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Alternar tema"
-              >
-                {resolved === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
               <NotificationBell />
               <Popover>
                 <PopoverTrigger asChild>
