@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  DollarSign, TrendingUp, TrendingDown, Clock, Plus, Upload, Filter,
+  DollarSign, TrendingUp, TrendingDown, Clock, Plus, Upload, Filter, Pencil,
   CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, FileText, Sparkles,
   Building2, User as UserIcon,
 } from 'lucide-react';
