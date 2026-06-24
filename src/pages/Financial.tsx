@@ -1025,22 +1025,22 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { tr
                   placeholder="Descrição"
                   className="h-8 text-sm"
                 />
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-[160px_1fr_140px] gap-2">
                   <Input
                     type="date"
                     value={draft.transaction_date}
                     onChange={(e) => setDraft({ ...draft, transaction_date: e.target.value })}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm"
                   />
                   <Input
-                    type="number"
-                    step="0.01"
-                    value={draft.amount}
-                    onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-                    className="h-8 text-xs"
+                    inputMode="numeric"
+                    value={formatBRL(draft.amount ?? 0)}
+                    onChange={(e) => setDraft({ ...draft, amount: parseBRL(e.target.value) })}
+                    className="h-9 text-sm font-medium"
+                    placeholder="R$ 0,00"
                   />
                   <Select value={draft.type} onValueChange={(v) => setDraft({ ...draft, type: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="income">Receita</SelectItem>
                       <SelectItem value="expense">Despesa</SelectItem>
