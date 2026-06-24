@@ -13,6 +13,7 @@ export interface PatientAccount {
   profession: string | null;
   insurance_provider: string | null;
   insurance_number: string | null;
+  insurance_plan?: string | null;
   landline?: string | null;
   notes?: string | null;
   photo_url?: string | null;

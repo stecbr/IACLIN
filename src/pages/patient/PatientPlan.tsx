@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePatientData } from '@/hooks/usePatientData';
 import { getInsuranceBrand } from '@/lib/insuranceBrand';
-import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
+import { InsurancePlanSelect } from '@/components/InsurancePlanSelect';
 
 const RELATIONSHIPS = ['Filho', 'Filha', 'Esposa', 'Marido', 'Pai', 'Mãe', 'Irmão', 'Irmã', 'Outro'];
 
@@ -26,6 +26,7 @@ type Dependent = {
   relationship: string;
   full_name: string;
   insurance_provider: string | null;
+  insurance_plan: string | null;
   insurance_number: string | null;
   date_of_birth: string | null;
 };
@@ -35,6 +36,7 @@ export default function PatientPlan() {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [editProvider, setEditProvider] = useState('');
+  const [editPlan, setEditPlan] = useState('');
   const [editNumber, setEditNumber] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -45,6 +47,7 @@ export default function PatientPlan() {
     relationship: 'Filho',
     full_name: '',
     insurance_provider: '',
+    insurance_plan: '',
     insurance_number: '',
     date_of_birth: '',
   });
@@ -69,7 +72,7 @@ export default function PatientPlan() {
 
   const openNewDep = () => {
     setDepEditing(null);
-    setDepForm({ relationship: 'Filho', full_name: '', insurance_provider: '', insurance_number: '', date_of_birth: '' });
+    setDepForm({ relationship: 'Filho', full_name: '', insurance_provider: '', insurance_plan: '', insurance_number: '', date_of_birth: '' });
     setDepOpen(true);
   };
 
@@ -79,6 +82,7 @@ export default function PatientPlan() {
       relationship: d.relationship,
       full_name: d.full_name,
       insurance_provider: d.insurance_provider ?? '',
+      insurance_plan: d.insurance_plan ?? '',
       insurance_number: d.insurance_number ?? '',
       date_of_birth: d.date_of_birth ?? '',
     });
@@ -94,6 +98,7 @@ export default function PatientPlan() {
       relationship: depForm.relationship,
       full_name: depForm.full_name.trim(),
       insurance_provider: depForm.insurance_provider.trim() || null,
+      insurance_plan: depForm.insurance_plan.trim() || null,
       insurance_number: depForm.insurance_number.trim() || null,
       date_of_birth: depForm.date_of_birth || null,
     };
@@ -121,6 +126,7 @@ export default function PatientPlan() {
 
   const openEdit = () => {
     setEditProvider(account?.insurance_provider ?? '');
+    setEditPlan(account?.insurance_plan ?? '');
     setEditNumber(account?.insurance_number ?? '');
     setEditOpen(true);
   };
@@ -132,6 +138,7 @@ export default function PatientPlan() {
       .from('patient_accounts')
       .update({
         insurance_provider: editProvider || null,
+        insurance_plan: editPlan || null,
         insurance_number: editNumber || null,
       })
       .eq('id', account.id);
@@ -177,6 +184,12 @@ export default function PatientPlan() {
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Operadora</p>
                   <p className="text-3xl font-bold tracking-tight">{account.insurance_provider}</p>
                 </div>
+                {account.insurance_plan && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Convênio (plano)</p>
+                    <p className="text-lg font-semibold">{account.insurance_plan}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Número da carteirinha</p>
                   <p className="text-lg font-mono">{account.insurance_number ?? '—'}</p>
@@ -267,6 +280,12 @@ export default function PatientPlan() {
                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Operadora</p>
                             <p className="text-xl font-bold tracking-tight">{d.insurance_provider}</p>
                           </div>
+                          {d.insurance_plan && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Convênio</p>
+                              <p className="text-sm font-semibold">{d.insurance_plan}</p>
+                            </div>
+                          )}
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Nº carteirinha</p>
                             <p className="text-base font-mono">{d.insurance_number ?? '—'}</p>
@@ -292,9 +311,13 @@ export default function PatientPlan() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Convênio</Label>
-              <InsuranceOperatorSelect
-                value={editProvider}
-                onChange={setEditProvider}
+              <InsurancePlanSelect
+                operatorValue={editProvider}
+                planValue={editPlan}
+                onChange={(op, plan) => {
+                  setEditProvider(op);
+                  setEditPlan(plan);
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -340,9 +363,12 @@ export default function PatientPlan() {
             </div>
             <div className="space-y-2">
               <Label>Convênio</Label>
-              <InsuranceOperatorSelect
-                value={depForm.insurance_provider}
-                onChange={(v) => setDepForm((s) => ({ ...s, insurance_provider: v }))}
+              <InsurancePlanSelect
+                operatorValue={depForm.insurance_provider}
+                planValue={depForm.insurance_plan}
+                onChange={(op, plan) =>
+                  setDepForm((s) => ({ ...s, insurance_provider: op, insurance_plan: plan }))
+                }
               />
             </div>
             <div className="space-y-2">
