@@ -47,14 +47,12 @@ interface BudgetDetailDialogProps {
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendente' },
-  { value: 'negotiating', label: 'Em Negociação' },
   { value: 'approved', label: 'Aprovado' },
   { value: 'lost', label: 'Perdido' },
 ];
 
 const statusBadge: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  negotiating: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   approved: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   lost: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
 };
@@ -132,7 +130,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
           isSolo || isClinicOwner || effectiveRole === 'admin' || effectiveRole === 'secretary';
         if (!canApproveForClinic) {
           throw new Error(
-            'Apenas a secretaria ou admin da clínica pode aprovar este orçamento. Mantenha em "Em negociação" e aguarde a aprovação.'
+            'Apenas a secretaria ou admin da clínica pode aprovar este orçamento. Mantenha como "Pendente" e aguarde a aprovação.'
           );
         }
       }
