@@ -82,7 +82,7 @@ export function InsurancePlanSelect({
   const hasSelection = !!planValue || !!operatorValue;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           id={id}
