@@ -1,22 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapPin, Map as MapIcon, Shield, X, Check, ChevronsUpDown } from 'lucide-react';
+import { MapPin, Map as MapIcon, X, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 export interface BookingFiltersValue {
   state: string | null;
   city: string | null;
   insurancePlanId: string | null;
-}
-
-interface InsuranceOption {
-  id: string;
-  name: string;
-  ans_code: string | null;
-  clinic_id: string;
 }
 
 interface BookingFiltersProps {
@@ -56,25 +48,8 @@ function normalizeState(raw: string | null | undefined): string | null {
 export function BookingFilters({ value, onChange }: BookingFiltersProps) {
   const [allCities, setAllCities] = useState<string[]>([]);
   const [stateCities, setStateCities] = useState<Record<string, string[]>>({});
-  const [plans, setPlans] = useState<InsuranceOption[]>([]);
   const [stateOpen, setStateOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const { data: ins } = await supabase
-        .from('insurance_plans')
-        .select('id, name, ans_code, clinic_id, is_active')
-        .eq('is_active', true);
-      const seen = new Map<string, InsuranceOption>();
-      for (const p of (ins ?? []) as any[]) {
-        const k = `${(p.name || '').toLowerCase()}|${p.ans_code || ''}`;
-        if (!seen.has(k)) seen.set(k, p);
-      }
-      setPlans(Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
-    })();
-  }, []);
 
   // Load cities for the selected state (or all states) from IBGE on demand
   useEffect(() => {
@@ -119,13 +94,7 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
     return s ? `${s.name} (${s.uf})` : value.state;
   }, [value.state]);
 
-  const planLabel = useMemo(() => {
-    if (!value.insurancePlanId) return 'Particular / Todos';
-    const p = plans.find((x) => x.id === value.insurancePlanId);
-    return p ? p.name : 'Convênio';
-  }, [plans, value.insurancePlanId]);
-
-  const hasFilters = !!value.state || !!value.city || !!value.insurancePlanId;
+  const hasFilters = !!value.state || !!value.city;
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
@@ -222,62 +191,12 @@ export function BookingFilters({ value, onChange }: BookingFiltersProps) {
         </PopoverContent>
       </Popover>
 
-      {/* Insurance plan */}
-      <Popover open={planOpen} onOpenChange={setPlanOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 gap-2">
-            <Shield className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium truncate max-w-[180px]">{planLabel}</span>
-            <ChevronsUpDown className="h-3 w-3 text-muted-foreground" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-72 p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Buscar convênio..." />
-            <CommandList>
-              <CommandEmpty>Nenhum convênio encontrado.</CommandEmpty>
-              <CommandGroup>
-                <CommandItem
-                  onSelect={() => {
-                    onChange({ ...value, insurancePlanId: null });
-                    setPlanOpen(false);
-                  }}
-                >
-                  <Check className={cn('mr-2 h-4 w-4', !value.insurancePlanId ? 'opacity-100' : 'opacity-0')} />
-                  Particular / Todos
-                </CommandItem>
-                {plans.map((p) => (
-                  <CommandItem
-                    key={p.id}
-                    onSelect={() => {
-                      onChange({ ...value, insurancePlanId: p.id });
-                      setPlanOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        value.insurancePlanId === p.id ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    <span className="truncate">{p.name}</span>
-                    {p.ans_code && (
-                      <span className="ml-2 text-[10px] text-muted-foreground">ANS {p.ans_code}</span>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-
       {hasFilters && (
         <Button
           variant="ghost"
           size="sm"
           className="h-9 gap-1 text-xs text-muted-foreground"
-          onClick={() => onChange({ state: null, city: null, insurancePlanId: null })}
+          onClick={() => onChange({ ...value, state: null, city: null })}
         >
           <X className="h-3 w-3" />
           Limpar

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Clock, MapPin, Stethoscope, CheckCircle2, Loader2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Stethoscope, CheckCircle2, Loader2, Shield, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,10 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import type { Specialty } from './SpecialtyStep';
 import type { BookingSelection } from './ClinicDoctorStep';
+import type { CoverageChoice } from './CoverageStep';
 
 interface SummaryStepProps {
   specialty: Specialty;
   selection: BookingSelection;
+  coverage?: CoverageChoice | null;
   notes: string;
   onNotesChange: (v: string) => void;
   onConfirm: () => Promise<void>;
@@ -21,7 +23,7 @@ interface SummaryStepProps {
 }
 
 export function SummaryStep({
-  specialty, selection, notes, onNotesChange, onConfirm, onBack, loading,
+  specialty, selection, coverage, notes, onNotesChange, onConfirm, onBack, loading,
 }: SummaryStepProps) {
   const [confirming, setConfirming] = useState(false);
 
@@ -98,6 +100,24 @@ export function SummaryStep({
               )}
             </div>
           </div>
+
+          {coverage && (
+            <div className="flex items-start gap-2.5 pt-1">
+              {coverage.kind === 'insurance' ? (
+                <Shield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              ) : (
+                <Wallet className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  Tipo
+                </p>
+                <p className="text-sm font-medium truncate">
+                  {coverage.kind === 'insurance' ? coverage.planName : 'Particular'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
