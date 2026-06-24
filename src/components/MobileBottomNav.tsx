@@ -37,7 +37,8 @@ export function MobileBottomNav() {
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
   const familyConfig = isDentist ? getFamilyConfig(memberSpecialty) : null;
   const isPsi = familyConfig?.family === 'psi';
-  const showBudgets = familyConfig?.showBudgets ?? false;
+  const showBudgets =
+    familyConfig?.family === 'odonto' || familyConfig?.family === 'aesthetic';
 
   const allMainItems = isDentist
     ? [

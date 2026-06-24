@@ -237,7 +237,12 @@ export function AppSidebar() {
       .filter((item) => !(item.url === '/odontogram' && !isOdonto))
       // Orçamentos só faz sentido para famílias que tratam por planos
       // (odonto/estética). Médicos, fisios, podólogos, psi etc. não veem.
-      .filter((item) => !(item.url === '/budgets' && familyConfig && !familyConfig.showBudgets))
+      .filter((item) => !(
+        item.url === '/budgets'
+        && familyConfig
+        && familyConfig.family !== 'odonto'
+        && familyConfig.family !== 'aesthetic'
+      ))
       .filter((item) => !(isPsi && item.url === '/budgets'))
       .filter((item) => !isStaff || (item.url === '/patients' ? staffPerms?.pacientes !== false : true))
       .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))

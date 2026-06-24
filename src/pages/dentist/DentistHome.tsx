@@ -245,7 +245,7 @@ export default function DentistHome() {
     { title: 'Pacientes Únicos', value: kpis.uniquePatients, desc: 'atendidos este mês', icon: Users, gradient: 'bg-gradient-to-br from-violet-500 to-violet-700' },
     // Só exibe "Planos Abertos" quando a família profissional usa orçamentos
     // (odonto / estética). Médicos, fisios, podólogos etc. não veem este card.
-    ...(family.showBudgets
+    ...((family.family === 'odonto' || family.family === 'aesthetic')
       ? [{ title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, gradient: 'bg-gradient-to-br from-amber-500 to-amber-600' }]
       : []),
   ] as any[];

@@ -91,7 +91,7 @@ export async function buildAttendanceHtml(data: AttendancePdfData): Promise<stri
 
   // Só exibe a coluna "Dente" se algum procedimento tiver número de dente
   // registrado — evita coluna vazia em prontuários médicos/fisio/etc.
-  const showTooth = (record.procedures ?? []).some((p) => p.tooth != null && p.tooth !== '');
+  const showTooth = (record.procedures ?? []).some((p) => p.tooth != null);
   const procsHtml = (record.procedures ?? []).length
     ? `<table><thead><tr><th>Procedimento</th>${showTooth ? '<th>Dente</th>' : ''}<th>Obs</th><th class="r">Valor</th></tr></thead><tbody>${record.procedures!
         .map((p) => `<tr><td>${strip(p.name)}</td>${showTooth ? `<td>${p.tooth ?? '—'}</td>` : ''}<td>${strip(p.notes) || '—'}</td><td class="r">${formatCurrency(Number(p.price ?? 0))}</td></tr>`)
