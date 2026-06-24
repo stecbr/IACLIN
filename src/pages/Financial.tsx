@@ -908,7 +908,7 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
 }
 
 // ---- Review Imported Transactions ----
-function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { transactions: any[]; onComplete: () => void; clinicId: string | null }) {
+function ReviewImportedTransactions({ transactions, onComplete, clinicId, periodRange, onApprovedOutOfRange }: { transactions: any[]; onComplete: () => void; clinicId: string | null; periodRange?: { start: Date; end: Date }; onApprovedOutOfRange?: () => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [approvingAll, setApprovingAll] = useState(false);
@@ -964,6 +964,12 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { tr
     }
   };
 
+  const isOutOfRange = (dateStr: string) => {
+    if (!periodRange) return false;
+    const d = new Date(dateStr);
+    return d < periodRange.start || d > periodRange.end;
+  };
+
   const approveTransaction = async (tx: any) => {
     if (!user) return;
     try {
@@ -972,6 +978,7 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { tr
       await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       toast.success('Transação aprovada!');
       invalidateAll();
+      if (isOutOfRange(tx.transaction_date)) onApprovedOutOfRange?.();
       onComplete();
     } catch (err: any) {
       toast.error(err.message);
@@ -991,11 +998,13 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { tr
   const approveAll = async () => {
     setApprovingAll(true);
     let failed = 0;
+    let outOfRange = 0;
     for (const tx of transactions) {
       try {
         const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
         if (insErr) throw insErr;
         await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
+        if (isOutOfRange(tx.transaction_date)) outOfRange++;
       } catch {
         failed++;
       }
@@ -1006,6 +1015,7 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { tr
     if (succeeded > 0) {
       toast.success(`${succeeded} transação(ões) aprovadas`);
       invalidateAll();
+      if (outOfRange > 0) onApprovedOutOfRange?.();
       onComplete();
     }
   };
