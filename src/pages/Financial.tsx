@@ -498,7 +498,16 @@ export default function Financial() {
 
         {importedTxs.length > 0 && (
           <TabsContent value="review" className="space-y-4">
-            <ReviewImportedTransactions transactions={importedTxs} onComplete={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
+            <ReviewImportedTransactions
+              transactions={importedTxs}
+              clinicId={currentClinicId ?? null}
+              onComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ['imported-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-chart-6m'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+              }}
+            />
           </TabsContent>
         )}
 
