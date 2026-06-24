@@ -503,6 +503,12 @@ export default function Financial() {
             <ReviewImportedTransactions
               transactions={importedTxs}
               clinicId={currentClinicId ?? null}
+              periodRange={period}
+              onApprovedOutOfRange={() => {
+                setPeriodFilter('all');
+                setActiveTab('transactions');
+                toast.info('Transação aprovada está fora do período atual. Mostrando "Todos os períodos".');
+              }}
               onComplete={() => {
                 queryClient.invalidateQueries({ queryKey: ['imported-transactions'] });
                 queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
