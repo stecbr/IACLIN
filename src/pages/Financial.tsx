@@ -889,28 +889,71 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
 }
 
 // ---- Review Imported Transactions ----
-function ReviewImportedTransactions({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
+function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { transactions: any[]; onComplete: () => void; clinicId: string | null }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [approvingAll, setApprovingAll] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<any>({});
+
+  const buildFinancialRow = (tx: any) => ({
+    type: tx.type,
+    category: tx.category || 'imported',
+    description: tx.description,
+    amount: tx.amount,
+    due_date: tx.transaction_date,
+    status: 'paid',
+    paid_date: tx.transaction_date,
+    dentist_id: user?.id,
+    clinic_id: clinicId ?? null,
+    approval_status: 'approved',
+    approval_decided_by: user?.id,
+    approval_decided_at: new Date().toISOString(),
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+    queryClient.invalidateQueries({ queryKey: ['financial-chart-6m'] });
+    queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+    queryClient.invalidateQueries({ queryKey: ['imported-transactions'] });
+  };
+
+  const startEdit = (tx: any) => {
+    setEditingId(tx.id);
+    setDraft({
+      description: tx.description ?? '',
+      amount: tx.amount,
+      transaction_date: tx.transaction_date,
+      type: tx.type,
+    });
+  };
+
+  const saveEdit = async (tx: any) => {
+    try {
+      const { error } = await supabase.from('imported_transactions').update({
+        description: draft.description,
+        amount: Number(draft.amount) || 0,
+        transaction_date: draft.transaction_date,
+        type: draft.type,
+      }).eq('id', tx.id);
+      if (error) throw error;
+      setEditingId(null);
+      toast.success('Atualizado');
+      onComplete();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const approveTransaction = async (tx: any) => {
     if (!user) return;
     try {
-      await supabase.from('financial_transactions').insert({
-        type: tx.type,
-        category: tx.category || 'imported',
-        description: tx.description,
-        amount: tx.amount,
-        due_date: tx.transaction_date,
-        status: 'paid',
-        paid_date: tx.transaction_date,
-        dentist_id: user.id,
-      });
+      const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
+      if (insErr) throw insErr;
       await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       toast.success('Transação aprovada!');
+      invalidateAll();
       onComplete();
-      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -931,16 +974,8 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
     let failed = 0;
     for (const tx of transactions) {
       try {
-        await supabase.from('financial_transactions').insert({
-          type: tx.type,
-          category: tx.category || 'imported',
-          description: tx.description,
-          amount: tx.amount,
-          due_date: tx.transaction_date,
-          status: 'paid',
-          paid_date: tx.transaction_date,
-          dentist_id: user?.id,
-        });
+        const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
+        if (insErr) throw insErr;
         await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       } catch {
         failed++;
@@ -951,7 +986,7 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
     const succeeded = transactions.length - failed;
     if (succeeded > 0) {
       toast.success(`${succeeded} transação(ões) aprovadas`);
-      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      invalidateAll();
       onComplete();
     }
   };
@@ -959,7 +994,10 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{transactions.length} transações aguardando revisão</p>
+        <p className="text-sm text-muted-foreground">
+          {transactions.length} transações aguardando revisão
+          {clinicId ? '' : ' (serão lançadas no contexto Pessoal)'}
+        </p>
         <Button size="sm" onClick={approveAll} disabled={approvingAll} className="gap-2">
           <CheckCircle2 className="h-4 w-4" />
           {approvingAll ? 'Aprovando…' : 'Aprovar Todas'}
@@ -968,26 +1006,66 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
       <div className="space-y-2">
         {transactions.map((tx: any) => (
           <Card key={tx.id} className="shadow-card border-border/50 p-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">{tx.description}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-muted-foreground">{format(parseISO(tx.transaction_date), 'dd/MM/yyyy')}</span>
-                  <Badge variant="outline" className="text-xs">{tx.type === 'income' ? 'Receita' : 'Despesa'}</Badge>
+            {editingId === tx.id ? (
+              <div className="space-y-2">
+                <Input
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  placeholder="Descrição"
+                  className="h-8 text-sm"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    type="date"
+                    value={draft.transaction_date}
+                    onChange={(e) => setDraft({ ...draft, transaction_date: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={draft.amount}
+                    onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Select value={draft.type} onValueChange={(v) => setDraft({ ...draft, type: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="income">Receita</SelectItem>
+                      <SelectItem value="expense">Despesa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancelar</Button>
+                  <Button size="sm" onClick={() => saveEdit(tx)}>Salvar</Button>
                 </div>
               </div>
-              <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                R$ {Number(tx.amount).toFixed(2)}
-              </span>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-success hover:bg-success/10" onClick={() => approveTransaction(tx)}>
-                  <CheckCircle2 className="h-4 w-4" />
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{tx.description}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-xs text-muted-foreground">{format(parseISO(tx.transaction_date), 'dd/MM/yyyy')}</span>
+                    <Badge variant="outline" className="text-xs">{tx.type === 'income' ? 'Receita' : 'Despesa'}</Badge>
+                  </div>
+                </div>
+                <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                  R$ {Number(tx.amount).toFixed(2)}
+                </span>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEdit(tx)} title="Editar">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-success hover:bg-success/10" onClick={() => approveTransaction(tx)}>
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => rejectTransaction(tx)}>
+                    <XCircle className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => rejectTransaction(tx)}>
-                  <XCircle className="h-4 w-4" />
-                </Button>
+                </div>
               </div>
-            </div>
+            )}
           </Card>
         ))}
       </div>
