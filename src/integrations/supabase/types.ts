@@ -1635,6 +1635,36 @@ export type Database = {
           },
         ]
       }
+      insurance_plans_catalog: {
+        Row: {
+          ans_code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          operator_name: string
+          plan_name: string
+          type: string
+        }
+        Insert: {
+          ans_code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          operator_name: string
+          plan_name: string
+          type?: string
+        }
+        Update: {
+          ans_code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          operator_name?: string
+          plan_name?: string
+          type?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           clinic_id: string | null
@@ -2236,6 +2266,7 @@ export type Database = {
           insurance_holder: string | null
           insurance_holder_cpf: string | null
           insurance_number: string | null
+          insurance_plan: string | null
           insurance_provider: string | null
           is_foreign: boolean
           landline: string | null
@@ -2270,6 +2301,7 @@ export type Database = {
           insurance_holder?: string | null
           insurance_holder_cpf?: string | null
           insurance_number?: string | null
+          insurance_plan?: string | null
           insurance_provider?: string | null
           is_foreign?: boolean
           landline?: string | null
@@ -2304,6 +2336,7 @@ export type Database = {
           insurance_holder?: string | null
           insurance_holder_cpf?: string | null
           insurance_number?: string | null
+          insurance_plan?: string | null
           insurance_provider?: string | null
           is_foreign?: boolean
           landline?: string | null
@@ -2367,6 +2400,7 @@ export type Database = {
           full_name: string
           id: string
           insurance_number: string | null
+          insurance_plan: string | null
           insurance_provider: string | null
           patient_account_id: string
           relationship: string
@@ -2378,6 +2412,7 @@ export type Database = {
           full_name: string
           id?: string
           insurance_number?: string | null
+          insurance_plan?: string | null
           insurance_provider?: string | null
           patient_account_id: string
           relationship: string
@@ -2389,6 +2424,7 @@ export type Database = {
           full_name?: string
           id?: string
           insurance_number?: string | null
+          insurance_plan?: string | null
           insurance_provider?: string | null
           patient_account_id?: string
           relationship?: string
