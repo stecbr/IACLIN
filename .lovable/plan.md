@@ -1,35 +1,23 @@
-## 1. Remover "Confirmar Senha" do cadastro
+## Mudanças
 
-**Arquivo:** `src/pages/Auth.tsx`
+### 1. Remover status "Em Negociação" dos orçamentos
+Arquivo: `src/components/budgets/BudgetDetailDialog.tsx`
+- Remover a opção `{ value: 'negotiating', label: 'Em Negociação' }` da lista de status.
+- Remover a entrada `negotiating` do mapa de cores de status.
+- Remover o texto de aviso que menciona "Em negociação" (linha ~135) ou substituir por "Pendente".
 
-- Remover o bloco do campo `Confirmar Senha` (linhas ~911-916) e a validação `password !== confirmPassword` no fluxo de clínica (linhas ~312-316).
-- Remover o estado `confirmPassword` / `setConfirmPassword` (linha ~89).
-- O formulário de operadora já não exibia o campo, mas removendo a fonte garante que não apareça em nenhum tipo de cadastro (paciente, profissional, clínica, operadora).
+Arquivo: `src/components/budgets/BudgetCard.tsx`
+- Remover a entrada `negotiating: 'before:bg-blue-400'` do mapa de cores.
 
-## 2. Corrigir "Comece por aqui" não atualizar após salvar
+Observação: o Kanban em `Budgets.tsx` já só usa `pending`, `approved`, `lost` — nada a mudar lá. Registros antigos com status `negotiating` (se existirem) continuam no banco mas caem no fallback "pending" do Kanban; não vamos migrar dados a menos que você peça.
 
-**Causa raiz:** o `useQuery(['getting-started', ...])` em `GettingStartedChecklist.tsx` tem `staleTime: 30s` e nenhum gatilho de invalidação após o paciente salvar perfil/foto/endereço, então os contadores ficam em 0% até o cache expirar. Além disso, as queries só leem alguns campos de `profiles`, mas o `PatientSettings.save()` grava em `profiles`, `patient_accounts` e `patients` — se uma dessas leituras falhar por RLS, o item fica como "não feito".
+### 2. Corrigir campo "Valor (R$)" mostrando "0120"
+Arquivo: `src/components/budgets/BudgetFormDialog.tsx`
 
-**Mudanças:**
+Causa: quando o procedimento selecionado tem `default_price = 0`, o autofill grava `"0"` no campo. Ao o usuário digitar `120` na frente, o input fica `"0120"`.
 
-- `src/pages/patient/PatientSettings.tsx` — no fim de `save()` (após `refetch()`), invalidar a query:
-  ```ts
-  queryClient.invalidateQueries({ queryKey: ['getting-started'] });
-  ```
-  (importar `useQueryClient` do `@tanstack/react-query`).
+Correção:
+- No autofill (linha ~190), só preencher `updated.price` quando `proc.default_price > 0`; caso contrário, deixar string vazia.
+- No `onChange` do input de preço, normalizar removendo zeros à esquerda (ex.: `value.replace(/^0+(?=\d)/, '')`) antes de salvar no state, preservando `""` e `"0"` isolado.
 
-- `src/components/GettingStartedChecklist.tsx` (persona `patient`):
-  - Reduzir `staleTime` para `0` e adicionar `refetchOnWindowFocus: true` para refletir mudanças rapidamente.
-  - Ampliar a detecção combinando `profiles + patient_accounts + patients`:
-    - `profileComplete`: `(pr.full_name || acc.full_name) && (pr.phone || acc.phone || pa.phone)`
-    - `hasPhoto`: `pr.avatar_url || acc.photo_url || pa.photo_url`
-    - `hasAddress`: mantém OR atual entre as três tabelas
-    - `hasInsurance`: mantém (opcional)
-    - `hasAppointment`: mantém
-
-Assim, qualquer um dos três caminhos de gravação já marca o item como concluído.
-
-## Verificação
-
-- Abrir `/auth` em modo cadastro (operadora, clínica, paciente, profissional) e confirmar que não existe mais o campo "Confirmar Senha".
-- Como paciente, em `/paciente/configuracoes`, salvar nome/telefone/foto/endereço e confirmar que o card "Comece por aqui" sobe para 100% sem precisar recarregar a página.
+Nenhuma outra alteração.
