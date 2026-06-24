@@ -109,41 +109,62 @@ export default function TeamSection() {
   const handleAdd = async () => {
     if (!currentClinicId) return;
     setSaving(true);
+    const handleFailure = (rawMsg: string) => {
+      const msg = rawMsg || 'Erro ao adicionar funcionário.';
+      const emailDup = /já está cadastrado|already been registered|email_exists/i.test(msg);
+      if (emailDup) {
+        setErrorDialog({
+          open: true,
+          title: 'E-mail já cadastrado',
+          message: 'Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.',
+        });
+        return;
+      }
+      if (/at least 6|6 caracteres/i.test(msg)) {
+        toast.error('A senha precisa ter ao menos 6 caracteres.');
+        return;
+      }
+      toast.error(msg);
+    };
+
+    let data: any = null;
+    let error: any = null;
     try {
-      const { data, error } = await supabase.functions.invoke('invite-member', {
+      const res = await supabase.functions.invoke('invite-member', {
         body: { ...form, clinic_id: currentClinicId },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success(`${form.full_name} adicionado(a) com sucesso!`);
-      setForm({ email: '', full_name: '', password: '', role: 'secretary' });
-      setOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
-    } catch (err: any) {
-      let msg: string = err?.message ?? 'Erro ao adicionar funcionário.';
-      // FunctionsHttpError: ler corpo real do response
+      data = res.data;
+      error = res.error;
+    } catch (e: any) {
+      // Rede ou exceção inesperada — não deixa propagar para o overlay
+      error = e;
+    }
+
+    if (error) {
+      let backendMsg: string | null = null;
       try {
-        const resp = err?.context?.response;
+        const resp = (error as any)?.context?.response;
         if (resp && typeof resp.clone === 'function') {
           const body = await resp.clone().json();
-          if (body?.error) msg = body.error;
+          if (body?.error) backendMsg = body.error;
         }
       } catch { /* ignore */ }
-      // Translate common backend errors to PT-BR
-      const emailDup = /already been registered|email_exists|já está cadastrado/i.test(msg);
-      const friendly = emailDup
-        ? 'Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.'
-        : /Password should be at least|ao menos 6 caracteres/i.test(msg)
-          ? 'A senha precisa ter ao menos 6 caracteres.'
-          : msg;
-      if (emailDup) {
-        setErrorDialog({ open: true, title: 'E-mail já cadastrado', message: friendly });
-      } else {
-        toast.error(friendly);
-      }
-    } finally {
+      handleFailure(backendMsg ?? error?.message ?? '');
       setSaving(false);
+      return;
     }
+
+    if (data?.error) {
+      handleFailure(String(data.error));
+      setSaving(false);
+      return;
+    }
+
+    toast.success(`${form.full_name} adicionado(a) com sucesso!`);
+    setForm({ email: '', full_name: '', password: '', role: 'secretary' });
+    setOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
+    setSaving(false);
   };
 
   const handleRemove = async (memberId: string, memberUserId: string) => {
