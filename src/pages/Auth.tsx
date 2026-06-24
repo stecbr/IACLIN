@@ -24,6 +24,7 @@ import {
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
 import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
+import { getSpecialtyFamily } from '@/lib/specialtyFamily';
 
 type UserType = null | 'profissional' | 'operadora' | 'cliente' | 'clinica';
 type ProfessionalSubType = null | 'medico' | 'dentista';
