@@ -672,6 +672,17 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
 }
 
 // ---- Import Statement Dialog (AI) ----
+// BRL currency helpers (used in import review)
+function formatBRL(value: number | string): string {
+  const n = typeof value === 'number' ? value : Number(value) || 0;
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+function parseBRL(masked: string): number {
+  const digits = (masked || '').replace(/\D/g, '');
+  if (!digits) return 0;
+  return Number(digits) / 100;
+}
+
 function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
