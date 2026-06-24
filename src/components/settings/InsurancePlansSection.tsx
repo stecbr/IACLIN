@@ -78,10 +78,9 @@ export default function InsurancePlansSection() {
                   <Shield className="h-4 w-4 text-primary" />
                   <div>
                     <p className="text-sm font-medium">{plan.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {plan.type === 'dental' ? 'Odontológico' : plan.type === 'health' ? 'Saúde' : 'Outro'}
-                      {plan.ans_code && ` · ANS ${plan.ans_code}`}
-                    </p>
+                    {plan.ans_code && (
+                      <p className="text-xs text-muted-foreground">ANS {plan.ans_code}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
