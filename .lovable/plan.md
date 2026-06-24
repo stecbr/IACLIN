@@ -1,21 +1,42 @@
-## Ajustes no modal "Importar Extrato com IA"
+## Objetivo
+Separar visualmente as configurações **Pessoais** das configurações da **Clínica** em `/settings`, usando um toggle no topo da página.
 
-**Arquivo:** `src/pages/Financial.tsx` (componente `ReviewImportedTransactions` dentro do `ImportStatementDialog`)
+## Mudanças (apenas UI em `src/pages/SettingsPage.tsx`)
 
-### Mudanças
+### 1. Toggle no topo
+Adicionar um toggle estilo segmentado (Tabs/ToggleGroup do shadcn) logo abaixo do `PageHeader`, com duas opções:
+- **Pessoal** (padrão quando o usuário não é admin/owner)
+- **Clínica** (padrão para admin/owner)
 
-1. **Largura do modal**
-   - Alterar `DialogContent` de `max-w-md` (≈448px) para `max-w-3xl` (≈768px), para acomodar confortavelmente as 4 colunas (data, valor, tipo) sem espremer.
+### 2. Agrupamento das seções
+Dividir o array `allSections` em dois grupos:
 
-2. **Layout da linha de campos**
-   - Ajustar o grid interno de cada item para dar mais espaço à data e ao valor (ex.: `grid-cols-[140px_1fr_140px]` ou similar), evitando que o input de valor apareça como "6".
+**Pessoal** (dados do usuário):
+- Meu Perfil
+- Clínicas Vinculadas
+- Especialidades
+- Meu Financeiro (apenas dentista)
+- Segurança
+- Aparência
 
-3. **Campo Valor em formato R$**
-   - Trocar o `<input type="number">` por um input de texto com máscara de moeda BRL:
-     - Exibe sempre `R$ 1.234,56`
-     - Ao digitar, o usuário só insere dígitos; a formatação é aplicada on-the-fly
-     - Ao salvar/aprovar, converte de volta para número (centavos / 100) antes de enviar ao Supabase
-   - Aplicar tanto na lista de revisão quanto no modo de edição inline.
+**Clínica** (gestão da clínica — visível só para admin/owner):
+- Minha Clínica
+- Equipe
+- Salas
+- Convênios
+- Procedimentos
+- Recebimentos
+- Assinatura
 
-### Sem mudanças de backend
-Nenhuma alteração de schema, RLS ou edge function. Puramente UI/formatação.
+### 3. Comportamento
+- A sidebar lateral (nav) passa a listar apenas as seções do grupo ativo do toggle.
+- Ao trocar de grupo, seleciona automaticamente a primeira seção daquele grupo.
+- Staff (`secretary`/`auxiliary`) continua vendo apenas Perfil/Segurança/Aparência → o toggle fica oculto (não faz sentido).
+- Dentistas sem permissão de admin não veem o lado "Clínica" → toggle oculto também.
+- Deep-link `?section=...` continua funcionando: detecta a qual grupo pertence e ativa o toggle correspondente.
+- O aviso "Defina sua especialidade" continua funcionando (a seção pertence ao grupo Pessoal).
+
+### Detalhes técnicos
+- Sem mudanças de backend, schema ou RLS.
+- Sem mexer nas seções em si — apenas no agrupamento/navegação de `SettingsPage.tsx`.
+- Usar `Tabs` (shadcn) ou `ToggleGroup` com estilo iOS-minimal alinhado ao restante do app.
