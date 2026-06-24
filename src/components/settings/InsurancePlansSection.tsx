@@ -11,9 +11,12 @@ import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Shield } from 'lucide-react';
+import { Plus, Pencil, Trash2, Shield, Check } from 'lucide-react';
 import { syncClinicConfig } from '@/hooks/useAiSync';
-import { InsurancePlanSelect } from '@/components/InsurancePlanSelect';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 export default function InsurancePlansSection() {
   const { currentClinicId } = useAuth();
@@ -142,12 +145,23 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
     queryFn: async () => {
       const { data, error } = await supabase
         .from('insurance_plans_catalog')
-        .select('operator_name, plan_name, type, ans_code')
-        .eq('is_active', true);
+        .select('id, operator_name, plan_name, type, ans_code')
+        .eq('is_active', true)
+        .order('operator_name')
+        .order('plan_name');
       if (error) throw error;
       return data ?? [];
     },
   });
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const p of catalog as any[]) {
+      if (!map.has(p.operator_name)) map.set(p.operator_name, []);
+      map.get(p.operator_name)!.push(p);
+    }
+    return Array.from(map.entries());
+  }, [catalog]);
 
   const handleCatalogChange = (op: string, pl: string) => {
     setOperator(op);
@@ -196,14 +210,33 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Convênio *</Label>
-            <InsurancePlanSelect
-              operatorValue={operator}
-              planValue={planName}
-              onChange={handleCatalogChange}
-              placeholder="Buscar no catálogo (operadora / plano)"
-            />
+            <div className="rounded-md border">
+              <Command>
+                <CommandInput placeholder="Buscar operadora ou plano..." />
+                <CommandList className="max-h-64 overflow-y-auto">
+                  <CommandEmpty>Nenhum convênio encontrado.</CommandEmpty>
+                  {grouped.map(([op, items]) => (
+                    <CommandGroup key={op} heading={op}>
+                      {items.map((p: any) => {
+                        const selected = planName === p.plan_name && operator === p.operator_name;
+                        return (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.operator_name} ${p.plan_name}`}
+                            onSelect={() => handleCatalogChange(p.operator_name, p.plan_name)}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                            <span className="truncate">{p.plan_name}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ))}
+                </CommandList>
+              </Command>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Escolha a operadora e o plano. Tipo e código ANS são preenchidos automaticamente.
+              {planName ? `Selecionado: ${operator} — ${planName}` : 'Escolha o convênio. Tipo e ANS preenchem automaticamente.'}
             </p>
           </div>
           {planName && (
