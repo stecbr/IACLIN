@@ -672,6 +672,17 @@ function ApprovalsList({ transactions, onComplete }: { transactions: any[]; onCo
 }
 
 // ---- Import Statement Dialog (AI) ----
+// BRL currency helpers (used in import review)
+function formatBRL(value: number | string): string {
+  const n = typeof value === 'number' ? value : Number(value) || 0;
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+function parseBRL(masked: string): number {
+  const digits = (masked || '').replace(/\D/g, '');
+  if (!digits) return 0;
+  return Number(digits) / 100;
+}
+
 function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (o: boolean) => void; onSuccess: () => void }) {
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
@@ -762,7 +773,7 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setStep('upload'); setParsed([]); setFile(null); } }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -845,22 +856,22 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
                         placeholder="Descrição"
                         className="h-8 text-sm"
                       />
-                      <div className="grid grid-cols-3 gap-2">
+                       <div className="grid grid-cols-[160px_1fr_140px] gap-2">
                         <Input
                           type="date"
                           value={tx.date ?? ''}
                           onChange={(e) => updateItem(tx._id, { date: e.target.value })}
-                          className="h-8 text-xs"
+                          className="h-9 text-sm"
                         />
                         <Input
-                          type="number"
-                          step="0.01"
-                          value={tx.amount ?? 0}
-                          onChange={(e) => updateItem(tx._id, { amount: parseFloat(e.target.value) || 0 })}
-                          className="h-8 text-xs"
+                          inputMode="numeric"
+                          value={formatBRL(tx.amount ?? 0)}
+                          onChange={(e) => updateItem(tx._id, { amount: parseBRL(e.target.value) })}
+                          className="h-9 text-sm font-medium"
+                          placeholder="R$ 0,00"
                         />
                         <Select value={tx.type} onValueChange={(v) => updateItem(tx._id, { type: v })}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="income">Receita</SelectItem>
                             <SelectItem value="expense">Despesa</SelectItem>
@@ -1014,22 +1025,22 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { tr
                   placeholder="Descrição"
                   className="h-8 text-sm"
                 />
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-[160px_1fr_140px] gap-2">
                   <Input
                     type="date"
                     value={draft.transaction_date}
                     onChange={(e) => setDraft({ ...draft, transaction_date: e.target.value })}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm"
                   />
                   <Input
-                    type="number"
-                    step="0.01"
-                    value={draft.amount}
-                    onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-                    className="h-8 text-xs"
+                    inputMode="numeric"
+                    value={formatBRL(draft.amount ?? 0)}
+                    onChange={(e) => setDraft({ ...draft, amount: parseBRL(e.target.value) })}
+                    className="h-9 text-sm font-medium"
+                    placeholder="R$ 0,00"
                   />
                   <Select value={draft.type} onValueChange={(v) => setDraft({ ...draft, type: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="income">Receita</SelectItem>
                       <SelectItem value="expense">Despesa</SelectItem>
