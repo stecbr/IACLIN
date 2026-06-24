@@ -187,13 +187,16 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
       // Auto-fill price when procedure is selected
       if (field === 'procedure_id' && value) {
         const proc = procedures.find(p => p.id === value);
-        if (proc && !item.price) {
+        if (proc && !item.price && Number(proc.default_price) > 0) {
           updated.price = String(proc.default_price);
         }
         updated.custom_name = '';
       }
       if (field === 'custom_name' && value) {
         updated.procedure_id = '';
+      }
+      if (field === 'price' && typeof value === 'string') {
+        updated.price = value.replace(/^0+(?=\d)/, '');
       }
       return updated;
     }));
