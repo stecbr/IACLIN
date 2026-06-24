@@ -2,10 +2,10 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BookingProgressProps {
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
 }
 
-const labels = ['Especialidade', 'Data', 'Profissional', 'Confirmar'];
+const labels = ['Tipo', 'Especialidade', 'Data', 'Profissional', 'Confirmar'];
 
 export function BookingProgress({ step }: BookingProgressProps) {
   return (
