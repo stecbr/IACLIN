@@ -1,23 +1,19 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Plus, Pencil, Trash2, Shield } from 'lucide-react';
 import { syncClinicConfig } from '@/hooks/useAiSync';
+import { InsurancePlanSelect } from '@/components/InsurancePlanSelect';
 
 export default function InsurancePlansSection() {
   const { currentClinicId } = useAuth();
@@ -130,27 +126,49 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
 }) {
   const isEdit = !!plan;
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    name: plan?.name ?? '',
-    ans_code: plan?.ans_code ?? '',
-    type: plan?.type ?? 'dental',
-    contact_phone: plan?.contact_phone ?? '',
-    contact_email: plan?.contact_email ?? '',
-    notes: plan?.notes ?? '',
-    is_active: plan?.is_active ?? true,
+  const [operator, setOperator] = useState<string>(() => {
+    // tenta inferir operadora do nome atual ("Unimed — Unimed Nacional" não é o padrão; nome é só o plano)
+    return '';
   });
+  const [planName, setPlanName] = useState<string>(plan?.name ?? '');
+  const [planType, setPlanType] = useState<string>(plan?.type ?? 'dental');
+  const [ansCode, setAnsCode] = useState<string>(plan?.ans_code ?? '');
+  const [isActive, setIsActive] = useState<boolean>(plan?.is_active ?? true);
+
+  // Busca catálogo para preencher metadados (tipo, ANS) ao escolher
+  const { data: catalog = [] } = useQuery({
+    queryKey: ['insurance-plans-catalog-meta'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('insurance_plans_catalog')
+        .select('operator_name, plan_name, type, ans_code')
+        .eq('is_active', true);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const handleCatalogChange = (op: string, pl: string) => {
+    setOperator(op);
+    setPlanName(pl);
+    const match = catalog.find((c: any) => c.operator_name === op && c.plan_name === pl);
+    if (match) {
+      setPlanType(match.type ?? 'dental');
+      setAnsCode(match.ans_code ?? '');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { toast.error('Nome é obrigatório'); return; }
+    if (!planName.trim()) { toast.error('Selecione um convênio do catálogo'); return; }
     setLoading(true);
     try {
       const payload = {
-        ...form,
-        ans_code: form.ans_code || null,
-        contact_phone: form.contact_phone || null,
-        contact_email: form.contact_email || null,
-        notes: form.notes || null,
+        name: planName,
+        type: planType,
+        ans_code: ansCode || null,
+        is_active: isActive,
       };
       if (isEdit) {
         const { error } = await supabase.from('insurance_plans').update(payload).eq('id', plan.id);
@@ -177,42 +195,27 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Nome do Convênio *</Label>
-            <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Amil Dental" required />
+            <Label>Convênio *</Label>
+            <InsurancePlanSelect
+              operatorValue={operator}
+              planValue={planName}
+              onChange={handleCatalogChange}
+              placeholder="Buscar no catálogo (operadora / plano)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Escolha a operadora e o plano. Tipo e código ANS são preenchidos automaticamente.
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Código ANS</Label>
-              <Input value={form.ans_code} onChange={e => setForm({ ...form, ans_code: e.target.value })} placeholder="000000" />
+          {planName && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary" className="text-[10px]">
+                {planType === 'dental' ? 'Odontológico' : planType === 'health' ? 'Saúde' : 'Outro'}
+              </Badge>
+              {ansCode && <span>ANS {ansCode}</span>}
             </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dental">Odontológico</SelectItem>
-                  <SelectItem value="health">Saúde</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Telefone contato</Label>
-              <Input value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>E-mail contato</Label>
-              <Input type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Observações</Label>
-            <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
-          </div>
+          )}
           <div className="flex items-center gap-2">
-            <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
             <Label className="text-sm">Ativo</Label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
