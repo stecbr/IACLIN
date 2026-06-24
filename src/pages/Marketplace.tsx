@@ -16,6 +16,37 @@ function toLocalDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function normalizeSpec(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-");
+}
+
+// Tokens that should match against the doctor's stored specialty slug.
+const SPECIALTY_TOKENS: Record<string, string[]> = {
+  "Dentista": ["dentist", "odonto", "dental"],
+  "Clínico Geral": ["clinico-geral", "clinica-geral", "clinico", "clinica-medica", "generalista"],
+  "Cardiologia": ["cardio"],
+  "Dermatologia": ["derma"],
+  "Pediatria": ["pediatr"],
+  "Ginecologia": ["gineco", "obstetr"],
+  "Estética": ["estetica", "plastica", "harmoniza"],
+};
+
+function doctorMatchesSpecialties(specialty: string | null, selected: string[]): boolean {
+  if (selected.length === 0) return true;
+  const norm = normalizeSpec(specialty);
+  if (!norm) return false;
+  return selected.some((label) => {
+    const tokens = SPECIALTY_TOKENS[label] ?? [normalizeSpec(label)];
+    return tokens.some((t) => norm.includes(t));
+  });
+}
+
 export default function Marketplace() {
   const isMobile = useIsMobile();
   const mapRef = useRef<MarketplaceMapHandle>(null);
@@ -166,9 +197,7 @@ export default function Marketplace() {
       const cityMatch =
         !searchCity || (d.clinicCity ?? "").toLowerCase().includes(searchCity.toLowerCase());
 
-      const specMatch =
-        selectedSpecialties.length === 0 ||
-        (d.specialty && selectedSpecialties.includes(d.specialty));
+      const specMatch = doctorMatchesSpecialties(d.specialty, selectedSpecialties);
 
       const insMatch =
         !selectedInsurance ||
