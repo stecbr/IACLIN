@@ -678,6 +678,14 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<any[]>([]);
   const [step, setStep] = useState<'upload' | 'review'>('upload');
+  const [dragOver, setDragOver] = useState(false);
+
+  const acceptFile = (f: File | null | undefined) => {
+    if (!f) return;
+    const ok = f.type.startsWith('image/') || f.type === 'application/pdf' || /\.(png|jpe?g|pdf)$/i.test(f.name);
+    if (!ok) { toast.error('Envie uma imagem (PNG/JPG) ou PDF.'); return; }
+    setFile(f);
+  };
 
   const handleUpload = async () => {
     if (!file || !user) return;
@@ -748,6 +756,10 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
     setParsed((prev) => prev.map((t) => t._id === id ? { ...t, _selected: !t._selected } : t));
   };
 
+  const updateItem = (id: number, patch: Partial<any>) => {
+    setParsed((prev) => prev.map((t) => t._id === id ? { ...t, ...patch } : t));
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setStep('upload'); setParsed([]); setFile(null); } }}>
       <DialogContent className="max-w-lg">
@@ -763,17 +775,30 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
             <p className="text-sm text-muted-foreground">
               Envie uma imagem ou PDF do extrato bancário. A IA vai extrair as transações para revisão manual.
             </p>
-            <div className="border-2 border-dashed border-border rounded-xl p-8 text-center">
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                acceptFile(e.dataTransfer.files?.[0]);
+              }}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                dragOver ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
               <input
                 type="file"
                 accept="image/*,.pdf"
                 className="hidden"
                 id="statement-upload"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => acceptFile(e.target.files?.[0])}
               />
               <label htmlFor="statement-upload" className="cursor-pointer">
                 <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-medium text-foreground">{file ? file.name : 'Clique para selecionar o arquivo'}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {file ? file.name : (dragOver ? 'Solte o arquivo aqui' : 'Arraste o arquivo ou clique para selecionar')}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou PDF</p>
               </label>
             </div>
@@ -796,25 +821,54 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
             <p className="text-sm text-muted-foreground">
               A IA encontrou {parsed.length} transações. Revise e desmarque as que não deseja importar.
             </p>
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <p className="text-xs text-muted-foreground">Dica: clique nos campos para corrigir o que a IA errou.</p>
+            <div className="max-h-80 overflow-y-auto space-y-2">
               {parsed.map((tx) => (
                 <div
                   key={tx._id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                  className={`p-3 rounded-lg border transition-colors ${
                     tx._selected ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20 opacity-60'
                   }`}
-                  onClick={() => toggleItem(tx._id)}
                 >
-                  <div className={`h-5 w-5 rounded border-2 flex items-center justify-center ${tx._selected ? 'border-primary bg-primary' : 'border-border'}`}>
-                    {tx._selected && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleItem(tx._id)}
+                      className={`mt-1 h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center ${tx._selected ? 'border-primary bg-primary' : 'border-border'}`}
+                    >
+                      {tx._selected && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <Input
+                        value={tx.description ?? ''}
+                        onChange={(e) => updateItem(tx._id, { description: e.target.value })}
+                        placeholder="Descrição"
+                        className="h-8 text-sm"
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input
+                          type="date"
+                          value={tx.date ?? ''}
+                          onChange={(e) => updateItem(tx._id, { date: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={tx.amount ?? 0}
+                          onChange={(e) => updateItem(tx._id, { amount: parseFloat(e.target.value) || 0 })}
+                          className="h-8 text-xs"
+                        />
+                        <Select value={tx.type} onValueChange={(v) => updateItem(tx._id, { type: v })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="income">Receita</SelectItem>
+                            <SelectItem value="expense">Despesa</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{tx.description}</p>
-                    <p className="text-xs text-muted-foreground">{tx.date}</p>
-                  </div>
-                  <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                    {tx.type === 'income' ? '+' : '-'}R$ {Number(tx.amount).toFixed(2)}
-                  </span>
                 </div>
               ))}
             </div>
