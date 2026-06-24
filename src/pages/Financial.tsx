@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  DollarSign, TrendingUp, TrendingDown, Clock, Plus, Upload, Filter,
+  DollarSign, TrendingUp, TrendingDown, Clock, Plus, Upload, Filter, Pencil,
   CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, FileText, Sparkles,
   Building2, User as UserIcon,
 } from 'lucide-react';
@@ -498,7 +498,16 @@ export default function Financial() {
 
         {importedTxs.length > 0 && (
           <TabsContent value="review" className="space-y-4">
-            <ReviewImportedTransactions transactions={importedTxs} onComplete={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
+            <ReviewImportedTransactions
+              transactions={importedTxs}
+              clinicId={currentClinicId ?? null}
+              onComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ['imported-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-chart-6m'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+              }}
+            />
           </TabsContent>
         )}
 
@@ -527,7 +536,11 @@ export default function Financial() {
           queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
         }}
       />
-      <ImportStatementDialog open={showImport} onOpenChange={setShowImport} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
+      <ImportStatementDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })}
+      />
     </div>
   );
 }
@@ -665,6 +678,14 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<any[]>([]);
   const [step, setStep] = useState<'upload' | 'review'>('upload');
+  const [dragOver, setDragOver] = useState(false);
+
+  const acceptFile = (f: File | null | undefined) => {
+    if (!f) return;
+    const ok = f.type.startsWith('image/') || f.type === 'application/pdf' || /\.(png|jpe?g|pdf)$/i.test(f.name);
+    if (!ok) { toast.error('Envie uma imagem (PNG/JPG) ou PDF.'); return; }
+    setFile(f);
+  };
 
   const handleUpload = async () => {
     if (!file || !user) return;
@@ -735,6 +756,10 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
     setParsed((prev) => prev.map((t) => t._id === id ? { ...t, _selected: !t._selected } : t));
   };
 
+  const updateItem = (id: number, patch: Partial<any>) => {
+    setParsed((prev) => prev.map((t) => t._id === id ? { ...t, ...patch } : t));
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setStep('upload'); setParsed([]); setFile(null); } }}>
       <DialogContent className="max-w-lg">
@@ -750,17 +775,30 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
             <p className="text-sm text-muted-foreground">
               Envie uma imagem ou PDF do extrato bancário. A IA vai extrair as transações para revisão manual.
             </p>
-            <div className="border-2 border-dashed border-border rounded-xl p-8 text-center">
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                acceptFile(e.dataTransfer.files?.[0]);
+              }}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                dragOver ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
               <input
                 type="file"
                 accept="image/*,.pdf"
                 className="hidden"
                 id="statement-upload"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => acceptFile(e.target.files?.[0])}
               />
               <label htmlFor="statement-upload" className="cursor-pointer">
                 <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-medium text-foreground">{file ? file.name : 'Clique para selecionar o arquivo'}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {file ? file.name : (dragOver ? 'Solte o arquivo aqui' : 'Arraste o arquivo ou clique para selecionar')}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou PDF</p>
               </label>
             </div>
@@ -783,25 +821,54 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
             <p className="text-sm text-muted-foreground">
               A IA encontrou {parsed.length} transações. Revise e desmarque as que não deseja importar.
             </p>
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <p className="text-xs text-muted-foreground">Dica: clique nos campos para corrigir o que a IA errou.</p>
+            <div className="max-h-80 overflow-y-auto space-y-2">
               {parsed.map((tx) => (
                 <div
                   key={tx._id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                  className={`p-3 rounded-lg border transition-colors ${
                     tx._selected ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/20 opacity-60'
                   }`}
-                  onClick={() => toggleItem(tx._id)}
                 >
-                  <div className={`h-5 w-5 rounded border-2 flex items-center justify-center ${tx._selected ? 'border-primary bg-primary' : 'border-border'}`}>
-                    {tx._selected && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleItem(tx._id)}
+                      className={`mt-1 h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center ${tx._selected ? 'border-primary bg-primary' : 'border-border'}`}
+                    >
+                      {tx._selected && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <Input
+                        value={tx.description ?? ''}
+                        onChange={(e) => updateItem(tx._id, { description: e.target.value })}
+                        placeholder="Descrição"
+                        className="h-8 text-sm"
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input
+                          type="date"
+                          value={tx.date ?? ''}
+                          onChange={(e) => updateItem(tx._id, { date: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={tx.amount ?? 0}
+                          onChange={(e) => updateItem(tx._id, { amount: parseFloat(e.target.value) || 0 })}
+                          className="h-8 text-xs"
+                        />
+                        <Select value={tx.type} onValueChange={(v) => updateItem(tx._id, { type: v })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="income">Receita</SelectItem>
+                            <SelectItem value="expense">Despesa</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{tx.description}</p>
-                    <p className="text-xs text-muted-foreground">{tx.date}</p>
-                  </div>
-                  <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                    {tx.type === 'income' ? '+' : '-'}R$ {Number(tx.amount).toFixed(2)}
-                  </span>
                 </div>
               ))}
             </div>
@@ -822,28 +889,71 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
 }
 
 // ---- Review Imported Transactions ----
-function ReviewImportedTransactions({ transactions, onComplete }: { transactions: any[]; onComplete: () => void }) {
+function ReviewImportedTransactions({ transactions, onComplete, clinicId }: { transactions: any[]; onComplete: () => void; clinicId: string | null }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [approvingAll, setApprovingAll] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<any>({});
+
+  const buildFinancialRow = (tx: any) => ({
+    type: tx.type,
+    category: tx.category || 'imported',
+    description: tx.description,
+    amount: tx.amount,
+    due_date: tx.transaction_date,
+    status: 'paid',
+    paid_date: tx.transaction_date,
+    dentist_id: user?.id,
+    clinic_id: clinicId ?? null,
+    approval_status: 'approved',
+    approval_decided_by: user?.id,
+    approval_decided_at: new Date().toISOString(),
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+    queryClient.invalidateQueries({ queryKey: ['financial-chart-6m'] });
+    queryClient.invalidateQueries({ queryKey: ['financial-awaiting-approval'] });
+    queryClient.invalidateQueries({ queryKey: ['imported-transactions'] });
+  };
+
+  const startEdit = (tx: any) => {
+    setEditingId(tx.id);
+    setDraft({
+      description: tx.description ?? '',
+      amount: tx.amount,
+      transaction_date: tx.transaction_date,
+      type: tx.type,
+    });
+  };
+
+  const saveEdit = async (tx: any) => {
+    try {
+      const { error } = await supabase.from('imported_transactions').update({
+        description: draft.description,
+        amount: Number(draft.amount) || 0,
+        transaction_date: draft.transaction_date,
+        type: draft.type,
+      }).eq('id', tx.id);
+      if (error) throw error;
+      setEditingId(null);
+      toast.success('Atualizado');
+      onComplete();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const approveTransaction = async (tx: any) => {
     if (!user) return;
     try {
-      await supabase.from('financial_transactions').insert({
-        type: tx.type,
-        category: tx.category || 'imported',
-        description: tx.description,
-        amount: tx.amount,
-        due_date: tx.transaction_date,
-        status: 'paid',
-        paid_date: tx.transaction_date,
-        dentist_id: user.id,
-      });
+      const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
+      if (insErr) throw insErr;
       await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       toast.success('Transação aprovada!');
+      invalidateAll();
       onComplete();
-      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -864,16 +974,8 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
     let failed = 0;
     for (const tx of transactions) {
       try {
-        await supabase.from('financial_transactions').insert({
-          type: tx.type,
-          category: tx.category || 'imported',
-          description: tx.description,
-          amount: tx.amount,
-          due_date: tx.transaction_date,
-          status: 'paid',
-          paid_date: tx.transaction_date,
-          dentist_id: user?.id,
-        });
+        const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
+        if (insErr) throw insErr;
         await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       } catch {
         failed++;
@@ -884,7 +986,7 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
     const succeeded = transactions.length - failed;
     if (succeeded > 0) {
       toast.success(`${succeeded} transação(ões) aprovadas`);
-      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      invalidateAll();
       onComplete();
     }
   };
@@ -892,7 +994,10 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{transactions.length} transações aguardando revisão</p>
+        <p className="text-sm text-muted-foreground">
+          {transactions.length} transações aguardando revisão
+          {clinicId ? '' : ' (serão lançadas no contexto Pessoal)'}
+        </p>
         <Button size="sm" onClick={approveAll} disabled={approvingAll} className="gap-2">
           <CheckCircle2 className="h-4 w-4" />
           {approvingAll ? 'Aprovando…' : 'Aprovar Todas'}
@@ -901,26 +1006,66 @@ function ReviewImportedTransactions({ transactions, onComplete }: { transactions
       <div className="space-y-2">
         {transactions.map((tx: any) => (
           <Card key={tx.id} className="shadow-card border-border/50 p-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">{tx.description}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-muted-foreground">{format(parseISO(tx.transaction_date), 'dd/MM/yyyy')}</span>
-                  <Badge variant="outline" className="text-xs">{tx.type === 'income' ? 'Receita' : 'Despesa'}</Badge>
+            {editingId === tx.id ? (
+              <div className="space-y-2">
+                <Input
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  placeholder="Descrição"
+                  className="h-8 text-sm"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    type="date"
+                    value={draft.transaction_date}
+                    onChange={(e) => setDraft({ ...draft, transaction_date: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={draft.amount}
+                    onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Select value={draft.type} onValueChange={(v) => setDraft({ ...draft, type: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="income">Receita</SelectItem>
+                      <SelectItem value="expense">Despesa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancelar</Button>
+                  <Button size="sm" onClick={() => saveEdit(tx)}>Salvar</Button>
                 </div>
               </div>
-              <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                R$ {Number(tx.amount).toFixed(2)}
-              </span>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-success hover:bg-success/10" onClick={() => approveTransaction(tx)}>
-                  <CheckCircle2 className="h-4 w-4" />
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{tx.description}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-xs text-muted-foreground">{format(parseISO(tx.transaction_date), 'dd/MM/yyyy')}</span>
+                    <Badge variant="outline" className="text-xs">{tx.type === 'income' ? 'Receita' : 'Despesa'}</Badge>
+                  </div>
+                </div>
+                <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                  R$ {Number(tx.amount).toFixed(2)}
+                </span>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEdit(tx)} title="Editar">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-success hover:bg-success/10" onClick={() => approveTransaction(tx)}>
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => rejectTransaction(tx)}>
+                    <XCircle className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => rejectTransaction(tx)}>
-                  <XCircle className="h-4 w-4" />
-                </Button>
+                </div>
               </div>
-            </div>
+            )}
           </Card>
         ))}
       </div>
