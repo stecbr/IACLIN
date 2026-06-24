@@ -527,7 +527,11 @@ export default function Financial() {
           queryClient.invalidateQueries({ queryKey: ['patients-financial-status-bulk'] });
         }}
       />
-      <ImportStatementDialog open={showImport} onOpenChange={setShowImport} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })} />
+      <ImportStatementDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['imported-transactions'] })}
+      />
     </div>
   );
 }
