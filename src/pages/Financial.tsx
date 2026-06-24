@@ -762,7 +762,7 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setStep('upload'); setParsed([]); setFile(null); } }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -845,22 +845,22 @@ function ImportStatementDialog({ open, onOpenChange, onSuccess }: { open: boolea
                         placeholder="Descrição"
                         className="h-8 text-sm"
                       />
-                      <div className="grid grid-cols-3 gap-2">
+                       <div className="grid grid-cols-[160px_1fr_140px] gap-2">
                         <Input
                           type="date"
                           value={tx.date ?? ''}
                           onChange={(e) => updateItem(tx._id, { date: e.target.value })}
-                          className="h-8 text-xs"
+                          className="h-9 text-sm"
                         />
                         <Input
-                          type="number"
-                          step="0.01"
-                          value={tx.amount ?? 0}
-                          onChange={(e) => updateItem(tx._id, { amount: parseFloat(e.target.value) || 0 })}
-                          className="h-8 text-xs"
+                          inputMode="numeric"
+                          value={formatBRL(tx.amount ?? 0)}
+                          onChange={(e) => updateItem(tx._id, { amount: parseBRL(e.target.value) })}
+                          className="h-9 text-sm font-medium"
+                          placeholder="R$ 0,00"
                         />
                         <Select value={tx.type} onValueChange={(v) => updateItem(tx._id, { type: v })}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="income">Receita</SelectItem>
                             <SelectItem value="expense">Despesa</SelectItem>
