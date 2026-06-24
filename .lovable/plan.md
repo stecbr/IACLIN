@@ -1,23 +1,20 @@
-## Mudanças
+## Objetivo
+Quando o convite de funcionário falhar porque o e-mail já existe (HTTP 409 do edge function `invite-member`), mostrar um **modal claro** ao usuário em vez de deixar o erro estourar como runtime error / tela em branco.
 
-### 1. Remover status "Em Negociação" dos orçamentos
-Arquivo: `src/components/budgets/BudgetDetailDialog.tsx`
-- Remover a opção `{ value: 'negotiating', label: 'Em Negociação' }` da lista de status.
-- Remover a entrada `negotiating` do mapa de cores de status.
-- Remover o texto de aviso que menciona "Em negociação" (linha ~135) ou substituir por "Pendente".
+## Causa
+Em `src/components/settings/TeamSection.tsx` (`handleAdd`), o retorno de `supabase.functions.invoke('invite-member', …)` para status não-2xx vem como `FunctionsHttpError`, cujo `error.message` é genérico ("Edge function returned a non-2xx status code"). O corpo JSON com a mensagem real (`{ error: "Este e-mail já está cadastrado…" }`) fica em `error.context.response` e não é lido — por isso o toast traduzido nunca dispara e o erro aparece como runtime error.
 
-Arquivo: `src/components/budgets/BudgetCard.tsx`
-- Remover a entrada `negotiating: 'before:bg-blue-400'` do mapa de cores.
+## Mudanças (apenas frontend)
+Arquivo: `src/components/settings/TeamSection.tsx`
 
-Observação: o Kanban em `Budgets.tsx` já só usa `pending`, `approved`, `lost` — nada a mudar lá. Registros antigos com status `negotiating` (se existirem) continuam no banco mas caem no fallback "pending" do Kanban; não vamos migrar dados a menos que você peça.
+1. Adicionar estado `errorDialog` (`{ open, title, message }`) e renderizar um `<AlertDialog>` (shadcn) no final do componente para exibir o erro.
+2. Em `handleAdd`, no `catch`:
+   - Tentar extrair o body real do erro: `await err?.context?.response?.clone().json()` (com try/catch) e usar `body.error` quando existir.
+   - Aplicar a mesma tradução PT-BR já existente (e-mail duplicado, senha curta).
+   - Para o caso de **e-mail já cadastrado** → abrir o `AlertDialog` com título "E-mail já cadastrado" e a mensagem amigável (em vez de toast).
+   - Para os demais erros, manter `toast.error(friendly)` como hoje.
+3. Nenhuma alteração na edge function, no banco, ou em outros fluxos.
 
-### 2. Corrigir campo "Valor (R$)" mostrando "0120"
-Arquivo: `src/components/budgets/BudgetFormDialog.tsx`
-
-Causa: quando o procedimento selecionado tem `default_price = 0`, o autofill grava `"0"` no campo. Ao o usuário digitar `120` na frente, o input fica `"0120"`.
-
-Correção:
-- No autofill (linha ~190), só preencher `updated.price` quando `proc.default_price > 0`; caso contrário, deixar string vazia.
-- No `onChange` do input de preço, normalizar removendo zeros à esquerda (ex.: `value.replace(/^0+(?=\d)/, '')`) antes de salvar no state, preservando `""` e `"0"` isolado.
-
-Nenhuma outra alteração.
+## Fora de escopo
+- Não alterar `supabase/functions/invite-member/index.ts`.
+- Não mexer em outros convites (médico/operadora) — o relato é específico do botão "Adicionar funcionário".
