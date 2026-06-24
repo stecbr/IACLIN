@@ -32,6 +32,7 @@ import MyClinicsSection from '@/components/settings/MyClinicsSection';
 import DentistFinancialSection from '@/components/settings/DentistFinancialSection';
 import { aiBackend } from '@/lib/aiBackend';
 import { SmartAddressFields } from '@/components/address/SmartAddressFields';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function formatCnpj(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 14);
@@ -66,17 +67,38 @@ const allSections = [
 ];
 
 const STAFF_SECTIONS = ['profile', 'security', 'appearance'];
+const PERSONAL_IDS = ['profile', 'my-clinics', 'specialty', 'my-financial', 'security', 'appearance'];
+const CLINIC_IDS = ['clinic', 'team', 'rooms', 'insurance', 'procedures', 'payments', 'subscription'];
+type SettingsScope = 'personal' | 'clinic';
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
-  const { user, currentClinicId, clinicRole } = useAuth();
+  const { user, currentClinicId, clinicRole, isClinicOwner } = useAuth();
   const isStaff = (clinicRole as string) === 'secretary' || (clinicRole as string) === 'auxiliary';
-  const sections = isStaff ? allSections.filter((s) => STAFF_SECTIONS.includes(s.id)) : allSections;
-  // Permite abrir direto numa seção via ?section=insurance (usado pelos cards da IA)
-  const initialSection = sections.some((s) => s.id === searchParams.get('section'))
-    ? (searchParams.get('section') as string)
-    : 'profile';
-  const [activeSection, setActiveSection] = useState(initialSection);
+  const canManageClinic = !isStaff && (isClinicOwner || clinicRole === 'admin' || (clinicRole as string) === 'owner');
+  const showScopeToggle = canManageClinic;
+  const baseSections = isStaff ? allSections.filter((s) => STAFF_SECTIONS.includes(s.id)) : allSections;
+  const requested = searchParams.get('section');
+  const requestedValid = requested && baseSections.some((s) => s.id === requested) ? requested : null;
+  const initialScope: SettingsScope =
+    requestedValid && CLINIC_IDS.includes(requestedValid) && canManageClinic ? 'clinic' : 'personal';
+  const [scope, setScope] = useState<SettingsScope>(initialScope);
+  const [activeSection, setActiveSection] = useState(requestedValid ?? 'profile');
+  const scopeIds = scope === 'clinic' ? CLINIC_IDS : PERSONAL_IDS;
+  const sections = baseSections.filter((s) => (showScopeToggle ? scopeIds.includes(s.id) : true));
+  const handleScopeChange = (next: SettingsScope) => {
+    setScope(next);
+    const ids = next === 'clinic' ? CLINIC_IDS : PERSONAL_IDS;
+    const first = baseSections.find((s) => ids.includes(s.id));
+    if (first) setActiveSection(first.id);
+  };
+  const goToSection = (id: string) => {
+    if (showScopeToggle) {
+      if (CLINIC_IDS.includes(id)) setScope('clinic');
+      else if (PERSONAL_IDS.includes(id)) setScope('personal');
+    }
+    setActiveSection(id);
+  };
   const [needsSpecialty, setNeedsSpecialty] = useState(false);
 
   useEffect(() => {
@@ -112,10 +134,22 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações" description="Dados pessoais, da clínica e preferências." />
+      {showScopeToggle && (
+        <Tabs value={scope} onValueChange={(v) => handleScopeChange(v as SettingsScope)}>
+          <TabsList className="grid w-full max-w-xs grid-cols-2">
+            <TabsTrigger value="personal" className="gap-2">
+              <User className="h-4 w-4" /> Pessoal
+            </TabsTrigger>
+            <TabsTrigger value="clinic" className="gap-2">
+              <Building2 className="h-4 w-4" /> Clínica
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
       {needsSpecialty && activeSection !== 'specialty' && (
         <button
           type="button"
-          onClick={() => setActiveSection('specialty')}
+          onClick={() => goToSection('specialty')}
           className="w-full flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 text-left hover:bg-warning/15 transition-colors"
         >
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-warning" />
@@ -132,7 +166,7 @@ export default function SettingsPage() {
           {sections.filter((s) => s.id !== 'my-financial' || clinicRole === 'dentist').map((s) => (
             <button
               key={s.id}
-              onClick={() => setActiveSection(s.id)}
+              onClick={() => goToSection(s.id)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 activeSection === s.id
                   ? 'bg-primary/10 text-primary font-medium'
