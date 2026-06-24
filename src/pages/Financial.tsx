@@ -973,12 +973,19 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId, period
   const approveTransaction = async (tx: any) => {
     if (!user) return;
     try {
-      const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
+      // Sempre busca a versão mais recente do banco para não inserir dado obsoleto
+      const { data: fresh } = await supabase
+        .from('imported_transactions')
+        .select('*')
+        .eq('id', tx.id)
+        .maybeSingle();
+      const source = fresh ?? tx;
+      const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(source));
       if (insErr) throw insErr;
       await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
       toast.success('Transação aprovada!');
       invalidateAll();
-      if (isOutOfRange(tx.transaction_date)) onApprovedOutOfRange?.();
+      if (isOutOfRange(source.transaction_date)) onApprovedOutOfRange?.();
       onComplete();
     } catch (err: any) {
       toast.error(err.message);
@@ -1001,10 +1008,16 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId, period
     let outOfRange = 0;
     for (const tx of transactions) {
       try {
-        const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(tx));
+        const { data: fresh } = await supabase
+          .from('imported_transactions')
+          .select('*')
+          .eq('id', tx.id)
+          .maybeSingle();
+        const source = fresh ?? tx;
+        const { error: insErr } = await supabase.from('financial_transactions').insert(buildFinancialRow(source));
         if (insErr) throw insErr;
         await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
-        if (isOutOfRange(tx.transaction_date)) outOfRange++;
+        if (isOutOfRange(source.transaction_date)) outOfRange++;
       } catch {
         failed++;
       }
@@ -1017,6 +1030,36 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId, period
       invalidateAll();
       if (outOfRange > 0) onApprovedOutOfRange?.();
       onComplete();
+    }
+  };
+
+  const saveAndApprove = async (tx: any) => {
+    if (!user) return;
+    try {
+      const updated = {
+        description: draft.description,
+        amount: Number(draft.amount) || 0,
+        transaction_date: draft.transaction_date,
+        type: draft.type,
+      };
+      const { error: updErr } = await supabase
+        .from('imported_transactions')
+        .update(updated)
+        .eq('id', tx.id);
+      if (updErr) throw updErr;
+      const merged = { ...tx, ...updated };
+      const { error: insErr } = await supabase
+        .from('financial_transactions')
+        .insert(buildFinancialRow(merged));
+      if (insErr) throw insErr;
+      await supabase.from('imported_transactions').update({ status: 'approved' }).eq('id', tx.id);
+      setEditingId(null);
+      toast.success('Transação aprovada!');
+      invalidateAll();
+      if (isOutOfRange(merged.transaction_date)) onApprovedOutOfRange?.();
+      onComplete();
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
