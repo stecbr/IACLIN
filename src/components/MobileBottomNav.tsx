@@ -37,6 +37,7 @@ export function MobileBottomNav() {
   const dynamicMap = isDentist ? getMapForSpecialty(memberSpecialty) : null;
   const familyConfig = isDentist ? getFamilyConfig(memberSpecialty) : null;
   const isPsi = familyConfig?.family === 'psi';
+  const showBudgets = familyConfig?.showBudgets ?? false;
 
   const allMainItems = isDentist
     ? [
@@ -55,7 +56,7 @@ export function MobileBottomNav() {
   const allMoreItems = isDentist
     ? [
         { title: 'Ferramentas', url: '/ferramentas', icon: isPsi ? Brain : Briefcase },
-        ...(isPsi ? [] : [{ title: 'Orçamentos', url: '/budgets', icon: ClipboardList }]),
+        ...(showBudgets ? [{ title: 'Orçamentos', url: '/budgets', icon: ClipboardList }] : []),
       ]
     : [
         { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen },

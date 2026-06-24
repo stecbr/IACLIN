@@ -240,10 +240,14 @@ export default function DentistHome() {
 
   const baseKpis = [
     { title: `${apptCapPlural} Hoje`, value: todayApts.length, desc: 'na sua agenda', icon: Calendar, gradient: 'bg-gradient-to-br from-indigo-500 to-indigo-700' },
-    { title: 'Sessões de Hoje', value: completedToday, desc: `de ${todayApts.length} agendadas`, icon: CheckCircle2, gradient: 'bg-gradient-to-br from-emerald-500 to-emerald-700', click: () => setSessionsOpen(true) },
+    { title: `${apptCapPlural} Concluídos Hoje`, value: completedToday, desc: `de ${todayApts.length} agendados`, icon: CheckCircle2, gradient: 'bg-gradient-to-br from-emerald-500 to-emerald-700', click: () => setSessionsOpen(true) },
     { title: `${apptCapPlural} no Mês`, value: kpis.completed, desc: `de ${kpis.total} agendados`, icon: family.icon, gradient: 'bg-gradient-to-br from-blue-500 to-blue-700' },
     { title: 'Pacientes Únicos', value: kpis.uniquePatients, desc: 'atendidos este mês', icon: Users, gradient: 'bg-gradient-to-br from-violet-500 to-violet-700' },
-    { title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, gradient: 'bg-gradient-to-br from-amber-500 to-amber-600' },
+    // Só exibe "Planos Abertos" quando a família profissional usa orçamentos
+    // (odonto / estética). Médicos, fisios, podólogos etc. não veem este card.
+    ...(family.showBudgets
+      ? [{ title: 'Planos Abertos', value: openPlans, desc: 'aguardando decisão', icon: ClipboardList, gradient: 'bg-gradient-to-br from-amber-500 to-amber-600' }]
+      : []),
   ] as any[];
 
   const ownerKpis = isClinicOwner ? [
@@ -264,7 +268,7 @@ export default function DentistHome() {
       <SoloModeBanner />
 
       {/* ── KPIs ────────────────────────────────────────────────────── */}
-      <div className={`grid gap-4 sm:grid-cols-2 ${isClinicOwner ? 'lg:grid-cols-3 xl:grid-cols-7' : 'lg:grid-cols-5'}`}>
+      <div className={`grid gap-4 sm:grid-cols-2 ${isClinicOwner ? 'lg:grid-cols-3 xl:grid-cols-7' : `lg:grid-cols-${baseKpis.length}`}`}>
         {kpiCards.map((kpi, i) => (
           <Card
             key={kpi.title}
@@ -457,7 +461,7 @@ export default function DentistHome() {
 
       <Dialog open={sessionsOpen} onOpenChange={setSessionsOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Sessões de hoje</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{apptCapPlural} concluídos hoje</DialogTitle></DialogHeader>
           {todayApts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma sessão hoje</p>
           ) : (

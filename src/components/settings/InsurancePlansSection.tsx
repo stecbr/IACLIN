@@ -129,8 +129,10 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
     // tenta inferir operadora do nome atual ("Unimed — Unimed Nacional" não é o padrão; nome é só o plano)
     return '';
   });
+  const { clinicCategory } = useAuth();
+  const defaultPlanType = clinicCategory === 'odonto' ? 'dental' : 'health';
   const [planName, setPlanName] = useState<string>(plan?.name ?? '');
-  const [planType, setPlanType] = useState<string>(plan?.type ?? 'dental');
+  const [planType, setPlanType] = useState<string>(plan?.type ?? defaultPlanType);
   const [ansCode, setAnsCode] = useState<string>(plan?.ans_code ?? '');
   const [isActive, setIsActive] = useState<boolean>(plan?.is_active ?? true);
 
@@ -153,7 +155,7 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
     setPlanName(pl);
     const match = catalog.find((c: any) => c.operator_name === op && c.plan_name === pl);
     if (match) {
-      setPlanType(match.type ?? 'dental');
+      setPlanType(match.type ?? defaultPlanType);
       setAnsCode(match.ans_code ?? '');
     }
   };

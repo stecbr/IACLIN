@@ -89,9 +89,12 @@ export async function buildAttendanceHtml(data: AttendancePdfData): Promise<stri
     ? `<ul>${(record.hypotheses ?? []).map((h) => `<li>${strip(h.text)}${h.cid ? ` <span class="muted">(${h.cid})</span>` : ''}</li>`).join('')}</ul>`
     : '<p class="empty">Não informado</p>';
 
+  // Só exibe a coluna "Dente" se algum procedimento tiver número de dente
+  // registrado — evita coluna vazia em prontuários médicos/fisio/etc.
+  const showTooth = (record.procedures ?? []).some((p) => p.tooth != null && p.tooth !== '');
   const procsHtml = (record.procedures ?? []).length
-    ? `<table><thead><tr><th>Procedimento</th><th>Dente</th><th>Obs</th><th class="r">Valor</th></tr></thead><tbody>${record.procedures!
-        .map((p) => `<tr><td>${strip(p.name)}</td><td>${p.tooth ?? '—'}</td><td>${strip(p.notes) || '—'}</td><td class="r">${formatCurrency(Number(p.price ?? 0))}</td></tr>`)
+    ? `<table><thead><tr><th>Procedimento</th>${showTooth ? '<th>Dente</th>' : ''}<th>Obs</th><th class="r">Valor</th></tr></thead><tbody>${record.procedures!
+        .map((p) => `<tr><td>${strip(p.name)}</td>${showTooth ? `<td>${p.tooth ?? '—'}</td>` : ''}<td>${strip(p.notes) || '—'}</td><td class="r">${formatCurrency(Number(p.price ?? 0))}</td></tr>`)
         .join('')}</tbody></table>`
     : '<p class="empty">Nenhum procedimento</p>';
 
