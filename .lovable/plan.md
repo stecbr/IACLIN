@@ -1,42 +1,35 @@
-## Objetivo
-Separar visualmente as configurações **Pessoais** das configurações da **Clínica** em `/settings`, usando um toggle no topo da página.
+## Diagnóstico
 
-## Mudanças (apenas UI em `src/pages/SettingsPage.tsx`)
+Verifiquei o banco e o código do fluxo de Revisão IA. O que está acontecendo:
 
-### 1. Toggle no topo
-Adicionar um toggle estilo segmentado (Tabs/ToggleGroup do shadcn) logo abaixo do `PageHeader`, com duas opções:
-- **Pessoal** (padrão quando o usuário não é admin/owner)
-- **Clínica** (padrão para admin/owner)
+- Todas as transações importadas aprovadas no banco hoje continuam com `transaction_date = 2019-07-10` (data original do extrato). Nenhuma transação aprovada com 23/06 existe.
+- Provável causa: ao editar a data no card e clicar direto no ✓ verde (Aprovar), o app **não usa o valor editado**. Em modo de edição só aparecem "Cancelar" e "Salvar"; se o usuário pular o Salvar e clicar Aprovar fora do modo edição, o `approveTransaction(tx)` recebe o `tx` do estado anterior (antes do refetch) e insere com a data antiga.
+- Além disso, se o usuário clica Salvar e logo em seguida Aprovar muito rápido, há uma corrida (refetch em background) e a aprovação pode usar dados desatualizados em cache.
 
-### 2. Agrupamento das seções
-Dividir o array `allSections` em dois grupos:
+## Plano de correção (somente UI em `src/pages/Financial.tsx`, função `ReviewImportedTransactions`)
 
-**Pessoal** (dados do usuário):
-- Meu Perfil
-- Clínicas Vinculadas
-- Especialidades
-- Meu Financeiro (apenas dentista)
-- Segurança
-- Aparência
+### 1. Approve sempre usa dado fresco do banco
+Em `approveTransaction`:
+- Antes de inserir em `financial_transactions`, fazer `SELECT * FROM imported_transactions WHERE id = tx.id` para pegar o registro atualizado (descrição, valor, data, tipo) e só então montar `buildFinancialRow`.
+- Mesmo tratamento dentro do loop `approveAll`.
 
-**Clínica** (gestão da clínica — visível só para admin/owner):
-- Minha Clínica
-- Equipe
-- Salas
-- Convênios
-- Procedimentos
-- Recebimentos
-- Assinatura
+### 2. Botão "Salvar e Aprovar" no modo edição
+No formulário inline (quando `editingId === tx.id`), adicionar três botões:
+- **Cancelar**
+- **Salvar** (apenas persiste)
+- **Salvar e Aprovar** (persiste com `draft` e em seguida insere em `financial_transactions` usando os mesmos valores do draft — sem depender de refetch)
 
-### 3. Comportamento
-- A sidebar lateral (nav) passa a listar apenas as seções do grupo ativo do toggle.
-- Ao trocar de grupo, seleciona automaticamente a primeira seção daquele grupo.
-- Staff (`secretary`/`auxiliary`) continua vendo apenas Perfil/Segurança/Aparência → o toggle fica oculto (não faz sentido).
-- Dentistas sem permissão de admin não veem o lado "Clínica" → toggle oculto também.
-- Deep-link `?section=...` continua funcionando: detecta a qual grupo pertence e ativa o toggle correspondente.
-- O aviso "Defina sua especialidade" continua funcionando (a seção pertence ao grupo Pessoal).
+Assim o usuário consegue editar a data para 23/06 e aprovar em um único clique.
 
-### Detalhes técnicos
-- Sem mudanças de backend, schema ou RLS.
-- Sem mexer nas seções em si — apenas no agrupamento/navegação de `SettingsPage.tsx`.
-- Usar `Tabs` (shadcn) ou `ToggleGroup` com estilo iOS-minimal alinhado ao restante do app.
+### 3. Indicação visual de edições não salvas
+Se `editingId === tx.id`, ocultar os botões de Aprovar/Rejeitar de fora do card de edição (já está), mas adicionar um pequeno aviso "Edição não salva" caso o usuário tente sair do modo edição (mantém-se simples: o próprio botão "Salvar e Aprovar" elimina o atrito).
+
+### 4. Manter o auto-switch para "Todos os períodos"
+Já implementado — preservar. A diferença agora é que, com a correção do item 1/2, a transação aprovada terá a data correta (23/06) e aparecerá no "Mês Atual" sem precisar trocar filtro.
+
+### 5. Nenhuma mudança de backend
+- Sem migrações, sem mudanças em RLS, sem triggers.
+- Apenas leitura adicional em `imported_transactions` antes da inserção.
+
+## Arquivos afetados
+- `src/pages/Financial.tsx` (apenas o componente `ReviewImportedTransactions`)
