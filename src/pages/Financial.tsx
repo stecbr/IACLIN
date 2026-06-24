@@ -58,6 +58,7 @@ export default function Financial() {
     if (periodFilter === 'current') return { start: startOfMonth(now), end: endOfMonth(now) };
     if (periodFilter === 'last') return { start: startOfMonth(subMonths(now, 1)), end: endOfMonth(subMonths(now, 1)) };
     if (periodFilter === 'last3') return { start: startOfMonth(subMonths(now, 2)), end: endOfMonth(now) };
+    if (periodFilter === 'all') return { start: new Date(2000, 0, 1), end: new Date(2100, 0, 1) };
     return { start: startOfMonth(subMonths(now, 5)), end: endOfMonth(now) };
   };
   const period = getPeriodRange();
@@ -365,6 +366,7 @@ export default function Financial() {
                 <SelectItem value="last">Mês Anterior</SelectItem>
                 <SelectItem value="last3">Últimos 3 Meses</SelectItem>
                 <SelectItem value="last6">Últimos 6 Meses</SelectItem>
+                <SelectItem value="all">Todos os períodos</SelectItem>
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
