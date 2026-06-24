@@ -141,15 +141,23 @@ export default function TeamSection() {
     }
 
     if (error) {
-      let backendMsg: string | null = null;
-      try {
-        const resp = (error as any)?.context?.response;
-        if (resp && typeof resp.clone === 'function') {
-          const body = await resp.clone().json();
-          if (body?.error) backendMsg = body.error;
-        }
-      } catch { /* ignore */ }
-      handleFailure(backendMsg ?? error?.message ?? '');
+      handleFailure('Não foi possível adicionar o funcionário. Tente novamente.');
+      setSaving(false);
+      return;
+    }
+
+    if (data?.ok === false) {
+      const code = String(data.code ?? '');
+      const message = String(data.error ?? 'Erro ao adicionar funcionário.');
+      if (code === 'email_exists') {
+        setErrorDialog({
+          open: true,
+          title: 'E-mail já cadastrado',
+          message,
+        });
+      } else {
+        handleFailure(message);
+      }
       setSaving(false);
       return;
     }

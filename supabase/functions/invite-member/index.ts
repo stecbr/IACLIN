@@ -5,6 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const jsonResponse = (payload: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const handledError = (code: string, error: string) =>
+  jsonResponse({ ok: false, code, error });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -14,10 +23,7 @@ Deno.serve(async (req) => {
     // Validate auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,10 +37,7 @@ Deno.serve(async (req) => {
 
     const { data: { user: caller }, error: userError } = await userClient.auth.getUser();
     if (userError || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
     const callerId = caller.id;
 
@@ -46,24 +49,15 @@ Deno.serve(async (req) => {
     const { role, clinic_id, specialty, registration_number } = body;
 
     if (!email || !full_name || !password || !role || !clinic_id) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return handledError("missing_fields", "Preencha todos os campos obrigatórios.");
     }
 
     if (password.length < 6) {
-      return new Response(JSON.stringify({ error: "A senha precisa ter ao menos 6 caracteres." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return handledError("weak_password", "A senha precisa ter ao menos 6 caracteres.");
     }
 
     if (!["dentist", "secretary", "auxiliary"].includes(role)) {
-      return new Response(JSON.stringify({ error: "Invalid role" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return handledError("invalid_role", "Papel de funcionário inválido.");
     }
 
     // Verify caller is owner of the clinic
@@ -78,10 +72,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!ownerCheck) {
-      return new Response(JSON.stringify({ error: "Only clinic owners can add members" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return handledError("forbidden", "Apenas o dono da clínica pode adicionar funcionários.");
     }
 
     // Check if a user with this email already exists (paginate to avoid missing it on large bases)
@@ -97,12 +88,10 @@ Deno.serve(async (req) => {
       if (users.length < 200) break;
     }
     if (emailAlreadyExists) {
-      return new Response(JSON.stringify({
-        error: "Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.",
-      }), {
-        status: 409,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return handledError(
+        "email_exists",
+        "Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.",
+      );
     }
 
     // Create user via admin API
@@ -121,10 +110,12 @@ Deno.serve(async (req) => {
           : /password.*(at least|short|weak)/i.test(raw)
             ? "A senha precisa ter ao menos 6 caracteres."
             : raw || "Não foi possível criar o usuário.";
-      return new Response(JSON.stringify({ error: friendly }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const code = /already been registered|email_exists/i.test(raw)
+        ? "email_exists"
+        : /password.*(at least|short|weak)/i.test(raw)
+          ? "weak_password"
+          : "create_failed";
+      return handledError(code, friendly);
     }
 
     const newUserId = newUser.user.id;
@@ -151,20 +142,11 @@ Deno.serve(async (req) => {
 
     if (profileRes.error || memberRes.error || roleRes.error) {
       const err = profileRes.error?.message || memberRes.error?.message || roleRes.error?.message;
-      return new Response(JSON.stringify({ error: `User created but linking failed: ${err}` }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: `User created but linking failed: ${err}` }, 500);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, user_id: newUserId }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ ok: true, success: true, user_id: newUserId });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: (err as Error).message }, 500);
   }
 });

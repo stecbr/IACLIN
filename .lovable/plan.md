@@ -1,67 +1,71 @@
-## Problema
+## Por que ainda não funcionou
 
-Ao tentar cadastrar um e-mail já existente, o modal de erro amigável ("E-mail já cadastrado") não aparece — em vez disso aparece o overlay vermelho de erro de runtime do ambiente de preview do Lovable ("The app encountered an error / Edge Function returned a non-2xx status code").
+Mesmo trocando o `throw` por fluxo linear, o overlay vermelho continua aparecendo porque o **próprio `supabase-js`** chama `console.error("Edge Function returned a non-2xx status code")` **dentro da lib**, antes do nosso código rodar. O overlay de runtime do preview do Lovable escuta `console.error` e abre a tela vermelha — não há como suprimir isso pelo cliente quando a edge function responde com status `409` / `4xx`.
 
-## Causa raiz
+A única forma confiável de eliminar o overlay é **não retornar status de erro** da edge function nesse caso esperado.
 
-No `handleAdd` de `src/components/settings/TeamSection.tsx` fazemos:
+## Plano de correção (padrão fallback)
+
+### 1. Edge function `supabase/functions/invite-member/index.ts`
+
+Trocar a resposta de erro de "e-mail duplicado" (e dos outros erros de validação que o usuário pode acionar) de `4xx` para **`200`** com payload estruturado:
+
+```json
+{ "ok": false, "error": "Este e-mail já está cadastrado...", "code": "email_exists" }
+```
+
+Casos a converter para `200 + ok:false`:
+- E-mail já cadastrado (hoje 409) → `code: "email_exists"`
+- Senha curta (hoje 400) → `code: "weak_password"`
+- Campos faltando (hoje 400) → `code: "missing_fields"`
+- `role` inválido (hoje 400) → `code: "invalid_role"`
+- Erro do `createUser` do auth admin (hoje 400) → `code: "create_failed"`
+
+Mantém `4xx`/`5xx` apenas para erros realmente inesperados / não autorizados:
+- `401 Unauthorized` (sem token / token inválido) — não é fluxo de UI.
+- `403` (não é dono da clínica) — pode também virar `200 + ok:false, code:"forbidden"` para consistência. (Vou converter também, pra zerar o overlay.)
+- `500` no `catch` final permanece (bug inesperado).
+
+Sucesso continua `200` com `{ ok: true, user_id }`.
+
+### 2. Cliente `src/components/settings/TeamSection.tsx`
+
+Em `handleAdd`, após `supabase.functions.invoke(...)`:
 
 ```ts
-const { data, error } = await supabase.functions.invoke(...)
-if (error) throw error;
-```
+const { data, error } = await supabase.functions.invoke('invite-member', { body: {...} });
 
-O `supabase-js` (ao receber um status non-2xx como 409) constrói um `FunctionsHttpError` e **loga ele no `console.error` automaticamente, dentro da própria lib**, antes mesmo do nosso `catch` rodar. O overlay de erro do preview do Lovable escuta `console.error`/erros não tratados e abre a tela vermelha — mesmo que nosso `catch` depois mostre o `AlertDialog`, o overlay fica por cima e o usuário só vê o erro feio.
-
-Além disso, o `throw error` dentro do `try` também é capturado pelo overlay em alguns casos.
-
-## Plano de correção (apenas frontend, 1 arquivo)
-
-Editar `src/components/settings/TeamSection.tsx` → função `handleAdd`:
-
-1. **Não usar mais `throw`.** Tratar `error` como dado, em fluxo linear, para o overlay não capturar nada.
-2. **Ler o corpo real da resposta** (`error.context.response.clone().json()`) ainda dentro do bloco normal (não em `catch`), pegando `body.error` quando existir.
-3. **Tratar todos os casos amigavelmente**:
-   - E-mail duplicado (`409` ou mensagem contendo "já está cadastrado" / "already been registered" / "email_exists") → abrir `AlertDialog` com título "E-mail já cadastrado".
-   - Senha curta → `toast.error("A senha precisa ter ao menos 6 caracteres.")`.
-   - Outros → `toast.error(msg)` com fallback genérico em PT-BR.
-4. **Manter o `AlertDialog` já adicionado** no JSX (sem mudanças).
-5. **Não alterar** a edge function, banco, nem outros fluxos.
-
-### Detalhe técnico (pseudo-código)
-
-```text
-const { data, error } = await supabase.functions.invoke('invite-member', { body });
-
-let backendMsg: string | null = null;
 if (error) {
-  try {
-    const resp = (error as any)?.context?.response;
-    if (resp?.clone) backendMsg = (await resp.clone().json())?.error ?? null;
-  } catch {}
-  const msg = backendMsg ?? error.message ?? 'Erro ao adicionar funcionário.';
-  const emailDup = /já está cadastrado|already been registered|email_exists/i.test(msg);
-  if (emailDup) {
-    setErrorDialog({ open: true, title: 'E-mail já cadastrado', message: '...' });
-  } else if (/at least 6|6 caracteres/i.test(msg)) {
-    toast.error('A senha precisa ter ao menos 6 caracteres.');
-  } else {
-    toast.error(msg);
-  }
-  return; // sem throw → overlay não dispara
+  // agora só cai aqui em 401/500 reais — mostra toast genérico
+  toast.error('Não foi possível adicionar o funcionário. Tente novamente.');
+  setSaving(false);
+  return;
 }
 
-if (data?.error) { /* mesmo tratamento */ return; }
+if (data && data.ok === false) {
+  const code = data.code as string | undefined;
+  const msg  = data.error as string | undefined;
+  if (code === 'email_exists') {
+    setErrorDialog({ open: true, title: 'E-mail já cadastrado', message: msg ?? '...' });
+  } else if (code === 'weak_password') {
+    toast.error('A senha precisa ter ao menos 6 caracteres.');
+  } else {
+    toast.error(msg ?? 'Erro ao adicionar funcionário.');
+  }
+  setSaving(false);
+  return;
+}
 
 // sucesso
-toast.success(...);
 ```
 
-## Observação importante para o usuário
+Como o status passa a ser `200`, o `supabase-js` **não loga mais nada** no `console.error` e o overlay vermelho do preview não dispara. O `AlertDialog` aparece corretamente, tanto no preview quanto no app publicado.
 
-O overlay vermelho "The app encountered an error" **só aparece no ambiente de edição/preview do Lovable**. Mesmo antes desta correção, no app publicado o usuário final não veria essa tela vermelha — veria o `AlertDialog` que eu já tinha adicionado. Esta correção garante que **nem no preview** o overlay apareça mais, deixando a experiência consistente nos dois ambientes.
+## Arquivos alterados
+
+1. `supabase/functions/invite-member/index.ts` — todos os erros de validação viram `200 + { ok:false, code, error }`.
+2. `src/components/settings/TeamSection.tsx` — `handleAdd` passa a ler `data.ok === false` em vez de depender de `error`.
 
 ## Fora de escopo
 
-- Não vou mexer na edge function `invite-member` (ela já retorna 409 + JSON correto).
-- Não vou tocar em RLS, banco ou outros formulários.
+- Nenhuma mudança em banco, RLS, outros componentes ou outras edge functions.
