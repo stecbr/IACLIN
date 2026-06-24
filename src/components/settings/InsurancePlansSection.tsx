@@ -11,9 +11,12 @@ import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Shield } from 'lucide-react';
+import { Plus, Pencil, Trash2, Shield, Check } from 'lucide-react';
 import { syncClinicConfig } from '@/hooks/useAiSync';
-import { InsurancePlanSelect } from '@/components/InsurancePlanSelect';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 export default function InsurancePlansSection() {
   const { currentClinicId } = useAuth();
