@@ -206,14 +206,6 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
               {planName ? `Selecionado: ${operator} — ${planName}` : 'Escolha o convênio. Tipo e ANS preenchem automaticamente.'}
             </p>
           </div>
-          {planName && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary" className="text-[10px]">
-                {planType === 'dental' ? 'Odontológico' : planType === 'health' ? 'Saúde' : 'Outro'}
-              </Badge>
-              {ansCode && <span>ANS {ansCode}</span>}
-            </div>
-          )}
           <div className="flex items-center gap-2">
             <Switch checked={isActive} onCheckedChange={setIsActive} />
             <Label className="text-sm">Ativo</Label>
