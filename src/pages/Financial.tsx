@@ -1110,7 +1110,10 @@ function ReviewImportedTransactions({ transactions, onComplete, clinicId, period
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancelar</Button>
-                  <Button size="sm" onClick={() => saveEdit(tx)}>Salvar</Button>
+                  <Button size="sm" variant="outline" onClick={() => saveEdit(tx)}>Salvar</Button>
+                  <Button size="sm" className="gap-1" onClick={() => saveAndApprove(tx)}>
+                    <CheckCircle2 className="h-4 w-4" /> Salvar e Aprovar
+                  </Button>
                 </div>
               </div>
             ) : (
