@@ -1,71 +1,59 @@
-## Por que ainda não funcionou
+## Problema
 
-Mesmo trocando o `throw` por fluxo linear, o overlay vermelho continua aparecendo porque o **próprio `supabase-js`** chama `console.error("Edge Function returned a non-2xx status code")` **dentro da lib**, antes do nosso código rodar. O overlay de runtime do preview do Lovable escuta `console.error` e abre a tela vermelha — não há como suprimir isso pelo cliente quando a edge function responde com status `409` / `4xx`.
+A confirmação do agendamento na tela "Confirmar consulta" demora alguns segundos porque a edge function `request-appointment` executa **9 queries sequenciais** ao banco antes de inserir o pedido — cada `await` espera o anterior terminar, somando latência desnecessária.
 
-A única forma confiável de eliminar o overlay é **não retornar status de erro** da edge function nesse caso esperado.
+Sequência atual (cada linha = 1 round-trip):
+1. `auth.getUser()`
+2. `patient_accounts` (dados do paciente)
+3. `profiles` (nome do dentista)
+4. `patients` (IDs do paciente)
+5. conflito: mesmo dia/mesmo dentista em `appointments`
+6. conflito: mesmo dia/mesmo dentista em `appointment_requests`
+7. conflito: overlap de horário do dentista em `appointments`
+8. conflito: overlap de horário do dentista em `appointment_requests`
+9. conflito: overlap do paciente com outro dentista em `appointments`
+10. conflito: overlap do paciente com outro dentista em `appointment_requests`
+11. `INSERT` em `appointment_requests`
 
-## Plano de correção (padrão fallback)
+A maioria dessas consultas é **independente** e pode rodar em paralelo.
 
-### 1. Edge function `supabase/functions/invite-member/index.ts`
+## Solução
 
-Trocar a resposta de erro de "e-mail duplicado" (e dos outros erros de validação que o usuário pode acionar) de `4xx` para **`200`** com payload estruturado:
+Refatorar `supabase/functions/request-appointment/index.ts` para executar em paralelo, mantendo exatamente a mesma lógica de validação e mensagens de conflito.
 
-```json
-{ "ok": false, "error": "Este e-mail já está cadastrado...", "code": "email_exists" }
-```
+### Fase 1 — lookups iniciais em paralelo
+Rodar com `Promise.all`:
+- `patient_accounts` (dados do paciente)
+- `profiles` (nome do dentista)
+- `patients` (IDs vinculados ao usuário)
 
-Casos a converter para `200 + ok:false`:
-- E-mail já cadastrado (hoje 409) → `code: "email_exists"`
-- Senha curta (hoje 400) → `code: "weak_password"`
-- Campos faltando (hoje 400) → `code: "missing_fields"`
-- `role` inválido (hoje 400) → `code: "invalid_role"`
-- Erro do `createUser` do auth admin (hoje 400) → `code: "create_failed"`
+Reduz 3 round-trips para 1.
 
-Mantém `4xx`/`5xx` apenas para erros realmente inesperados / não autorizados:
-- `401 Unauthorized` (sem token / token inválido) — não é fluxo de UI.
-- `403` (não é dono da clínica) — pode também virar `200 + ok:false, code:"forbidden"` para consistência. (Vou converter também, pra zerar o overlay.)
-- `500` no `catch` final permanece (bug inesperado).
+### Fase 2 — todas as 6 checagens de conflito em paralelo
+Disparar as 6 queries com `Promise.all` e depois avaliar os resultados na mesma ordem de prioridade de hoje (para preservar a mensagem exata que aparece pro usuário em caso de múltiplos conflitos):
 
-Sucesso continua `200` com `{ ok: true, user_id }`.
+1. patient_overlap_appointment (mesmo dentista, mesmo dia)
+2. patient_overlap_request (mesmo dentista, mesmo dia)
+3. doctor overlap em `appointments`
+4. doctor overlap em `appointment_requests`
+5. patient overlap com outro dentista em `appointments`
+6. patient overlap com outro dentista em `appointment_requests`
 
-### 2. Cliente `src/components/settings/TeamSection.tsx`
+Quando um conflito de paciente×outro-dentista (#5 ou #6) for detectado, ainda precisamos do nome do outro profissional → buscar `profiles.full_name` **apenas** se esse caminho for acionado (1 query extra só nesse caso, raro).
 
-Em `handleAdd`, após `supabase.functions.invoke(...)`:
+Reduz 6 round-trips para 1 (caminho feliz: nenhum conflito).
 
-```ts
-const { data, error } = await supabase.functions.invoke('invite-member', { body: {...} });
+### Fase 3 — replace + insert
+Mantém igual. O `cancel` do replace (quando aplicável) continua antes das checagens, porque elas dependem do `replaceGuard` para ignorar o registro substituído. Isso já é o comportamento atual e é correto.
 
-if (error) {
-  // agora só cai aqui em 401/500 reais — mostra toast genérico
-  toast.error('Não foi possível adicionar o funcionário. Tente novamente.');
-  setSaving(false);
-  return;
-}
+### Ganhos esperados
+- Caminho feliz: de ~10 round-trips sequenciais para ~3 (auth → lookups paralelos → checagens paralelas → insert).
+- Latência percebida no botão "Confirmar agendamento" deve cair de "alguns segundos" para sub-segundo em rede normal.
 
-if (data && data.ok === false) {
-  const code = data.code as string | undefined;
-  const msg  = data.error as string | undefined;
-  if (code === 'email_exists') {
-    setErrorDialog({ open: true, title: 'E-mail já cadastrado', message: msg ?? '...' });
-  } else if (code === 'weak_password') {
-    toast.error('A senha precisa ter ao menos 6 caracteres.');
-  } else {
-    toast.error(msg ?? 'Erro ao adicionar funcionário.');
-  }
-  setSaving(false);
-  return;
-}
-
-// sucesso
-```
-
-Como o status passa a ser `200`, o `supabase-js` **não loga mais nada** no `console.error` e o overlay vermelho do preview não dispara. O `AlertDialog` aparece corretamente, tanto no preview quanto no app publicado.
+### Fora de escopo
+- Não mexer no front-end (`SummaryStep`, `PatientBooking`) — a UI já mostra spinner "Confirmando..." durante a chamada.
+- Não alterar contrato de resposta (mesmos códigos 200/400/409/500, mesma forma do payload `conflict`).
+- Não alterar regras de negócio nem ordem de prioridade de mensagens de conflito.
 
 ## Arquivos alterados
-
-1. `supabase/functions/invite-member/index.ts` — todos os erros de validação viram `200 + { ok:false, code, error }`.
-2. `src/components/settings/TeamSection.tsx` — `handleAdd` passa a ler `data.ok === false` em vez de depender de `error`.
-
-## Fora de escopo
-
-- Nenhuma mudança em banco, RLS, outros componentes ou outras edge functions.
+- `supabase/functions/request-appointment/index.ts` — refatoração interna apenas.
