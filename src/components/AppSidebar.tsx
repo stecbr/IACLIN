@@ -235,6 +235,14 @@ export function AppSidebar() {
       .filter((item) => !blockProfessional || item.url !== '/pacientes-do-dia')
       .filter((item) => !(isDentist && item.url === '/odontogram'))
       .filter((item) => !(item.url === '/odontogram' && !isOdonto))
+      // Orçamentos só faz sentido para famílias que tratam por planos
+      // (odonto/estética). Médicos, fisios, podólogos, psi etc. não veem.
+      .filter((item) => !(
+        item.url === '/budgets'
+        && familyConfig
+        && familyConfig.family !== 'odonto'
+        && familyConfig.family !== 'aesthetic'
+      ))
       .filter((item) => !(isPsi && item.url === '/budgets'))
       .filter((item) => !isStaff || (item.url === '/patients' ? staffPerms?.pacientes !== false : true))
       .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))
@@ -573,7 +581,12 @@ export function AppSidebar() {
 
           const attendanceExtra = [byUrl('/pacientes-do-dia'), byUrl('/clinica/aprovacoes')].filter(Boolean) as typeof finalClinicNav;
           const attendance      = [...filteredOperationNav, ...attendanceExtra];
-          const patientItems    = [byUrl('/patients'), byUrl('/ferramentas'), byUrl('/odontogram')].filter(Boolean) as typeof finalClinicNav;
+          const patientItems    = [
+            byUrl('/patients'),
+            byUrl('/ferramentas'),
+            // Link de Odontograma só na sidebar admin de clínicas odonto.
+            ...(clinicCategory === 'odonto' ? [byUrl('/odontogram')] : []),
+          ].filter(Boolean) as typeof finalClinicNav;
           const financialItems  = [byUrl('/financial'), byUrl('/budgets')].filter(Boolean) as typeof finalClinicNav;
           const automationItems = [byUrl('/secretaria-ia')].filter(Boolean) as typeof finalClinicNav;
 
