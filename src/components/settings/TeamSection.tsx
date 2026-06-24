@@ -12,6 +12,15 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MemberProceduresDialog } from './MemberProceduresDialog';
 import { StaffPermissionsDialog, type StaffPermissions } from './StaffPermissionsDialog';
@@ -43,6 +52,11 @@ export default function TeamSection() {
     role: string;
     permissions: StaffPermissions | null;
   } | null>(null);
+  const [errorDialog, setErrorDialog] = useState<{ open: boolean; title: string; message: string }>({
+    open: false,
+    title: '',
+    message: '',
+  });
 
   const { data: clinicCategory } = useQuery({
     queryKey: ['clinic-category', currentClinicId],
@@ -106,15 +120,27 @@ export default function TeamSection() {
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
     } catch (err: any) {
-      const msg: string = err?.message ?? 'Erro ao adicionar funcionário.';
+      let msg: string = err?.message ?? 'Erro ao adicionar funcionário.';
+      // FunctionsHttpError: ler corpo real do response
+      try {
+        const resp = err?.context?.response;
+        if (resp && typeof resp.clone === 'function') {
+          const body = await resp.clone().json();
+          if (body?.error) msg = body.error;
+        }
+      } catch { /* ignore */ }
       // Translate common backend errors to PT-BR
-      const friendly =
-        /already been registered|email_exists|já está cadastrado/i.test(msg)
-          ? 'Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.'
-          : /Password should be at least|ao menos 6 caracteres/i.test(msg)
-            ? 'A senha precisa ter ao menos 6 caracteres.'
-            : msg;
-      toast.error(friendly);
+      const emailDup = /already been registered|email_exists|já está cadastrado/i.test(msg);
+      const friendly = emailDup
+        ? 'Este e-mail já está cadastrado na plataforma. Use outro e-mail para o funcionário.'
+        : /Password should be at least|ao menos 6 caracteres/i.test(msg)
+          ? 'A senha precisa ter ao menos 6 caracteres.'
+          : msg;
+      if (emailDup) {
+        setErrorDialog({ open: true, title: 'E-mail já cadastrado', message: friendly });
+      } else {
+        toast.error(friendly);
+      }
     } finally {
       setSaving(false);
     }
@@ -365,6 +391,23 @@ export default function TeamSection() {
         currentPermissions={permEditor?.permissions}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ['clinic-members'] })}
       />
+
+      <AlertDialog
+        open={errorDialog.open}
+        onOpenChange={(o) => setErrorDialog((s) => ({ ...s, open: o }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{errorDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{errorDialog.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorDialog((s) => ({ ...s, open: false }))}>
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
