@@ -22,11 +22,12 @@ import { SpecialtyStep, type Specialty } from '@/components/patient/booking/Spec
 import { DateStep } from '@/components/patient/booking/DateStep';
 import { ClinicDoctorStep, type BookingSelection } from '@/components/patient/booking/ClinicDoctorStep';
 import { SummaryStep } from '@/components/patient/booking/SummaryStep';
+import { CoverageStep, type CoverageChoice } from '@/components/patient/booking/CoverageStep';
 import { BookingFilters, type BookingFiltersValue } from '@/components/patient/booking/BookingFilters';
 import { SPECIALTIES } from '@/components/patient/booking/SpecialtyStep';
 import { format } from 'date-fns';
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 type ConflictInfo = {
   message: string;
@@ -51,7 +52,8 @@ export default function PatientBooking() {
     return SPECIALTIES.find(s => s.id === slug || s.name.toLowerCase() === slug.toLowerCase()) ?? null;
   })();
 
-  const [step, setStep] = useState<Step>(initialSpecialty ? 2 : 1);
+  const [coverage, setCoverage] = useState<CoverageChoice | null>(null);
+  const [step, setStep] = useState<Step>(initialSpecialty ? 3 : 1);
   const [specialty, setSpecialty] = useState<Specialty | null>(initialSpecialty);
   const [date, setDate] = useState<Date | null>(null);
   const [selection, setSelection] = useState<BookingSelection | null>(null);
@@ -72,6 +74,15 @@ export default function PatientBooking() {
   const updateFilters = (next: BookingFiltersValue) => {
     setFilters(next);
     try { localStorage.setItem('patient_booking_filters', JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
+  const handleCoverage = (c: CoverageChoice) => {
+    setCoverage(c);
+    const planId = c.kind === 'insurance' ? c.planId : null;
+    updateFilters({ ...filters, insurancePlanId: planId });
+    if (c.kind === 'private') {
+      setStep(2);
+    }
   };
 
   const submitBooking = async (replace?: { id: string; kind: 'appointment' | 'request' }) => {
@@ -172,7 +183,7 @@ export default function PatientBooking() {
 
       <BookingProgress step={step} />
 
-      <BookingFilters value={filters} onChange={updateFilters} />
+      {step > 1 && <BookingFilters value={filters} onChange={updateFilters} />}
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -183,26 +194,38 @@ export default function PatientBooking() {
           transition={{ duration: 0.22, ease: 'easeOut' }}
         >
           {step === 1 && (
-            <SpecialtyStep
-              onSelect={(s) => {
-                setSpecialty(s);
-                setStep(2);
+            <CoverageStep
+              value={coverage}
+              onSelect={(c) => {
+                handleCoverage(c);
+                if (c.kind === 'insurance') {
+                  // user picked a plan from the list — advance
+                  setStep(2);
+                }
               }}
             />
           )}
-          {step === 2 && specialty && (
+          {step === 2 && (
+            <SpecialtyStep
+              onSelect={(s) => {
+                setSpecialty(s);
+                setStep(3);
+              }}
+            />
+          )}
+          {step === 3 && specialty && (
             <DateStep
               specialty={specialty}
               selectedDate={date}
               filters={filters}
               onSelect={(d) => {
                 setDate(d);
-                setStep(3);
+                setStep(4);
               }}
-              onBack={() => setStep(1)}
+              onBack={() => setStep(2)}
             />
           )}
-          {step === 3 && specialty && date && (
+          {step === 4 && specialty && date && (
             <ClinicDoctorStep
               specialty={specialty}
               date={date}
@@ -211,20 +234,20 @@ export default function PatientBooking() {
               insurancePlanId={filters.insurancePlanId}
               onSelect={(sel) => {
                 setSelection(sel);
-                // Move to step 4 once we have a slot
-                setStep(4);
+                setStep(5);
               }}
-              onBack={() => setStep(2)}
+              onBack={() => setStep(3)}
             />
           )}
-          {step === 4 && specialty && selection && (
+          {step === 5 && specialty && selection && (
             <SummaryStep
               specialty={specialty}
               selection={selection}
+              coverage={coverage}
               notes={notes}
               onNotesChange={setNotes}
               onConfirm={handleConfirm}
-              onBack={() => setStep(3)}
+              onBack={() => setStep(4)}
               loading={submitting}
             />
           )}
