@@ -60,9 +60,13 @@ export function useProfessionalLabel(): ProfessionalLabelResult {
   if (isDentist || isProfessionalSignup) {
     const metaSpecialty = meta.specialty as string | undefined;
     const specialty = memberSpecialty ?? metaSpecialty ?? null;
+    // Fallback seguro: quando a especialidade ainda não está salva, só assume
+    // 'odonto' se a categoria da clínica ativa confirmar; caso contrário usa
+    // 'generic' (IACLINMEDICO) para não vazar contexto odontológico para
+    // médicos, fisios, podólogos, etc.
     const family: SpecialtyFamily = specialty
       ? getSpecialtyFamily(specialty)
-      : (clinicCategory === 'medico' || isProfessionalSignup ? 'generic' : 'odonto');
+      : (clinicCategory === 'odonto' ? 'odonto' : 'generic');
     return {
       label: DENTIST_FAMILY_LABEL[family] ?? 'IACLINMEDICO',
       family,

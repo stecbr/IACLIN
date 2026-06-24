@@ -137,10 +137,16 @@ export default function Auth() {
       setInviteInfo({ clinic_name: clinic?.name ?? 'clínica', email: invite.email, full_name: invite.full_name });
       setIsLogin(false);
       setUserType('profissional');
-      // Inferir subtype a partir da categoria da clínica (não forçar 'dentista').
-      setProfSubType((clinic?.category === 'odonto' ? 'dentista' : 'medico'));
-      // Pré-selecionar a especialidade do convite, se houver.
-      if (invite.specialty) setSpecialty(invite.specialty);
+      // Derivar profSubType a partir da especialidade do convite, quando houver
+      // — evita conflar categoria da clínica com tipo profissional (clínicas
+      // híbridas podem ter dentistas e médicos na mesma categoria).
+      if (invite.specialty) {
+        const fam = getSpecialtyFamily(invite.specialty);
+        setProfSubType(fam === 'odonto' ? 'dentista' : 'medico');
+        setSpecialty(invite.specialty);
+      } else {
+        setProfSubType(clinic?.category === 'odonto' ? 'dentista' : 'medico');
+      }
       setEmail(invite.email);
       if (invite.full_name) setFullName(invite.full_name);
       setInviteLoading(false);

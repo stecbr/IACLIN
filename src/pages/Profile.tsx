@@ -302,8 +302,9 @@ export function ProfileInfoSection() {
 
   const initials = (fullName || profile?.full_name || user?.email || 'U')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  // Use clinic category as fallback so an Odonto clinic always shows "CRO"
-  // even before the dentist picks a specific specialty.
+  // Fallback CRO somente quando a clínica ativa é odonto. Em modo pessoal
+  // (sem clínica) ou em clínica médica, mantém o label da especialidade
+  // escolhida (CRM por padrão) para não rotular médicos como dentistas.
   const fallbackSpecialty = clinicCategory === 'odonto' ? 'dentista' : null;
   const familyConfig = getFamilyConfig(selectedSpecialty || primarySpecialty || fallbackSpecialty);
   const regLabel = familyConfig.registrationLabel;

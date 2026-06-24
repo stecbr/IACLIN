@@ -235,7 +235,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentClinicId: isPersonalMode ? null : currentClinicId,
       clinicRole: currentMembership?.role ?? null,
       isClinicOwner: currentMembership?.is_owner ?? false,
-      clinicCategory: currentMembership?.category ?? 'odonto',
+      // Default 'outro' (não 'odonto') — em modo pessoal ou sem clínica ativa
+      // não devemos assumir que o profissional é dentista. Vazamentos como
+      // CRO, badge IACLINDENTAL e link "Odontograma" derivavam desse default.
+      clinicCategory: currentMembership?.category ?? 'outro',
       isMembershipSuspended: currentMembership ? !currentMembership.is_active : false,
       isPatient,
       isOperator,
