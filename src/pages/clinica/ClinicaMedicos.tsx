@@ -207,8 +207,12 @@ export default function ClinicaMedicos() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {m.is_owner ? (
+                      {m.is_owner || m.role === 'admin' ? (
                         <Badge variant="default">Administrador</Badge>
+                      ) : m.role === 'secretary' ? (
+                        <Badge variant="outline">Secretário(a)</Badge>
+                      ) : m.role === 'auxiliary' ? (
+                        <Badge variant="outline">Auxiliar Adm</Badge>
                       ) : (
                         <Badge variant="secondary">Profissional</Badge>
                       )}
