@@ -19,6 +19,7 @@ interface InsuranceOption {
   id: string;
   name: string;
   ans_code: string | null;
+  operator: string;
 }
 
 export function CoverageStep({ value, onSelect }: CoverageStepProps) {
@@ -35,13 +36,21 @@ export function CoverageStep({ value, onSelect }: CoverageStepProps) {
     setLoading(true);
     (async () => {
       const { data } = await supabase
-        .from('insurance_plans')
-        .select('id, name, ans_code, is_active')
+        .from('insurance_plans_catalog')
+        .select('id, plan_name, operator_name, ans_code, is_active')
         .eq('is_active', true);
       const seen = new Map<string, InsuranceOption>();
       for (const p of (data ?? []) as any[]) {
-        const k = `${(p.name || '').toLowerCase()}|${p.ans_code || ''}`;
-        if (!seen.has(k)) seen.set(k, { id: p.id, name: p.name, ans_code: p.ans_code });
+        const fullName = `${p.operator_name} — ${p.plan_name}`;
+        const k = `${(p.plan_name || '').toLowerCase()}|${(p.operator_name || '').toLowerCase()}|${p.ans_code || ''}`;
+        if (!seen.has(k)) {
+          seen.set(k, {
+            id: p.id,
+            name: fullName,
+            ans_code: p.ans_code,
+            operator: p.operator_name,
+          });
+        }
       }
       if (!cancelled) {
         setPlans(
@@ -57,7 +66,9 @@ export function CoverageStep({ value, onSelect }: CoverageStepProps) {
     const q = query.trim().toLowerCase();
     if (!q) return plans;
     return plans.filter((p) =>
-      p.name.toLowerCase().includes(q) || (p.ans_code ?? '').toLowerCase().includes(q),
+      p.name.toLowerCase().includes(q) ||
+      p.operator.toLowerCase().includes(q) ||
+      (p.ans_code ?? '').toLowerCase().includes(q),
     );
   }, [plans, query]);
 
