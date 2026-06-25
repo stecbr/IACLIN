@@ -284,6 +284,27 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
             </div>
           </div>
 
+          {/* Consultation Type */}
+          {appointment.label && labelMeta[appointment.label] && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">Tipo de consulta</p>
+                <Badge
+                  variant="outline"
+                  className="mt-1 text-xs font-medium"
+                  style={{
+                    borderColor: labelMeta[appointment.label].color,
+                    color: labelMeta[appointment.label].color,
+                    backgroundColor: `${labelMeta[appointment.label].color}15`,
+                  }}
+                >
+                  {labelMeta[appointment.label].label}
+                </Badge>
+              </div>
+            </div>
+          )}
+
           {/* Notes */}
           {appointment.notes && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
