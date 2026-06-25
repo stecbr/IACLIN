@@ -626,7 +626,7 @@ export function AppSidebar() {
                 <NavSection id="pacientes" label="Pacientes & Clínico" collapsed={collapsed}>
                   <SidebarMenu>
                     {patientItems.map((item) => renderNavItem(item))}
-                    {prontuarioItem}
+                    {(!isStaff || staffPerms?.abrirProntuario !== false) && prontuarioItem}
                   </SidebarMenu>
                 </NavSection>
               )}
