@@ -1,12 +1,9 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
-} from '@/components/ui/command';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
 type CatalogRow = {
@@ -17,9 +14,7 @@ type CatalogRow = {
 };
 
 interface InsurancePlanSelectProps {
-  /** Operadora atualmente selecionada (ex: "Unimed") */
   operatorValue: string;
-  /** Plano/convênio atualmente selecionado (ex: "Unimed Nacional") */
   planValue: string;
   onChange: (operator: string, plan: string) => void;
   placeholder?: string;
@@ -28,21 +23,18 @@ interface InsurancePlanSelectProps {
   className?: string;
 }
 
-/**
- * Select de convênio (plano) com catálogo global.
- * Operadora ≠ Convênio: aqui o usuário escolhe o PLANO específico
- * (ex: "Unimed Nacional"), e a operadora é derivada automaticamente.
- */
 export function InsurancePlanSelect({
   operatorValue,
   planValue,
   onChange,
-  placeholder = 'Selecione o convênio',
+  placeholder = 'Digite operadora ou plano...',
   disabled,
   id,
   className,
 }: InsurancePlanSelectProps) {
+  const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ['insurance-plans-catalog'],
@@ -59,100 +51,141 @@ export function InsurancePlanSelect({
     },
   });
 
-  const grouped = useMemo(() => {
+  const selectedLabel =
+    planValue && operatorValue
+      ? `${operatorValue} — ${planValue}`
+      : planValue || operatorValue || '';
+
+  // Sync input when selection changes externally
+  useEffect(() => {
+    if (!open) setQuery(selectedLabel);
+  }, [selectedLabel, open]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery(selectedLabel);
+      }
+    };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open, selectedLabel]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = !q
+      ? plans
+      : plans.filter(
+          (p) =>
+            p.operator_name.toLowerCase().includes(q) ||
+            p.plan_name.toLowerCase().includes(q),
+        );
     const map = new Map<string, CatalogRow[]>();
-    for (const p of plans) {
+    for (const p of list) {
       if (!map.has(p.operator_name)) map.set(p.operator_name, []);
       map.get(p.operator_name)!.push(p);
     }
     return Array.from(map.entries());
-  }, [plans]);
+  }, [plans, query]);
 
-  const label =
-    planValue && operatorValue
-      ? `${operatorValue} — ${planValue}`
-      : planValue
-        ? planValue
-        : operatorValue
-          ? `${operatorValue} (sem plano)`
-          : isLoading
-            ? 'Carregando...'
-            : placeholder;
-
-  const hasSelection = !!planValue || !!operatorValue;
+  const handleSelect = (operator: string, plan: string) => {
+    onChange(operator, plan);
+    setQuery(plan ? `${operator} — ${plan}` : '');
+    setOpen(false);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
-      <PopoverTrigger asChild>
-        <Button
+    <div ref={containerRef} className={cn('relative', className)}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
           id={id}
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
+          value={query}
           disabled={disabled || isLoading}
-          className={cn('w-full justify-between font-normal', className)}
-        >
-          <span className={cn('truncate', !hasSelection && 'text-muted-foreground')}>
-            {label}
-          </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Buscar operadora ou plano..." />
-          <CommandList className="max-h-72">
-            <CommandEmpty>Nenhum convênio encontrado.</CommandEmpty>
-            <CommandGroup>
-              <CommandItem
-                value="__none__ particular nenhum"
-                onSelect={() => {
-                  onChange('', '');
-                  setOpen(false);
-                }}
-              >
-                <Check
-                  className={cn('mr-2 h-4 w-4', !hasSelection ? 'opacity-100' : 'opacity-0')}
-                />
-                Nenhum (Particular)
-              </CommandItem>
-            </CommandGroup>
-            {grouped.map(([operator, items]) => (
-              <CommandGroup key={operator} heading={operator}>
-                {items.map((p) => {
-                  const selected = planValue === p.plan_name && operatorValue === p.operator_name;
-                  return (
-                    <CommandItem
-                      key={p.id}
-                      value={`${p.operator_name} ${p.plan_name}`}
-                      onSelect={() => {
-                        onChange(p.operator_name, p.plan_name);
-                        setOpen(false);
-                      }}
-                    >
-                      <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
-                      <span className="truncate">{p.plan_name}</span>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            ))}
-            {/* Compat: valor legado fora do catálogo */}
-            {hasSelection &&
-              !plans.some(
-                (p) => p.plan_name === planValue && p.operator_name === operatorValue,
-              ) && (
-                <CommandGroup heading="Cadastro atual">
-                  <CommandItem disabled value="__current__">
-                    <Check className="mr-2 h-4 w-4 opacity-100" />
-                    <span className="truncate">{label}</span>
-                  </CommandItem>
-                </CommandGroup>
+          placeholder={isLoading ? 'Carregando...' : placeholder}
+          onFocus={() => {
+            setOpen(true);
+            if (query === selectedLabel) setQuery('');
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          className="pl-9 pr-9"
+          autoComplete="off"
+        />
+        {(query || selectedLabel) && !disabled && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+            onClick={() => {
+              handleSelect('', '');
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md overflow-hidden">
+          <div className="max-h-72 overflow-y-auto py-1">
+            <button
+              type="button"
+              onClick={() => handleSelect('', '')}
+              className={cn(
+                'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-accent transition-colors',
               )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            >
+              <Check
+                className={cn(
+                  'h-4 w-4',
+                  !operatorValue && !planValue ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+              Nenhum (Particular)
+            </button>
+
+            {filtered.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                Nenhum convênio encontrado.
+              </p>
+            ) : (
+              filtered.map(([operator, items]) => (
+                <div key={operator} className="pt-1">
+                  <div className="px-3 py-1 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {operator}
+                  </div>
+                  {items.map((p) => {
+                    const selected =
+                      planValue === p.plan_name && operatorValue === p.operator_name;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelect(p.operator_name, p.plan_name)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-accent transition-colors"
+                      >
+                        <Check
+                          className={cn(
+                            'h-4 w-4',
+                            selected ? 'opacity-100' : 'opacity-0',
+                          )}
+                        />
+                        <span className="truncate">{p.plan_name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
