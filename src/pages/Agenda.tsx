@@ -7,8 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Printer, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog';
 import { AppointmentDetailDialog } from '@/components/agenda/AppointmentDetailDialog';
 import { AiAppointmentRequestsPanel } from '@/components/secretaria-ia/AiAppointmentRequestsPanel';
@@ -52,6 +53,7 @@ export default function Agenda() {
     restrictToSelf ? { kind: 'all' } : loadStoredDoctorFilter()
   );
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
+  const [patientSearch, setPatientSearch] = useState('');
   const handleDoctorsLoaded = useCallback((loadedDoctors: DoctorOption[]) => {
     setDoctors(loadedDoctors);
   }, []);
@@ -158,8 +160,16 @@ export default function Agenda() {
     setCurrentDate(fn(currentDate, 1));
   };
 
+  const filteredAppointments = useMemo(() => {
+    const q = patientSearch.trim().toLowerCase();
+    if (!q) return appointments;
+    return appointments.filter((a: any) =>
+      a.patients?.full_name?.toLowerCase().includes(q)
+    );
+  }, [appointments, patientSearch]);
+
   const getAptsForDay = (day: Date) =>
-    appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
+    filteredAppointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
 
   const statusLabels: Record<string, string> = {
     scheduled: 'Agendada', confirmed: 'Confirmada', completed: 'Concluída', no_show: 'Faltou', cancelled: 'Cancelada',
@@ -211,8 +221,27 @@ export default function Agenda() {
             </Button>
             <span className="text-sm font-medium text-foreground ml-1 capitalize hidden sm:inline">{headerLabel}</span>
           </div>
-          {/* linha 1 direita: só view switcher (e médicos no desktop) */}
+          {/* linha 1 direita: busca paciente + médicos + view switcher */}
           <div className="flex items-center gap-2">
+            {!restrictToSelf && (
+              <div className="relative hidden sm:block">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                  placeholder="Buscar paciente..."
+                  className="h-8 pl-8 pr-7 text-sm w-44"
+                />
+                {patientSearch && (
+                  <button
+                    onClick={() => setPatientSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
             {!restrictToSelf && (
               <div className="hidden sm:block">
                 <AgendaDoctorFilter
@@ -250,6 +279,26 @@ export default function Agenda() {
             />
           )}
         </div>
+        {/* busca por paciente no mobile */}
+        {!restrictToSelf && (
+          <div className="relative sm:hidden">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+              placeholder="Buscar paciente..."
+              className="h-8 pl-8 pr-7 text-sm w-full"
+            />
+            {patientSearch && (
+              <button
+                onClick={() => setPatientSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Calendar Grid */}
         {compareOverflow && view !== 'month' && (
@@ -483,7 +532,7 @@ function MonthView({ days, appointments, holidays, onDayClick, onAppointmentClic
       <div className="grid grid-cols-7">
         {paddedDays.map((day, i) => {
           if (!day) return <div key={i} className="min-h-[80px] border-b border-r border-border bg-muted/10" />;
-          const dayApts = appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
+          const dayApts = filteredAppointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
           const holiday = holidays.find((h) => h.date === format(day, 'yyyy-MM-dd')) ?? null;
           return (
             <div
