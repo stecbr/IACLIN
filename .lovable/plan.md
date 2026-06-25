@@ -1,60 +1,22 @@
-## Problema
+Plano para corrigir o fluxo de permissões do Jesus
 
-O erro `cannot add 'postgres_changes' callbacks after subscribe()` continua aparecendo no login, vindo do canal `clinic_member_perms_*` em `src/hooks/useStaffPermissions.ts`. Junto vem `WebSocket is closed before the connection is established`, e a página trava porque o erro é lançado **durante a renderização inicial** (no useEffect do hook que roda em toda página autenticada).
+1. Ajustar a sidebar da secretária
+- Mover “Aprovações” para dentro da seção “Atendimento do Dia” junto de:
+  - Agenda
+  - Sala de Espera
+  - Aprovações
+- Evitar que “Aprovações” fique em “Gestão da Clínica” para secretária/auxiliar.
+- Manter “Atendimento do Dia” como agrupamento principal para esse perfil.
 
-A correção anterior (sufixo `Math.random()` no nome do canal) não resolveu porque o problema raiz é outro: o `useEffect` está disparando antes da sessão do Supabase estar pronta, e em alguns casos o canal é reaproveitado/atrapalhado pelo ciclo do StrictMode + reconexão do WebSocket, fazendo o SDK tentar reanexar `.on()` num canal que já passou por `.subscribe()`.
+2. Corrigir o acesso direto à rota
+- Garantir que `/clinica/aprovacoes` só bloqueie quando a permissão `aprovacoes` estiver explicitamente `false`.
+- Se a permissão estiver `true`, como está no banco para Jesus, a tela deve carregar normalmente.
+- Se o usuário tentar acessar sem permissão, redireciona como hoje.
 
-## Plano
+3. Corrigir possíveis inconsistências de cache/permissões
+- Padronizar o hook de permissões para não depender de fallback enquanto a permissão real ainda está carregando, evitando menu errado no primeiro carregamento.
+- Manter polling/refetch como fallback caso o realtime não atualize.
 
-1. **Blindar o `useEffect` do `useStaffPermissions`** com `useRef` para garantir que o setup do canal aconteça **uma única vez por par (user, clinic)**, mesmo no double-invoke do StrictMode, e que o cleanup só remova o canal que ele próprio criou.
-
-2. **Esperar a sessão estar pronta** antes de criar o canal: só chamar `supabase.channel(...).on(...).subscribe()` quando houver `user.id` E `currentClinicId` E o cliente Supabase já tiver sessão hidratada (checagem rápida via `supabase.auth.getSession()` antes do subscribe — sem await dentro de listener).
-
-3. **Tornar o Realtime opcional/silencioso**: se a criação do canal falhar (ex.: WebSocket fechado), capturar o erro, logar em `console.warn` e seguir apenas com o `refetchInterval: 30000` que já existe. Isso garante que a página **nunca trave** por causa do canal de permissões.
-
-4. **Não mexer em nada além de `src/hooks/useStaffPermissions.ts`** — o resto do app (login, AuthContext, outras subscriptions) já está funcionando.
-
-### Detalhes técnicos
-
-```ts
-const setupRef = useRef<{ key: string; channel: any } | null>(null);
-
-useEffect(() => {
-  if (!isStaff || !user?.id || !currentClinicId) return;
-  const key = `${user.id}:${currentClinicId}`;
-  if (setupRef.current?.key === key) return; // já montado para esse par
-
-  let cancelled = false;
-  let channel: any = null;
-
-  (async () => {
-    try {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled || !data.session) return;
-
-      channel = supabase
-        .channel(`clinic_member_perms_${key}_${Date.now()}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clinic_members', filter: `user_id=eq.${user.id}` },
-          () => queryClient.invalidateQueries({ queryKey: ['staff-permissions', user.id, currentClinicId] }))
-        .subscribe();
-
-      setupRef.current = { key, channel };
-    } catch (err) {
-      console.warn('[useStaffPermissions] realtime indisponível, usando polling', err);
-    }
-  })();
-
-  return () => {
-    cancelled = true;
-    if (channel) supabase.removeChannel(channel);
-    if (setupRef.current?.channel === channel) setupRef.current = null;
-  };
-}, [isStaff, user?.id, currentClinicId, queryClient]);
-```
-
-O `refetchInterval: 30000` já existente continua sendo o fallback caso o Realtime não suba.
-
-## Resultado esperado
-
-- Login não trava mais; nenhum erro fatal no console.
-- Permissões da secretária continuam sincronizando (via Realtime quando disponível, via polling de 30s sempre).
+4. Validar com os dados atuais
+- Já confirmei no banco que o usuário Jesus está como `secretary`, ativo, com `aprovacoes: true` na clínica `200c1de3-78ad-4f31-9afe-423286aa25bd`.
+- Depois da correção, validar que no menu dele aparecem: “Atendimento do Dia”, “Agenda”, “Sala de Espera” e “Aprovações”, e que `/clinica/aprovacoes` não volta para o Dashboard.

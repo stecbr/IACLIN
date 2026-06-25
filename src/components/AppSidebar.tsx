@@ -102,6 +102,7 @@ const personalNav: Array<{ title: string; url: string; icon: typeof LayoutDashbo
 const operationNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Agenda',        url: '/agenda',          icon: Calendar,  allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen,  allowedRoles: ['admin', 'secretary', 'auxiliary'] },
+  { title: 'Aprovações',    url: '/clinica/aprovacoes', icon: ClipboardCheck, allowedRoles: ['secretary', 'auxiliary'] },
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
@@ -228,6 +229,7 @@ export function AppSidebar() {
       .filter((item) => item.allowedRoles.includes(effectiveRole))
       .filter((item) => !isStaff || (item.url === '/agenda' ? staffPerms?.agenda !== false : true))
       .filter((item) => !isStaff || (item.url === '/sala-de-espera' ? staffPerms?.salaEspera !== false : true))
+      .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))
   );
   const filteredClinicNav = filterNavItems(
     clinicNav
@@ -245,7 +247,10 @@ export function AppSidebar() {
       ))
       .filter((item) => !(isPsi && item.url === '/budgets'))
       .filter((item) => !isStaff || (item.url === '/patients' ? staffPerms?.pacientes !== false : true))
-      .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))
+      // Para secretária/auxiliar, "Aprovações" é renderizada na seção
+      // "Atendimento do Dia" (via operationNav). Removemos daqui para não
+      // duplicar o item na sidebar.
+      .filter((item) => !(isStaff && item.url === '/clinica/aprovacoes'))
       .filter((item) => !isStaff || (item.url === '/clinica/convenios' ? staffPerms?.convenios !== false : true))
       .filter((item) => !isStaff || (item.url === '/financial' ? staffPerms?.financeiro !== false : true))
       .filter((item) => !isStaff || (item.url === '/secretaria-ia' ? staffPerms?.secretariaIa !== false : true))
@@ -676,6 +681,8 @@ export function AppSidebar() {
                         // Prioriza alertar pedidos aguardando aprovação; se não houver,
                         // mostra a contagem de consultas do dia.
                         ? (agendaPendingCount > 0 ? agendaPendingCount : todayCount)
+                        : item.url === '/clinica/aprovacoes'
+                        ? pendingCount
                         : undefined,
                     )
                   )}
