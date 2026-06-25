@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope, FolderHeart, Wallet } from 'lucide-react';
+import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope, FolderHeart, Wallet, CircleDollarSign } from 'lucide-react';
 import { WaitingTimer } from './WaitingTimer';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +32,7 @@ interface Props {
   onMarkInService: (id: string) => void;
   onMarkFinished: (id: string) => void;
   onMarkNoShow: (id: string) => void;
+  onMarkAwaitingPayment?: (id: string) => void;
   onRegisterPayment?: (id: string) => void;
   busyId?: string | null;
 }
@@ -42,6 +43,7 @@ export function WaitingRoomCard({
   onMarkInService,
   onMarkFinished,
   onMarkNoShow,
+  onMarkAwaitingPayment,
   onRegisterPayment,
   busyId,
 }: Props) {
@@ -134,6 +136,13 @@ export function WaitingRoomCard({
         </div>
       )}
 
+      {presence === 'awaiting_payment' && (
+        <div className="rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-400 px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5">
+          <CircleDollarSign className="h-3.5 w-3.5" />
+          aguardando pagamento
+        </div>
+      )}
+
       {/* Action buttons (contextual) */}
       <div className="flex flex-wrap gap-2 pt-1">
         <Button
@@ -182,6 +191,19 @@ export function WaitingRoomCard({
         )}
         {presence === 'in_service' && (
           <>
+            <Button
+              size="sm"
+              className="flex-1 gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => (onMarkAwaitingPayment ?? onMarkFinished)(appointment.id)}
+              disabled={isBusy}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Concluir atendimento
+            </Button>
+          </>
+        )}
+        {presence === 'awaiting_payment' && (
+          <>
             {onRegisterPayment && (
               <Button
                 size="sm"
@@ -199,9 +221,10 @@ export function WaitingRoomCard({
               className="gap-1.5 h-9"
               onClick={() => onMarkFinished(appointment.id)}
               disabled={isBusy}
+              title="Cobrar depois e finalizar"
             >
               <CheckCircle2 className="h-4 w-4" />
-              Finalizar
+              Cobrar depois
             </Button>
           </>
         )}
