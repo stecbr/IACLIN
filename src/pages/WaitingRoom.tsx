@@ -411,13 +411,15 @@ function KpiTile({
   label: string;
   value: number;
   icon: React.ReactNode;
-  accent?: 'amber' | 'emerald';
+  accent?: 'amber' | 'emerald' | 'sky';
 }) {
   const accentClass =
     accent === 'amber'
       ? 'text-amber-700 dark:text-amber-400 bg-amber-500/10'
       : accent === 'emerald'
       ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
+      : accent === 'sky'
+      ? 'text-sky-700 dark:text-sky-400 bg-sky-500/10'
       : 'text-muted-foreground bg-muted';
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
@@ -442,7 +444,7 @@ function Column({
   title: string;
   subtitle: string;
   count: number;
-  color: 'muted' | 'amber' | 'emerald';
+  color: 'muted' | 'amber' | 'emerald' | 'sky';
   children: React.ReactNode;
 }) {
   const headerColor =
@@ -450,6 +452,8 @@ function Column({
       ? 'border-t-amber-500'
       : color === 'emerald'
       ? 'border-t-emerald-500'
+      : color === 'sky'
+      ? 'border-t-sky-500'
       : 'border-t-border';
   return (
     <div className={`rounded-xl border border-border border-t-4 ${headerColor} bg-muted/20 p-3 space-y-3`}>
