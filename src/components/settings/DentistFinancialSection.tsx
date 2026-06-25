@@ -2,14 +2,13 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { TrendingUp, Clock, CheckCircle2, Building2, Calendar, ChevronDown, ChevronUp, Landmark, AlertCircle, History } from 'lucide-react';
+import { TrendingUp, Clock, CheckCircle2, Building2, Calendar, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -41,7 +40,6 @@ const METHOD_MAP: Record<string, string> = {
 
 export default function DentistFinancialSection() {
   const { user } = useAuth();
-  const [, setSearchParams] = useSearchParams();
   const [period, setPeriod] = useState<Period>('3');
   const [expandedClinic, setExpandedClinic] = useState<string | null>(null);
   const [tab, setTab] = useState<'summary' | 'history'>('summary');
@@ -72,20 +70,6 @@ export default function DentistFinancialSection() {
     },
   });
 
-  // Conta de recebimento pessoal do dentista (entity_type='doctor', entity_id=user.id)
-  const { data: payoutAccount } = useQuery({
-    queryKey: ['payout-account-dentist', user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('payment_accounts')
-        .select('bank_name, agency, agency_digit, account, account_digit, pix_key, pix_key_type')
-        .eq('entity_type', 'doctor')
-        .eq('entity_id', user!.id)
-        .maybeSingle();
-      return data ?? null;
-    },
-  });
 
   // Histórico de consultas (appointments) do dentista
   const { data: appointments = [], isLoading: loadingAppts } = useQuery({
@@ -160,7 +144,6 @@ export default function DentistFinancialSection() {
     });
   }, [appointments, statusFilter, clinicFilter]);
 
-  const hasPayout = !!payoutAccount && (payoutAccount.bank_name || payoutAccount.pix_key);
 
   return (
     <div className="space-y-6">
@@ -183,54 +166,6 @@ export default function DentistFinancialSection() {
         </Select>
       </div>
 
-      {/* Banner de depósito mensal */}
-      {hasPayout ? (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4 flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Landmark className="h-5 w-5 text-primary" />
-            </div>
-            <div className="text-sm">
-              <p className="font-medium">Repasse mensal das clínicas</p>
-              <p className="text-muted-foreground mt-0.5">
-                Os valores serão depositados no final de cada mês na conta cadastrada em{' '}
-                <button
-                  className="underline underline-offset-2 text-primary hover:opacity-80"
-                  onClick={() => setSearchParams({ section: 'payments' })}
-                >
-                  Recebimentos
-                </button>
-                :{' '}
-                <span className="font-medium text-foreground">
-                  {payoutAccount.bank_name || 'Banco'}
-                  {payoutAccount.agency && ` • Ag ${payoutAccount.agency}${payoutAccount.agency_digit ? '-' + payoutAccount.agency_digit : ''}`}
-                  {payoutAccount.account && ` • Conta ${payoutAccount.account}${payoutAccount.account_digit ? '-' + payoutAccount.account_digit : ''}`}
-                </span>
-                {payoutAccount.pix_key && (
-                  <> · PIX <span className="font-medium text-foreground">{payoutAccount.pix_key}</span></>
-                )}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-amber-500/20 bg-amber-500/5">
-          <CardContent className="p-4 flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-            </div>
-            <div className="flex-1 text-sm">
-              <p className="font-medium">Cadastre sua conta de recebimento</p>
-              <p className="text-muted-foreground mt-0.5">
-                Os repasses das clínicas são depositados no final do mês. Cadastre sua conta para receber.
-              </p>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => setSearchParams({ section: 'payments' })}>
-              Cadastrar conta
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'summary' | 'history')}>
         <TabsList className="grid w-full sm:w-auto grid-cols-2">
