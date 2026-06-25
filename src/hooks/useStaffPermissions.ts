@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,27 +33,57 @@ export function useStaffPermissions() {
   });
 
   // Realtime: refresh perms instantly when the admin updates this member's row.
+  const setupRef = useRef<{ key: string; channel: any } | null>(null);
   useEffect(() => {
     if (!isStaff || !user?.id || !currentClinicId) return;
-    const channel = supabase
-      .channel(`clinic_member_perms_${user.id}_${currentClinicId}_${Math.random().toString(36).slice(2)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clinic_members',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({
-            queryKey: ['staff-permissions', user.id, currentClinicId],
-          });
-        },
-      )
-      .subscribe();
+    const key = `${user.id}:${currentClinicId}`;
+    if (setupRef.current?.key === key) return;
+
+    let cancelled = false;
+    let channel: any = null;
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled || !data.session) return;
+
+        channel = supabase
+          .channel(`clinic_member_perms_${user.id}_${currentClinicId}_${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'clinic_members',
+              filter: `user_id=eq.${user.id}`,
+            },
+            () => {
+              queryClient.invalidateQueries({
+                queryKey: ['staff-permissions', user.id, currentClinicId],
+              });
+            },
+          )
+          .subscribe();
+
+        if (cancelled) {
+          try { supabase.removeChannel(channel); } catch { /* noop */ }
+          channel = null;
+          return;
+        }
+        setupRef.current = { key, channel };
+      } catch (err) {
+        console.warn('[useStaffPermissions] realtime indisponível, usando polling', err);
+      }
+    })();
+
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch { /* noop */ }
+      }
+      if (setupRef.current?.channel === channel) {
+        setupRef.current = null;
+      }
     };
   }, [isStaff, user?.id, currentClinicId, queryClient]);
 
