@@ -13,6 +13,10 @@ export function useStaffPermissions() {
   const isStaff = (clinicRole as string) === 'secretary' || (clinicRole as string) === 'auxiliary';
   const queryClient = useQueryClient();
 
+  const roleKeyForFallback = (clinicRole as string) ?? 'secretary';
+  const initialFallback =
+    STAFF_PERMISSION_DEFAULTS[roleKeyForFallback] ?? STAFF_PERMISSION_DEFAULTS.secretary;
+
   const { data: permissions = null } = useQuery({
     queryKey: ['staff-permissions', user?.id, currentClinicId],
     enabled: !!user && !!currentClinicId && isStaff,
@@ -20,6 +24,7 @@ export function useStaffPermissions() {
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
     refetchInterval: 10000,
+    placeholderData: initialFallback as any,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from('clinic_members')
