@@ -247,7 +247,10 @@ export function AppSidebar() {
       ))
       .filter((item) => !(isPsi && item.url === '/budgets'))
       .filter((item) => !isStaff || (item.url === '/patients' ? staffPerms?.pacientes !== false : true))
-      .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))
+      // Para secretária/auxiliar, "Aprovações" é renderizada na seção
+      // "Atendimento do Dia" (via operationNav). Removemos daqui para não
+      // duplicar o item na sidebar.
+      .filter((item) => !(isStaff && item.url === '/clinica/aprovacoes'))
       .filter((item) => !isStaff || (item.url === '/clinica/convenios' ? staffPerms?.convenios !== false : true))
       .filter((item) => !isStaff || (item.url === '/financial' ? staffPerms?.financeiro !== false : true))
       .filter((item) => !isStaff || (item.url === '/secretaria-ia' ? staffPerms?.secretariaIa !== false : true))
