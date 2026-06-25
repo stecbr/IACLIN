@@ -702,7 +702,7 @@ export function AppSidebar() {
                       : undefined,
                     )
                   )}
-                  {prontuarioItem}
+                  {(!isStaff || staffPerms?.abrirProntuario !== false) && prontuarioItem}
                 </SidebarMenu>
               </NavSection>
             )}
@@ -716,12 +716,11 @@ export function AppSidebar() {
               </NavSection>
             )}
 
-            {!isDentist && effectiveRole !== 'patient' && (
+            {!isDentist && effectiveRole !== 'patient' && !isStaff && (
               <NavSection id="gestao" label="Gestão da Clínica" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'Visão Geral', url: '/clinica',        icon: Building2 }, undefined, true)}
                   {renderNavItem({ title: 'Médicos',     url: '/clinica/medicos', icon: Stethoscope }, undefined, true)}
-                  {prontuarioItem}
                 </SidebarMenu>
               </NavSection>
             )}
