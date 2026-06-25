@@ -141,7 +141,7 @@ export function StaffPermissionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Permissões — {memberName}</DialogTitle>
         </DialogHeader>
@@ -149,7 +149,7 @@ export function StaffPermissionsDialog({
           <p className="text-sm text-muted-foreground">
             Defina o que <strong>{memberName}</strong> pode acessar na plataforma.
           </p>
-          <div className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {PERMISSION_ITEMS.map(({ key, label, description, icon: Icon }) => (
               <div
                 key={key}
