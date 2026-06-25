@@ -132,13 +132,14 @@ export default function WaitingRoom() {
   const waiting = enriched.filter((a) => a.presence_status === 'not_arrived');
   const arrived = enriched.filter((a) => a.presence_status === 'arrived');
   const inService = enriched.filter((a) => a.presence_status === 'in_service');
+  const awaitingPayment = enriched.filter((a) => a.presence_status === 'awaiting_payment');
   const finished = enriched.filter(
     (a) => a.presence_status === 'finished' || a.presence_status === 'no_show'
   );
 
   const updatePresence = async (
     id: string,
-    presence: 'arrived' | 'in_service' | 'finished' | 'no_show'
+    presence: 'arrived' | 'in_service' | 'awaiting_payment' | 'finished' | 'no_show'
   ) => {
     setBusyId(id);
     try {
@@ -151,6 +152,7 @@ export default function WaitingRoom() {
       const labels: Record<string, string> = {
         arrived: 'Paciente marcado como presente',
         in_service: 'Atendimento iniciado',
+        awaiting_payment: 'Atendimento concluído — aguardando pagamento',
         finished: 'Atendimento finalizado',
         no_show: 'Marcado como falta',
       };
@@ -264,11 +266,16 @@ export default function WaitingRoom() {
           icon={<Play className="h-4 w-4" />}
           accent="emerald"
         />
-        <KpiTile label="Finalizados" value={finished.length} icon={<UserCheck className="h-4 w-4" />} />
+        <KpiTile
+          label="Aguardando pagamento"
+          value={awaitingPayment.length}
+          icon={<UserCheck className="h-4 w-4" />}
+          accent="blue"
+        />
       </div>
 
       {/* Kanban */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <Column
           title="Aguardados"
           subtitle="Pacientes que ainda não chegaram"
@@ -333,6 +340,30 @@ export default function WaitingRoom() {
                 onMarkInService={(id) => updatePresence(id, 'in_service')}
                 onMarkFinished={(id) => updatePresence(id, 'finished')}
                 onMarkNoShow={(id) => updatePresence(id, 'no_show')}
+                onMarkAwaitingPayment={(id) => updatePresence(id, 'awaiting_payment')}
+              />
+            ))
+          )}
+        </Column>
+
+        <Column
+          title="Aguardando pagamento"
+          subtitle="Concluídos sem lançamento financeiro"
+          count={awaitingPayment.length}
+          color="blue"
+        >
+          {awaitingPayment.length === 0 ? (
+            <EmptyMini text="Nenhum pagamento pendente." />
+          ) : (
+            awaitingPayment.map((a) => (
+              <WaitingRoomCard
+                key={a.id}
+                appointment={a}
+                busyId={busyId}
+                onMarkArrived={(id) => updatePresence(id, 'arrived')}
+                onMarkInService={(id) => updatePresence(id, 'in_service')}
+                onMarkFinished={(id) => updatePresence(id, 'finished')}
+                onMarkNoShow={(id) => updatePresence(id, 'no_show')}
                 onRegisterPayment={handleRegisterPayment}
               />
             ))
@@ -378,13 +409,15 @@ function KpiTile({
   label: string;
   value: number;
   icon: React.ReactNode;
-  accent?: 'amber' | 'emerald';
+  accent?: 'amber' | 'emerald' | 'blue';
 }) {
   const accentClass =
     accent === 'amber'
       ? 'text-amber-700 dark:text-amber-400 bg-amber-500/10'
       : accent === 'emerald'
       ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
+      : accent === 'blue'
+      ? 'text-blue-700 dark:text-blue-400 bg-blue-500/10'
       : 'text-muted-foreground bg-muted';
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
@@ -409,7 +442,7 @@ function Column({
   title: string;
   subtitle: string;
   count: number;
-  color: 'muted' | 'amber' | 'emerald';
+  color: 'muted' | 'amber' | 'emerald' | 'blue';
   children: React.ReactNode;
 }) {
   const headerColor =
@@ -417,6 +450,8 @@ function Column({
       ? 'border-t-amber-500'
       : color === 'emerald'
       ? 'border-t-emerald-500'
+      : color === 'blue'
+      ? 'border-t-blue-500'
       : 'border-t-border';
   return (
     <div className={`rounded-xl border border-border border-t-4 ${headerColor} bg-muted/20 p-3 space-y-3`}>
