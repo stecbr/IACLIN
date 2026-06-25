@@ -8,6 +8,12 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, Image, FileText, Trash2, Download, X, Eye } from 'lucide-react';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
@@ -24,7 +30,7 @@ export function PatientDocuments({ patientId }: Props) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; type: string | null; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   const { data: documents = [], isLoading } = useQuery({
@@ -99,11 +105,15 @@ export function PatientDocuments({ patientId }: Props) {
   };
 
   const isImage = (type: string | null) => type?.startsWith('image/');
+  const isPdf = (type: string | null) => type === 'application/pdf';
 
   const openPreview = async (doc: any) => {
+    if (!isImage(doc.file_type) && !isPdf(doc.file_type)) {
+      return downloadDoc(doc);
+    }
     const signed = await getSignedFileUrl(doc.file_url, { expiresIn: 3600 });
     if (!signed) { toast.error('Não foi possível abrir o arquivo'); return; }
-    setPreview(signed);
+    setPreview({ url: signed, type: doc.file_type, name: doc.name });
   };
 
   const downloadDoc = async (doc: any) => {
@@ -230,14 +240,34 @@ export function PatientDocuments({ patientId }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Lightbox */}
-      {preview && (
+      {/* Image lightbox */}
+      {preview && isImage(preview.type) && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
           <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white hover:bg-white/10" onClick={() => setPreview(null)}>
             <X className="h-6 w-6" />
           </Button>
-          <img src={preview} alt="Preview" className="max-w-full max-h-full rounded-lg" onClick={e => e.stopPropagation()} />
+          <img src={preview.url} alt={preview.name} className="max-w-full max-h-full rounded-lg" onClick={e => e.stopPropagation()} />
         </div>
+      )}
+
+      {/* PDF preview */}
+      {preview && isPdf(preview.type) && (
+        <Dialog open onOpenChange={() => setPreview(null)}>
+          <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
+            <DialogHeader className="px-4 py-3 border-b flex-shrink-0 flex flex-row items-center justify-between">
+              <DialogTitle className="text-sm truncate">{preview.name}</DialogTitle>
+              <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs mr-6" asChild>
+                <a href={preview.url} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-3.5 w-3.5" />
+                  Abrir
+                </a>
+              </Button>
+            </DialogHeader>
+            <div className="flex-1 min-h-0">
+              <iframe src={preview.url} className="w-full h-full border-0" title={preview.name} />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
