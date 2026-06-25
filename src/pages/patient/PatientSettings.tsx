@@ -515,23 +515,6 @@ function ProfileSection() {
             </div>
           </div>
 
-          {/* Guardian */}
-          <SectionLabel icon={User} title="Responsável" />
-          <div className="space-y-1.5">
-            <Label>Nome do responsável</Label>
-            <Input value={form.guardian_name} onChange={(e) => set('guardian_name', e.target.value)} placeholder="Nome completo" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>CPF do responsável</Label>
-              <Input value={form.guardian_cpf} onChange={(e) => set('guardian_cpf', e.target.value)} placeholder="000.000.000-00" inputMode="numeric" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Data de nascimento</Label>
-              <Input type="date" value={form.guardian_date_of_birth} onChange={(e) => set('guardian_date_of_birth', e.target.value)} />
-            </div>
-          </div>
-
           {/* Insurance */}
           <SectionLabel icon={Shield} title="Dados do convênio" />
           <div className="space-y-1.5">
