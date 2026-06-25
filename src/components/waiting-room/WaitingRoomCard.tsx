@@ -33,6 +33,7 @@ interface Props {
   onMarkFinished: (id: string) => void;
   onMarkNoShow: (id: string) => void;
   onRegisterPayment?: (id: string) => void;
+  onMarkAwaitingPayment?: (id: string) => void;
   busyId?: string | null;
 }
 
@@ -43,6 +44,7 @@ export function WaitingRoomCard({
   onMarkFinished,
   onMarkNoShow,
   onRegisterPayment,
+  onMarkAwaitingPayment,
   busyId,
 }: Props) {
   const navigate = useNavigate();
@@ -182,6 +184,19 @@ export function WaitingRoomCard({
         )}
         {presence === 'in_service' && (
           <>
+            <Button
+              size="sm"
+              className="flex-1 gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => (onMarkAwaitingPayment ?? onMarkFinished)(appointment.id)}
+              disabled={isBusy}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Concluir atendimento
+            </Button>
+          </>
+        )}
+        {presence === 'awaiting_payment' && (
+          <>
             {onRegisterPayment && (
               <Button
                 size="sm"
@@ -199,9 +214,9 @@ export function WaitingRoomCard({
               className="gap-1.5 h-9"
               onClick={() => onMarkFinished(appointment.id)}
               disabled={isBusy}
+              title="Finalizar sem lançamento financeiro"
             >
-              <CheckCircle2 className="h-4 w-4" />
-              Finalizar
+              Cobrar depois
             </Button>
           </>
         )}
