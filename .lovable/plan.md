@@ -1,25 +1,15 @@
-## Objetivo
-Transformar a grade de KPIs do dashboard (atualmente comprimida em 4-6 cards apertados) em um carrossel horizontal arrastável, mantendo todos os cards no tamanho ideal e permitindo navegar deslizando com mouse (drag) ou toque.
+## Problema
+No carrossel atual os cards estão com `w-[220px]` e `gap-4`, fazendo títulos longos ("Atendimentos Concluídos Hoje", "Faturado no Mês") quebrarem em 2-3 linhas e empurrarem o ícone para o canto, deixando tudo apertado e pouco legível.
 
-## Mudança
-Arquivo único: `src/components/dashboard/SpecialtyHomeShell.tsx`
+## Ajuste em `src/components/dashboard/SpecialtyHomeShell.tsx`
 
-Substituir o `<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">` por um carrossel horizontal com scroll-snap + arrastar.
+1. **Aumentar largura dos cards**: trocar `w-[220px]` por `w-[260px] md:w-[280px]` para acomodar títulos longos em uma única linha (ou no máximo duas, sem espremer o valor).
+2. **Mais respiro entre cards**: aumentar `gap-4` para `gap-5` e adicionar `pr-4` no fim do scroller para o último card não colar.
+3. **Layout interno do header do card**:
+   - Garantir `gap-3` entre título e ícone.
+   - Adicionar `leading-tight` no `CardTitle` e remover quebras forçadas — com a nova largura títulos cabem.
+   - Manter o ícone fixo (`shrink-0`) para não comprimir.
+4. **Padding do valor**: aumentar margem superior do número (`mt-1` → `mt-2`) e do `desc` para hierarquia mais clara.
+5. **Setas**: reposicionar levemente para fora (`-left-2` / `-right-2`) já que agora os cards ocupam mais espaço, e manter visibilidade só em hover no desktop.
 
-### Comportamento
-- Largura fixa por card (ex.: `min-w-[220px] max-w-[240px]`) para que todos fiquem legíveis sem espremer texto/valor.
-- Container `overflow-x-auto` com `scroll-snap-type: x mandatory` e `snap-align: start` em cada card.
-- Arrastar com mouse (click-and-drag) além do scroll nativo touch/trackpad:
-  - Handlers `onMouseDown/Move/Up/Leave` ajustando `scrollLeft` (padrão clássico, sem libs).
-  - `cursor-grab` / `active:cursor-grabbing`.
-- Setas laterais discretas (chevron left/right) que aparecem em `hover` no desktop e fazem `scrollBy({ left: ±cardWidth, behavior: 'smooth' })`. Ocultas no mobile (usuário desliza com o dedo).
-- Esconder scrollbar visualmente (`scrollbar-hide` ou estilo inline `[&::-webkit-scrollbar]:hidden`).
-- Animação `slide-up` por card mantida.
-
-### Sem efeitos colaterais
-- Nenhuma mudança na API `KpiSpec` nem nos consumidores (`DentistHome`, `MedicalHome`, `PsiHome`, `NutritionHome`, etc.) — todos passam `kpis: KpiSpec[]` e o shell decide o layout.
-- Sem alteração no resto do dashboard (gráficos abaixo permanecem).
-
-## Resultado
-- Médico/Dentista/Psi/Nutri verão todos os KPIs em uma faixa única e arrastável, sem cards apertados.
-- Mobile: swipe nativo. Desktop: drag com mouse + setas no hover.
+Nada além disso muda — API `KpiSpec`, drag, snap e responsividade continuam iguais.
