@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Shield, Wallet, Check, Search } from 'lucide-react';
+import { Shield, Wallet, Check, ChevronsUpDown } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +31,7 @@ export function CoverageStep({ value, onSelect }: CoverageStepProps) {
   );
   const [plans, setPlans] = useState<InsuranceOption[]>([]);
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (mode !== 'insurance') return;
@@ -62,17 +65,20 @@ export function CoverageStep({ value, onSelect }: CoverageStepProps) {
     return () => { cancelled = true; };
   }, [mode]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return plans;
-    return plans.filter((p) =>
-      p.name.toLowerCase().includes(q) ||
-      p.operator.toLowerCase().includes(q) ||
-      (p.ans_code ?? '').toLowerCase().includes(q),
-    );
-  }, [plans, query]);
-
   const selectedPlanId = value?.kind === 'insurance' ? value.planId : null;
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.id === selectedPlanId) ?? null,
+    [plans, selectedPlanId],
+  );
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, InsuranceOption[]>();
+    for (const p of plans) {
+      if (!map.has(p.operator)) map.set(p.operator, []);
+      map.get(p.operator)!.push(p);
+    }
+    return Array.from(map.entries());
+  }, [plans]);
 
   return (
     <div className="space-y-6">
@@ -146,47 +152,71 @@ export function CoverageStep({ value, onSelect }: CoverageStepProps) {
               Mostraremos apenas clínicas que aceitam esse plano.
             </p>
           </div>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar convênio..."
-              className="h-9 pl-8 text-sm"
-            />
-          </div>
-          <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
-            {loading ? (
-              <p className="p-4 text-center text-xs text-muted-foreground">Carregando...</p>
-            ) : filtered.length === 0 ? (
-              <p className="p-4 text-center text-xs text-muted-foreground">
-                Nenhum convênio encontrado.
-              </p>
-            ) : (
-              filtered.map((p) => {
-                const selected = selectedPlanId === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => onSelect({ kind: 'insurance', planId: p.id, planName: p.name })}
-                    className={cn(
-                      'w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors',
-                      'hover:bg-muted',
-                      selected && 'bg-primary/5',
-                    )}
-                  >
-                    <Shield className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span className="flex-1 truncate">{p.name}</span>
-                    {p.ans_code && (
-                      <span className="text-[10px] text-muted-foreground">ANS {p.ans_code}</span>
-                    )}
-                    {selected && <Check className="h-3.5 w-3.5 text-primary" />}
-                  </button>
-                );
-              })
-            )}
-          </div>
+          <Popover open={open} onOpenChange={setOpen} modal>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                disabled={loading}
+                className="w-full justify-between font-normal"
+              >
+                <span
+                  className={cn(
+                    'truncate flex items-center gap-2',
+                    !selectedPlan && 'text-muted-foreground',
+                  )}
+                >
+                  {selectedPlan && <Shield className="h-3.5 w-3.5 text-primary" />}
+                  {loading
+                    ? 'Carregando...'
+                    : selectedPlan
+                      ? selectedPlan.name
+                      : 'Selecione o convênio'}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[--radix-popover-trigger-width] p-0"
+              align="start"
+            >
+              <Command>
+                <CommandInput placeholder="Buscar operadora ou plano..." />
+                <CommandList className="max-h-72">
+                  <CommandEmpty>Nenhum convênio encontrado.</CommandEmpty>
+                  {grouped.map(([operator, items]) => (
+                    <CommandGroup key={operator} heading={operator}>
+                      {items.map((p) => {
+                        const selected = selectedPlanId === p.id;
+                        return (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.operator} ${p.name} ${p.ans_code ?? ''}`}
+                            onSelect={() => {
+                              onSelect({ kind: 'insurance', planId: p.id, planName: p.name });
+                              setOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')}
+                            />
+                            <span className="flex-1 truncate">{p.name.split(' — ')[1] ?? p.name}</span>
+                            {p.ans_code && (
+                              <span className="ml-2 text-[10px] text-muted-foreground">
+                                ANS {p.ans_code}
+                              </span>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </Card>
       )}
     </div>
