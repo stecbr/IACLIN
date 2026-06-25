@@ -99,6 +99,10 @@ export function InsurancePlanSelect({
               setOpen(true);
               if (query === selectedLabel) setQuery('');
             }}
+            onClick={() => {
+              setOpen(true);
+              if (query === selectedLabel) setQuery('');
+            }}
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
