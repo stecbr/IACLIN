@@ -225,6 +225,7 @@ export default function PatientDetail() {
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          {canStartAttendance && (
           <Button
             size="sm"
             className="gap-2"
@@ -255,6 +256,7 @@ export default function PatientDetail() {
             <Stethoscope className="h-4 w-4" />
             Iniciar atendimento
           </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
