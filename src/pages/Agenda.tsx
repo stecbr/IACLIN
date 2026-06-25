@@ -532,7 +532,7 @@ function MonthView({ days, appointments, holidays, onDayClick, onAppointmentClic
       <div className="grid grid-cols-7">
         {paddedDays.map((day, i) => {
           if (!day) return <div key={i} className="min-h-[80px] border-b border-r border-border bg-muted/10" />;
-          const dayApts = filteredAppointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
+          const dayApts = appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
           const holiday = holidays.find((h) => h.date === format(day, 'yyyy-MM-dd')) ?? null;
           return (
             <div
