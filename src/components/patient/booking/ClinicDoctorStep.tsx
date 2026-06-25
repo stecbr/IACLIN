@@ -230,6 +230,14 @@ export function ClinicDoctorStep({ specialty, date, selected, cityFilter, insura
             .eq('id', insurancePlanId)
             .maybeSingle();
           if (r) key = `${normalize((r as any).name)}|${(r as any).ans_code ?? ''}`;
+          if (!key) {
+            const { data: cat } = await supabase
+              .from('insurance_plans_catalog')
+              .select('plan_name, ans_code')
+              .eq('id', insurancePlanId)
+              .maybeSingle();
+            if (cat) key = `${normalize((cat as any).plan_name)}|${(cat as any).ans_code ?? ''}`;
+          }
         }
         acceptingClinicIds = new Set<string>();
         if (key) {
