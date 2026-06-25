@@ -26,6 +26,7 @@ import { PatientSpecialtyList } from '@/components/patients/PatientSpecialtyList
 import { PatientFinancialSummary } from '@/components/patient/PatientFinancialSummary';
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { useSpecialtyProfile } from '@/hooks/useSpecialtyProfile';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { PATIENT_TAB_LABELS, type PatientTabKey } from '@/lib/specialtyProfile';
 import { BudgetFormDialog } from '@/components/budgets/BudgetFormDialog';
 import { generateBudgetPdf, fetchClinicForPdf } from '@/lib/generateBudgetPdf';
@@ -78,6 +79,8 @@ export default function PatientDetail() {
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const { currentClinicId, user } = useAuth();
   const { profile } = useSpecialtyProfile();
+  const { effectiveRole } = useRoleAccess();
+  const canStartAttendance = effectiveRole === 'dentist';
   const { data: personalization } = usePatientPersonalization(id);
   const queryClient = useQueryClient();
 
@@ -222,6 +225,7 @@ export default function PatientDetail() {
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          {canStartAttendance && (
           <Button
             size="sm"
             className="gap-2"
@@ -252,6 +256,7 @@ export default function PatientDetail() {
             <Stethoscope className="h-4 w-4" />
             Iniciar atendimento
           </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">

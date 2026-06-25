@@ -178,7 +178,8 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
     }
   };
 
-  const canStartAttendance = ['scheduled', 'confirmed'].includes(appointment.status);
+  const canStartAttendance =
+    ['scheduled', 'confirmed'].includes(appointment.status) && effectiveRole === 'dentist';
   const now = new Date();
   const startsAt = parseISO(appointment.start_time);
   const endsAt = parseISO(appointment.end_time);
@@ -187,7 +188,7 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   const canCancel = !['cancelled', 'completed'].includes(appointment.status);
   const canReschedule = !['cancelled', 'completed'].includes(appointment.status);
   const isCompleted = appointment.status === 'completed';
-  const isInProgress = appointment.status === 'in_progress';
+  const isInProgress = appointment.status === 'in_progress' && effectiveRole === 'dentist';
   const isCancelled = appointment.status === 'cancelled';
   const cancelledByLabel =
     appointment.cancelled_by === 'patient'

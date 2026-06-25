@@ -108,6 +108,7 @@ export function useRoleAccess() {
         ['/clinica/aprovacoes',     'aprovacoes'],
         ['/clinica/convenios',      'convenios'],
         ['/patients',               'pacientes'],
+        ['/prontuarios',            'abrirProntuario'],
         ['/financial',              'financeiro'],
         ['/ia-gestor',              'iaGestor'],
         ['/secretaria-ia',          'secretariaIa'],

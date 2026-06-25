@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Calendar, DoorOpen, ClipboardCheck, Users, Receipt,
-  DollarSign, Bot, Sparkles, MessageSquare,
+  DollarSign, Bot, Sparkles, MessageSquare, FolderHeart,
 } from 'lucide-react';
 
 export type StaffPermissions = {
@@ -15,6 +16,7 @@ export type StaffPermissions = {
   salaEspera: boolean;
   aprovacoes: boolean;
   pacientes: boolean;
+  abrirProntuario: boolean;
   convenios: boolean;
   financeiro: boolean;
   iaGestor: boolean;
@@ -26,12 +28,12 @@ export type StaffPermissions = {
 export const STAFF_PERMISSION_DEFAULTS: Record<string, StaffPermissions> = {
   secretary: {
     dashboard: true, agenda: true, salaEspera: true, aprovacoes: true,
-    pacientes: true, convenios: true, financeiro: true, iaGestor: true,
+    pacientes: true, abrirProntuario: true, convenios: true, financeiro: true, iaGestor: true,
     secretariaIa: false, chamados: true, settings: true,
   },
   auxiliary: {
     dashboard: true, agenda: true, salaEspera: true, aprovacoes: false,
-    pacientes: true, convenios: false, financeiro: false, iaGestor: false,
+    pacientes: true, abrirProntuario: false, convenios: false, financeiro: false, iaGestor: false,
     secretariaIa: false, chamados: true, settings: true,
   },
 };
@@ -56,6 +58,7 @@ export function normalizeStaffPermissions(
     agenda: stored.agenda ?? base.agenda,
     salaEspera: stored.agenda ?? base.salaEspera,
     pacientes: stored.pacientes ?? base.pacientes,
+    abrirProntuario: stored.pacientes ?? base.abrirProntuario,
     aprovacoes: stored.pacientes ?? base.aprovacoes,
     financeiro: stored.financeiro ?? base.financeiro,
     iaGestor: stored.ia ?? base.iaGestor,
@@ -74,6 +77,7 @@ const PERMISSION_ITEMS: Array<{
   { key: 'salaEspera',   label: 'Sala de espera',      description: 'Acompanhar chegadas e fila',        icon: DoorOpen },
   { key: 'aprovacoes',   label: 'Aprovações',          description: 'Aprovar pedidos de pacientes',      icon: ClipboardCheck },
   { key: 'pacientes',    label: 'Pacientes',           description: 'Cadastro e prontuários',             icon: Users },
+  { key: 'abrirProntuario', label: 'Abrir prontuário', description: 'Acessar o atalho "Abrir prontuário"', icon: FolderHeart },
   { key: 'convenios',    label: 'Convênios',           description: 'Planos e operadoras',                icon: Receipt },
   { key: 'financeiro',   label: 'Financeiro',          description: 'Lançamentos e recebimentos',         icon: DollarSign },
   { key: 'iaGestor',     label: 'IA Gestor',           description: 'Assistente de gestão por IA',        icon: Bot },
@@ -105,6 +109,7 @@ export function StaffPermissionsDialog({
     normalizeStaffPermissions(currentPermissions, roleKey),
   );
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setPerms(normalizeStaffPermissions(currentPermissions, memberRole ?? 'secretary'));
@@ -123,6 +128,7 @@ export function StaffPermissionsDialog({
         .update({ permissions: perms })
         .eq('id', memberId);
       if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['staff-permissions'] });
       toast.success('Permissões salvas');
       onSaved?.();
       onOpenChange(false);

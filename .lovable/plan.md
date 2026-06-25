@@ -1,72 +1,50 @@
-## Causa raiz
+## Correções de RBAC e Sidebar (Secretária)
 
-A tela do print é renderizada por `src/pages/dentist/DentistHome.tsx`, que **não usa** o `SpecialtyHomeShell`. Ele monta seu próprio `<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-{n} xl:grid-cols-7">` (linhas 271-299) com até 7 cards forçados em colunas estreitas — daí o "Atendimentos Concluídos Hoje" quebrando em 3 linhas. As mudanças anteriores no `SpecialtyHomeShell` só afetam `MedicalHome`, `PsiHome` e `NutritionHome`.
+### 1. Esconder "Iniciar atendimento" para não‑dentistas/medicos
 
-## Mudanças
+- Em `src/pages/PatientDetail.tsx`, `src/components/waiting-room/WaitingRoomCard.tsx` e `src/components/agenda/AppointmentDetailDialog.tsx`: usar `useRoleAccess()` → `effectiveRole` e renderizar o botão **somente** quando `effectiveRole === 'dentist'`. Admin (modo gestor), secretária e auxiliar não veem o botão.
 
-### 1. `src/pages/dentist/DentistHome.tsx`
-Substituir o bloco `{/* ── KPIs ── */}` (linhas 271-299) por um Carousel shadcn, mantendo o array `kpiCards` exatamente como está (com `gradient`, `currency`, `click` etc.).
+### 2. Nova permissão "Abrir prontuário" e respeito real às toggles
 
-- Importar `Carousel`, `CarouselContent`, `CarouselItem`, `CarouselPrevious`, `CarouselNext` de `@/components/ui/carousel`.
-- Estrutura exata:
+- `src/components/settings/StaffPermissionsDialog.tsx`:
+  - Adicionar chave `abrirProntuario: boolean` em `StaffPermissions`.
+  - Default `true` para secretary, `false` para auxiliary.
+  - Novo item no `PERMISSION_ITEMS` ("Abrir prontuário" / ícone `FolderHeart`).
+  - Em `normalizeStaffPermissions`, preencher `abrirProntuario` quando ausente.
+  - No `handleSave`, **invalidar** as queries `['staff-permissions']` e `['role-access']` para que a sidebar reaja em tempo real.
+- `src/hooks/useRoleAccess.ts`: incluir `/prontuarios` no mapa de permissões staff → `abrirProntuario`.
+- `src/components/AppSidebar.tsx`: envolver cada renderização de `prontuarioItem` num gate `(!isStaff || staffPerms?.abrirProntuario !== false) && prontuarioItem`.
 
-```tsx
-<Carousel
-  opts={{ align: 'start', dragFree: true, containScroll: 'trimSnaps' }}
-  className="w-full overflow-visible"
->
-  <CarouselContent className="-ml-4">
-    {kpiCards.map((kpi, i) => (
-      <CarouselItem
-        key={kpi.title}
-        className="pl-4 basis-[85%] sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
-      >
-        <Card
-          onClick={kpi.click}
-          role={kpi.click ? 'button' : undefined}
-          tabIndex={kpi.click ? 0 : undefined}
-          onKeyDown={kpi.click ? (e:any)=>{ if(e.key==='Enter') kpi.click(); } : undefined}
-          className={`relative w-full h-full overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 ${kpi.click ? 'cursor-pointer' : ''}`}
-          style={{ animationDelay: `${i*60}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
-        >
-          <div className={`absolute inset-0 opacity-10 ${kpi.gradient}`} />
-          <CardHeader className="relative p-5 pb-3 flex flex-row items-start justify-between gap-4 space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground leading-snug line-clamp-2">
-              {kpi.title}
-            </CardTitle>
-            <div className={`h-9 w-9 shrink-0 rounded-xl ${kpi.gradient} flex items-center justify-center`}>
-              <kpi.icon className="h-4 w-4 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative p-5 pt-0">
-            <AnimatedNumber
-              value={kpi.value}
-              className="text-2xl font-semibold tracking-tight"
-              formatter={kpi.currency ? brl : undefined}
-            />
-            <p className="mt-2 text-xs text-muted-foreground">{kpi.desc}</p>
-          </CardContent>
-        </Card>
-      </CarouselItem>
-    ))}
-  </CarouselContent>
-  <CarouselPrevious className="hidden md:flex left-1 md:-left-4" />
-  <CarouselNext className="hidden md:flex right-1 md:-right-4" />
-</Carousel>
-```
+### 3. Limpar duplicidade na sidebar para staff/dentista
 
-- Remover qualquer largura fixa (`w-[260px]`, `w-64` etc.) — nenhuma deve existir no Card.
-- Manter `kpiCards`, `baseKpis`, `ownerKpis`, `setSessionsOpen` e demais comportamentos intactos.
+No bloco "non‑admin" (`AppSidebar.tsx` linhas ~667–740) hoje existem **duas** seções "Gestão da Clínica" (linhas 695 e 720) e `prontuarioItem` é renderizado **duas vezes**.
 
-### 2. `src/components/dashboard/SpecialtyHomeShell.tsx`
-Já está conforme as diretrizes (basis responsivo, `w-full h-full`, padding `p-5`, `line-clamp-2`, setas `hidden md:flex`). Garantir apenas que o `Carousel` raiz tenha `className="w-full overflow-visible relative"` para bater 100% com a estrutura solicitada.
+Reestruturar para uma única seção "Gestão da Clínica" quando houver clínica ativa:
 
-## Não muda
-- `MedicalHome`, `PsiHome`, `NutritionHome`, `DentistHome` continuam com as mesmas queries, KPIs e seções de gráfico/agenda.
-- Nenhuma lógica manual de drag/scrollRef/Chevron antiga precisa ser removida — não existe nesses arquivos hoje.
+- Remover por completo o bloco `!isDentist && effectiveRole !== 'patient'` (linha 719) — "Visão Geral" e "Médicos" já não devem aparecer para secretária/auxiliar (são telas de admin). Continuam existindo no caminho admin (linha 596).
+- Manter apenas o bloco da linha 694 contendo `finalClinicNav` + `prontuarioItem` (já com gate de permissão da etapa 2).
+- Garantir que `prontuarioItem` apareça uma única vez em todo o componente.
 
-## Validação
-Após build, abrir `/` como dentista (clínico geral) em ~1280px e ~390px:
-- Títulos longos limitados a 2 linhas, nunca 3+.
-- 4 cards visíveis em desktop, 1 + pedaço do próximo em mobile.
-- Drag livre funcionando; setas só em ≥md, dentro do viewport.
+### 4. Reatividade das permissões em tempo real
+
+- Após salvar permissões em `StaffPermissionsDialog`, invalidar `['staff-permissions', userId, clinicId]` via `queryClient.invalidateQueries` (atualmente o hook tem `staleTime: 60_000` e não recarrega).
+- Disparar `window.dispatchEvent(new Event(VIEW_MODE_EVENT))` opcionalmente para forçar re-render do `useRoleAccess`.
+
+### 5. Validação manual
+
+Após as mudanças, simular como secretária alternando cada toggle no painel do gestor e confirmar:
+
+- "Abrir prontuário" off → some o item da sidebar e a rota `/prontuarios` redireciona.
+- "Aprovações" on → aparece em "Atendimento do Dia"/"Gestão" com o badge `pendingCount`.
+- Demais toggles (agenda, sala de espera, pacientes, convênios, financeiro, IA Gestor, Secretária IA, chamados) refletem em tempo real sem reload.
+- Em `/patients/:id` o botão azul "Iniciar atendimento" não aparece para secretária nem para admin no modo gestor.
+
+### Arquivos tocados
+
+- `src/components/AppSidebar.tsx`
+- `src/components/settings/StaffPermissionsDialog.tsx`
+- `src/hooks/useRoleAccess.ts`
+- `src/hooks/useStaffPermissions.ts` (se necessário expor `abrirProntuario` no fallback)
+- `src/pages/PatientDetail.tsx`
+- `src/components/waiting-room/WaitingRoomCard.tsx`
+- `src/components/agenda/AppointmentDetailDialog.tsx`
