@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from '@/components/ui/carousel';
+import {
   Calendar, Users, ClipboardList, Clock, ArrowRight, Eye, FolderHeart,
   DollarSign, Wallet, CheckCircle2, TrendingUp,
 } from 'lucide-react';
@@ -268,35 +275,48 @@ export default function DentistHome() {
       <SoloModeBanner />
 
       {/* ── KPIs ────────────────────────────────────────────────────── */}
-      <div className={`grid gap-4 sm:grid-cols-2 ${isClinicOwner ? 'lg:grid-cols-3 xl:grid-cols-7' : `lg:grid-cols-${baseKpis.length}`}`}>
-        {kpiCards.map((kpi, i) => (
-          <Card
-            key={kpi.title}
-            onClick={kpi.click}
-            role={kpi.click ? 'button' : undefined}
-            tabIndex={kpi.click ? 0 : undefined}
-            onKeyDown={kpi.click ? (e: any) => { if (e.key === 'Enter') kpi.click(); } : undefined}
-            className={`relative overflow-hidden border-0 shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${kpi.click ? 'cursor-pointer' : ''}`}
-            style={{ animationDelay: `${i * 60}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
-          >
-            <div className={`absolute inset-0 opacity-10 ${kpi.gradient}`} />
-            <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
-              <div className={`rounded-lg p-1.5 ${kpi.gradient}`}>
-                <kpi.icon className="h-4 w-4 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent className="relative">
-              <AnimatedNumber
-                value={kpi.value}
-                className="text-2xl font-bold tracking-tight"
-                formatter={kpi.currency ? brl : undefined}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">{kpi.desc}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Carousel
+        opts={{ align: 'start', dragFree: true, containScroll: 'trimSnaps' }}
+        className="w-full overflow-visible relative"
+      >
+        <CarouselContent className="-ml-4">
+          {kpiCards.map((kpi, i) => (
+            <CarouselItem
+              key={kpi.title}
+              className="pl-4 basis-[85%] sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
+            >
+              <Card
+                onClick={kpi.click}
+                role={kpi.click ? 'button' : undefined}
+                tabIndex={kpi.click ? 0 : undefined}
+                onKeyDown={kpi.click ? (e: any) => { if (e.key === 'Enter') kpi.click(); } : undefined}
+                className={`relative w-full h-full overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 ${kpi.click ? 'cursor-pointer' : ''}`}
+                style={{ animationDelay: `${i * 60}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
+              >
+                <div className={`absolute inset-0 opacity-10 ${kpi.gradient}`} />
+                <CardHeader className="relative p-5 pb-3 flex flex-row items-start justify-between gap-4 space-y-0">
+                  <CardTitle className="text-sm font-medium text-muted-foreground leading-snug line-clamp-2">
+                    {kpi.title}
+                  </CardTitle>
+                  <div className={`h-9 w-9 shrink-0 rounded-xl ${kpi.gradient} flex items-center justify-center`}>
+                    <kpi.icon className="h-4 w-4 text-white" />
+                  </div>
+                </CardHeader>
+                <CardContent className="relative p-5 pt-0">
+                  <AnimatedNumber
+                    value={kpi.value}
+                    className="text-2xl font-semibold tracking-tight"
+                    formatter={kpi.currency ? brl : undefined}
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">{kpi.desc}</p>
+                </CardContent>
+              </Card>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious className="hidden md:flex left-1 md:-left-4" />
+        <CarouselNext className="hidden md:flex right-1 md:-right-4" />
+      </Carousel>
 
       {/* ── Gráficos ────────────────────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-3">

@@ -1,38 +1,72 @@
-## Objetivo
-Substituir o scroller manual atual em `SpecialtyHomeShell.tsx` por um carrossel baseado em Embla (via componente `Carousel` do shadcn já presente em `src/components/ui/carousel.tsx`), com cards mais respirados e responsivos.
+## Causa raiz
 
-## Mudanças em `src/components/dashboard/SpecialtyHomeShell.tsx`
+A tela do print é renderizada por `src/pages/dentist/DentistHome.tsx`, que **não usa** o `SpecialtyHomeShell`. Ele monta seu próprio `<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-{n} xl:grid-cols-7">` (linhas 271-299) com até 7 cards forçados em colunas estreitas — daí o "Atendimentos Concluídos Hoje" quebrando em 3 linhas. As mudanças anteriores no `SpecialtyHomeShell` só afetam `MedicalHome`, `PsiHome` e `NutritionHome`.
 
-1. **Trocar implementação custom por shadcn `Carousel`**
-   - Importar `Carousel`, `CarouselContent`, `CarouselItem`, `CarouselPrevious`, `CarouselNext` de `@/components/ui/carousel`.
-   - Configurar `opts={{ align: 'start', dragFree: true, containScroll: 'trimSnaps' }}` — `dragFree` dá a sensação de "clicar e arrastar" livremente em vez de snap rígido.
-   - Remover toda a lógica manual de `scrollerRef`, `onMouseDown/Move/Up`, `dragState`, `updateArrows`, `canLeft/Right` e os botões `ChevronLeft/Right` custom.
+## Mudanças
 
-2. **Larguras responsivas dos `CarouselItem`** (basis controla quantos cards aparecem)
-   - Mobile: `basis-[85%]` → 1 card inteiro + pedaço do próximo (atende o requisito 3).
-   - `sm`: `sm:basis-1/2` → 2 cards.
-   - `md`: `md:basis-1/3` → 3 cards.
-   - `lg`: `lg:basis-1/4` → ~4 cards visíveis em desktop.
-   - O `CarouselContent` já aplica `-ml-4` e cada item `pl-4`, garantindo `gap-4` equilibrado.
+### 1. `src/pages/dentist/DentistHome.tsx`
+Substituir o bloco `{/* ── KPIs ── */}` (linhas 271-299) por um Carousel shadcn, mantendo o array `kpiCards` exatamente como está (com `gradient`, `currency`, `click` etc.).
 
-3. **Padding interno e tipografia dos cards (anti-quebra de título)**
-   - `CardHeader`: `p-5 pb-3` com `flex items-start justify-between gap-4`.
-   - `CardTitle`: `text-sm font-medium text-muted-foreground leading-snug line-clamp-2` (limita a 2 linhas — "Atendimentos Concluídos Hoje" cabe confortavelmente em 2 linhas com a largura ~1/4 do container).
-   - Ícone: manter `h-9 w-9 shrink-0` com `bg`/`color` semânticos.
-   - `CardContent`: `p-5 pt-0` com valor `text-2xl font-semibold` e `desc` em `mt-2 text-xs text-muted-foreground`.
-   - Card: manter `shadow-card hover:shadow-card-hover`, `hover:-translate-y-0.5`, animação `slide-up` escalonada — remover `w-[260px]` fixo (largura agora vem do `basis` do item).
+- Importar `Carousel`, `CarouselContent`, `CarouselItem`, `CarouselPrevious`, `CarouselNext` de `@/components/ui/carousel`.
+- Estrutura exata:
 
-4. **Posicionamento das setas (`CarouselPrevious`/`CarouselNext`)**
-   - shadcn posiciona em `-left-12/-right-12` por padrão (fora do container). Para não vazar do layout, sobrescrever com `className="left-1 md:-left-4"` e `right-1 md:-right-4`, escondendo no mobile via `hidden md:flex` (mobile usa swipe nativo).
+```tsx
+<Carousel
+  opts={{ align: 'start', dragFree: true, containScroll: 'trimSnaps' }}
+  className="w-full overflow-visible"
+>
+  <CarouselContent className="-ml-4">
+    {kpiCards.map((kpi, i) => (
+      <CarouselItem
+        key={kpi.title}
+        className="pl-4 basis-[85%] sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
+      >
+        <Card
+          onClick={kpi.click}
+          role={kpi.click ? 'button' : undefined}
+          tabIndex={kpi.click ? 0 : undefined}
+          onKeyDown={kpi.click ? (e:any)=>{ if(e.key==='Enter') kpi.click(); } : undefined}
+          className={`relative w-full h-full overflow-hidden border-0 shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 ${kpi.click ? 'cursor-pointer' : ''}`}
+          style={{ animationDelay: `${i*60}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
+        >
+          <div className={`absolute inset-0 opacity-10 ${kpi.gradient}`} />
+          <CardHeader className="relative p-5 pb-3 flex flex-row items-start justify-between gap-4 space-y-0">
+            <CardTitle className="text-sm font-medium text-muted-foreground leading-snug line-clamp-2">
+              {kpi.title}
+            </CardTitle>
+            <div className={`h-9 w-9 shrink-0 rounded-xl ${kpi.gradient} flex items-center justify-center`}>
+              <kpi.icon className="h-4 w-4 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative p-5 pt-0">
+            <AnimatedNumber
+              value={kpi.value}
+              className="text-2xl font-semibold tracking-tight"
+              formatter={kpi.currency ? brl : undefined}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">{kpi.desc}</p>
+          </CardContent>
+        </Card>
+      </CarouselItem>
+    ))}
+  </CarouselContent>
+  <CarouselPrevious className="hidden md:flex left-1 md:-left-4" />
+  <CarouselNext className="hidden md:flex right-1 md:-right-4" />
+</Carousel>
+```
 
-5. **Container externo**
-   - Manter wrapper `relative` sem `-mx-1` para alinhar com o restante da página.
-   - `overflow-visible` no Carousel raiz para as setas externas; `CarouselContent` já tem `overflow-hidden`.
+- Remover qualquer largura fixa (`w-[260px]`, `w-64` etc.) — nenhuma deve existir no Card.
+- Manter `kpiCards`, `baseKpis`, `ownerKpis`, `setSessionsOpen` e demais comportamentos intactos.
 
-## Nada que muda
-- Assinatura de `SpecialtyHomeShell` e `KpiSpec` permanece igual — todas as Home pages (DentistHome, MedicalHome, PsiHome, NutritionHome) continuam funcionando sem alteração.
-- `AnimatedNumber`, `PageHeader`, `ViewModeToggle` inalterados.
-- Sem mudança em backend ou outros arquivos.
+### 2. `src/components/dashboard/SpecialtyHomeShell.tsx`
+Já está conforme as diretrizes (basis responsivo, `w-full h-full`, padding `p-5`, `line-clamp-2`, setas `hidden md:flex`). Garantir apenas que o `Carousel` raiz tenha `className="w-full overflow-visible relative"` para bater 100% com a estrutura solicitada.
+
+## Não muda
+- `MedicalHome`, `PsiHome`, `NutritionHome`, `DentistHome` continuam com as mesmas queries, KPIs e seções de gráfico/agenda.
+- Nenhuma lógica manual de drag/scrollRef/Chevron antiga precisa ser removida — não existe nesses arquivos hoje.
 
 ## Validação
-- Verificar visualmente em 3 breakpoints (mobile ~390px, tablet ~768px, desktop ≥1280px) que: drag funciona, títulos não quebram em 3+ linhas, gap uniforme, setas aparecem só em desktop e ficam dentro do viewport.
+Após build, abrir `/` como dentista (clínico geral) em ~1280px e ~390px:
+- Títulos longos limitados a 2 linhas, nunca 3+.
+- 4 cards visíveis em desktop, 1 + pedaço do próximo em mobile.
+- Drag livre funcionando; setas só em ≥md, dentro do viewport.
