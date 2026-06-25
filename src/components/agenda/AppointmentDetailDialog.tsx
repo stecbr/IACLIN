@@ -178,7 +178,8 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
     }
   };
 
-  const canStartAttendance = ['scheduled', 'confirmed'].includes(appointment.status);
+  const canStartAttendance =
+    ['scheduled', 'confirmed'].includes(appointment.status) && effectiveRole === 'dentist';
   const now = new Date();
   const startsAt = parseISO(appointment.start_time);
   const endsAt = parseISO(appointment.end_time);
