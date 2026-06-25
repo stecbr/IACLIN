@@ -122,10 +122,10 @@ export function useRoleAccess() {
       }
       if (path === '/' && staffPerms.dashboard === false) return false;
     }
-    const rule = routePermissions.find((r) => {
-      if (r.path === '/') return path === '/';
-      return path.startsWith(r.path);
-    });
+    // Use most-specific (longest) matching rule to avoid '/clinica' catching '/clinica/aprovacoes'
+    const rule = routePermissions
+      .filter((r) => r.path === '/' ? path === '/' : (path === r.path || path.startsWith(r.path + '/')))
+      .sort((a, b) => b.path.length - a.path.length)[0] ?? null;
     if (!rule) return true; // unknown routes are accessible
     return rule.allowedRoles.includes(effectiveRole);
   };

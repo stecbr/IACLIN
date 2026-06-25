@@ -26,14 +26,17 @@ export function useStaffPermissions() {
     refetchInterval: 10000,
     placeholderData: initialFallback as any,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('clinic_members')
         .select('permissions, role')
         .eq('user_id', user!.id)
         .eq('clinic_id', currentClinicId!)
         .maybeSingle();
+      console.log('[useStaffPermissions] raw DB:', { data, error, userId: user!.id, clinicId: currentClinicId });
       if (!data) return null;
-      return normalizeStaffPermissions((data as any).permissions, (data as any).role);
+      const result = normalizeStaffPermissions((data as any).permissions, (data as any).role);
+      console.log('[useStaffPermissions] normalized:', result);
+      return result;
     },
   });
 
