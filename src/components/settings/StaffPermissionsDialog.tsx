@@ -109,11 +109,27 @@ export function StaffPermissionsDialog({
     normalizeStaffPermissions(currentPermissions, roleKey),
   );
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
 
+  // Fetch fresh permissions directly from DB every time the dialog opens
   useEffect(() => {
-    setPerms(normalizeStaffPermissions(currentPermissions, memberRole ?? 'secretary'));
-  }, [currentPermissions, memberRole, open]);
+    if (!open || !memberId) {
+      setPerms(normalizeStaffPermissions(currentPermissions, memberRole ?? 'secretary'));
+      return;
+    }
+    setLoading(true);
+    (supabase as any)
+      .from('clinic_members')
+      .select('permissions, role')
+      .eq('id', memberId)
+      .maybeSingle()
+      .then(({ data }: { data: any }) => {
+        const freshRole = data?.role ?? memberRole ?? 'secretary';
+        setPerms(normalizeStaffPermissions(data?.permissions ?? null, freshRole));
+      })
+      .finally(() => setLoading(false));
+  }, [open, memberId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (key: keyof StaffPermissions) => {
     setPerms((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -150,6 +166,11 @@ export function StaffPermissionsDialog({
           <p className="text-sm text-muted-foreground">
             Defina o que <strong>{memberName}</strong> pode acessar na plataforma.
           </p>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {PERMISSION_ITEMS.map(({ key, label, description, icon: Icon }) => (
               <div
@@ -169,10 +190,11 @@ export function StaffPermissionsDialog({
               </div>
             ))}
           </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || loading}>
             {saving ? 'Salvando...' : 'Salvar permissões'}
           </Button>
         </DialogFooter>

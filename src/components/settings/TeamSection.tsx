@@ -70,6 +70,8 @@ export default function TeamSection() {
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['clinic-members', currentClinicId],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       if (!currentClinicId) return [];
       const { data, error } = await (supabase as any)
