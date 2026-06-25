@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { startOfDay, endOfDay } from 'date-fns';
-import { Users, UserCheck, Play, RefreshCw } from 'lucide-react';
+import { Users, UserCheck, Play, RefreshCw, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
@@ -132,13 +132,14 @@ export default function WaitingRoom() {
   const waiting = enriched.filter((a) => a.presence_status === 'not_arrived');
   const arrived = enriched.filter((a) => a.presence_status === 'arrived');
   const inService = enriched.filter((a) => a.presence_status === 'in_service');
+  const awaitingPayment = enriched.filter((a) => a.presence_status === 'awaiting_payment');
   const finished = enriched.filter(
     (a) => a.presence_status === 'finished' || a.presence_status === 'no_show'
   );
 
   const updatePresence = async (
     id: string,
-    presence: 'arrived' | 'in_service' | 'finished' | 'no_show'
+    presence: 'arrived' | 'in_service' | 'awaiting_payment' | 'finished' | 'no_show'
   ) => {
     setBusyId(id);
     try {
@@ -151,6 +152,7 @@ export default function WaitingRoom() {
       const labels: Record<string, string> = {
         arrived: 'Paciente marcado como presente',
         in_service: 'Atendimento iniciado',
+        awaiting_payment: 'Atendimento concluído — aguardando pagamento',
         finished: 'Atendimento finalizado',
         no_show: 'Marcado como falta',
       };
@@ -250,7 +252,7 @@ export default function WaitingRoom() {
       </PageHeader>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KpiTile label="Aguardados" value={waiting.length} icon={<Users className="h-4 w-4" />} />
         <KpiTile
           label="Na recepção"
@@ -264,11 +266,17 @@ export default function WaitingRoom() {
           icon={<Play className="h-4 w-4" />}
           accent="emerald"
         />
+        <KpiTile
+          label="Aguard. pagamento"
+          value={awaitingPayment.length}
+          icon={<Wallet className="h-4 w-4" />}
+          accent="sky"
+        />
         <KpiTile label="Finalizados" value={finished.length} icon={<UserCheck className="h-4 w-4" />} />
       </div>
 
       {/* Kanban */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Column
           title="Aguardados"
           subtitle="Pacientes que ainda não chegaram"
@@ -325,6 +333,31 @@ export default function WaitingRoom() {
             <EmptyMini text="Nenhum atendimento em curso." />
           ) : (
             inService.map((a) => (
+              <WaitingRoomCard
+                key={a.id}
+                appointment={a}
+                busyId={busyId}
+                onMarkArrived={(id) => updatePresence(id, 'arrived')}
+                onMarkInService={(id) => updatePresence(id, 'in_service')}
+                onMarkFinished={(id) => updatePresence(id, 'finished')}
+                onMarkNoShow={(id) => updatePresence(id, 'no_show')}
+                onMarkAwaitingPayment={(id) => updatePresence(id, 'awaiting_payment')}
+                onRegisterPayment={handleRegisterPayment}
+              />
+            ))
+          )}
+        </Column>
+
+        <Column
+          title="Aguardando pagamento"
+          subtitle="Atendimentos concluídos a cobrar"
+          count={awaitingPayment.length}
+          color="sky"
+        >
+          {awaitingPayment.length === 0 ? (
+            <EmptyMini text="Nenhum pagamento pendente." />
+          ) : (
+            awaitingPayment.map((a) => (
               <WaitingRoomCard
                 key={a.id}
                 appointment={a}
