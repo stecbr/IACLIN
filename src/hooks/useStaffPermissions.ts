@@ -34,7 +34,7 @@ export function useStaffPermissions() {
   useEffect(() => {
     if (!isStaff || !user?.id || !currentClinicId) return;
     const channel = supabase
-      .channel(`clinic_member_perms_${user.id}_${currentClinicId}`)
+      .channel(`clinic_member_perms_${user.id}_${currentClinicId}_${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
