@@ -681,6 +681,8 @@ export function AppSidebar() {
                         // Prioriza alertar pedidos aguardando aprovação; se não houver,
                         // mostra a contagem de consultas do dia.
                         ? (agendaPendingCount > 0 ? agendaPendingCount : todayCount)
+                        : item.url === '/clinica/aprovacoes'
+                        ? pendingCount
                         : undefined,
                     )
                   )}
