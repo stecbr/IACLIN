@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye, UserCheck, FolderHeart, CalendarClock } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, FileText, Play, X, Eye, UserCheck, FolderHeart, CalendarClock, Tag } from 'lucide-react';
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
@@ -54,6 +54,7 @@ interface Appointment {
   arrived_at?: string | null;
   cancelled_by?: string | null;
   cancelled_at?: string | null;
+  label?: string | null;
   patients?: { full_name: string } | null;
   procedures?: { name: string; color: string } | null;
 }
@@ -81,6 +82,14 @@ const statusColors: Record<string, string> = {
   no_show: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
   cancelled: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300',
   in_progress: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+};
+
+const labelMeta: Record<string, { label: string; color: string }> = {
+  primeira_consulta: { label: 'Primeira Consulta', color: '#6366f1' },
+  retorno: { label: 'Retorno', color: '#f59e0b' },
+  urgencia: { label: 'Urgência', color: '#ef4444' },
+  preventivo: { label: 'Preventivo', color: '#22c55e' },
+  estetico: { label: 'Estético', color: '#ec4899' },
 };
 
 export function AppointmentDetailDialog({ open, onOpenChange, appointment, onStatusChange }: Props) {
