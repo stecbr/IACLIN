@@ -102,7 +102,7 @@ const personalNav: Array<{ title: string; url: string; icon: typeof LayoutDashbo
 const operationNav: Array<{ title: string; url: string; icon: typeof LayoutDashboard; allowedRoles: Role[] }> = [
   { title: 'Agenda',        url: '/agenda',          icon: Calendar,  allowedRoles: ['admin', 'secretary', 'auxiliary'] },
   { title: 'Sala de Espera', url: '/sala-de-espera', icon: DoorOpen,  allowedRoles: ['admin', 'secretary', 'auxiliary'] },
-  { title: 'Aprovações',    url: '/clinica/aprovacoes', icon: ClipboardCheck, allowedRoles: ['secretary', 'auxiliary'] },
+  { title: 'Aprovações',    url: '/clinica/aprovacoes', icon: ClipboardCheck, allowedRoles: ['admin', 'secretary', 'auxiliary'] },
 ];
 
 const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categories: string[]; allowedRoles: Role[] }> = [
@@ -227,9 +227,9 @@ export function AppSidebar() {
   const filteredOperationNav = filterNavItems(
     operationNav
       .filter((item) => item.allowedRoles.includes(effectiveRole))
-      .filter((item) => !isStaff || (item.url === '/agenda' ? staffPerms?.agenda !== false : true))
-      .filter((item) => !isStaff || (item.url === '/sala-de-espera' ? staffPerms?.salaEspera !== false : true))
-      .filter((item) => !isStaff || (item.url === '/clinica/aprovacoes' ? staffPerms?.aprovacoes !== false : true))
+      .filter((item) => !(isStaff && item.url === '/agenda' && staffPerms && staffPerms.agenda === false))
+      .filter((item) => !(isStaff && item.url === '/sala-de-espera' && staffPerms && staffPerms.salaEspera === false))
+      .filter((item) => !(isStaff && item.url === '/clinica/aprovacoes' && staffPerms && staffPerms.aprovacoes === false))
   );
   const filteredClinicNav = filterNavItems(
     clinicNav
@@ -584,8 +584,15 @@ export function AppSidebar() {
           const byUrl = (url: string) => finalClinicNav.find((i) => i.url === url);
           const credentialingsItem = byUrl('/clinica/credenciamentos');
 
-          const attendanceExtra = [byUrl('/pacientes-do-dia'), byUrl('/clinica/aprovacoes')].filter(Boolean) as typeof finalClinicNav;
-          const attendance      = [...filteredOperationNav, ...attendanceExtra];
+          const attendanceExtra = [byUrl('/pacientes-do-dia')].filter(Boolean) as typeof finalClinicNav;
+          const merged = [...filteredOperationNav, ...attendanceExtra];
+          // Dedupe por url, preservando a ordem do operationNav
+          const seen = new Set<string>();
+          const attendance = merged.filter((i) => {
+            if (seen.has(i.url)) return false;
+            seen.add(i.url);
+            return true;
+          });
           const patientItems    = [
             byUrl('/patients'),
             byUrl('/ferramentas'),
