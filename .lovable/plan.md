@@ -1,50 +1,52 @@
-## Correções de RBAC e Sidebar (Secretária)
 
-### 1. Esconder "Iniciar atendimento" para não‑dentistas/medicos
+## Diagnóstico
 
-- Em `src/pages/PatientDetail.tsx`, `src/components/waiting-room/WaitingRoomCard.tsx` e `src/components/agenda/AppointmentDetailDialog.tsx`: usar `useRoleAccess()` → `effectiveRole` e renderizar o botão **somente** quando `effectiveRole === 'dentist'`. Admin (modo gestor), secretária e auxiliar não veem o botão.
+Verifiquei no banco a conta da Jesus (`jesuss@gmail.com`, role `secretary`, clínica `200c1de3…`):
 
-### 2. Nova permissão "Abrir prontuário" e respeito real às toggles
+```
+permissions = { dashboard:true, agenda:true, salaEspera:true, aprovacoes:true,
+                pacientes:true, convenios:true, financeiro:true, iaGestor:false,
+                secretariaIa:false, chamados:true, settings:true }
+```
 
-- `src/components/settings/StaffPermissionsDialog.tsx`:
-  - Adicionar chave `abrirProntuario: boolean` em `StaffPermissions`.
-  - Default `true` para secretary, `false` para auxiliary.
-  - Novo item no `PERMISSION_ITEMS` ("Abrir prontuário" / ícone `FolderHeart`).
-  - Em `normalizeStaffPermissions`, preencher `abrirProntuario` quando ausente.
-  - No `handleSave`, **invalidar** as queries `['staff-permissions']` e `['role-access']` para que a sidebar reaja em tempo real.
-- `src/hooks/useRoleAccess.ts`: incluir `/prontuarios` no mapa de permissões staff → `abrirProntuario`.
-- `src/components/AppSidebar.tsx`: envolver cada renderização de `prontuarioItem` num gate `(!isStaff || staffPerms?.abrirProntuario !== false) && prontuarioItem`.
+`aprovacoes` está corretamente como `true` no banco e a sidebar (`AppSidebar.tsx` linha 248/700) respeita `staffPerms?.aprovacoes !== false`. Ou seja, a permissão **foi salva**, mas a sessão logada da Jesus **não vê em tempo real** porque:
 
-### 3. Limpar duplicidade na sidebar para staff/dentista
+1. `useStaffPermissions` usa `staleTime: 60_000` e não faz `refetchOnWindowFocus`/realtime.
+2. Quando o **admin (Lucas)** salva o toggle em outro navegador, a invalidação do `QueryClient` só afeta o navegador de Lucas — a aba da Jesus continua com a cópia antiga em cache até reload completo.
+3. Além disso, a chave `abrirProntuario` não existe ainda no registro de Jesus (só foi adicionada em código), então o fallback é o default — ok, mas confirma que o normalize está funcionando.
 
-No bloco "non‑admin" (`AppSidebar.tsx` linhas ~667–740) hoje existem **duas** seções "Gestão da Clínica" (linhas 695 e 720) e `prontuarioItem` é renderizado **duas vezes**.
+Também faltam validações para "Convênios" e "Pacientes" que não têm gate por permissão na rota (`useRoleAccess`) — só na sidebar.
 
-Reestruturar para uma única seção "Gestão da Clínica" quando houver clínica ativa:
+## Mudanças
 
-- Remover por completo o bloco `!isDentist && effectiveRole !== 'patient'` (linha 719) — "Visão Geral" e "Médicos" já não devem aparecer para secretária/auxiliar (são telas de admin). Continuam existindo no caminho admin (linha 596).
-- Manter apenas o bloco da linha 694 contendo `finalClinicNav` + `prontuarioItem` (já com gate de permissão da etapa 2).
-- Garantir que `prontuarioItem` apareça uma única vez em todo o componente.
+### 1. Ampliar o modal de Permissões
+`src/components/settings/StaffPermissionsDialog.tsx`
+- `DialogContent`: trocar `sm:max-w-md` por `sm:max-w-2xl max-h-[85vh] overflow-y-auto`.
+- Renderizar `PERMISSION_ITEMS` em grid de 2 colunas em telas ≥ `sm` (`grid sm:grid-cols-2 gap-2`) para reduzir scroll.
 
-### 4. Reatividade das permissões em tempo real
+### 2. Reatividade em tempo real (principal correção)
+`src/hooks/useStaffPermissions.ts`
+- Reduzir `staleTime` para `0` e adicionar `refetchOnWindowFocus: true`.
+- Adicionar `useEffect` com canal Supabase Realtime escutando `clinic_members` filtrado por `user_id=eq.${user.id}` e `clinic_id=eq.${currentClinicId}` que chama `queryClient.invalidateQueries(['staff-permissions', user.id, currentClinicId])` em qualquer `UPDATE`.
+- Resultado: assim que o admin salva o toggle, a sidebar da secretária re-renderiza sem reload.
 
-- Após salvar permissões em `StaffPermissionsDialog`, invalidar `['staff-permissions', userId, clinicId]` via `queryClient.invalidateQueries` (atualmente o hook tem `staleTime: 60_000` e não recarrega).
-- Disparar `window.dispatchEvent(new Event(VIEW_MODE_EVENT))` opcionalmente para forçar re-render do `useRoleAccess`.
+### 3. Gates de rota faltantes
+`src/hooks/useRoleAccess.ts`
+- Já cobre `/clinica/aprovacoes`, `/clinica/convenios`, `/patients`, `/financial`, etc. Adicionar também `/orcamentos` se necessário e confirmar `/sala-de-espera` ✓ (já presente).
+- Adicionar redirect: hoje `canAccess` retorna `false`, mas falta um `Navigate` em rotas que não checam. Garantir que cada rota em `App.tsx` use o guard (verificar e adicionar onde estiver faltando).
 
-### 5. Validação manual
+### 4. Validação manual via Playwright
+Após as mudanças, escrever um script que:
+1. Faz login como Lucas (admin), abre `/clinica/medicos` → toggle "Aprovações" off → salva.
+2. Em paralelo, abre `/clinica/medicos` como Jesus (sessão separada via storageState) e verifica que o item "Aprovações" sumiu da sidebar em < 5s sem reload manual.
+3. Repete o ciclo para cada permissão (dashboard, agenda, salaEspera, aprovacoes, pacientes, abrirProntuario, convenios, financeiro, iaGestor, secretariaIa, chamados) e confirma que tanto a sidebar quanto a rota direta (`/clinica/aprovacoes`, `/patients`, etc.) respeitam o estado.
+4. Botão "Iniciar atendimento" oculto para secretária em `/patients/:id` e no `AppointmentDetailDialog`.
 
-Após as mudanças, simular como secretária alternando cada toggle no painel do gestor e confirmar:
+> Observação: senhas de Jesus/Lucas serão necessárias para o teste E2E. Se não estiverem disponíveis, validarei via consulta SQL (confirmando que `permissions` reflete o toggle) + inspeção do código de filtragem.
 
-- "Abrir prontuário" off → some o item da sidebar e a rota `/prontuarios` redireciona.
-- "Aprovações" on → aparece em "Atendimento do Dia"/"Gestão" com o badge `pendingCount`.
-- Demais toggles (agenda, sala de espera, pacientes, convênios, financeiro, IA Gestor, Secretária IA, chamados) refletem em tempo real sem reload.
-- Em `/patients/:id` o botão azul "Iniciar atendimento" não aparece para secretária nem para admin no modo gestor.
+## Arquivos tocados
 
-### Arquivos tocados
-
-- `src/components/AppSidebar.tsx`
-- `src/components/settings/StaffPermissionsDialog.tsx`
-- `src/hooks/useRoleAccess.ts`
-- `src/hooks/useStaffPermissions.ts` (se necessário expor `abrirProntuario` no fallback)
-- `src/pages/PatientDetail.tsx`
-- `src/components/waiting-room/WaitingRoomCard.tsx`
-- `src/components/agenda/AppointmentDetailDialog.tsx`
+- `src/components/settings/StaffPermissionsDialog.tsx` (largura + grid 2 colunas)
+- `src/hooks/useStaffPermissions.ts` (realtime + staleTime 0)
+- `src/hooks/useRoleAccess.ts` (gates de rota — apenas confirmar e completar)
+- (teste) `/tmp/browser/perms/test.py`
