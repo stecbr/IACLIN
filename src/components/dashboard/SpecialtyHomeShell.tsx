@@ -45,7 +45,7 @@ export function SpecialtyHomeShell({
 
       <Carousel
         opts={{ align: 'start', dragFree: true, containScroll: 'trimSnaps' }}
-        className="relative"
+        className="w-full overflow-visible relative"
       >
         <CarouselContent className="-ml-4">
           {kpis.map((kpi, i) => (
