@@ -19,7 +19,7 @@ export function useStaffPermissions() {
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
-    refetchInterval: 30000,
+    refetchInterval: 10000,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from('clinic_members')

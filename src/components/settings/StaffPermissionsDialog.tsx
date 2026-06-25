@@ -59,7 +59,7 @@ export function normalizeStaffPermissions(
     salaEspera: stored.agenda ?? base.salaEspera,
     pacientes: stored.pacientes ?? base.pacientes,
     abrirProntuario: stored.pacientes ?? base.abrirProntuario,
-    aprovacoes: stored.pacientes ?? base.aprovacoes,
+    aprovacoes: stored.aprovacoes ?? base.aprovacoes,
     financeiro: stored.financeiro ?? base.financeiro,
     iaGestor: stored.ia ?? base.iaGestor,
     chamados: stored.chamados ?? base.chamados,
@@ -129,6 +129,7 @@ export function StaffPermissionsDialog({
         .eq('id', memberId);
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ['staff-permissions'] });
+      await queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
       toast.success('Permissões salvas');
       onSaved?.();
       onOpenChange(false);
