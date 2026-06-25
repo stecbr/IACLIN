@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { startOfDay, endOfDay } from 'date-fns';
-import { Users, UserCheck, Play, RefreshCw, Wallet } from 'lucide-react';
+import { Users, UserCheck, Play, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
@@ -252,7 +252,7 @@ export default function WaitingRoom() {
       </PageHeader>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiTile label="Aguardados" value={waiting.length} icon={<Users className="h-4 w-4" />} />
         <KpiTile
           label="Na recepção"
@@ -267,16 +267,15 @@ export default function WaitingRoom() {
           accent="emerald"
         />
         <KpiTile
-          label="Aguard. pagamento"
+          label="Aguardando pagamento"
           value={awaitingPayment.length}
-          icon={<Wallet className="h-4 w-4" />}
-          accent="sky"
+          icon={<UserCheck className="h-4 w-4" />}
+          accent="blue"
         />
-        <KpiTile label="Finalizados" value={finished.length} icon={<UserCheck className="h-4 w-4" />} />
       </div>
 
       {/* Kanban */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <Column
           title="Aguardados"
           subtitle="Pacientes que ainda não chegaram"
@@ -342,7 +341,6 @@ export default function WaitingRoom() {
                 onMarkFinished={(id) => updatePresence(id, 'finished')}
                 onMarkNoShow={(id) => updatePresence(id, 'no_show')}
                 onMarkAwaitingPayment={(id) => updatePresence(id, 'awaiting_payment')}
-                onRegisterPayment={handleRegisterPayment}
               />
             ))
           )}
@@ -350,9 +348,9 @@ export default function WaitingRoom() {
 
         <Column
           title="Aguardando pagamento"
-          subtitle="Atendimentos concluídos a cobrar"
+          subtitle="Concluídos sem lançamento financeiro"
           count={awaitingPayment.length}
-          color="sky"
+          color="blue"
         >
           {awaitingPayment.length === 0 ? (
             <EmptyMini text="Nenhum pagamento pendente." />
@@ -411,15 +409,15 @@ function KpiTile({
   label: string;
   value: number;
   icon: React.ReactNode;
-  accent?: 'amber' | 'emerald' | 'sky';
+  accent?: 'amber' | 'emerald' | 'blue';
 }) {
   const accentClass =
     accent === 'amber'
       ? 'text-amber-700 dark:text-amber-400 bg-amber-500/10'
       : accent === 'emerald'
       ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
-      : accent === 'sky'
-      ? 'text-sky-700 dark:text-sky-400 bg-sky-500/10'
+      : accent === 'blue'
+      ? 'text-blue-700 dark:text-blue-400 bg-blue-500/10'
       : 'text-muted-foreground bg-muted';
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
@@ -444,7 +442,7 @@ function Column({
   title: string;
   subtitle: string;
   count: number;
-  color: 'muted' | 'amber' | 'emerald' | 'sky';
+  color: 'muted' | 'amber' | 'emerald' | 'blue';
   children: React.ReactNode;
 }) {
   const headerColor =
@@ -452,8 +450,8 @@ function Column({
       ? 'border-t-amber-500'
       : color === 'emerald'
       ? 'border-t-emerald-500'
-      : color === 'sky'
-      ? 'border-t-sky-500'
+      : color === 'blue'
+      ? 'border-t-blue-500'
       : 'border-t-border';
   return (
     <div className={`rounded-xl border border-border border-t-4 ${headerColor} bg-muted/20 p-3 space-y-3`}>

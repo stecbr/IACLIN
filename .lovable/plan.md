@@ -1,37 +1,20 @@
-## Problema
-Hoje, ao clicar em "Finalizar" um atendimento na Sala de Espera, o card some imediatamente da coluna "Em atendimento" — não há uma etapa intermediária para registrar o pagamento. Se a recepção não cobrar na hora, o lançamento financeiro é esquecido.
+## Diagnóstico
 
-## Solução
-Adicionar uma 4ª coluna **"Aguardando pagamento"** entre "Em atendimento" e os finalizados (que continuam contados no KPI, mas saem do kanban).
+Na implementação anterior atualizei os KPIs (4 tiles) e o `WaitingRoomCard`, mas o grid do kanban em `src/pages/WaitingRoom.tsx` ficou em `lg:grid-cols-3` com apenas 3 `<Column>` renderizadas. Faltou:
 
-### Novo fluxo de presença
-```
-not_arrived → arrived → in_service → awaiting_payment → finished
-                                                    ↘ no_show
-```
+1. Calcular a lista `awaitingPayment` (`presence_status === 'awaiting_payment'`).
+2. Mudar o grid para `lg:grid-cols-4`.
+3. Renderizar a 4ª coluna "Aguardando pagamento" passando `onRegisterPayment` e um novo handler "Cobrar depois" (finalizar sem lançamento).
+4. Ajustar `updatePresence` para aceitar `awaiting_payment` (sem alterar `status` ainda — só finaliza quando sair dessa coluna).
 
-### Mudanças na UI (`src/pages/WaitingRoom.tsx` + `WaitingRoomCard.tsx`)
+## Plano
 
-1. **Kanban passa a ter 4 colunas** (em telas grandes): Aguardados · Na recepção · Em atendimento · Aguardando pagamento.
-2. **Botão "Finalizar atendimento"** no card "Em atendimento" passa a mover o paciente para **Aguardando pagamento** (não mais direto pra finalizado).
-3. **Coluna "Aguardando pagamento"** mostra:
-   - Nome, profissional, horário e tempo desde que saiu do atendimento.
-   - Badge com valor sugerido (soma dos procedimentos do prontuário da consulta) ou "Sem valor lançado".
-   - Botão primário **"Registrar pagamento"** → abre o `FinishPaymentDialog` já existente.
-   - Botão secundário **"Cobrar depois"** → marca como `finished` sem lançamento (gera notificação/alerta de pendência financeira no card do paciente).
-4. **KPI "Finalizados"** vira **"Aguardando pagamento"** + mantém o tile de "Finalizados" como contador.
-5. Ao concluir o `FinishPaymentDialog` com sucesso, o status passa automaticamente para `finished` e o card sai do kanban.
+**`src/pages/WaitingRoom.tsx`**
+- Adicionar `const awaitingPayment = enriched.filter(a => a.presence_status === 'awaiting_payment')`.
+- Incluir `awaiting_payment` na união de tipos de `updatePresence` e tratar como atualização apenas de `presence_status`.
+- Trocar grid para `grid-cols-1 lg:grid-cols-4` e adicionar a 4ª `<Column title="Aguardando pagamento" color="blue">` com os cards da lista, conectando `onRegisterPayment={handleRegisterPayment}` e `onMarkFinished={(id) => updatePresence(id, 'finished')}` (botão "Cobrar depois").
+- Adicionar variante `'blue'` no `Column` (`border-t-blue-500`).
+- Reduzir `max-h` das colunas para caber 4 lado a lado (mantém `overflow-y-auto`).
 
-### Mudanças de dados
-- Adicionar o valor `'awaiting_payment'` ao enum/coluna `appointments.presence_status` (atualmente: `not_arrived | arrived | in_service | finished | no_show`).
-- Migration simples; sem mudança de RLS ou grants — coluna já existente.
-- Atualizar todos os filtros que usam `presence_status` (sala de espera, agenda, dashboard) para considerar o novo estado como "ainda ativo no dia".
-
-### Detalhes técnicos
-- A função `updatePresence` ganha o estado intermediário; finalização agora ocorre só quando: (a) pagamento é registrado com sucesso, ou (b) usuário escolhe "Cobrar depois".
-- Se já existir `financial_transaction` para a consulta, o card pula direto para `finished` (evita duplicar).
-- Mobile: as 4 colunas viram um stack com tabs ou scroll horizontal (segue o padrão atual).
-
-## Fora do escopo
-- Cobrança automática (Pix/cartão) — continua sendo registro manual via `FinishPaymentDialog`.
-- Mudança no fluxo de comissionamento / NPS / lembretes pós-consulta.
+**Verificação**
+- Confirmar via screenshot Playwright em `/sala-de-espera` que aparecem 4 colunas e que ao clicar em "Concluir atendimento" o card move para "Aguardando pagamento".
