@@ -99,7 +99,7 @@ export function SpecialtyHomeShell({
             variant="secondary"
             aria-label="Anterior"
             onClick={() => scrollBy(-1)}
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity"
+            className="hidden md:flex absolute -left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -111,7 +111,7 @@ export function SpecialtyHomeShell({
             variant="secondary"
             aria-label="Próximo"
             onClick={() => scrollBy(1)}
-            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity"
+            className="hidden md:flex absolute -right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -123,23 +123,23 @@ export function SpecialtyHomeShell({
           onMouseUp={endDrag}
           onMouseLeave={endDrag}
           onClickCapture={onClickCapture}
-          className="flex gap-4 overflow-x-auto px-1 py-1 select-none cursor-grab active:cursor-grabbing snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex gap-5 overflow-x-auto px-1 pr-4 py-1 select-none cursor-grab active:cursor-grabbing snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {kpis.map((kpi, i) => (
             <Card
               key={kpi.title}
-              className="group relative overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-border/50 hover:-translate-y-0.5 snap-start shrink-0 w-[220px]"
+              className="group relative overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-border/50 hover:-translate-y-0.5 snap-start shrink-0 w-[260px] md:w-[280px]"
               style={{ animationDelay: `${i * 80}ms`, animation: 'slide-up 0.4s ease-out backwards' }}
             >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
-                <div className={`h-9 w-9 rounded-xl ${kpi.bg} flex items-center justify-center`}>
+              <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground leading-tight">{kpi.title}</CardTitle>
+                <div className={`h-9 w-9 shrink-0 rounded-xl ${kpi.bg} flex items-center justify-center`}>
                   <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
                 </div>
               </CardHeader>
               <CardContent>
                 <AnimatedNumber value={kpi.value} className="text-2xl font-semibold text-foreground" formatter={kpi.formatter} />
-                <p className="mt-1 text-xs text-muted-foreground">{kpi.desc}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{kpi.desc}</p>
               </CardContent>
             </Card>
           ))}
