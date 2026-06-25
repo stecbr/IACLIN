@@ -28,7 +28,7 @@ import { StaffPermissionsDialog, type StaffPermissions } from './StaffPermission
 const roleLabels: Record<string, string> = {
   admin:     'Administrador',
   dentist:   'Profissional',
-  secretary: 'Secretária',
+  secretary: 'Secretário(a)',
   auxiliary: 'Auxiliar Adm',
 };
 
@@ -272,7 +272,7 @@ export default function TeamSection() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="secretary">Secretária</SelectItem>
+                      <SelectItem value="secretary">Secretário(a)</SelectItem>
                       <SelectItem value="auxiliary">Auxiliar Adm</SelectItem>
                     </SelectContent>
                   </Select>

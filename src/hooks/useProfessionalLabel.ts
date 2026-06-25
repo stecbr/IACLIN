@@ -6,7 +6,7 @@ import { getSpecialtyFamily, type SpecialtyFamily } from '@/lib/specialtyFamily'
 
 const ROLE_BASE_LABEL: Record<string, string> = {
   admin:     'IACLINADMIN',
-  secretary: 'Secretária',
+  secretary: 'Secretário(a)',
   owner:     'IACLINADMIN',
   operator:  'Operadora',
   patient:   'Paciente',

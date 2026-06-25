@@ -50,7 +50,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const HEADER_ROLE_CONFIG: Record<string, { label: string; chip: string; Icon: typeof User }> = {
     admin:     { label: 'IACLINADMIN',     chip: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-violet-500/30',    Icon: Shield },
     dentist:   { label: professionalLabel, chip: dentistChip,                                                                   Icon: Stethoscope },
-    secretary: { label: 'Secretária',      chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/30',            Icon: ClipboardList },
+    secretary: { label: 'Secretário(a)',   chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/30',            Icon: ClipboardList },
     owner:     { label: 'IACLINADMIN',     chip: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',    Icon: Shield },
     operator:  { label: 'Operadora',       chip: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 ring-orange-500/30',    Icon: BuildingIcon },
     patient:   { label: 'Paciente',        chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', Icon: UserCircle },

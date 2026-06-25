@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   dentist: 'Profissional',
-  secretary: 'Secretária',
+  secretary: 'Secretário(a)',
 };
 
 export default function MyClinicsSection() {
