@@ -125,7 +125,9 @@ export function InsurancePlanSelect({
       </PopoverAnchor>
       <PopoverContent
         align="start"
+        side="bottom"
         sideOffset={4}
+        avoidCollisions={false}
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="w-[--radix-popover-trigger-width] p-0"
         style={{ width: 'var(--radix-popover-trigger-width)' }}
