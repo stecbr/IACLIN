@@ -106,6 +106,43 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }:
         ((blocks ?? []) as any[]).map((b) => `${b.user_id}|${b.clinic_id ?? ''}`),
       );
 
+      // When an insurance plan is selected, restrict to clinics that actually
+      // have that plan registered in insurance_plans (matched by name+ans_code).
+      // Mirrors ClinicDoctorStep logic so the counter matches the next step.
+      let acceptingClinicIds: Set<string> | null = null;
+      if (wantsInsurance) {
+        const normalize = (s: string | null | undefined) =>
+          (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+        let key: string | null = null;
+        const { data: refLocal } = await supabase
+          .from('insurance_plans')
+          .select('name, ans_code')
+          .eq('id', filters!.insurancePlanId!)
+          .maybeSingle();
+        if (refLocal) key = `${normalize((refLocal as any).name)}|${(refLocal as any).ans_code ?? ''}`;
+        if (!key) {
+          const { data: cat } = await supabase
+            .from('insurance_plans_catalog')
+            .select('plan_name, ans_code')
+            .eq('id', filters!.insurancePlanId!)
+            .maybeSingle();
+          if (cat) key = `${normalize((cat as any).plan_name)}|${(cat as any).ans_code ?? ''}`;
+        }
+        acceptingClinicIds = new Set<string>();
+        if (key) {
+          const { data: plans } = await supabase
+            .from('insurance_plans')
+            .select('name, ans_code, clinic_id')
+            .in('clinic_id', clinicIds)
+            .eq('is_active', true);
+          for (const p of (plans ?? []) as any[]) {
+            if (`${normalize(p.name)}|${p.ans_code ?? ''}` === key) {
+              acceptingClinicIds.add(p.clinic_id);
+            }
+          }
+        }
+      }
+
       const activeUsers = new Set<string>();
       const activeClinics = new Set<string>();
       for (const t of (tpls ?? []) as any[]) {
@@ -118,6 +155,7 @@ export function DateStep({ specialty, selectedDate, onSelect, onBack, filters }:
           blockedKeys.has(`${t.user_id}|${t.clinic_id}`) ||
           blockedKeys.has(`${t.user_id}|`)
         ) continue;
+        if (acceptingClinicIds && !acceptingClinicIds.has(t.clinic_id)) continue;
         activeUsers.add(t.user_id);
         activeClinics.add(t.clinic_id);
       }
