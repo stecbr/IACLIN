@@ -39,6 +39,8 @@ export default function PatientPlan() {
   const [editPlan, setEditPlan] = useState('');
   const [editNumber, setEditNumber] = useState('');
   const [saving, setSaving] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const [depOpen, setDepOpen] = useState(false);
   const [depSaving, setDepSaving] = useState(false);
@@ -149,6 +151,24 @@ export default function PatientPlan() {
     refetch();
   };
 
+  const removeCard = async () => {
+    if (!account) return;
+    setRemoving(true);
+    const { error } = await supabase
+      .from('patient_accounts')
+      .update({
+        insurance_provider: null,
+        insurance_plan: null,
+        insurance_number: null,
+      })
+      .eq('id', account.id);
+    setRemoving(false);
+    if (error) return toast.error(error.message);
+    toast.success('Cartão de convênio removido');
+    setRemoveOpen(false);
+    refetch();
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -172,9 +192,21 @@ export default function PatientPlan() {
               <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
                 <CreditCard className="h-4 w-4" /> Cartão do convênio
               </CardTitle>
-              <Button size="sm" variant="ghost" onClick={openEdit} className="gap-1 h-8">
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </Button>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={openEdit} className="gap-1 h-8">
+                  <Pencil className="h-3.5 w-3.5" /> Editar
+                </Button>
+                {account?.insurance_provider && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRemoveOpen(true)}
+                    className="gap-1 h-8 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Remover
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -408,6 +440,23 @@ export default function PatientPlan() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover cartão de convênio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Seus dados de operadora, plano e número da carteirinha serão removidos. Você poderá adicionar novamente a qualquer momento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={removeCard} disabled={removing}>
+              {removing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Remover
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
