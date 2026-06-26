@@ -1,45 +1,63 @@
-## Causa raiz
+## Causa raiz (verificada)
 
-A coluna `appointments.presence_status` tem um `CHECK` no banco que só permite `not_arrived | arrived | in_service | finished | no_show` — **não** inclui `awaiting_payment`.
+O CHECK constraint **já está correto** no banco e aceita `awaiting_payment` (verificado via `pg_constraint`). O problema real é o **trigger** `sync_appointment_presence_status` (função em `public`):
 
-Quando o médico finaliza pelo `Attendance.tsx`, o `UPDATE` tenta gravar `presence_status = 'awaiting_payment'` e o banco rejeita pelo check. O `clinical_records.status` é atualizado antes (sucesso), mas o `appointments` falha — então o card "some" da coluna *Em atendimento* (presence ficou em `in_service` mas a query invalida e re-renderiza com erro) e nunca chega em *Aguardando pagamento*.
+```sql
+IF NEW.status = 'completed' AND NEW.presence_status <> 'finished' THEN
+  NEW.presence_status := 'finished';
+```
 
-O mesmo motivo afeta a Sala de Espera quando o secretário clica em **Concluir atendimento** no card de *Em atendimento* (que chama `updatePresence(id, 'awaiting_payment')`) — a UI mostra toast de erro e o card volta/some.
+Quando o `Attendance.tsx` faz `update({ status: 'completed', presence_status: 'awaiting_payment' })`, o trigger **sobrescreve** `presence_status` para `'finished'` antes de gravar. Resultado: o card cai na lista de "finalizados" e some das colunas ativas — exatamente o sintoma reportado.
+
+A query da Sala de Espera já contempla `awaiting_payment` (coluna existe, filtro `not in (cancelled)` não exclui), então não é problema de UI.
 
 ## Correção
 
-### 1. Migration SQL — liberar `awaiting_payment` no CHECK
+### 1. Migration — ajustar o trigger para respeitar `awaiting_payment`
 
 ```sql
-ALTER TABLE public.appointments
-  DROP CONSTRAINT IF EXISTS appointments_presence_status_check;
+CREATE OR REPLACE FUNCTION public.sync_appointment_presence_status()
+RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NEW.status = 'completed'
+       AND NEW.presence_status NOT IN ('finished','awaiting_payment') THEN
+      NEW.presence_status := 'finished';
+    ELSIF NEW.status = 'no_show' AND NEW.presence_status <> 'no_show' THEN
+      NEW.presence_status := 'no_show';
+    ELSIF NEW.status = 'cancelled' AND NEW.presence_status = 'in_service' THEN
+      NEW.presence_status := 'finished';
+    END IF;
+  END IF;
 
-ALTER TABLE public.appointments
-  ADD CONSTRAINT appointments_presence_status_check
-  CHECK (presence_status = ANY (ARRAY[
-    'not_arrived'::text,
-    'arrived'::text,
-    'in_service'::text,
-    'awaiting_payment'::text,
-    'finished'::text,
-    'no_show'::text
-  ]));
+  IF TG_OP = 'UPDATE' AND OLD.presence_status IS DISTINCT FROM NEW.presence_status THEN
+    IF NEW.presence_status = 'arrived' AND NEW.arrived_at IS NULL THEN
+      NEW.arrived_at := now();
+    ELSIF NEW.presence_status = 'in_service' AND NEW.service_started_at IS NULL THEN
+      NEW.service_started_at := now();
+    END IF;
+  END IF;
+  RETURN NEW;
+END; $$;
 ```
 
 Sem mudanças em RLS/grants (não estamos criando tabela).
 
-### 2. Pequeno reforço no `Attendance.tsx`
+### 2. Reforço em `src/pages/Attendance.tsx` (handleFinish, ~linha 666)
 
-Após o `UPDATE` bem-sucedido, invalidar também a query da Sala de Espera para refletir imediatamente em outras abas/usuários (o realtime já cobre, mas garante UX):
+Log e mensagem real do erro para não falhar silencioso no futuro:
 
 ```ts
-queryClient.invalidateQueries({ queryKey: ['appointments'] });
-queryClient.invalidateQueries({ queryKey: ['waiting-room'] });
+if (aptError) {
+  console.error('Erro ao finalizar consulta:', aptError);
+  toast.error('Erro ao finalizar: ' + aptError.message);
+  throw aptError;
+}
 ```
 
-### 3. Verificação
+### 3. Verificação manual após deploy
 
-- Médico finaliza em `/atendimento/:id` → card sai de *Em atendimento* e aparece em *Aguardando pagamento* na Sala de Espera para secretário/admin.
-- Botão "Registrar pagamento" abre o `FinishPaymentDialog`; "Cobrar depois" mantém na coluna.
+- Médico finaliza em `/atendimento/:id` → na Sala de Espera o card aparece em **Aguardando pagamento**.
+- Secretário/admin vê **Registrar pagamento** / **Cobrar depois** na coluna; dentista comum não vê.
 
-Nenhuma mudança em componentes da Sala de Espera é necessária — a coluna e KPI já existem desde a iteração anterior; era só o CHECK do banco bloqueando o status novo.
+Não é necessário alterar `WaitingRoom.tsx` nem `WaitingRoomCard.tsx` — a coluna e a lógica de permissão já estão corretas; o bug era exclusivamente do trigger sobrescrevendo o status.
