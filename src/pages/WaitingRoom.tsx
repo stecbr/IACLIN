@@ -23,7 +23,7 @@ import {
 import { FinishPaymentDialog, type FinishProcedure } from '@/components/attendance/FinishPaymentDialog';
 
 export default function WaitingRoom() {
-  const { currentClinicId } = useAuth();
+  const { currentClinicId, clinicRole, isClinicOwner } = useAuth();
   const queryClient = useQueryClient();
   const [doctorFilter, setDoctorFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -130,6 +130,8 @@ export default function WaitingRoom() {
       })),
     [appointments, doctorMap]
   );
+
+  const canManagePayment = isClinicOwner || clinicRole === 'admin' || clinicRole === 'secretary';
 
   const q = search.trim().toLowerCase();
   const visible = q
@@ -391,7 +393,8 @@ export default function WaitingRoom() {
                 onMarkInService={(id) => updatePresence(id, 'in_service')}
                 onMarkFinished={(id) => updatePresence(id, 'finished')}
                 onMarkNoShow={(id) => updatePresence(id, 'no_show')}
-                onRegisterPayment={handleRegisterPayment}
+                onRegisterPayment={canManagePayment ? handleRegisterPayment : undefined}
+                canManagePayment={canManagePayment}
               />
             ))
           )}

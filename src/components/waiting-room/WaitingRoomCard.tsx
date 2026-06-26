@@ -34,6 +34,7 @@ interface Props {
   onMarkNoShow: (id: string) => void;
   onRegisterPayment?: (id: string) => void;
   onMarkAwaitingPayment?: (id: string) => void;
+  canManagePayment?: boolean;
   busyId?: string | null;
 }
 
@@ -45,6 +46,7 @@ export function WaitingRoomCard({
   onMarkNoShow,
   onRegisterPayment,
   onMarkAwaitingPayment,
+  canManagePayment = true,
   busyId,
 }: Props) {
   const navigate = useNavigate();
@@ -197,27 +199,35 @@ export function WaitingRoomCard({
         )}
         {presence === 'awaiting_payment' && (
           <>
-            {onRegisterPayment && (
-              <Button
-                size="sm"
-                className="flex-1 gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => onRegisterPayment(appointment.id)}
-                disabled={isBusy}
-              >
-                <Wallet className="h-4 w-4" />
-                Registrar pagamento
-              </Button>
+            {canManagePayment ? (
+              <>
+                {onRegisterPayment && (
+                  <Button
+                    size="sm"
+                    className="flex-1 gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => onRegisterPayment(appointment.id)}
+                    disabled={isBusy}
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Registrar pagamento
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-9"
+                  onClick={() => onMarkFinished(appointment.id)}
+                  disabled={isBusy}
+                  title="Finalizar sem lançamento financeiro"
+                >
+                  Cobrar depois
+                </Button>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground px-1">
+                Aguardando pagamento — somente secretário ou admin pode finalizar.
+              </span>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 h-9"
-              onClick={() => onMarkFinished(appointment.id)}
-              disabled={isBusy}
-              title="Finalizar sem lançamento financeiro"
-            >
-              Cobrar depois
-            </Button>
           </>
         )}
       </div>
