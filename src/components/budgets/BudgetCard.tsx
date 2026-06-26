@@ -26,6 +26,7 @@ interface BudgetCardProps {
 const phaseAccent: Record<string, string> = {
   pending: 'before:bg-amber-400',
   approved: 'before:bg-sky-400',
+  awaiting_payment: 'before:bg-orange-400',
   realized: 'before:bg-emerald-400',
   not_approved: 'before:bg-rose-400',
 };
