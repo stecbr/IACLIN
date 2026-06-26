@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getFamilyConfig } from '@/lib/specialtyFamily';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 interface ProcedureOption { id: string; name: string; default_price: number }
 
