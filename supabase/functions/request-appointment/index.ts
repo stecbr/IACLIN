@@ -261,26 +261,31 @@ Deno.serve(async (req) => {
       patientOverlapReqQ,
     ]);
 
-    // Evaluate in original priority order to preserve conflict messages.
-    if (sameDocDayAppt.data && sameDocDayAppt.data.length > 0) {
-      const c = sameDocDayAppt.data[0] as any;
-      const isCompleted = c.status === 'completed';
-      if (isCompleted && allowCompletedSameDay) {
-        // user confirmed they want to book a return on the same day — skip this guard
-      } else if (isCompleted) {
-        return conflictJson({
-          type: 'patient_completed_same_day' as any,
-          message: `Você acabou de realizar uma consulta com Dr(a). ${dentistName} hoje às ${fmtHM(c.start_time)}. Deseja mesmo marcar um retorno agora?`,
-          existing: {
-            kind: 'appointment',
-            id: c.id,
-            dentistId: c.dentist_id,
-            dentistName,
-            startTime: c.start_time,
-            endTime: c.end_time,
-          },
-        });
-      } else {
+    // Evaluate priority:
+    //  1) completed same-day with same doctor (return modal)
+    //  2) active same-day appointment (replace modal)
+    //  3) pending request same-day (replace modal)
+    const allSameDay = (sameDocDayAppt.data ?? []) as any[];
+    const completedSameDay = allSameDay.find((r) => r.status === 'completed');
+    const activeSameDay = allSameDay.find((r) => r.status !== 'completed');
+
+    if (completedSameDay && !allowCompletedSameDay) {
+      const c = completedSameDay;
+      return conflictJson({
+        type: 'patient_completed_same_day' as any,
+        message: `Você acabou de realizar uma consulta com Dr(a). ${dentistName} hoje às ${fmtHM(c.start_time)}. Deseja mesmo marcar um retorno agora?`,
+        existing: {
+          kind: 'appointment',
+          id: c.id,
+          dentistId: c.dentist_id,
+          dentistName,
+          startTime: c.start_time,
+          endTime: c.end_time,
+        },
+      });
+    }
+    if (activeSameDay) {
+      const c = activeSameDay;
       return conflictJson({
         type: 'patient_overlap_appointment',
         message: `Você já tem consulta com Dr(a). ${dentistName} neste dia, das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`,
@@ -293,9 +298,8 @@ Deno.serve(async (req) => {
           endTime: c.end_time,
         },
       });
-      }
     }
-    if (sameDocDayReq.data && sameDocDayReq.data.length > 0) {
+    if (!allowCompletedSameDay && sameDocDayReq.data && sameDocDayReq.data.length > 0) {
       const c = sameDocDayReq.data[0] as any;
       return conflictJson({
         type: 'patient_overlap_request',
