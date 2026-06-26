@@ -207,6 +207,37 @@ export default function Budgets() {
         {headerButton}
       </PageHeader>
 
+      {(myPendingApproval.length > 0 || myRejected.length > 0) && (
+        <div className="space-y-2">
+          {myPendingApproval.length > 0 && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 flex items-start gap-3">
+              <Clock className="h-4 w-4 text-amber-600 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  {myPendingApproval.length} orçamento{myPendingApproval.length > 1 ? 's' : ''} aguardando aprovação da clínica
+                </p>
+                <p className="text-xs text-amber-800/80 dark:text-amber-300/70 mt-0.5 truncate">
+                  {myPendingApproval.map((p: any) => `${p.title} (${p.patients?.full_name ?? '—'})`).join(' · ')}
+                </p>
+              </div>
+            </div>
+          )}
+          {myRejected.length > 0 && (
+            <div className="rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 flex items-start gap-3">
+              <XCircle className="h-4 w-4 text-rose-600 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-rose-900 dark:text-rose-200">
+                  {myRejected.length} orçamento{myRejected.length > 1 ? 's' : ''} recusado{myRejected.length > 1 ? 's' : ''} pela clínica
+                </p>
+                <p className="text-xs text-rose-800/80 dark:text-rose-300/70 mt-0.5 truncate">
+                  {myRejected.map((p: any) => `${p.title}${p.rejection_reason ? ` — ${p.rejection_reason}` : ''}`).join(' · ')}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {COLUMNS.map(col => {
