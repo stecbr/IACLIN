@@ -1,32 +1,45 @@
-## Problema
+## Causa raiz
 
-1. Quando o médico clica em **Finalizar Atendimento** na página de Atendimento (`src/pages/Attendance.tsx`), o código só atualiza `appointments.status = 'completed'` — não toca em `presence_status`. Por isso o paciente não aparece na coluna **Aguardando pagamento** da Sala de Espera (o fluxo só funciona quando o secretário usa o botão "Concluir atendimento" do card).
-2. A página `/sala-de-espera` não tem campo de busca por paciente ou profissional.
+A coluna `appointments.presence_status` tem um `CHECK` no banco que só permite `not_arrived | arrived | in_service | finished | no_show` — **não** inclui `awaiting_payment`.
 
-## Mudanças
+Quando o médico finaliza pelo `Attendance.tsx`, o `UPDATE` tenta gravar `presence_status = 'awaiting_payment'` e o banco rejeita pelo check. O `clinical_records.status` é atualizado antes (sucesso), mas o `appointments` falha — então o card "some" da coluna *Em atendimento* (presence ficou em `in_service` mas a query invalida e re-renderiza com erro) e nunca chega em *Aguardando pagamento*.
 
-### 1. `src/pages/Attendance.tsx` — mover para "Aguardando pagamento" ao finalizar
-No bloco de finalização (linhas ~665-670), além de `status: 'completed'`, definir também `presence_status: 'awaiting_payment'` — somente se a presença atual não for já `finished` / `no_show` (para não regredir um atendimento já totalmente encerrado).
+O mesmo motivo afeta a Sala de Espera quando o secretário clica em **Concluir atendimento** no card de *Em atendimento* (que chama `updatePresence(id, 'awaiting_payment')`) — a UI mostra toast de erro e o card volta/some.
 
-```ts
-.update({ status: 'completed', presence_status: 'awaiting_payment' })
+## Correção
+
+### 1. Migration SQL — liberar `awaiting_payment` no CHECK
+
+```sql
+ALTER TABLE public.appointments
+  DROP CONSTRAINT IF EXISTS appointments_presence_status_check;
+
+ALTER TABLE public.appointments
+  ADD CONSTRAINT appointments_presence_status_check
+  CHECK (presence_status = ANY (ARRAY[
+    'not_arrived'::text,
+    'arrived'::text,
+    'in_service'::text,
+    'awaiting_payment'::text,
+    'finished'::text,
+    'no_show'::text
+  ]));
 ```
 
-Isso faz com que, ao médico finalizar pela tela de atendimento, o card apareça automaticamente na coluna **Aguardando pagamento** da Sala de Espera para o secretário/dono registrar (ou postergar) o pagamento.
+Sem mudanças em RLS/grants (não estamos criando tabela).
 
-### 2. `src/pages/WaitingRoom.tsx` — busca por paciente ou profissional
-- Adicionar `const [search, setSearch] = useState('')`.
-- Renderizar um `<Input>` com ícone de lupa ao lado do `Select` de profissionais no `PageHeader` (largura ~240px), placeholder "Buscar paciente ou profissional...".
-- Filtrar `enriched` antes de dividir em `waiting / arrived / inService / awaitingPayment`:
-  ```ts
-  const q = search.trim().toLowerCase();
-  const visible = q
-    ? enriched.filter(a =>
-        (a.patients?.full_name ?? '').toLowerCase().includes(q) ||
-        (a.dentist_name ?? '').toLowerCase().includes(q)
-      )
-    : enriched;
-  ```
-- Usar `visible` nos quatro filtros de coluna e nos KPIs.
+### 2. Pequeno reforço no `Attendance.tsx`
 
-Nenhuma mudança em schema ou edge functions é necessária.
+Após o `UPDATE` bem-sucedido, invalidar também a query da Sala de Espera para refletir imediatamente em outras abas/usuários (o realtime já cobre, mas garante UX):
+
+```ts
+queryClient.invalidateQueries({ queryKey: ['appointments'] });
+queryClient.invalidateQueries({ queryKey: ['waiting-room'] });
+```
+
+### 3. Verificação
+
+- Médico finaliza em `/atendimento/:id` → card sai de *Em atendimento* e aparece em *Aguardando pagamento* na Sala de Espera para secretário/admin.
+- Botão "Registrar pagamento" abre o `FinishPaymentDialog`; "Cobrar depois" mantém na coluna.
+
+Nenhuma mudança em componentes da Sala de Espera é necessária — a coluna e KPI já existem desde a iteração anterior; era só o CHECK do banco bloqueando o status novo.

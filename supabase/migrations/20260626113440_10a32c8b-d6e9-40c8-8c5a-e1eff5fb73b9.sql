@@ -1,0 +1,2 @@
+ALTER TABLE public.appointments DROP CONSTRAINT IF EXISTS appointments_presence_status_check;
+ALTER TABLE public.appointments ADD CONSTRAINT appointments_presence_status_check CHECK (presence_status = ANY (ARRAY['not_arrived'::text, 'arrived'::text, 'in_service'::text, 'awaiting_payment'::text, 'finished'::text, 'no_show'::text]));
