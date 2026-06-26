@@ -19,6 +19,7 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 const COLUMNS = [
   { id: 'pending', label: 'Pendente', bar: 'bg-amber-400' },
   { id: 'approved', label: 'Aprovado', bar: 'bg-sky-400' },
+  { id: 'awaiting_payment', label: 'Aguardando pagamento', bar: 'bg-orange-400' },
   { id: 'realized', label: 'Realizado', bar: 'bg-emerald-400' },
   { id: 'not_approved', label: 'Não aprovado', bar: 'bg-rose-400' },
 ];
@@ -91,6 +92,23 @@ export default function Budgets() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase.from('treatment_plans').update({ status }).eq('id', id);
       if (error) throw error;
+
+      // Ao entrar em "Aguardando pagamento", notifica o paciente para se dirigir à recepção.
+      if (status === 'awaiting_payment') {
+        const plan = plans.find((p: any) => p.id === id);
+        const patientUserId = plan?.patients?.patient_user_id ?? null;
+        if (patientUserId) {
+          await supabase.from('notifications').insert({
+            clinic_id: plan?.patients?.clinic_id ?? null,
+            user_id: patientUserId,
+            type: 'budget',
+            title: 'Orçamento aprovado — pagamento pendente',
+            message: `Seu orçamento "${plan?.title}" foi aprovado. Vá até a recepção da clínica para validar o pagamento (R$ ${Number(plan?.total_cost ?? 0).toFixed(2).replace('.', ',')}).`,
+            reference_id: id,
+            reference_type: 'treatment_plan',
+          });
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
