@@ -297,19 +297,47 @@ export default function ClinicaAprovacoes() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Aprovações de consulta"
-        description="Solicitações enviadas pelos pacientes via app."
+        title="Aprovações"
+        description="Pedidos de consulta dos pacientes e orçamentos enviados pelos profissionais."
       />
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="appointments">
         <TabsList>
-          <TabsTrigger value="pending">Pendentes ({pending.length})</TabsTrigger>
-          <TabsTrigger value="approved">Aprovadas ({approved.length})</TabsTrigger>
-          <TabsTrigger value="rejected">Recusadas ({rejected.length})</TabsTrigger>
+          <TabsTrigger value="appointments" className="gap-1.5">
+            <CalIcon className="h-3.5 w-3.5" />
+            Consultas {pending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 text-amber-700 px-1.5 text-[10px] font-semibold">{pending.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="budgets" className="gap-1.5">
+            <Receipt className="h-3.5 w-3.5" />
+            Orçamentos {budgetPending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 text-amber-700 px-1.5 text-[10px] font-semibold">{budgetPending.length}</span>}
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="pending" className="mt-4">{renderList(pending)}</TabsContent>
-        <TabsContent value="approved" className="mt-4">{renderList(approved)}</TabsContent>
-        <TabsContent value="rejected" className="mt-4">{renderList(rejected)}</TabsContent>
+
+        <TabsContent value="appointments" className="mt-4">
+          <Tabs defaultValue="pending">
+            <TabsList>
+              <TabsTrigger value="pending">Pendentes ({pending.length})</TabsTrigger>
+              <TabsTrigger value="approved">Aprovadas ({approved.length})</TabsTrigger>
+              <TabsTrigger value="rejected">Recusadas ({rejected.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="pending" className="mt-4">{renderList(pending)}</TabsContent>
+            <TabsContent value="approved" className="mt-4">{renderList(approved)}</TabsContent>
+            <TabsContent value="rejected" className="mt-4">{renderList(rejected)}</TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="budgets" className="mt-4">
+          <Tabs defaultValue="pending">
+            <TabsList>
+              <TabsTrigger value="pending">Aguardando ({budgetPending.length})</TabsTrigger>
+              <TabsTrigger value="approved">Aprovados ({budgetApproved.length})</TabsTrigger>
+              <TabsTrigger value="rejected">Recusados ({budgetRejected.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="pending" className="mt-4">{renderBudgetList(budgetPending)}</TabsContent>
+            <TabsContent value="approved" className="mt-4">{renderBudgetList(budgetApproved)}</TabsContent>
+            <TabsContent value="rejected" className="mt-4">{renderBudgetList(budgetRejected)}</TabsContent>
+          </Tabs>
+        </TabsContent>
       </Tabs>
 
       {rescheduleReq && (
@@ -340,6 +368,35 @@ export default function ClinicaAprovacoes() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={reject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Recusar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!budgetRejectReq}
+        onOpenChange={(o) => { if (!o) { setBudgetRejectReq(null); setBudgetRejectReason(''); } }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recusar orçamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Informe um motivo. O profissional será notificado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={budgetRejectReason}
+            onChange={(e) => setBudgetRejectReason(e.target.value)}
+            placeholder="Ex: valor fora da tabela / falta informação"
+            className="min-h-[80px]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={rejectBudget}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Recusar
             </AlertDialogAction>
           </AlertDialogFooter>
