@@ -363,7 +363,7 @@ export function FinishPaymentDialog({
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => { setMode('insurance'); setCheckoutUrl(null); }}
+            onClick={() => setMode('insurance')}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'insurance' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
@@ -373,17 +373,17 @@ export function FinishPaymentDialog({
           </button>
           <button
             type="button"
-            onClick={() => { setMode('stripe'); setCheckoutUrl(null); }}
+            onClick={() => setMode('paid')}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
-              mode === 'stripe' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
+              mode === 'paid' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
           >
             <CreditCard className="h-5 w-5" />
-            Particular agora
+            Cartão / Pago
           </button>
           <button
             type="button"
-            onClick={() => { setMode('later'); setCheckoutUrl(null); }}
+            onClick={() => setMode('later')}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'later' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
