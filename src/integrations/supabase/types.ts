@@ -1368,6 +1368,7 @@ export type Database = {
           patient_id: string | null
           payment_method: string | null
           status: string
+          treatment_plan_id: string | null
           type: string
           updated_at: string
         }
@@ -1394,6 +1395,7 @@ export type Database = {
           patient_id?: string | null
           payment_method?: string | null
           status?: string
+          treatment_plan_id?: string | null
           type: string
           updated_at?: string
         }
@@ -1420,6 +1422,7 @@ export type Database = {
           patient_id?: string | null
           payment_method?: string | null
           status?: string
+          treatment_plan_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -1450,6 +1453,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_treatment_plan_id_fkey"
+            columns: ["treatment_plan_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_plans"
             referencedColumns: ["id"]
           },
         ]
