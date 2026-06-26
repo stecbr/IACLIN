@@ -3653,7 +3653,11 @@ export type Database = {
           dentist_id: string
           description: string | null
           id: string
+          paid_at: string | null
           patient_id: string
+          payment_method: string | null
+          payment_notes: string | null
+          payment_recorded_by: string | null
           rejection_reason: string | null
           status: string
           submitted_by: string | null
@@ -3670,7 +3674,11 @@ export type Database = {
           dentist_id: string
           description?: string | null
           id?: string
+          paid_at?: string | null
           patient_id: string
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_recorded_by?: string | null
           rejection_reason?: string | null
           status?: string
           submitted_by?: string | null
@@ -3687,7 +3695,11 @@ export type Database = {
           dentist_id?: string
           description?: string | null
           id?: string
+          paid_at?: string | null
           patient_id?: string
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_recorded_by?: string | null
           rejection_reason?: string | null
           status?: string
           submitted_by?: string | null
