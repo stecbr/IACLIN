@@ -18,8 +18,9 @@ import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 const COLUMNS = [
   { id: 'pending', label: 'Pendente', bar: 'bg-amber-400' },
-  { id: 'approved', label: 'Aprovado', bar: 'bg-emerald-400' },
-  { id: 'lost', label: 'Perdido', bar: 'bg-rose-400' },
+  { id: 'approved', label: 'Aprovado', bar: 'bg-sky-400' },
+  { id: 'realized', label: 'Realizado', bar: 'bg-emerald-400' },
+  { id: 'not_approved', label: 'Não aprovado', bar: 'bg-rose-400' },
 ];
 
 export default function Budgets() {
