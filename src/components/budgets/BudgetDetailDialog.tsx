@@ -36,8 +36,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Wallet } from 'lucide-react';
 import { generateBudgetPdf, fetchClinicForPdf } from '@/lib/generateBudgetPdf';
+import { BudgetPaymentDialog } from './BudgetPaymentDialog';
 
 interface BudgetDetailDialogProps {
   planId: string | null;
@@ -48,6 +49,7 @@ interface BudgetDetailDialogProps {
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendente' },
   { value: 'approved', label: 'Aprovado' },
+  { value: 'awaiting_payment', label: 'Aguardando pagamento' },
   { value: 'realized', label: 'Realizado' },
   { value: 'not_approved', label: 'Não aprovado' },
 ];
@@ -55,6 +57,7 @@ const STATUS_OPTIONS = [
 const statusBadge: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   approved: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  awaiting_payment: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   realized: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   not_approved: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
 };
@@ -67,6 +70,7 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
   const { isSolo } = useSoloMode();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const { data: plan, isLoading } = useQuery({
     queryKey: ['treatment-plan-detail', planId],
@@ -167,9 +171,33 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
               clinic_id: (plan as any).clinic_id ?? null,
               dentist_id: (plan as any).dentist_id ?? user?.id ?? null,
               patient_id: (plan as any).patient_id ?? null,
+              treatment_plan_id: planId!,
             }));
             const { error: txErr } = await supabase.from('financial_transactions').insert(rows);
             if (txErr) throw new Error(`Status atualizado, mas falhou ao gerar cobranças: ${txErr.message}`);
+          }
+        }
+      }
+
+      if (status === 'awaiting_payment' && plan) {
+        // Notifica paciente
+        const patientId = (plan as any).patients?.id;
+        if (patientId) {
+          const { data: pat } = await supabase
+            .from('patients')
+            .select('patient_user_id, clinic_id')
+            .eq('id', patientId)
+            .maybeSingle();
+          if (pat?.patient_user_id) {
+            await supabase.from('notifications').insert({
+              clinic_id: pat.clinic_id ?? null,
+              user_id: pat.patient_user_id,
+              type: 'budget',
+              title: 'Orçamento aprovado — pagamento pendente',
+              message: `Seu orçamento "${plan.title}" foi aprovado. Vá até a recepção da clínica para validar o pagamento (R$ ${Number((plan as any).total_cost ?? 0).toFixed(2).replace('.', ',')}).`,
+              reference_id: planId!,
+              reference_type: 'treatment_plan',
+            });
           }
         }
       }
@@ -316,6 +344,11 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
                     Ao aprovar, o sistema cria automaticamente as cobranças no financeiro do paciente.
                   </p>
                 )}
+                {plan.status === 'awaiting_payment' && (isSolo || isClinicOwner || effectiveRole === 'admin' || effectiveRole === 'secretary') && (
+                  <p className="text-xs text-orange-700 dark:text-orange-400">
+                    Quando o paciente pagar na recepção, registre o pagamento abaixo.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -330,6 +363,15 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
               <Trash2 className="h-4 w-4 mr-1.5" />
               Excluir
             </Button>
+            {plan?.status === 'awaiting_payment' && (isSolo || isClinicOwner || effectiveRole === 'admin' || effectiveRole === 'secretary') && (
+              <Button
+                onClick={() => setPaymentOpen(true)}
+                className="gap-1.5"
+              >
+                <Wallet className="h-4 w-4" />
+                Registrar pagamento
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleGeneratePdf}
@@ -386,6 +428,20 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BudgetPaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        plan={plan ? {
+          id: plan.id,
+          title: plan.title ?? 'Orçamento',
+          total_cost: Number((plan as any).total_cost) || 0,
+          patient_id: (plan as any).patient_id ?? null,
+          dentist_id: (plan as any).dentist_id ?? null,
+          clinic_id: (plan as any).clinic_id ?? null,
+          patient_name: (plan as any).patients?.full_name ?? null,
+        } : null}
+      />
     </>
   );
 }

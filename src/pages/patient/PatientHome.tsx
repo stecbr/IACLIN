@@ -17,6 +17,7 @@ import { AppointmentDetailDrawer } from '@/components/patient/AppointmentDetailD
 import { PatientTimelineMulti } from '@/components/patient/PatientTimelineMulti';
 import { ShareMyChartDialog } from '@/components/patient/ShareMyChartDialog';
 import { LinkRequestsPanel } from '@/components/patient/LinkRequestsPanel';
+import { PatientPendingBudgetsBanner } from '@/components/patient/PatientPendingBudgetsBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -114,6 +115,7 @@ export default function PatientHome() {
       </motion.div>
 
       <LinkRequestsPanel />
+      <PatientPendingBudgetsBanner patientIds={patientIds} />
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => navigate('/paciente/agendar')} className="gap-2">
