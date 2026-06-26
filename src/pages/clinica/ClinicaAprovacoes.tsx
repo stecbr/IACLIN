@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ClipboardCheck, Loader2 } from 'lucide-react';
+import { ClipboardCheck, Loader2, Calendar as CalIcon, Receipt } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { syncAgendaAppointments } from '@/hooks/useAiSync';
@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApprovalCard, type AppointmentRequest } from '@/components/clinica/ApprovalCard';
+import { BudgetApprovalCard, type BudgetApprovalRequest } from '@/components/clinica/BudgetApprovalCard';
 import { RescheduleDialog } from '@/components/clinica/RescheduleDialog';
 import {
   AlertDialog,
@@ -29,6 +30,9 @@ export default function ClinicaAprovacoes() {
   const [rescheduleReq, setRescheduleReq] = useState<AppointmentRequest | null>(null);
   const [rejectReq, setRejectReq] = useState<AppointmentRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [budgetActingId, setBudgetActingId] = useState<string | null>(null);
+  const [budgetRejectReq, setBudgetRejectReq] = useState<BudgetApprovalRequest | null>(null);
+  const [budgetRejectReason, setBudgetRejectReason] = useState('');
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['appointment-requests', currentClinicId],
@@ -72,15 +76,59 @@ export default function ClinicaAprovacoes() {
         { event: '*', schema: 'public', table: 'appointment_requests', filter: `clinic_id=eq.${currentClinicId}` },
         () => qc.invalidateQueries({ queryKey: ['appointment-requests', currentClinicId] })
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'treatment_plans' },
+        () => qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] })
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [currentClinicId, qc]);
 
+  // Orçamentos aguardando aprovação da clínica
+  const { data: budgetRequests = [], isLoading: budgetsLoading } = useQuery({
+    queryKey: ['budget-approvals', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .select('*, patients!inner(id, full_name, clinic_id), treatment_plan_items(custom_procedure_name, price, procedures(name))')
+        .eq('patients.clinic_id', currentClinicId!)
+        .in('status', ['awaiting_clinic_approval', 'pending', 'rejected_by_clinic'])
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      const dentistIds = Array.from(new Set(rows.map((r) => r.dentist_id).filter(Boolean)));
+      let dentistMap: Record<string, string> = {};
+      if (dentistIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', dentistIds);
+        dentistMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      }
+      return rows.map((r) => ({
+        ...r,
+        patient_name: r.patients?.full_name,
+        dentist_name: dentistMap[r.dentist_id] ?? '—',
+        items: (r.treatment_plan_items ?? []).map((it: any) => ({
+          name: it.procedures?.name ?? it.custom_procedure_name ?? 'Item',
+          price: Number(it.price ?? 0),
+        })),
+      })) as BudgetApprovalRequest[];
+    },
+  });
+
   const pending = requests.filter((r) => r.status === 'pending');
   const approved = requests.filter((r) => r.status === 'approved');
   const rejected = requests.filter((r) => r.status === 'rejected');
+
+  const budgetPending = budgetRequests.filter((r) => r.status === 'awaiting_clinic_approval');
+  const budgetApproved = budgetRequests.filter((r) => r.status === 'pending');
+  const budgetRejected = budgetRequests.filter((r) => r.status === 'rejected_by_clinic');
 
   const approve = async (req: AppointmentRequest, newStart?: string, newEnd?: string) => {
     if (actingId) return;
@@ -164,22 +212,132 @@ export default function ClinicaAprovacoes() {
     );
   };
 
+  const approveBudget = async (req: BudgetApprovalRequest) => {
+    if (budgetActingId) return;
+    setBudgetActingId(req.id);
+    try {
+      const { error } = await supabase
+        .from('treatment_plans')
+        .update({
+          status: 'pending',
+          approved_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+          approved_at: new Date().toISOString(),
+          rejection_reason: null,
+        } as any)
+        .eq('id', req.id);
+      if (error) throw error;
+      toast.success('Orçamento aprovado.');
+      qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
+      qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
+    } catch (err: any) {
+      toast.error('Falha ao aprovar', { description: err?.message });
+    } finally {
+      setBudgetActingId(null);
+    }
+  };
+
+  const rejectBudget = async () => {
+    if (!budgetRejectReq || budgetActingId) return;
+    setBudgetActingId(budgetRejectReq.id);
+    try {
+      const { error } = await supabase
+        .from('treatment_plans')
+        .update({
+          status: 'rejected_by_clinic',
+          rejection_reason: budgetRejectReason.trim() || null,
+        } as any)
+        .eq('id', budgetRejectReq.id);
+      if (error) throw error;
+      toast.success('Orçamento recusado.');
+      setBudgetRejectReq(null);
+      setBudgetRejectReason('');
+      qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
+    } catch (err: any) {
+      toast.error('Falha ao recusar', { description: err?.message });
+    } finally {
+      setBudgetActingId(null);
+    }
+  };
+
+  const renderBudgetList = (list: BudgetApprovalRequest[]) => {
+    if (budgetsLoading) {
+      return (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+    if (list.length === 0) {
+      return (
+        <Card>
+          <CardContent className="p-8 flex flex-col items-center text-center gap-3 text-muted-foreground">
+            <Receipt className="h-8 w-8" />
+            <p className="text-sm">Nada por aqui.</p>
+          </CardContent>
+        </Card>
+      );
+    }
+    return (
+      <div className="grid gap-3 md:grid-cols-2">
+        {list.map((r) => (
+          <BudgetApprovalCard
+            key={r.id}
+            request={r}
+            loading={budgetActingId === r.id}
+            onApprove={() => approveBudget(r)}
+            onReject={() => setBudgetRejectReq(r)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Aprovações de consulta"
-        description="Solicitações enviadas pelos pacientes via app."
+        title="Aprovações"
+        description="Pedidos de consulta dos pacientes e orçamentos enviados pelos profissionais."
       />
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="appointments">
         <TabsList>
-          <TabsTrigger value="pending">Pendentes ({pending.length})</TabsTrigger>
-          <TabsTrigger value="approved">Aprovadas ({approved.length})</TabsTrigger>
-          <TabsTrigger value="rejected">Recusadas ({rejected.length})</TabsTrigger>
+          <TabsTrigger value="appointments" className="gap-1.5">
+            <CalIcon className="h-3.5 w-3.5" />
+            Consultas {pending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 text-amber-700 px-1.5 text-[10px] font-semibold">{pending.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="budgets" className="gap-1.5">
+            <Receipt className="h-3.5 w-3.5" />
+            Orçamentos {budgetPending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 text-amber-700 px-1.5 text-[10px] font-semibold">{budgetPending.length}</span>}
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="pending" className="mt-4">{renderList(pending)}</TabsContent>
-        <TabsContent value="approved" className="mt-4">{renderList(approved)}</TabsContent>
-        <TabsContent value="rejected" className="mt-4">{renderList(rejected)}</TabsContent>
+
+        <TabsContent value="appointments" className="mt-4">
+          <Tabs defaultValue="pending">
+            <TabsList>
+              <TabsTrigger value="pending">Pendentes ({pending.length})</TabsTrigger>
+              <TabsTrigger value="approved">Aprovadas ({approved.length})</TabsTrigger>
+              <TabsTrigger value="rejected">Recusadas ({rejected.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="pending" className="mt-4">{renderList(pending)}</TabsContent>
+            <TabsContent value="approved" className="mt-4">{renderList(approved)}</TabsContent>
+            <TabsContent value="rejected" className="mt-4">{renderList(rejected)}</TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="budgets" className="mt-4">
+          <Tabs defaultValue="pending">
+            <TabsList>
+              <TabsTrigger value="pending">Aguardando ({budgetPending.length})</TabsTrigger>
+              <TabsTrigger value="approved">Aprovados ({budgetApproved.length})</TabsTrigger>
+              <TabsTrigger value="rejected">Recusados ({budgetRejected.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="pending" className="mt-4">{renderBudgetList(budgetPending)}</TabsContent>
+            <TabsContent value="approved" className="mt-4">{renderBudgetList(budgetApproved)}</TabsContent>
+            <TabsContent value="rejected" className="mt-4">{renderBudgetList(budgetRejected)}</TabsContent>
+          </Tabs>
+        </TabsContent>
       </Tabs>
 
       {rescheduleReq && (
@@ -210,6 +368,35 @@ export default function ClinicaAprovacoes() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={reject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Recusar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!budgetRejectReq}
+        onOpenChange={(o) => { if (!o) { setBudgetRejectReq(null); setBudgetRejectReason(''); } }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recusar orçamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Informe um motivo. O profissional será notificado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={budgetRejectReason}
+            onChange={(e) => setBudgetRejectReason(e.target.value)}
+            placeholder="Ex: valor fora da tabela / falta informação"
+            className="min-h-[80px]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={rejectBudget}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Recusar
             </AlertDialogAction>
           </AlertDialogFooter>

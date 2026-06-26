@@ -311,6 +311,23 @@ export function AppSidebar() {
   // Total de pedidos aguardando aprovação (app + IA), para o badge da Agenda.
   const agendaPendingCount = (pendingCount ?? 0) + (aiPendingCount ?? 0);
 
+  // Orçamentos enviados por dentistas aguardando aprovação da clínica.
+  const { data: budgetPendingCount = 0 } = useQuery({
+    queryKey: ['budget-pending-count', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .select('id, patients!inner(clinic_id)', { count: 'exact', head: false })
+        .eq('patients.clinic_id', currentClinicId!)
+        .eq('status', 'awaiting_clinic_approval');
+      if (error) return 0;
+      return data?.length ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+  const approvalsBadgeCount = (pendingCount ?? 0) + (budgetPendingCount ?? 0);
+
   const { data: todayApts = [] } = useQuery({
     queryKey: ['sidebar-today-apts', currentClinicId, user?.id, isDentist],
     enabled: !!currentClinicId,
@@ -625,7 +642,7 @@ export function AppSidebar() {
                           : item.url === '/pacientes-do-dia'
                           ? todayCount
                           : item.url === '/clinica/aprovacoes'
-                          ? pendingCount
+                          ? approvalsBadgeCount
                           : undefined,
                       )
                     )}
@@ -689,7 +706,7 @@ export function AppSidebar() {
                         // mostra a contagem de consultas do dia.
                         ? (agendaPendingCount > 0 ? agendaPendingCount : todayCount)
                         : item.url === '/clinica/aprovacoes'
-                        ? pendingCount
+                        ? approvalsBadgeCount
                         : undefined,
                     )
                   )}
@@ -711,7 +728,7 @@ export function AppSidebar() {
                   {finalClinicNav.map((item) =>
                     renderNavItem(
                       item,
-                      item.url === '/clinica/aprovacoes' ? pendingCount
+                      item.url === '/clinica/aprovacoes' ? approvalsBadgeCount
                       : item.url === '/pacientes-do-dia' ? todayCount
                       : undefined,
                     )
