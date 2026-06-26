@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Shield, CreditCard, Clock, AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
+import { Shield, CreditCard, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
@@ -36,8 +36,7 @@ interface Props {
   patientInsuranceProvider?: string | null;
 }
 
-type Mode = '' | 'insurance' | 'stripe' | 'later';
-// 'stripe' kept as enum key for backward compatibility; UI/label = Mercado Pago
+type Mode = '' | 'insurance' | 'paid' | 'later';
 
 function brl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -69,7 +68,6 @@ export function FinishPaymentDialog({
   const [priceItems, setPriceItems] = useState<Record<string, number>>({}); // tuss_code -> value_brl
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   const totalParticular = useMemo(
     () => procedures.reduce((s, p) => s + (p.price || 0), 0),
@@ -282,31 +280,28 @@ export function FinishPaymentDialog({
     }
   };
 
-  const handleConfirmStripe = async () => {
+  const handleConfirmPaid = async () => {
     if (totalParticular <= 0) { toast.error('Valor inválido'); return; }
     setSaving(true);
     try {
-      const txId = await createBaseTx({
+      const today = format(new Date(), 'yyyy-MM-dd');
+      await createBaseTx({
         category: 'consultation',
         amount: totalParticular,
-        payment_method: 'mercadopago',
-        status: 'pending',
-        due_date: format(new Date(), 'yyyy-MM-dd'),
-        notes: 'Pagamento via Mercado Pago Checkout',
+        payment_method: 'card',
+        status: 'paid',
+        due_date: today,
+        paid_date: today,
+        notes: 'Pago pelo paciente (registrado pela clínica)',
       });
-      const { data, error } = await supabase.functions.invoke('create-consultation-checkout-mp', {
-        body: {
-          transaction_id: txId,
-          patient_name: patientName,
-          line_items: procedures.map((p) => ({ name: p.name, amount: p.price })),
-        },
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error('Link de pagamento não gerado');
-      setCheckoutUrl(data.url as string);
-      toast.success('Link de pagamento gerado!');
+      toast.success(
+        needsApproval
+          ? 'Consulta finalizada. Pagamento enviado para aprovação.'
+          : 'Pagamento registrado.'
+      );
+      onCompleted();
     } catch (e: any) {
-      toast.error(e.message ?? 'Falha no Mercado Pago');
+      toast.error(e.message ?? 'Erro ao registrar pagamento');
     } finally {
       setSaving(false);
     }
