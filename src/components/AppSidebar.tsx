@@ -642,7 +642,7 @@ export function AppSidebar() {
                           : item.url === '/pacientes-do-dia'
                           ? todayCount
                           : item.url === '/clinica/aprovacoes'
-                          ? pendingCount
+                          ? approvalsBadgeCount
                           : undefined,
                       )
                     )}
@@ -706,7 +706,7 @@ export function AppSidebar() {
                         // mostra a contagem de consultas do dia.
                         ? (agendaPendingCount > 0 ? agendaPendingCount : todayCount)
                         : item.url === '/clinica/aprovacoes'
-                        ? pendingCount
+                        ? approvalsBadgeCount
                         : undefined,
                     )
                   )}
@@ -728,7 +728,7 @@ export function AppSidebar() {
                   {finalClinicNav.map((item) =>
                     renderNavItem(
                       item,
-                      item.url === '/clinica/aprovacoes' ? pendingCount
+                      item.url === '/clinica/aprovacoes' ? approvalsBadgeCount
                       : item.url === '/pacientes-do-dia' ? todayCount
                       : undefined,
                     )
