@@ -3,7 +3,7 @@ import { ptBR } from 'date-fns/locale';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Clock, UserCheck, Play, CheckCircle2, UserX, Stethoscope, FolderHeart, Wallet } from 'lucide-react';
 import { WaitingTimer } from './WaitingTimer';
 import { getAvatarColor, getInitials } from '@/lib/avatarColor';
@@ -85,6 +85,7 @@ export function WaitingRoomCard({
     >
       <div className="flex items-start gap-3">
         <Avatar className="h-10 w-10 flex-shrink-0">
+          <AvatarImage src={appointment.patients?.photo_url ?? undefined} alt={patientName} />
           <AvatarFallback
             className="text-white text-xs font-semibold"
             style={{ backgroundColor: getAvatarColor(appointment.patient_id) }}
