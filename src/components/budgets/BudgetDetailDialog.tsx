@@ -428,6 +428,20 @@ export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailD
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BudgetPaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        plan={plan ? {
+          id: plan.id,
+          title: plan.title ?? 'Orçamento',
+          total_cost: Number((plan as any).total_cost) || 0,
+          patient_id: (plan as any).patient_id ?? null,
+          dentist_id: (plan as any).dentist_id ?? null,
+          clinic_id: (plan as any).clinic_id ?? null,
+          patient_name: (plan as any).patients?.full_name ?? null,
+        } : null}
+      />
     </>
   );
 }
