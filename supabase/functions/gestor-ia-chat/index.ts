@@ -46,8 +46,8 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
     admin.from("clinic_members").select("user_id, role, specialty, registration_number").eq("clinic_id", clinicId),
     admin.from("insurance_plans").select("name, type, is_active").eq("clinic_id", clinicId).eq("is_active", true),
     admin.from("procedures" as any).select("name, price").eq("clinic_id", clinicId).limit(50),
-    admin.from("appointments").select("status, presence_status, start_time").eq("clinic_id", clinicId).gte("start_time", startToday).lt("start_time", endToday),
-    admin.from("appointments").select("start_time, status, dentist_id").eq("clinic_id", clinicId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled").order("start_time").limit(50),
+    admin.from("appointments").select("status, presence_status, start_time, end_time, dentist_id, patients(full_name), procedures(name)").eq("clinic_id", clinicId).gte("start_time", startToday).lt("start_time", endToday).order("start_time"),
+    admin.from("appointments").select("start_time, end_time, status, dentist_id, patients(full_name), procedures(name)").eq("clinic_id", clinicId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled").order("start_time").limit(50),
     admin.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
     admin.from("financial_transactions").select("type, amount, status, paid_date").eq("clinic_id", clinicId).gte("due_date", since30),
     // Faturamento do mês anterior (30-60 dias atrás) para comparativo
@@ -205,11 +205,24 @@ async function loadClinicContext(admin: ReturnType<typeof createClient>, clinicI
 
   lines.push(`\n# Agenda de hoje`);
   lines.push(`- Total: ${today.length} | Confirmadas: ${confirmed} | Aguardando: ${waiting} | Canceladas: ${cancelled}`);
+  if (today.length > 0) {
+    for (const a of today as any[]) {
+      const d = new Date(a.start_time);
+      const hh = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const pName = a.patients?.full_name ?? "paciente";
+      const proc = a.procedures?.name ? ` (${a.procedures.name})` : "";
+      const doc = profilesMap.get(a.dentist_id) ?? "—";
+      lines.push(`- ${hh} — ${pName}${proc} com Dr(a). ${doc} [${a.status}]`);
+    }
+  }
 
   lines.push(`\n# Próximos 7 dias (${weekApsQ.data?.length ?? 0} consultas)`);
   for (const a of (weekApsQ.data ?? []).slice(0, 20) as any[]) {
     const d = new Date(a.start_time);
-    lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${a.status}`);
+    const pName = a.patients?.full_name ?? "paciente";
+    const proc = a.procedures?.name ? ` (${a.procedures.name})` : "";
+    const doc = profilesMap.get(a.dentist_id) ?? "—";
+    lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${pName}${proc} com Dr(a). ${doc} [${a.status}]`);
   }
 
   // ===== Pedidos de consulta pendentes =====
