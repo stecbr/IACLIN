@@ -667,7 +667,11 @@ export default function Attendance() {
         .from('appointments')
         .update({ status: 'completed', presence_status: 'awaiting_payment' })
         .eq('id', appointment.id);
-      if (aptError) throw aptError;
+      if (aptError) {
+        console.error('Erro ao finalizar consulta:', aptError);
+        toast.error('Erro ao finalizar: ' + aptError.message);
+        throw aptError;
+      }
       endSession(appointment.id);
       clearDraft();
       // Limpa o rascunho da aba Documentos desta consulta
