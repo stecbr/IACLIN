@@ -1,59 +1,32 @@
-## 1. Agendamento de "retorno" após consulta concluída
+## Problema
 
-**Problema:** quando o paciente já realizou uma consulta com o profissional e tenta marcar outra, o sistema mostra o aviso de conflito ("Você já tem consulta com este profissional… será cancelada"), mesmo quando a consulta anterior já foi finalizada (`status = 'completed'`).
+Quando o paciente já realizou uma consulta com o médico no mesmo dia e tenta marcar outra, ainda aparece o modal antigo "Você já tem consulta com este profissional… será cancelada e substituída" em vez do modal de "Marcar retorno para hoje?".
 
-**Mudança no backend** — `supabase/functions/request-appointment/index.ts`:
+Causa raiz, em `supabase/functions/request-appointment/index.ts`:
 
-- Na busca `sameDoctorSameDayApptQ`, distinguir consultas **finalizadas** das **ativas**. Hoje filtra só `.neq('status', 'cancelled')`, o que inclui `completed`.
-- Trazer também a coluna `status` no `select`.
-- Quando o conflito encontrado tiver `status = 'completed'`, retornar um novo tipo de payload:
-  ```json
-  { "conflict": true, "type": "patient_completed_same_day",
-    "message": "Você acabou de realizar uma consulta com Dr(a). X hoje às HH:mm. Tem certeza que deseja marcar um retorno para hoje?",
-    "existing": { "kind": "appointment", ... } }
-  ```
-  Nesse caso o fluxo de "replace" NÃO deve cancelar a consulta anterior — só seguir e criar o pedido novo.
-- Para `status` ativos (`scheduled`, `confirmed`, etc.) mantém-se o comportamento atual de cancelar+substituir.
+1. A query `sameDoctorSameDayApptQ` retorna até 1 linha sem `order by`. Se o paciente tem **duas** consultas no mesmo dia com o mesmo médico (ex.: a concluída das 09:30 e um pedido/consulta ativa anterior), o Postgres pode retornar a ativa primeiro, então o código entra no ramo `patient_overlap_appointment` e mostra o modal de cancelar/substituir.
+2. A query `sameDoctorSameDayReqQ` (appointment_requests pendentes/aprovados) é avaliada antes de qualquer ramo de "completed". Se sobrou um `appointment_request` pendente de uma tentativa anterior do mesmo dia, ele dispara `patient_overlap_request` e o modal antigo aparece — nunca dá chance de detectar a consulta concluída.
+3. O front (`PatientBooking.tsx`) só trata `patient_completed_same_day` no `AlertDialog`, então qualquer outro `type` cai no texto antigo.
 
-**Mudança no frontend** — `src/pages/patient/PatientBooking.tsx`:
+## Mudanças
 
-- O state `conflict` ganha um campo opcional `type`.
-- Quando `type === 'patient_completed_same_day'`, o `AlertDialog` mostra:
-  - Título: **"Marcar retorno para hoje?"**
-  - Texto: "Você acabou de realizar uma consulta com Dr(a). {nome} hoje às {hora}. Deseja mesmo marcar um retorno agora?"
-  - Botões: **Não, cancelar** / **Sim, marcar retorno**.
-- Ao confirmar, chama `submitBooking()` SEM passar `replaceExistingId` (a função `request-appointment` aceita um novo flag `allowCompletedSameDay: true` para pular essa verificação específica e seguir com a criação normal).
-- O texto atual ("será cancelada e substituída…") permanece apenas para consultas ativas.
+### 1. `supabase/functions/request-appointment/index.ts`
 
-## 2. Remoção do processamento de pagamento na plataforma
+- Em `sameDoctorSameDayApptQ`: ordenar por `status` priorizando `completed` (ex.: `order('status', { ascending: false })` não resolve genericamente — usar `order('start_time', { ascending: true })` e, no JS, **preferir** a linha com `status='completed'` dentre todas as do dia). Trocar `.limit(1)` por buscar todas as do dia (sem limit) e escolher: se existir alguma `completed`, usar essa; senão, usar a primeira ativa.
+- Avaliar o ramo "completed same day" **antes** de `sameDocDayReq`, para que a presença de um request pendente não suprima o modal de retorno. Ou seja, reordenar para:
+  1. Se há appointment `completed` mesmo dia mesmo médico → `patient_completed_same_day` (respeitando `allowCompletedSameDay`).
+  2. Se há appointment ativo mesmo dia mesmo médico → `patient_overlap_appointment`.
+  3. Se há request pendente mesmo dia mesmo médico → `patient_overlap_request`.
+  4. Demais checks (overlap de horário do médico, overlap do paciente) seguem como hoje.
+- Quando `allowCompletedSameDay = true`, pular também a checagem de `sameDocDayReq` apenas se o request pendente for da própria tentativa anterior do paciente (mantém segurança contra duplo agendamento, mas não bloqueia o retorno).
 
-**Princípio do PRD:** o sistema só registra como o paciente pagou — não processa pagamento real. Cobranças via Mercado Pago/Stripe a partir da consulta devem sair do fluxo.
+### 2. `src/pages/patient/PatientBooking.tsx`
 
-**Mudanças em `src/components/attendance/FinishPaymentDialog.tsx`:**
-
-- Renomear a opção **"Particular agora"** → **"Cartão / Pago"** (ícone `CreditCard`).
-- Remover toda a integração com `create-consultation-checkout-mp` e o estado `checkoutUrl`/UI do link de pagamento.
-- `handleConfirmStripe` vira `handleConfirmPaid`:
-  - Cria a transação financeira com `category: 'consultation'`, `payment_method: 'card'`, `status: 'paid'`, `paid_date: hoje`, vinculada a `patient_id` + `clinic_id` (já estão no payload).
-  - `notes`: "Pago pelo paciente (registrado pela clínica)".
-  - Toast: "Pagamento registrado." e fecha o diálogo.
-- A opção **Convênio** continua igual (já vincula `operator_id`, `insurance_invoice_*` e mantém `status: 'pending'` até o repasse).
-- A opção **A combinar** continua igual.
-- O tipo `Mode` passa a ser `'' | 'insurance' | 'paid' | 'later'`.
-
-**Mudanças em `src/components/attendance/ConsultationPaymentDialog.tsx`** (usado em Sala de Espera → "Registrar pagamento"):
-
-- Reduzir as 4 opções (Dinheiro / Cartão / PIX / Convênio) para **3**:
-  - **Convênio** (igual ao atual, salva `payment_method: insurance:<plano>` e `status: 'pending'`).
-  - **Cartão / Pago** (substitui Dinheiro+Cartão+PIX, salva `payment_method: 'card'`, `status: 'paid'`, `paid_date` = hoje).
-  - **A combinar** (novo — `payment_method: 'particular_pending'`, `status: 'pending'`, sem `paid_date`).
-- Remover o bloco da chave PIX e a prop `paymentAccount` (não é mais necessário exibir chave para o paciente pagar dentro da plataforma).
-- A transação continua vinculada a `patient_id` + `clinic_id` (já está). O `appointment_id` mantém o vínculo com o profissional.
-
-**Edge function/checkouts não removidas:** `create-consultation-checkout-mp` e `create-consultation-checkout` continuam no repositório (não há remoção destrutiva), apenas deixam de ser chamadas pelo fluxo de consulta. O Mercado Pago segue ativo só para a parte de assinatura SaaS, como pede o PRD.
+Sem mudança estrutural — já trata `patient_completed_same_day` com o modal "Marcar retorno para hoje?". Apenas validar visualmente que o fluxo agora dispara o modal correto.
 
 ## Notas técnicas
 
-- Nenhuma migração de banco é necessária; apenas mudanças em código (Edge Function + componentes React).
-- A coluna `status` já existe em `appointments`, então o novo filtro é apenas no SELECT.
-- Não há alteração em RLS nem nas grants.
+- Nenhuma migração de banco.
+- Sem mudança de RLS/GRANTs.
+- Sem mudança no `FinishPaymentDialog` nem em outros componentes.
+- Edge function `request-appointment` precisa ser redeployada após a edição.
