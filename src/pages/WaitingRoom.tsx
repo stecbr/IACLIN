@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { startOfDay, endOfDay } from 'date-fns';
-import { Users, UserCheck, Play, RefreshCw } from 'lucide-react';
+import { Users, UserCheck, Play, RefreshCw, Search } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ export default function WaitingRoom() {
   const { currentClinicId } = useAuth();
   const queryClient = useQueryClient();
   const [doctorFilter, setDoctorFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [paymentApt, setPaymentApt] = useState<{
     id: string;
@@ -129,11 +131,19 @@ export default function WaitingRoom() {
     [appointments, doctorMap]
   );
 
-  const waiting = enriched.filter((a) => a.presence_status === 'not_arrived');
-  const arrived = enriched.filter((a) => a.presence_status === 'arrived');
-  const inService = enriched.filter((a) => a.presence_status === 'in_service');
-  const awaitingPayment = enriched.filter((a) => a.presence_status === 'awaiting_payment');
-  const finished = enriched.filter(
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? enriched.filter((a) =>
+        (a.patients?.full_name ?? '').toLowerCase().includes(q) ||
+        (a.dentist_name ?? '').toLowerCase().includes(q),
+      )
+    : enriched;
+
+  const waiting = visible.filter((a) => a.presence_status === 'not_arrived');
+  const arrived = visible.filter((a) => a.presence_status === 'arrived');
+  const inService = visible.filter((a) => a.presence_status === 'in_service');
+  const awaitingPayment = visible.filter((a) => a.presence_status === 'awaiting_payment');
+  const finished = visible.filter(
     (a) => a.presence_status === 'finished' || a.presence_status === 'no_show'
   );
 
@@ -232,6 +242,15 @@ export default function WaitingRoom() {
         description="Acompanhe a chegada e o atendimento dos pacientes do dia"
       >
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar paciente ou profissional..."
+              className="pl-8 w-[240px]"
+            />
+          </div>
           <Select value={doctorFilter} onValueChange={setDoctorFilter}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Todos os profissionais" />

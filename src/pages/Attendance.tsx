@@ -665,7 +665,7 @@ export default function Attendance() {
       // Mark appointment as completed
       const { error: aptError } = await supabase
         .from('appointments')
-        .update({ status: 'completed' })
+        .update({ status: 'completed', presence_status: 'awaiting_payment' })
         .eq('id', appointment.id);
       if (aptError) throw aptError;
       endSession(appointment.id);
