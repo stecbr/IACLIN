@@ -1,32 +1,49 @@
-## Problema
+## Objetivo
 
-Quando o paciente já realizou uma consulta com o médico no mesmo dia e tenta marcar outra, ainda aparece o modal antigo "Você já tem consulta com este profissional… será cancelada e substituída" em vez do modal de "Marcar retorno para hoje?".
+Hoje, quando o dentista cria um orçamento ele já entra direto no pipeline (Pendente → Aprovado → Perdido). Em clínicas com equipe, isso ignora a hierarquia: o orçamento deveria precisar do aval do **dono / admin / secretária** antes de virar oficial. Vamos replicar o fluxo já usado em consultas (`/aprovacoes`) para orçamentos.
 
-Causa raiz, em `supabase/functions/request-appointment/index.ts`:
+## Fluxo proposto
 
-1. A query `sameDoctorSameDayApptQ` retorna até 1 linha sem `order by`. Se o paciente tem **duas** consultas no mesmo dia com o mesmo médico (ex.: a concluída das 09:30 e um pedido/consulta ativa anterior), o Postgres pode retornar a ativa primeiro, então o código entra no ramo `patient_overlap_appointment` e mostra o modal de cancelar/substituir.
-2. A query `sameDoctorSameDayReqQ` (appointment_requests pendentes/aprovados) é avaliada antes de qualquer ramo de "completed". Se sobrou um `appointment_request` pendente de uma tentativa anterior do mesmo dia, ele dispara `patient_overlap_request` e o modal antigo aparece — nunca dá chance de detectar a consulta concluída.
-3. O front (`PatientBooking.tsx`) só trata `patient_completed_same_day` no `AlertDialog`, então qualquer outro `type` cai no texto antigo.
+1. **Dentista ou medico vinculado a uma clínica** cria um orçamento → ele entra como **"Aguardando aprovação da clínica"** (não aparece no Kanban tradicional ainda).
+2. **Admin / dono / secretária** vê o pedido na página **Aprovações** (nova aba "Orçamentos"), com:
+  - paciente, dentista, itens, valor total, observações
+  - botões **Aprovar** / **Recusar** (com motivo)
+3. Ao **aprovar** → o orçamento entra na coluna **Pendente** do pipeline normal e fica visível para todos.
+4. Ao **recusar** → fica marcado como recusado, com o motivo, e o dentista recebe notificação.
+5. **Dentista solo** (sem clínica) ou **admin/secretária criando o orçamento** → entra direto como `pending` (sem etapa de aprovação), comportamento atual mantido.
+6. O dentista vê seus orçamentos "aguardando aprovação" numa **faixa separada** no topo do Kanban (apenas leitura, com badge âmbar).
+7. Badge de contagem em **Aprovações** na sidebar passa a somar consultas + orçamentos pendentes.
 
-## Mudanças
+## Detalhes técnicos
 
-### 1. `supabase/functions/request-appointment/index.ts`
+### Banco
 
-- Em `sameDoctorSameDayApptQ`: ordenar por `status` priorizando `completed` (ex.: `order('status', { ascending: false })` não resolve genericamente — usar `order('start_time', { ascending: true })` e, no JS, **preferir** a linha com `status='completed'` dentre todas as do dia). Trocar `.limit(1)` por buscar todas as do dia (sem limit) e escolher: se existir alguma `completed`, usar essa; senão, usar a primeira ativa.
-- Avaliar o ramo "completed same day" **antes** de `sameDocDayReq`, para que a presença de um request pendente não suprima o modal de retorno. Ou seja, reordenar para:
-  1. Se há appointment `completed` mesmo dia mesmo médico → `patient_completed_same_day` (respeitando `allowCompletedSameDay`).
-  2. Se há appointment ativo mesmo dia mesmo médico → `patient_overlap_appointment`.
-  3. Se há request pendente mesmo dia mesmo médico → `patient_overlap_request`.
-  4. Demais checks (overlap de horário do médico, overlap do paciente) seguem como hoje.
-- Quando `allowCompletedSameDay = true`, pular também a checagem de `sameDocDayReq` apenas se o request pendente for da própria tentativa anterior do paciente (mantém segurança contra duplo agendamento, mas não bloqueia o retorno).
+- Adicionar status `awaiting_clinic_approval` e `rejected_by_clinic` ao `treatment_plans_status_check`.
+- Novas colunas em `treatment_plans`:
+  - `approval_required_by_clinic boolean default false`
+  - `approved_by uuid references auth.users(id)`
+  - `approved_at timestamptz`
+  - `rejection_reason text`
+- Migration ajusta o trigger/check; políticas RLS atuais já permitem clínica ver, então basta filtrar por status no front.
 
-### 2. `src/pages/patient/PatientBooking.tsx`
+### Backend (Edge Functions)
 
-Sem mudança estrutural — já trata `patient_completed_same_day` com o modal "Marcar retorno para hoje?". Apenas validar visualmente que o fluxo agora dispara o modal correto.
+- `approve-budget` — valida que o usuário é admin/secretária/owner da clínica do paciente, muda status para `pending`, registra `approved_by/at`, cria notificação para o dentista.
+- `reject-budget` — mesma validação, status `rejected_by_clinic`, salva `rejection_reason`, notifica dentista.
 
-## Notas técnicas
+### Frontend
 
-- Nenhuma migração de banco.
-- Sem mudança de RLS/GRANTs.
-- Sem mudança no `FinishPaymentDialog` nem em outros componentes.
-- Edge function `request-appointment` precisa ser redeployada após a edição.
+- `**BudgetFormDialog.tsx**`: detectar role + clínica do paciente. Se `role==='dentist'` e paciente tem `clinic_id`, inserir com `status='awaiting_clinic_approval'` e `approval_required_by_clinic=true`. Toast: "Orçamento enviado para aprovação da clínica".
+- `**Budgets.tsx` (Kanban)**: filtrar fora os `awaiting_clinic_approval` e `rejected_by_clinic` das 3 colunas e mostrar uma **faixa informativa** acima quando o dentista logado tem itens aguardando.
+- `**ClinicaAprovacoes.tsx**`: novas abas "Consultas" / "Orçamentos"; lista de orçamentos pendentes com card próprio (`BudgetApprovalCard`) chamando as edge functions acima. Realtime via canal `treatment_plans`.
+- **Sidebar (`AppSidebar.tsx`)**: badge de Aprovações passa a contar `appointment_requests.pending + treatment_plans.awaiting_clinic_approval` da clínica.
+- **Notificações**: aproveitar o sistema atual (`notifications` / `NotificationBell`) para avisar o dentista quando o orçamento é aprovado ou recusado.
+
+### Permissões
+
+- Reutiliza `useRoleAccess` + `useSoloMode`: aprovar/recusar exposto apenas para `admin`, `secretary` ou `owner` da clínica. Dentista vê em modo somente leitura.
+
+## Fora do escopo
+
+- Alterar a parte de orçamentos pessoais (sem clínica) — segue funcionando como hoje.
+- Edição do orçamento pelo aprovador antes de aprovar (pode entrar numa iteração futura).

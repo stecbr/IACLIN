@@ -3645,37 +3645,52 @@ export type Database = {
       }
       treatment_plans: {
         Row: {
+          approval_required_by_clinic: boolean
+          approved_at: string | null
+          approved_by: string | null
           charges_generated_at: string | null
           created_at: string
           dentist_id: string
           description: string | null
           id: string
           patient_id: string
+          rejection_reason: string | null
           status: string
+          submitted_by: string | null
           title: string
           total_cost: number
           updated_at: string
         }
         Insert: {
+          approval_required_by_clinic?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           charges_generated_at?: string | null
           created_at?: string
           dentist_id: string
           description?: string | null
           id?: string
           patient_id: string
+          rejection_reason?: string | null
           status?: string
+          submitted_by?: string | null
           title: string
           total_cost?: number
           updated_at?: string
         }
         Update: {
+          approval_required_by_clinic?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
           charges_generated_at?: string | null
           created_at?: string
           dentist_id?: string
           description?: string | null
           id?: string
           patient_id?: string
+          rejection_reason?: string | null
           status?: string
+          submitted_by?: string | null
           title?: string
           total_cost?: number
           updated_at?: string
