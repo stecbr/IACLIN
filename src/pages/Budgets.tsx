@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Plus, Building2, User as UserIcon } from 'lucide-react';
+import { ClipboardList, Plus, Building2, User as UserIcon, Clock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
@@ -98,19 +98,36 @@ export default function Budgets() {
   });
 
   const columnData = useMemo(() => {
-    const sorted = [...plans].sort((a: any, b: any) =>
+    const visible = plans.filter((p: any) =>
+      p.status !== 'awaiting_clinic_approval' && p.status !== 'rejected_by_clinic'
+    );
+    const sorted = [...visible].sort((a: any, b: any) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     const numberMap = new Map(sorted.map((p: any, i: number) => [p.id, i + 1]));
 
     const result: Record<string, any[]> = {};
     COLUMNS.forEach(c => { result[c.id] = []; });
-    plans.forEach((p: any) => {
+    visible.forEach((p: any) => {
       const col = result[p.status] ?? result['pending'];
       col.push({ ...p, sequential_number: numberMap.get(p.id) });
     });
     return result;
   }, [plans]);
+
+  // Orçamentos do dentista atual aguardando aprovação da clínica.
+  const myPendingApproval = useMemo(() => {
+    if (!isDentist || !user) return [] as any[];
+    return plans.filter((p: any) =>
+      p.dentist_id === user.id && p.status === 'awaiting_clinic_approval'
+    );
+  }, [plans, isDentist, user]);
+  const myRejected = useMemo(() => {
+    if (!isDentist || !user) return [] as any[];
+    return plans.filter((p: any) =>
+      p.dentist_id === user.id && p.status === 'rejected_by_clinic'
+    );
+  }, [plans, isDentist, user]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
