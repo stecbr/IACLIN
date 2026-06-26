@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
           .lt('start_time', dayEndUtc)
           .neq('status', 'cancelled')
           .neq('id', replaceGuard)
-          .limit(1)
+          .order('start_time', { ascending: true })
       : Promise.resolve({ data: [] as any[] });
 
     const sameDoctorSameDayReqQ = admin
