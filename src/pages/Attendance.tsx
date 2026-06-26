@@ -674,7 +674,8 @@ export default function Attendance() {
       try { localStorage.removeItem(`doc-draft-apt-${appointment.id}`); } catch { /* ignore */ }
 
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Atendimento finalizado!');
+      queryClient.invalidateQueries({ queryKey: ['waiting-room'] });
+      toast.success('Atendimento finalizado! Aguardando pagamento na Sala de Espera.');
 
       // Auto-arquivar PDFs (resumo + receituário + exames + encaminhamentos)
       // na pasta privada do médico do paciente. Falhas não bloqueiam.
