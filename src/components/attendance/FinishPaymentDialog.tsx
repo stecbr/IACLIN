@@ -497,50 +497,19 @@ export function FinishPaymentDialog({
           </div>
         )}
 
-        {/* Stripe */}
-        {mode === 'stripe' && (
+        {/* Cartão / Pago */}
+        {mode === 'paid' && (
           <div className="space-y-3">
-            {!checkoutUrl ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Vamos gerar um link de pagamento Stripe ({brl(totalParticular)}). Compartilhe com o paciente — ele paga pelo celular.
-                </p>
-                <div className="flex justify-end">
-                  <Button onClick={handleConfirmStripe} disabled={saving || totalParticular <= 0} className="gap-2">
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    Gerar link de pagamento
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/10 dark:border-emerald-800/30 p-3 text-sm">
-                  Link gerado! Compartilhe com o paciente:
-                </div>
-                <a
-                  href={checkoutUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 text-sm hover:bg-muted/50"
-                >
-                  <span className="truncate text-primary">{checkoutUrl}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                </a>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(checkoutUrl);
-                    toast.success('Link copiado');
-                  }}
-                  className="w-full"
-                >
-                  Copiar link
-                </Button>
-                <div className="flex justify-end">
-                  <Button onClick={onCompleted}>Concluir</Button>
-                </div>
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">
+              O paciente já efetuou o pagamento ({brl(totalParticular)}) diretamente com a clínica (cartão, dinheiro, PIX, etc.).
+              O atendimento será registrado como <Badge variant="secondary" className="mx-1">Pago</Badge> em Contas a Receber.
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={handleConfirmPaid} disabled={saving || totalParticular <= 0} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Confirmar pagamento
+              </Button>
+            </div>
           </div>
         )}
 
