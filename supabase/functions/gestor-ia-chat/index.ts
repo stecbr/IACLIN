@@ -404,8 +404,8 @@ async function loadProfessionalContext(admin: ReturnType<typeof createClient>, u
   const [profileQ, todayApsQ, weekApsQ, recentApsQ, pendingReqQ,
          templatesQ, availOverridesQ, blockedQ, busyApsQ] = await Promise.all([
     admin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
-    admin.from("appointments").select("status, presence_status, start_time").eq("dentist_id", userId).gte("start_time", startToday).lt("start_time", endToday),
-    admin.from("appointments").select("start_time, status, clinic_id").eq("dentist_id", userId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled").order("start_time").limit(50),
+    admin.from("appointments").select("status, presence_status, start_time, end_time, patients(full_name), procedures(name)").eq("dentist_id", userId).gte("start_time", startToday).lt("start_time", endToday).order("start_time"),
+    admin.from("appointments").select("start_time, end_time, status, clinic_id, patients(full_name), procedures(name)").eq("dentist_id", userId).gte("start_time", startToday).lte("start_time", in7days).neq("status", "cancelled").order("start_time").limit(50),
     admin.from("appointments").select("status, presence_status, procedures(name)").eq("dentist_id", userId).gte("start_time", apptSince30).lt("start_time", startToday),
     admin.from("appointment_requests").select("start_time, end_time, specialty, patient_account_snapshot, created_at").eq("dentist_id", userId).eq("status", "pending").order("start_time").limit(30),
     admin.from("professional_schedule_template").select("weekday, is_active, start_time, end_time, breaks").eq("user_id", userId).is("clinic_id", null),
@@ -437,11 +437,22 @@ async function loadProfessionalContext(admin: ReturnType<typeof createClient>, u
 
   lines.push(`\n# Agenda de hoje`);
   lines.push(`- Total: ${today.length} | Confirmadas: ${confirmed} | Aguardando: ${waiting} | Canceladas: ${cancelled}`);
+  if (today.length > 0) {
+    for (const a of today as any[]) {
+      const d = new Date(a.start_time);
+      const hh = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const pName = a.patients?.full_name ?? "paciente";
+      const proc = a.procedures?.name ? ` (${a.procedures.name})` : "";
+      lines.push(`- ${hh} — ${pName}${proc} [${a.status}]`);
+    }
+  }
 
   lines.push(`\n# Próximos 7 dias (${weekApsQ.data?.length ?? 0} consultas)`);
   for (const a of (weekApsQ.data ?? []).slice(0, 20) as any[]) {
     const d = new Date(a.start_time);
-    lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${a.status}`);
+    const pName = a.patients?.full_name ?? "paciente";
+    const proc = a.procedures?.name ? ` (${a.procedures.name})` : "";
+    lines.push(`- ${d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} — ${pName}${proc} [${a.status}]`);
   }
 
   const pendingReqs = (pendingReqQ.data ?? []) as any[];
