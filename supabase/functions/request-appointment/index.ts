@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
       notes,
       replaceExistingId,
       replaceKind,
+      allowCompletedSameDay,
     } = body ?? {};
 
     if (!clinicId || !dentistId || !startTime || !endTime) {
@@ -181,7 +182,7 @@ Deno.serve(async (req) => {
     const sameDoctorSameDayApptQ = patientIds.length > 0
       ? admin
           .from('appointments')
-          .select('id, dentist_id, start_time, end_time')
+          .select('id, dentist_id, start_time, end_time, status')
           .in('patient_id', patientIds)
           .eq('dentist_id', dentistId)
           .gte('start_time', dayStartUtc)
@@ -263,6 +264,23 @@ Deno.serve(async (req) => {
     // Evaluate in original priority order to preserve conflict messages.
     if (sameDocDayAppt.data && sameDocDayAppt.data.length > 0) {
       const c = sameDocDayAppt.data[0] as any;
+      const isCompleted = c.status === 'completed';
+      if (isCompleted && allowCompletedSameDay) {
+        // user confirmed they want to book a return on the same day — skip this guard
+      } else if (isCompleted) {
+        return conflictJson({
+          type: 'patient_completed_same_day' as any,
+          message: `Você acabou de realizar uma consulta com Dr(a). ${dentistName} hoje às ${fmtHM(c.start_time)}. Deseja mesmo marcar um retorno agora?`,
+          existing: {
+            kind: 'appointment',
+            id: c.id,
+            dentistId: c.dentist_id,
+            dentistName,
+            startTime: c.start_time,
+            endTime: c.end_time,
+          },
+        });
+      } else {
       return conflictJson({
         type: 'patient_overlap_appointment',
         message: `Você já tem consulta com Dr(a). ${dentistName} neste dia, das ${fmtHM(c.start_time)} às ${fmtHM(c.end_time)}.`,
@@ -275,6 +293,7 @@ Deno.serve(async (req) => {
           endTime: c.end_time,
         },
       });
+      }
     }
     if (sameDocDayReq.data && sameDocDayReq.data.length > 0) {
       const c = sameDocDayReq.data[0] as any;

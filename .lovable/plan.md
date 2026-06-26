@@ -1,63 +1,59 @@
-## Causa raiz (verificada)
+## 1. Agendamento de "retorno" após consulta concluída
 
-O CHECK constraint **já está correto** no banco e aceita `awaiting_payment` (verificado via `pg_constraint`). O problema real é o **trigger** `sync_appointment_presence_status` (função em `public`):
+**Problema:** quando o paciente já realizou uma consulta com o profissional e tenta marcar outra, o sistema mostra o aviso de conflito ("Você já tem consulta com este profissional… será cancelada"), mesmo quando a consulta anterior já foi finalizada (`status = 'completed'`).
 
-```sql
-IF NEW.status = 'completed' AND NEW.presence_status <> 'finished' THEN
-  NEW.presence_status := 'finished';
-```
+**Mudança no backend** — `supabase/functions/request-appointment/index.ts`:
 
-Quando o `Attendance.tsx` faz `update({ status: 'completed', presence_status: 'awaiting_payment' })`, o trigger **sobrescreve** `presence_status` para `'finished'` antes de gravar. Resultado: o card cai na lista de "finalizados" e some das colunas ativas — exatamente o sintoma reportado.
+- Na busca `sameDoctorSameDayApptQ`, distinguir consultas **finalizadas** das **ativas**. Hoje filtra só `.neq('status', 'cancelled')`, o que inclui `completed`.
+- Trazer também a coluna `status` no `select`.
+- Quando o conflito encontrado tiver `status = 'completed'`, retornar um novo tipo de payload:
+  ```json
+  { "conflict": true, "type": "patient_completed_same_day",
+    "message": "Você acabou de realizar uma consulta com Dr(a). X hoje às HH:mm. Tem certeza que deseja marcar um retorno para hoje?",
+    "existing": { "kind": "appointment", ... } }
+  ```
+  Nesse caso o fluxo de "replace" NÃO deve cancelar a consulta anterior — só seguir e criar o pedido novo.
+- Para `status` ativos (`scheduled`, `confirmed`, etc.) mantém-se o comportamento atual de cancelar+substituir.
 
-A query da Sala de Espera já contempla `awaiting_payment` (coluna existe, filtro `not in (cancelled)` não exclui), então não é problema de UI.
+**Mudança no frontend** — `src/pages/patient/PatientBooking.tsx`:
 
-## Correção
+- O state `conflict` ganha um campo opcional `type`.
+- Quando `type === 'patient_completed_same_day'`, o `AlertDialog` mostra:
+  - Título: **"Marcar retorno para hoje?"**
+  - Texto: "Você acabou de realizar uma consulta com Dr(a). {nome} hoje às {hora}. Deseja mesmo marcar um retorno agora?"
+  - Botões: **Não, cancelar** / **Sim, marcar retorno**.
+- Ao confirmar, chama `submitBooking()` SEM passar `replaceExistingId` (a função `request-appointment` aceita um novo flag `allowCompletedSameDay: true` para pular essa verificação específica e seguir com a criação normal).
+- O texto atual ("será cancelada e substituída…") permanece apenas para consultas ativas.
 
-### 1. Migration — ajustar o trigger para respeitar `awaiting_payment`
+## 2. Remoção do processamento de pagamento na plataforma
 
-```sql
-CREATE OR REPLACE FUNCTION public.sync_appointment_presence_status()
-RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $$
-BEGIN
-  IF TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status THEN
-    IF NEW.status = 'completed'
-       AND NEW.presence_status NOT IN ('finished','awaiting_payment') THEN
-      NEW.presence_status := 'finished';
-    ELSIF NEW.status = 'no_show' AND NEW.presence_status <> 'no_show' THEN
-      NEW.presence_status := 'no_show';
-    ELSIF NEW.status = 'cancelled' AND NEW.presence_status = 'in_service' THEN
-      NEW.presence_status := 'finished';
-    END IF;
-  END IF;
+**Princípio do PRD:** o sistema só registra como o paciente pagou — não processa pagamento real. Cobranças via Mercado Pago/Stripe a partir da consulta devem sair do fluxo.
 
-  IF TG_OP = 'UPDATE' AND OLD.presence_status IS DISTINCT FROM NEW.presence_status THEN
-    IF NEW.presence_status = 'arrived' AND NEW.arrived_at IS NULL THEN
-      NEW.arrived_at := now();
-    ELSIF NEW.presence_status = 'in_service' AND NEW.service_started_at IS NULL THEN
-      NEW.service_started_at := now();
-    END IF;
-  END IF;
-  RETURN NEW;
-END; $$;
-```
+**Mudanças em `src/components/attendance/FinishPaymentDialog.tsx`:**
 
-Sem mudanças em RLS/grants (não estamos criando tabela).
+- Renomear a opção **"Particular agora"** → **"Cartão / Pago"** (ícone `CreditCard`).
+- Remover toda a integração com `create-consultation-checkout-mp` e o estado `checkoutUrl`/UI do link de pagamento.
+- `handleConfirmStripe` vira `handleConfirmPaid`:
+  - Cria a transação financeira com `category: 'consultation'`, `payment_method: 'card'`, `status: 'paid'`, `paid_date: hoje`, vinculada a `patient_id` + `clinic_id` (já estão no payload).
+  - `notes`: "Pago pelo paciente (registrado pela clínica)".
+  - Toast: "Pagamento registrado." e fecha o diálogo.
+- A opção **Convênio** continua igual (já vincula `operator_id`, `insurance_invoice_*` e mantém `status: 'pending'` até o repasse).
+- A opção **A combinar** continua igual.
+- O tipo `Mode` passa a ser `'' | 'insurance' | 'paid' | 'later'`.
 
-### 2. Reforço em `src/pages/Attendance.tsx` (handleFinish, ~linha 666)
+**Mudanças em `src/components/attendance/ConsultationPaymentDialog.tsx`** (usado em Sala de Espera → "Registrar pagamento"):
 
-Log e mensagem real do erro para não falhar silencioso no futuro:
+- Reduzir as 4 opções (Dinheiro / Cartão / PIX / Convênio) para **3**:
+  - **Convênio** (igual ao atual, salva `payment_method: insurance:<plano>` e `status: 'pending'`).
+  - **Cartão / Pago** (substitui Dinheiro+Cartão+PIX, salva `payment_method: 'card'`, `status: 'paid'`, `paid_date` = hoje).
+  - **A combinar** (novo — `payment_method: 'particular_pending'`, `status: 'pending'`, sem `paid_date`).
+- Remover o bloco da chave PIX e a prop `paymentAccount` (não é mais necessário exibir chave para o paciente pagar dentro da plataforma).
+- A transação continua vinculada a `patient_id` + `clinic_id` (já está). O `appointment_id` mantém o vínculo com o profissional.
 
-```ts
-if (aptError) {
-  console.error('Erro ao finalizar consulta:', aptError);
-  toast.error('Erro ao finalizar: ' + aptError.message);
-  throw aptError;
-}
-```
+**Edge function/checkouts não removidas:** `create-consultation-checkout-mp` e `create-consultation-checkout` continuam no repositório (não há remoção destrutiva), apenas deixam de ser chamadas pelo fluxo de consulta. O Mercado Pago segue ativo só para a parte de assinatura SaaS, como pede o PRD.
 
-### 3. Verificação manual após deploy
+## Notas técnicas
 
-- Médico finaliza em `/atendimento/:id` → na Sala de Espera o card aparece em **Aguardando pagamento**.
-- Secretário/admin vê **Registrar pagamento** / **Cobrar depois** na coluna; dentista comum não vê.
-
-Não é necessário alterar `WaitingRoom.tsx` nem `WaitingRoomCard.tsx` — a coluna e a lógica de permissão já estão corretas; o bug era exclusivamente do trigger sobrescrevendo o status.
+- Nenhuma migração de banco é necessária; apenas mudanças em código (Edge Function + componentes React).
+- A coluna `status` já existe em `appointments`, então o novo filtro é apenas no SELECT.
+- Não há alteração em RLS nem nas grants.

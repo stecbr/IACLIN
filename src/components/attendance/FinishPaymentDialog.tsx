@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Shield, CreditCard, Clock, AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
+import { Shield, CreditCard, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
@@ -36,8 +36,7 @@ interface Props {
   patientInsuranceProvider?: string | null;
 }
 
-type Mode = '' | 'insurance' | 'stripe' | 'later';
-// 'stripe' kept as enum key for backward compatibility; UI/label = Mercado Pago
+type Mode = '' | 'insurance' | 'paid' | 'later';
 
 function brl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -69,7 +68,6 @@ export function FinishPaymentDialog({
   const [priceItems, setPriceItems] = useState<Record<string, number>>({}); // tuss_code -> value_brl
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   const totalParticular = useMemo(
     () => procedures.reduce((s, p) => s + (p.price || 0), 0),
@@ -282,31 +280,28 @@ export function FinishPaymentDialog({
     }
   };
 
-  const handleConfirmStripe = async () => {
+  const handleConfirmPaid = async () => {
     if (totalParticular <= 0) { toast.error('Valor inválido'); return; }
     setSaving(true);
     try {
-      const txId = await createBaseTx({
+      const today = format(new Date(), 'yyyy-MM-dd');
+      await createBaseTx({
         category: 'consultation',
         amount: totalParticular,
-        payment_method: 'mercadopago',
-        status: 'pending',
-        due_date: format(new Date(), 'yyyy-MM-dd'),
-        notes: 'Pagamento via Mercado Pago Checkout',
+        payment_method: 'card',
+        status: 'paid',
+        due_date: today,
+        paid_date: today,
+        notes: 'Pago pelo paciente (registrado pela clínica)',
       });
-      const { data, error } = await supabase.functions.invoke('create-consultation-checkout-mp', {
-        body: {
-          transaction_id: txId,
-          patient_name: patientName,
-          line_items: procedures.map((p) => ({ name: p.name, amount: p.price })),
-        },
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error('Link de pagamento não gerado');
-      setCheckoutUrl(data.url as string);
-      toast.success('Link de pagamento gerado!');
+      toast.success(
+        needsApproval
+          ? 'Consulta finalizada. Pagamento enviado para aprovação.'
+          : 'Pagamento registrado.'
+      );
+      onCompleted();
     } catch (e: any) {
-      toast.error(e.message ?? 'Falha no Mercado Pago');
+      toast.error(e.message ?? 'Erro ao registrar pagamento');
     } finally {
       setSaving(false);
     }
@@ -368,7 +363,7 @@ export function FinishPaymentDialog({
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => { setMode('insurance'); setCheckoutUrl(null); }}
+            onClick={() => setMode('insurance')}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'insurance' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
@@ -378,17 +373,17 @@ export function FinishPaymentDialog({
           </button>
           <button
             type="button"
-            onClick={() => { setMode('stripe'); setCheckoutUrl(null); }}
+            onClick={() => setMode('paid')}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
-              mode === 'stripe' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
+              mode === 'paid' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
           >
             <CreditCard className="h-5 w-5" />
-            Particular agora
+            Cartão / Pago
           </button>
           <button
             type="button"
-            onClick={() => { setMode('later'); setCheckoutUrl(null); }}
+            onClick={() => setMode('later')}
             className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
               mode === 'later' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
             }`}
@@ -502,50 +497,19 @@ export function FinishPaymentDialog({
           </div>
         )}
 
-        {/* Stripe */}
-        {mode === 'stripe' && (
+        {/* Cartão / Pago */}
+        {mode === 'paid' && (
           <div className="space-y-3">
-            {!checkoutUrl ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Vamos gerar um link de pagamento Stripe ({brl(totalParticular)}). Compartilhe com o paciente — ele paga pelo celular.
-                </p>
-                <div className="flex justify-end">
-                  <Button onClick={handleConfirmStripe} disabled={saving || totalParticular <= 0} className="gap-2">
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    Gerar link de pagamento
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/10 dark:border-emerald-800/30 p-3 text-sm">
-                  Link gerado! Compartilhe com o paciente:
-                </div>
-                <a
-                  href={checkoutUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background p-3 text-sm hover:bg-muted/50"
-                >
-                  <span className="truncate text-primary">{checkoutUrl}</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                </a>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(checkoutUrl);
-                    toast.success('Link copiado');
-                  }}
-                  className="w-full"
-                >
-                  Copiar link
-                </Button>
-                <div className="flex justify-end">
-                  <Button onClick={onCompleted}>Concluir</Button>
-                </div>
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">
+              O paciente já efetuou o pagamento ({brl(totalParticular)}) diretamente com a clínica (cartão, dinheiro, PIX, etc.).
+              O atendimento será registrado como <Badge variant="secondary" className="mx-1">Pago</Badge> em Contas a Receber.
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={handleConfirmPaid} disabled={saving || totalParticular <= 0} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Confirmar pagamento
+              </Button>
+            </div>
           </div>
         )}
 
