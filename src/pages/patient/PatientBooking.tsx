@@ -31,6 +31,7 @@ type Step = 1 | 2 | 3 | 4 | 5;
 
 type ConflictInfo = {
   message: string;
+  type?: string;
   existing: {
     kind: 'appointment' | 'request';
     id: string;
@@ -85,7 +86,10 @@ export default function PatientBooking() {
     }
   };
 
-  const submitBooking = async (replace?: { id: string; kind: 'appointment' | 'request' }) => {
+  const submitBooking = async (
+    replace?: { id: string; kind: 'appointment' | 'request' },
+    opts?: { allowCompletedSameDay?: boolean },
+  ) => {
     if (!selection || !specialty || !user) return;
     setSubmitting(true);
     try {
@@ -98,6 +102,7 @@ export default function PatientBooking() {
           endTime: selection.endTime.toISOString(),
           notes: notes.trim() || null,
           ...(replace ? { replaceExistingId: replace.id, replaceKind: replace.kind } : {}),
+          ...(opts?.allowCompletedSameDay ? { allowCompletedSameDay: true } : {}),
         },
       });
 
@@ -122,9 +127,10 @@ export default function PatientBooking() {
         conflictPayload = payload;
       }
 
-      if (conflictPayload && !replace) {
+      if (conflictPayload && !replace && !opts?.allowCompletedSameDay) {
         setConflict({
           message: conflictPayload.message,
+          type: conflictPayload.type,
           existing: conflictPayload.existing,
         });
         return;
@@ -158,7 +164,11 @@ export default function PatientBooking() {
 
   const handleConfirmReplace = () => {
     if (!conflict) return;
-    submitBooking({ id: conflict.existing.id, kind: conflict.existing.kind });
+    if (conflict.type === 'patient_completed_same_day') {
+      submitBooking(undefined, { allowCompletedSameDay: true });
+    } else {
+      submitBooking({ id: conflict.existing.id, kind: conflict.existing.kind });
+    }
   };
 
   const goBack = () => {
@@ -257,9 +267,26 @@ export default function PatientBooking() {
       <AlertDialog open={!!conflict} onOpenChange={(open) => !open && setConflict(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Você já tem consulta com este profissional</AlertDialogTitle>
+            <AlertDialogTitle>
+              {conflict?.type === 'patient_completed_same_day'
+                ? 'Marcar retorno para hoje?'
+                : 'Você já tem consulta com este profissional'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {conflict ? (
+              {conflict?.type === 'patient_completed_same_day' ? (
+                <>
+                  Você acabou de realizar uma consulta com{' '}
+                  <strong>Dr(a). {conflict.existing.dentistName}</strong> hoje às{' '}
+                  <strong>{format(new Date(conflict.existing.startTime), 'HH:mm')}</strong>.
+                  Deseja mesmo marcar um <strong>retorno</strong>
+                  {selection && (
+                    <>
+                      {' '}para <strong>{format(selection.startTime, 'HH:mm')}</strong>
+                    </>
+                  )}
+                  ?
+                </>
+              ) : conflict ? (
                 <>
                   Sua consulta/pedido com <strong>Dr(a). {conflict.existing.dentistName}</strong> em{' '}
                   <strong>{format(new Date(conflict.existing.startTime), "dd/MM 'às' HH:mm")}</strong>{' '}
@@ -275,9 +302,11 @@ export default function PatientBooking() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submitting}>Manter atual</AlertDialogCancel>
+            <AlertDialogCancel disabled={submitting}>
+              {conflict?.type === 'patient_completed_same_day' ? 'Não, cancelar' : 'Manter atual'}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmReplace} disabled={submitting}>
-              Sim, reagendar
+              {conflict?.type === 'patient_completed_same_day' ? 'Sim, marcar retorno' : 'Sim, reagendar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
