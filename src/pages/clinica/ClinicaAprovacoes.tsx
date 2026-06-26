@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ClipboardCheck, Loader2 } from 'lucide-react';
+import { ClipboardCheck, Loader2, Calendar as CalIcon, Receipt } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { syncAgendaAppointments } from '@/hooks/useAiSync';
@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApprovalCard, type AppointmentRequest } from '@/components/clinica/ApprovalCard';
+import { BudgetApprovalCard, type BudgetApprovalRequest } from '@/components/clinica/BudgetApprovalCard';
 import { RescheduleDialog } from '@/components/clinica/RescheduleDialog';
 import {
   AlertDialog,
@@ -29,6 +30,9 @@ export default function ClinicaAprovacoes() {
   const [rescheduleReq, setRescheduleReq] = useState<AppointmentRequest | null>(null);
   const [rejectReq, setRejectReq] = useState<AppointmentRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [budgetActingId, setBudgetActingId] = useState<string | null>(null);
+  const [budgetRejectReq, setBudgetRejectReq] = useState<BudgetApprovalRequest | null>(null);
+  const [budgetRejectReason, setBudgetRejectReason] = useState('');
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['appointment-requests', currentClinicId],
@@ -72,15 +76,59 @@ export default function ClinicaAprovacoes() {
         { event: '*', schema: 'public', table: 'appointment_requests', filter: `clinic_id=eq.${currentClinicId}` },
         () => qc.invalidateQueries({ queryKey: ['appointment-requests', currentClinicId] })
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'treatment_plans' },
+        () => qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] })
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [currentClinicId, qc]);
 
+  // Orçamentos aguardando aprovação da clínica
+  const { data: budgetRequests = [], isLoading: budgetsLoading } = useQuery({
+    queryKey: ['budget-approvals', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('treatment_plans')
+        .select('*, patients!inner(id, full_name, clinic_id), treatment_plan_items(custom_procedure_name, price, procedures(name))')
+        .eq('patients.clinic_id', currentClinicId!)
+        .in('status', ['awaiting_clinic_approval', 'pending', 'rejected_by_clinic'])
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      const dentistIds = Array.from(new Set(rows.map((r) => r.dentist_id).filter(Boolean)));
+      let dentistMap: Record<string, string> = {};
+      if (dentistIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', dentistIds);
+        dentistMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      }
+      return rows.map((r) => ({
+        ...r,
+        patient_name: r.patients?.full_name,
+        dentist_name: dentistMap[r.dentist_id] ?? '—',
+        items: (r.treatment_plan_items ?? []).map((it: any) => ({
+          name: it.procedures?.name ?? it.custom_procedure_name ?? 'Item',
+          price: Number(it.price ?? 0),
+        })),
+      })) as BudgetApprovalRequest[];
+    },
+  });
+
   const pending = requests.filter((r) => r.status === 'pending');
   const approved = requests.filter((r) => r.status === 'approved');
   const rejected = requests.filter((r) => r.status === 'rejected');
+
+  const budgetPending = budgetRequests.filter((r) => r.status === 'awaiting_clinic_approval');
+  const budgetApproved = budgetRequests.filter((r) => r.status === 'pending');
+  const budgetRejected = budgetRequests.filter((r) => r.status === 'rejected_by_clinic');
 
   const approve = async (req: AppointmentRequest, newStart?: string, newEnd?: string) => {
     if (actingId) return;
