@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { startOfDay, endOfDay } from 'date-fns';
-import { Users, UserCheck, Play, RefreshCw, Search } from 'lucide-react';
+import { Users, UserCheck, Play, RefreshCw, Search, X } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -243,13 +243,21 @@ export default function WaitingRoom() {
       >
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar paciente ou profissional..."
-              className="pl-8 w-[240px]"
+              className="pl-8 pr-8 w-[240px]"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <Select value={doctorFilter} onValueChange={setDoctorFilter}>
             <SelectTrigger className="w-[200px]">

@@ -166,30 +166,31 @@ export function StaffPermissionsDialog({
           <p className="text-sm text-muted-foreground">
             Defina o que <strong>{memberName}</strong> pode acessar na plataforma.
           </p>
-          {loading ? (
+          {loading && (
             <div className="flex items-center justify-center h-32">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
-          ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {PERMISSION_ITEMS.map(({ key, label, description, icon: Icon }) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/30"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${perms[key] ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                    <Icon className="h-4 w-4" />
+          )}
+          {!loading && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PERMISSION_ITEMS.map(({ key, label, description, icon: Icon }) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-4 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${perms[key] ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">{description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-muted-foreground">{description}</p>
-                  </div>
+                  <Switch checked={perms[key]} onCheckedChange={() => toggle(key)} />
                 </div>
-                <Switch checked={perms[key]} onCheckedChange={() => toggle(key)} />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           )}
         </div>
         <DialogFooter>
