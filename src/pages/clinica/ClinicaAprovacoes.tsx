@@ -212,6 +212,88 @@ export default function ClinicaAprovacoes() {
     );
   };
 
+  const approveBudget = async (req: BudgetApprovalRequest) => {
+    if (budgetActingId) return;
+    setBudgetActingId(req.id);
+    try {
+      const { error } = await supabase
+        .from('treatment_plans')
+        .update({
+          status: 'pending',
+          approved_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+          approved_at: new Date().toISOString(),
+          rejection_reason: null,
+        } as any)
+        .eq('id', req.id);
+      if (error) throw error;
+      toast.success('Orçamento aprovado.');
+      qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
+      qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
+    } catch (err: any) {
+      toast.error('Falha ao aprovar', { description: err?.message });
+    } finally {
+      setBudgetActingId(null);
+    }
+  };
+
+  const rejectBudget = async () => {
+    if (!budgetRejectReq || budgetActingId) return;
+    setBudgetActingId(budgetRejectReq.id);
+    try {
+      const { error } = await supabase
+        .from('treatment_plans')
+        .update({
+          status: 'rejected_by_clinic',
+          rejection_reason: budgetRejectReason.trim() || null,
+        } as any)
+        .eq('id', budgetRejectReq.id);
+      if (error) throw error;
+      toast.success('Orçamento recusado.');
+      setBudgetRejectReq(null);
+      setBudgetRejectReason('');
+      qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] });
+      qc.invalidateQueries({ queryKey: ['pending-requests-count'] });
+    } catch (err: any) {
+      toast.error('Falha ao recusar', { description: err?.message });
+    } finally {
+      setBudgetActingId(null);
+    }
+  };
+
+  const renderBudgetList = (list: BudgetApprovalRequest[]) => {
+    if (budgetsLoading) {
+      return (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+    if (list.length === 0) {
+      return (
+        <Card>
+          <CardContent className="p-8 flex flex-col items-center text-center gap-3 text-muted-foreground">
+            <Receipt className="h-8 w-8" />
+            <p className="text-sm">Nada por aqui.</p>
+          </CardContent>
+        </Card>
+      );
+    }
+    return (
+      <div className="grid gap-3 md:grid-cols-2">
+        {list.map((r) => (
+          <BudgetApprovalCard
+            key={r.id}
+            request={r}
+            loading={budgetActingId === r.id}
+            onApprove={() => approveBudget(r)}
+            onReject={() => setBudgetRejectReq(r)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
