@@ -48,13 +48,15 @@ interface BudgetDetailDialogProps {
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendente' },
   { value: 'approved', label: 'Aprovado' },
-  { value: 'lost', label: 'Perdido' },
+  { value: 'realized', label: 'Realizado' },
+  { value: 'not_approved', label: 'Não aprovado' },
 ];
 
 const statusBadge: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  approved: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  lost: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  approved: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  realized: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  not_approved: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
 };
 
 export function BudgetDetailDialog({ planId, open, onOpenChange }: BudgetDetailDialogProps) {
