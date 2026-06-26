@@ -258,7 +258,7 @@ export default function Budgets() {
       )}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {COLUMNS.map(col => {
             const items = columnData[col.id] ?? [];
             const total = items.reduce((s: number, p: any) => s + Number(p.total_cost), 0);
