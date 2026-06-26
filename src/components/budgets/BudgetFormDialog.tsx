@@ -110,6 +110,8 @@ interface BudgetFormDialogProps {
 
 export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPatientId }: BudgetFormDialogProps) {
   const { user, currentClinicId } = useAuth();
+  const { effectiveRole } = useRoleAccess();
+  const requiresClinicApproval = effectiveRole === 'dentist' && !!currentClinicId;
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -225,8 +227,10 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
           patient_id: patientId,
           dentist_id: user.id,
           total_cost: totalCost,
-          status: 'pending',
-        })
+          status: requiresClinicApproval ? 'awaiting_clinic_approval' : 'pending',
+          approval_required_by_clinic: requiresClinicApproval,
+          submitted_by: user.id,
+        } as any)
         .select('id')
         .single();
 
@@ -245,7 +249,11 @@ export function BudgetFormDialog({ open, onOpenChange, onSuccess, preselectedPat
       if (itemsError) throw itemsError;
     },
     onSuccess: () => {
-      toast.success('Orçamento criado com sucesso');
+      toast.success(
+        requiresClinicApproval
+          ? 'Orçamento enviado para aprovação da clínica'
+          : 'Orçamento criado com sucesso'
+      );
       queryClient.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
       onOpenChange(false);
       onSuccess?.();
