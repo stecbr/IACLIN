@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import iaclinLogo from "@/assets/iaclin-logo.png.asset.json";
 
 interface Operator {
   id: string;
@@ -82,16 +83,12 @@ export function OperatorApprovalDialog({ operator, onOpenChange }: Props) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            {operator.logo_url ? (
-              <img src={operator.logo_url} alt={operator.name} className="h-12 w-12 rounded object-contain border bg-white p-1" />
-            ) : (
-              <div
-                className="h-12 w-12 rounded flex items-center justify-center text-white text-lg font-bold"
-                style={{ backgroundColor: operator.brand_color ?? "#6366f1" }}
-              >
-                {operator.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <img
+              src={operator.logo_url || iaclinLogo.url}
+              alt={operator.name}
+              className="h-12 w-12 rounded object-contain border bg-white p-1"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinLogo.url; }}
+            />
             <div className="flex-1 text-left">
               <DialogTitle className="flex items-center gap-2">
                 {operator.name}
