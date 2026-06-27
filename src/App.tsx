@@ -53,6 +53,9 @@ import PatientRecord from "./pages/patient/PatientRecord";
 import PatientExams from "./pages/patient/PatientExams";
 import PatientSettings from "./pages/patient/PatientSettings";
 import { OperatorLayout } from "./components/operadora/OperatorLayout";
+import { OperatorPendingScreen } from "./components/operadora/OperatorPendingScreen";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import OperatorDashboard from "./pages/operadora/OperatorDashboard";
 import OperatorNetwork from "./pages/operadora/OperatorNetwork";
 import OperatorRequests from "./pages/operadora/OperatorRequests";
@@ -138,7 +141,17 @@ function SuperAdminProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function OperatorProtectedRoute({ children }: { children?: React.ReactNode }) {
   const { user, loading, isOperator, clinicsLoaded } = useAuth();
-  if (loading || (user && !clinicsLoaded)) {
+  const { data: opStatus, isLoading: statusLoading } = useQuery({
+    queryKey: ["my-operator-status", user?.id],
+    enabled: !!user && isOperator,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("get_my_operator_status");
+      if (error) throw error;
+      return Array.isArray(data) ? data[0] ?? null : null;
+    },
+  });
+  if (loading || (user && !clinicsLoaded) || (isOperator && statusLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -147,6 +160,15 @@ function OperatorProtectedRoute({ children }: { children?: React.ReactNode }) {
   }
   if (!user) return <Navigate to="/auth" replace />;
   if (!isOperator) return <Navigate to="/" replace />;
+  if (opStatus && opStatus.approval_status !== "approved") {
+    return (
+      <OperatorPendingScreen
+        status={opStatus.approval_status === "rejected" ? "rejected" : "pending"}
+        operatorName={opStatus.name ?? null}
+        reason={opStatus.rejection_reason ?? null}
+      />
+    );
+  }
   return <OperatorLayout>{children}</OperatorLayout>;
 }
 
