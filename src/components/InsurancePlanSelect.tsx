@@ -98,10 +98,17 @@ export function InsurancePlanSelect({
             onFocus={() => {
               setOpen(true);
               if (query === selectedLabel) setQuery('');
+              // Center the field on screen so the dropdown stays visible (mobile).
+              setTimeout(() => {
+                inputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              }, 50);
             }}
             onClick={() => {
               setOpen(true);
               if (query === selectedLabel) setQuery('');
+              setTimeout(() => {
+                inputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              }, 50);
             }}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -125,14 +132,13 @@ export function InsurancePlanSelect({
       </PopoverAnchor>
       <PopoverContent
         align="start"
-        side="bottom"
         sideOffset={4}
-        avoidCollisions={false}
+        collisionPadding={16}
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="w-[--radix-popover-trigger-width] p-0"
         style={{ width: 'var(--radix-popover-trigger-width)' }}
       >
-        <div className="max-h-72 overflow-y-auto py-1">
+        <div className="max-h-[min(18rem,50vh)] overflow-y-auto py-1">
           <button
             type="button"
             onClick={() => handleSelect('', '')}
