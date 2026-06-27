@@ -1616,6 +1616,7 @@ export type Database = {
         Row: {
           active_states: string[]
           ans_code: string | null
+          approval_status: string
           brand_color: string | null
           cnpj: string | null
           contact_email: string | null
@@ -1627,7 +1628,10 @@ export type Database = {
           logo_url: string | null
           name: string
           owner_id: string | null
+          rejection_reason: string | null
           responsible_name: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           slug: string | null
           type: string
           updated_at: string
@@ -1635,6 +1639,7 @@ export type Database = {
         Insert: {
           active_states?: string[]
           ans_code?: string | null
+          approval_status?: string
           brand_color?: string | null
           cnpj?: string | null
           contact_email?: string | null
@@ -1646,7 +1651,10 @@ export type Database = {
           logo_url?: string | null
           name: string
           owner_id?: string | null
+          rejection_reason?: string | null
           responsible_name?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug?: string | null
           type?: string
           updated_at?: string
@@ -1654,6 +1662,7 @@ export type Database = {
         Update: {
           active_states?: string[]
           ans_code?: string | null
+          approval_status?: string
           brand_color?: string | null
           cnpj?: string | null
           contact_email?: string | null
@@ -1665,7 +1674,10 @@ export type Database = {
           logo_url?: string | null
           name?: string
           owner_id?: string | null
+          rejection_reason?: string | null
           responsible_name?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug?: string | null
           type?: string
           updated_at?: string
@@ -3876,6 +3888,38 @@ export type Database = {
       }
       admin_get_operators: { Args: never; Returns: Json[] }
       admin_get_stats: { Args: never; Returns: Json }
+      admin_set_operator_approval: {
+        Args: { _operator_id: string; _reason?: string; _status: string }
+        Returns: {
+          active_states: string[]
+          ans_code: string | null
+          approval_status: string
+          brand_color: string | null
+          cnpj: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          legal_name: string | null
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          rejection_reason: string | null
+          responsible_name: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          slug: string | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "insurance_operators"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       calc_final_amount: {
         Args: {
           _base_cents: number
@@ -3906,6 +3950,16 @@ export type Database = {
           phone: string
           state: string
           zip_code: string
+        }[]
+      }
+      get_my_operator_status: {
+        Args: never
+        Returns: {
+          approval_status: string
+          name: string
+          operator_id: string
+          rejection_reason: string
+          reviewed_at: string
         }[]
       }
       has_role: {
