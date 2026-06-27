@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { OperatorApprovalDialog } from '@/components/superadmin/OperatorApprovalDialog';
+import iaclinLogo from '@/assets/iaclin-logo.png.asset.json';
 
 // ── Tipos ────────────────────────────────────────────────────
 interface PlatformOperator {
@@ -218,20 +219,12 @@ export default function SuperAdminOperators() {
               >
                 {/* Header */}
                 <div className="flex items-start gap-3 min-w-0">
-                  {op.logo_url ? (
-                    <img
-                      src={op.logo_url}
-                      alt={op.name}
-                      className="h-10 w-10 rounded object-contain border bg-white p-0.5 shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="h-10 w-10 rounded flex items-center justify-center text-white text-sm font-bold shrink-0"
-                      style={{ backgroundColor: op.brand_color ?? '#6366f1' }}
-                    >
-                      {op.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <img
+                    src={op.logo_url || iaclinLogo.url}
+                    alt={op.name}
+                    className="h-10 w-10 rounded object-contain border bg-white p-0.5 shrink-0"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinLogo.url; }}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm truncate">{op.name}</p>
                     {op.legal_name && op.legal_name !== op.name && (
