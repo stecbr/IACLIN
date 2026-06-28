@@ -16,6 +16,8 @@ import {
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useFinanceVisibility } from '@/hooks/useFinanceVisibility';
+import { ClinicFinanceOverview } from '@/components/finance/ClinicFinanceOverview';
 
 // ─── Paleta ────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -78,6 +80,7 @@ function DonutCenter({ viewBox, completionRate }: any) {
 
 export default function ClinicaHome() {
   const { currentClinicId, clinicCategory } = useAuth();
+  const visibility = useFinanceVisibility();
   const terms = getClinicTerms(clinicCategory);
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -139,6 +142,23 @@ export default function ClinicaHome() {
     });
     return Object.values(months);
   }, [revenueTxs]);
+
+  // Month transactions for the finance health strip (only when allowed to see clinic cash).
+  const { data: monthTxs = [] } = useQuery({
+    queryKey: ['clinica-finance-month', currentClinicId, format(monthStart, 'yyyy-MM')],
+    enabled: !!currentClinicId && visibility.canSeeClinicCash,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('financial_transactions')
+        .select('amount, status, type, category, approval_status')
+        .eq('clinic_id', currentClinicId!)
+        .gte('due_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('due_date', format(monthEnd, 'yyyy-MM-dd'));
+      return (data ?? []).filter(
+        (t: any) => !t.approval_status || t.approval_status === 'approved'
+      );
+    },
+  });
 
   const { data: monthApts = [] } = useQuery({
     queryKey: ['clinica-month-apts', currentClinicId],
