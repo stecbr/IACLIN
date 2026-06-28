@@ -27,6 +27,7 @@ import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { ClinicHealthPanel } from '@/components/finance/ClinicHealthPanel';
 import { CommissionsPanel } from '@/components/finance/CommissionsPanel';
 import { PayoutsPanel } from '@/components/finance/PayoutsPanel';
+import { OperationalExpensesPanel } from '@/components/finance/OperationalExpensesPanel';
 import { SoloFinanceOverview } from '@/components/finance/SoloFinanceOverview';
 import { ClinicFinanceOverview } from '@/components/finance/ClinicFinanceOverview';
 import { generateCommissionsForTransaction } from '@/lib/commissions';
@@ -235,6 +236,15 @@ export default function Financial() {
             <span className="sm:hidden">Convênio</span>
           </a>
         </Button>
+        {visibility.canViewReports && currentClinicId && (
+          <Button variant="outline" size="sm" className="gap-2" asChild>
+            <a href="/financeiro/relatorios">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Relatórios (DRE)</span>
+              <span className="sm:hidden">DRE</span>
+            </a>
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none sm:size-default" onClick={() => setShowImport(true)}>
           <Sparkles className="h-4 w-4" />
           <span className="hidden sm:inline">Importar Extrato (IA)</span>
@@ -281,6 +291,9 @@ export default function Financial() {
           )}
           {currentClinicId && visibility.canSeePayouts && (
             <TabsTrigger value="payouts">Repasses</TabsTrigger>
+          )}
+          {currentClinicId && visibility.canSeeOperationalExpenses && (
+            <TabsTrigger value="operational">Operacional</TabsTrigger>
           )}
           {canApprove && currentClinicId && (
             <TabsTrigger value="approvals">
@@ -523,6 +536,20 @@ export default function Financial() {
         {currentClinicId && visibility.canSeePayouts && (
           <TabsContent value="payouts" className="space-y-4">
             <PayoutsPanel clinicId={currentClinicId} />
+          </TabsContent>
+        )}
+
+        {currentClinicId && visibility.canSeeOperationalExpenses && (
+          <TabsContent value="operational" className="space-y-4">
+            <OperationalExpensesPanel
+              clinicId={currentClinicId}
+              periodStart={period.start}
+              periodEnd={period.end}
+              onChanged={() => {
+                queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['financial-chart-6m'] });
+              }}
+            />
           </TabsContent>
         )}
 
