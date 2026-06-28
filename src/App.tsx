@@ -23,6 +23,7 @@ import Odontogram from "./pages/Odontogram";
 import ClinicalMapPage from "./components/clinical-map/ClinicalMapPage";
 import Financial from "./pages/Financial";
 import InsuranceInvoices from "./pages/financial/InsuranceInvoices";
+import FinancialReports from "./pages/financial/FinancialReports";
 import MyFinance from "./pages/dentist/MyFinance";
 import SettingsPage from "./pages/SettingsPage";
 import Budgets from "./pages/Budgets";
@@ -317,6 +318,7 @@ const AppRoutes = () => (
     <Route path="/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />
     <Route path="/meu-financeiro" element={<ProtectedRoute><MyFinance /></ProtectedRoute>} />
     <Route path="/financeiro/faturas-convenio" element={<ProtectedRoute><InsuranceInvoices /></ProtectedRoute>} />
+    <Route path="/financeiro/relatorios" element={<ProtectedRoute><FinancialReports /></ProtectedRoute>} />
     <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
     <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
     <Route path="/secretaria-ia" element={<ProtectedRoute><SecretariaIA /></ProtectedRoute>} />
