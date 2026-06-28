@@ -36,6 +36,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Código de clínica não encontrado" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Seat limit guard — block joining if clinic plan limit is reached
+    // (only if the user isn't already a member of that clinic).
+    const { data: alreadyMember } = await admin
+      .from("clinic_members")
+      .select("id")
+      .eq("clinic_id", clinic.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!alreadyMember) {
+      const { data: usage } = await admin.rpc("get_clinic_seat_usage", { _clinic_id: clinic.id });
+      const u = (usage ?? {}) as { unlimited?: boolean; used?: number; limit?: number | null };
+      if (u && u.unlimited !== true && typeof u.limit === "number" && (u.used ?? 0) >= u.limit) {
+        return new Response(JSON.stringify({
+          code: "seat_limit_reached",
+          error: `A clínica atingiu o limite de profissionais do plano atual (${u.used}/${u.limit}). Peça ao administrador para fazer upgrade.`,
+        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // Fallback: pull specialty / registration from the user's signup metadata
     // (auth.users.raw_user_meta_data) when the client doesn't pass them.
     let metaSpecialty: string | null = null;
