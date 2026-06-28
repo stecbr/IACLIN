@@ -271,10 +271,10 @@ export default function Financial() {
         <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
-          {isClinicOwner && currentClinicId && (
+          {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
             <TabsTrigger value="clinic-health">Saúde da Clínica</TabsTrigger>
           )}
-          {isClinicOwner && currentClinicId && (
+          {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
             <TabsTrigger value="commissions">Comissões</TabsTrigger>
           )}
           {canApprove && currentClinicId && (
@@ -294,6 +294,13 @@ export default function Financial() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          {/* Mode-aware overview block */}
+          {visibility.mode === 'solo' ? (
+            <SoloFinanceOverview transactions={approvedTx} period={period} />
+          ) : visibility.canSeeClinicCash ? (
+            <ClinicFinanceOverview transactions={approvedTx} />
+          ) : null}
+
           {/* Cash Flow Chart */}
           <Card className="shadow-card border-border/50">
             <CardHeader>
@@ -489,7 +496,7 @@ export default function Financial() {
           )}
         </TabsContent>
 
-        {isClinicOwner && currentClinicId && (
+        {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
           <TabsContent value="clinic-health" className="space-y-4">
             <ClinicHealthPanel
               clinicId={currentClinicId}
@@ -499,7 +506,7 @@ export default function Financial() {
           </TabsContent>
         )}
 
-        {isClinicOwner && currentClinicId && (
+        {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
           <TabsContent value="commissions" className="space-y-4">
             <CommissionsPanel
               clinicId={currentClinicId}
