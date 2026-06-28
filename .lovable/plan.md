@@ -1,167 +1,208 @@
 
-# Bloco 1 — Roles, Visibilidade e Dashboards Financeiros
+# Bloco 2 — Fechamento de Período & Fluxo de Repasses
 
-Foco: **adaptar telas existentes** com base em hooks já no projeto (`useSoloMode`, `useRoleAccess`, `useStaffPermissions`, `canManageClinicFinance`). Sem novas tabelas. Sem mexer em `src/lib/commissions.ts`. Sem fechamento de período (Bloco 2).
+Mantém intactos `src/lib/commissions.ts`, `commission_rules`, geração automática e tudo do Bloco 1. Só adiciona a camada de **fechamento** (consolidação de comissões pendentes em um lote pago).
 
 ---
 
-## 1. Adicionar helper único de visibilidade financeira
+## 1. Migração de banco
 
-Novo arquivo `src/hooks/useFinanceVisibility.ts` que centraliza as decisões e evita repetir lógica em cada tela:
+Nova tabela `commission_payouts` + coluna em `financial_transactions`.
 
-```text
-returns {
-  mode: 'solo' | 'clinic' | 'professional' | 'staff' | 'denied',
-  canSeeClinicCash: boolean,        // caixa total da clínica
-  canSeeOperationalExpenses: boolean,
-  canSeePayouts: boolean,           // repasses / comissões de terceiros
-  canManagePayments: boolean,       // canManageClinicFinance
-  canSeeOwnCommissions: boolean,    // dentista vinculado
-}
+```sql
+CREATE TABLE public.commission_payouts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+  dentist_id uuid NOT NULL,                 -- profiles.id / clinic_members.user_id
+  period_start date NOT NULL,
+  period_end   date NOT NULL,
+  total_amount numeric(10,2) NOT NULL,
+  transactions_count int NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'paid'        -- 'paid' | 'pending_payment'
+    CHECK (status IN ('paid','pending_payment','cancelled')),
+  payment_method text,                       -- 'pix' | 'transfer' | 'cash' | 'other'
+  notes text,
+  paid_at timestamptz,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE ON public.commission_payouts TO authenticated;
+GRANT ALL ON public.commission_payouts TO service_role;
+
+ALTER TABLE public.commission_payouts ENABLE ROW LEVEL SECURITY;
+
+-- Admins/owners/secretária da clínica veem e gerenciam (gate de financeiro fica na app).
+CREATE POLICY "Clinic members read payouts"
+  ON public.commission_payouts FOR SELECT TO authenticated
+  USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+
+CREATE POLICY "Clinic admins write payouts"
+  ON public.commission_payouts FOR INSERT TO authenticated
+  WITH CHECK (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+
+CREATE POLICY "Clinic admins update payouts"
+  ON public.commission_payouts FOR UPDATE TO authenticated
+  USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+
+CREATE INDEX idx_payouts_clinic_dentist ON public.commission_payouts(clinic_id, dentist_id, period_end DESC);
+
+-- updated_at trigger (reusa update_updated_at_column existente)
+CREATE TRIGGER trg_commission_payouts_updated_at
+  BEFORE UPDATE ON public.commission_payouts
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Amarração no extrato:
+ALTER TABLE public.financial_transactions
+  ADD COLUMN IF NOT EXISTS payout_id uuid REFERENCES public.commission_payouts(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_ft_payout_id ON public.financial_transactions(payout_id);
 ```
 
-Regras:
-- `solo` → `useSoloMode().isSolo === true`.
-- `clinic` → admin/owner com `memberCount > 1`.
-- `professional` → `clinicRole === 'dentist'` e **não** é dono da clínica.
-- `staff` → secretária/auxiliar com `permissions.financeiro !== false`.
-- `denied` → staff com `permissions.financeiro === false` (já bloqueado pela rota; aqui fica como salvaguarda).
+RPC para fechar período de forma atômica (evita race-condition entre marcar `paid` e criar o lote):
 
-Esse hook é a única fonte de verdade usada pelas telas abaixo.
+```sql
+CREATE OR REPLACE FUNCTION public.close_commission_period(
+  _clinic_id uuid,
+  _dentist_id uuid,
+  _period_start date,
+  _period_end date,
+  _payment_method text DEFAULT NULL,
+  _notes text DEFAULT NULL
+) RETURNS public.commission_payouts
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_total numeric(10,2);
+  v_count int;
+  v_payout public.commission_payouts;
+BEGIN
+  -- Authorization: caller must belong to clinic
+  IF NOT public.user_belongs_to_clinic(auth.uid(), _clinic_id) THEN
+    RAISE EXCEPTION 'Forbidden' USING ERRCODE = '42501';
+  END IF;
 
----
+  SELECT COALESCE(SUM(amount),0), COUNT(*)
+    INTO v_total, v_count
+    FROM public.financial_transactions
+   WHERE clinic_id = _clinic_id
+     AND dentist_id = _dentist_id
+     AND type = 'expense'
+     AND category = 'commission'
+     AND status = 'pending'
+     AND payout_id IS NULL
+     AND COALESCE(due_date, created_at::date) BETWEEN _period_start AND _period_end;
 
-## 2. `/financial` (`src/pages/Financial.tsx`) — adaptação por modo
+  IF v_count = 0 THEN
+    RAISE EXCEPTION 'Nenhuma comissão pendente neste período';
+  END IF;
 
-**Modo Solo**
-- Esconder qualquer aba/seção de "Comissões", "Repasses", "Profissionais" (atualmente vem do `CommissionsPanel` e do ranking por profissional do `ClinicHealthPanel`).
-- Renderizar **SoloFinanceOverview** (novo, ver §5) no lugar do bloco de overview atual.
-- Lançamentos continuam (receitas/despesas pessoais).
+  INSERT INTO public.commission_payouts(
+    clinic_id, dentist_id, period_start, period_end,
+    total_amount, transactions_count, status, payment_method, notes,
+    paid_at, created_by
+  ) VALUES (
+    _clinic_id, _dentist_id, _period_start, _period_end,
+    v_total, v_count, 'paid', _payment_method, _notes,
+    now(), auth.uid()
+  ) RETURNING * INTO v_payout;
 
-**Modo Clínica (admin/owner não-solo, ou staff com perm financeiro)**
-- Mantém estrutura atual + reforça com **ClinicFinanceOverview** (§6) acima das abas.
-- Aba "Profissionais/Comissões" só aparece quando `canSeePayouts === true`.
+  UPDATE public.financial_transactions
+     SET status = 'paid',
+         paid_date = CURRENT_DATE,
+         payout_id = v_payout.id,
+         updated_at = now()
+   WHERE clinic_id = _clinic_id
+     AND dentist_id = _dentist_id
+     AND type = 'expense'
+     AND category = 'commission'
+     AND status = 'pending'
+     AND payout_id IS NULL
+     AND COALESCE(due_date, created_at::date) BETWEEN _period_start AND _period_end;
 
-**Modo Profissional vinculado**
-- Bloquear a renderização do `Financial.tsx` para `role === 'dentist'` não-dono: redirecionar para `/meu-financeiro` (§4).
-- Já existe gate em `useRoleAccess` (`/financial` não inclui `dentist`), então a rota atual já redireciona. Adicionar fallback explícito dentro do componente para o caso de owner que está em "consult mode" sem perms.
+  -- Notifica o profissional
+  INSERT INTO public.notifications(clinic_id, user_id, type, title, message, reference_id, reference_type)
+  VALUES (
+    _clinic_id, _dentist_id, 'financial',
+    'Repasse recebido',
+    'Foi registrado um repasse de R$ ' || to_char(v_total,'FM999G999G990D00') ||
+      ' referente ao período ' || to_char(_period_start,'DD/MM') || '–' || to_char(_period_end,'DD/MM/YYYY') || '.',
+    v_payout.id, 'commission_payout'
+  );
 
-**Staff sem permissão financeira**
-- Já bloqueado pela rota. Nada adicional.
-
----
-
-## 3. `ClinicaHome.tsx` — KPIs e ranking
-
-Adicionar bloco "Saúde Financeira da Clínica" visível **apenas quando `canSeeClinicCash === true`**:
-
-- Card: Faturamento Bruto (mês atual, `income+paid`).
-- Card: Total de Repasses Gerados (despesas `category='commission'`, todas as situações — divide visualmente "Pendentes" vs "Pagas").
-- Card: Despesas Operacionais (todas as `expense` exceto `category='commission'`).
-- Card: Margem Líquida da Clínica = Faturamento − Despesas (operacionais + comissões).
-- **Ranking visual** de faturamento por profissional do mês: reaproveita a query já existente em `ClinicHealthPanel` (não duplicar — extrair para hook `useClinicRevenueByProfessional`).
-
-Modo Solo nessa home: **não renderiza** o bloco (a info do solo vive em `/financial`).
-
----
-
-## 4. Nova rota `/meu-financeiro` (Profissional vinculado)
-
-Novo arquivo `src/pages/dentist/MyFinance.tsx` + rota em `App.tsx`.
-
-Visão **somente leitura**, escopo: `financial_transactions.dentist_id = auth.uid()`.
-
-KPIs do mês:
-- **A receber** = soma de `expense + category='commission' + status='pending' + dentist_id=me`.
-- **Já recebido** = mesmo filtro com `status='paid'`.
-- **Atendimentos faturados no mês** = contagem distinta de `appointment_id` dessas comissões.
-- **Ticket médio das suas consultas** = média de `income.amount` onde `dentist_id=me` (informativo, mesmo que o caixa pertença à clínica).
-
-Tabela "Extrato de comissões" (últimos 50): data, paciente (via join), procedimento (via appointment), valor base, valor da comissão, status.
-
-Empty state quando não houver regra cadastrada para ele: card neutro com texto *"Nenhuma regra de comissão definida para você. Fale com a administração da clínica."* (não cria nada automaticamente).
-
-Sidebar / mobile bottom nav: adicionar item "Meu Financeiro" para `effectiveRole === 'dentist'` quando ele NÃO for dono.
-
-`useRoleAccess`: adicionar `{ path: '/meu-financeiro', allowedRoles: ['dentist'] }`.
-
----
-
-## 5. Componente `SoloFinanceOverview` (novo)
-
-`src/components/finance/SoloFinanceOverview.tsx`. Recebe `transactions` e `period` (mesmas props que `ClinicHealthPanel` para reaproveitar a query do `Financial.tsx`).
-
-Renderiza:
-- 4 cards: Faturamento Bruto · Despesas Totais · Lucro Líquido · Ticket Médio.
-- Gráfico de barras de **evolução mensal** dos últimos 6 meses (receita × despesa), reusando `recharts` que já está no `Financial.tsx`.
-
-Fórmulas:
-- Faturamento Bruto = Σ `income` com `status='paid'` no período.
-- Despesas Totais = Σ `expense` com `status='paid'` no período (no modo solo não há comissões geradas, então não há risco de dupla contagem).
-- Lucro Líquido = Faturamento − Despesas.
-- Ticket Médio = Faturamento Bruto ÷ nº de `appointments` concluídas no período (consulta separada, já existente em `ClinicaHome`).
+  RETURN v_payout;
+END $$;
+```
 
 ---
 
-## 6. Componente `ClinicFinanceOverview` (novo)
+## 2. UI — Aba "Repasses" no `/financial`
 
-`src/components/finance/ClinicFinanceOverview.tsx`. Mesmo padrão visual do `ClinicHealthPanel`, mas voltado a KPIs agregados:
+Edição em `src/pages/Financial.tsx`: adicionar aba **"Repasses"**, visível somente quando `useFinanceVisibility().canSeePayouts === true` (clínica + staff com perm). Reaproveita a aba de comissões existente — substitui o conteúdo dela pela nova UI quando estiver no modo clínica/staff.
 
-- Faturamento Bruto Total.
-- Repasses Gerados (pendentes + pagos, com mini-breakdown).
-- Despesas Operacionais (exclui `category='commission'`).
-- Margem Líquida = Faturamento − Despesas Operacionais − Repasses (todos).
-- Componente é usado em `Financial.tsx` (topo do overview) e linkado a partir de `ClinicaHome` ("Ver detalhes" → /financial).
+Novos arquivos:
 
-Renderiza somente se `canSeeClinicCash === true`.
+- `src/components/finance/PayoutsPanel.tsx`
+  - **Tabela "A pagar por profissional"** (saldo aberto):
+    - Query agregada: `financial_transactions` com `clinic_id` atual, `type='expense'`, `category='commission'`, `status='pending'`, `payout_id IS NULL`, agrupada por `dentist_id`.
+    - Colunas: Profissional · Comissões pendentes (nº) · Período mais antigo · Total acumulado · botão **Fechar período**.
+  - **Histórico de fechamentos** (abaixo): lista de `commission_payouts` da clínica, mais recente primeiro, com profissional, período, total, método, notas, data de pagamento.
 
----
+- `src/components/finance/ClosePayoutDialog.tsx`
+  - Abre ao clicar "Fechar período" de um profissional.
+  - Mostra range padrão (`min(due_date)` → hoje), permite editar `period_start` e `period_end`.
+  - Lista de cada comissão dentro do range (data · paciente · valor) com **somatório atualizado**.
+  - Campo `payment_method` (select: PIX / Transferência / Dinheiro / Outro) + `notes` (textarea).
+  - Botão "Confirmar pagamento" → `supabase.rpc('close_commission_period', {...})`.
+  - Em sucesso: toast, invalida `['payouts-open', clinicId]`, `['payout-history', clinicId]`, `['my-commissions', ...]` e fecha.
 
-## 7. Auditoria de visibilidade nas telas existentes
-
-Aplicar o novo hook em:
-- `Financial.tsx` — esconder `<CommissionsPanel />` quando `!canSeePayouts` e esconder ranking por profissional no `ClinicHealthPanel` em modo solo (passar prop `hideByProfessional`).
-- `ClinicaHome.tsx` — gate dos novos cards.
-- `DentistHome.tsx` — substituir/ocultar qualquer KPI que mostre caixa da clínica para dentista vinculado (revisar arquivo durante implementação).
-- `WaitingRoom.tsx`, `Index.tsx`, `dentist/DentistHome.tsx` — só conferir se algum card de caixa precisa de gate; nada a alterar se já estiverem certos.
-
----
-
-## 8. Não escopo deste bloco
-
-- `commission_payouts` / fechamento de período → **Bloco 2**.
-- Lotes de convênio e glosas → **Bloco 3**.
-- DRE detalhada e separação de taxas → **Bloco 4**.
-- Mudanças em `commissions.ts`, `commission_rules`, `financial_transactions` (schema).
-- Edição/exclusão de regras pela tela do profissional.
+Hook novo: `src/hooks/usePayouts.ts` com `usePendingByDentist(clinicId)` e `usePayoutHistory(clinicId)`.
 
 ---
 
-## 9. Arquivos afetados
+## 3. UI — "Meu Financeiro" do dentista vinculado
+
+Edição em `src/pages/dentist/MyFinance.tsx`:
+
+- KPIs "A receber" e "Recebido no mês" já usam `status` — apenas garantir que após o RPC `paid_date` reflete corretamente (já reflete).
+- Adicionar Tabs no topo: **"Extrato de comissões"** (já existe) · **"Fechamentos recebidos"** (nova).
+- Nova aba lê `commission_payouts` onde `dentist_id = user.id` e `clinic_id = currentClinicId`, ordem `paid_at DESC`. Colunas: Data do pagamento · Período · Nº de procedimentos · Método · Observações · Total.
+- Cada linha expansível mostra as comissões amarradas (`financial_transactions.payout_id = payout.id`) — opcional, somente um link "Ver detalhes" que abre Dialog com a lista.
+
+---
+
+## 4. Auditoria & não-escopo
+
+- `src/lib/commissions.ts` permanece intocado — segue gerando `expense + status='pending' + payout_id NULL` (idempotência via `notes`).
+- Nada em `commission_rules` muda.
+- Sem alterar `Budgets`, `BudgetPaymentDialog`, lotes de convênio (Bloco 3) ou DRE (Bloco 4).
+- Solo (`mode==='solo'`) continua sem ver a aba Repasses.
+- Staff com `permissions.financeiro=false` continua bloqueado pela rota.
+
+---
+
+## 5. Critérios de aceite
+
+1. Dono/admin/secretária com perm vê aba **Repasses** em `/financial` com saldo agregado por profissional.
+2. "Fechar período" abre modal, lista as consultas, ao confirmar: cria `commission_payouts`, marca todas as `financial_transactions` envolvidas como `paid` com `payout_id` preenchido — tudo na mesma transação (RPC).
+3. Histórico de fechamentos aparece imediatamente na mesma tela.
+4. Dentista vinculado em `/meu-financeiro` vê valor "A receber" cair e "Recebido no mês" subir; nova aba **Fechamentos recebidos** lista o repasse com método e observações.
+5. Notificação in-app chega ao profissional no momento do fechamento.
+6. Solo não vê Repasses; profissional não vê `/financial`; staff sem perm financeiro segue bloqueado.
+
+---
+
+## 6. Arquivos
+
+Migração nova (1).
 
 Novos:
-- `src/hooks/useFinanceVisibility.ts`
-- `src/hooks/useClinicRevenueByProfessional.ts` (extração da query de `ClinicHealthPanel`)
-- `src/components/finance/SoloFinanceOverview.tsx`
-- `src/components/finance/ClinicFinanceOverview.tsx`
-- `src/pages/dentist/MyFinance.tsx`
+- `src/hooks/usePayouts.ts`
+- `src/components/finance/PayoutsPanel.tsx`
+- `src/components/finance/ClosePayoutDialog.tsx`
 
 Editados:
-- `src/pages/Financial.tsx` (gates + injeção dos overviews)
-- `src/pages/clinica/ClinicaHome.tsx` (bloco "Saúde Financeira")
-- `src/components/finance/ClinicHealthPanel.tsx` (prop opcional para esconder ranking por profissional + consumir o hook extraído)
-- `src/hooks/useRoleAccess.ts` (rota `/meu-financeiro`)
-- `src/App.tsx` (rota `/meu-financeiro` + lazy import)
-- `src/components/AppSidebar.tsx` e `src/components/MobileBottomNav.tsx` (item "Meu Financeiro" para dentista vinculado)
+- `src/pages/Financial.tsx` (aba "Repasses" gated por `canSeePayouts`)
+- `src/pages/dentist/MyFinance.tsx` (Tabs + aba "Fechamentos recebidos")
 
----
-
-## 10. Critérios de aceite
-
-1. Dono solo logado: `/financial` mostra 4 cards Solo + gráfico mensal; nenhuma menção a "Repasses/Comissões/Profissionais".
-2. Dono de clínica com 2+ membros: `/financial` mostra overview da clínica (4 cards) + aba de comissões + ranking por profissional.
-3. Dentista vinculado: ao tentar `/financial` cai em `/meu-financeiro`; vê apenas seus números; sem caixa da clínica.
-4. Secretária com `permissions.financeiro=false`: `/financial` continua bloqueado (sem regressão).
-5. `src/lib/commissions.ts`, `commission_rules` e `financial_transactions` permanecem intactos.
-
-Pode aprovar para eu iniciar a implementação do Bloco 1?
+Posso prosseguir?

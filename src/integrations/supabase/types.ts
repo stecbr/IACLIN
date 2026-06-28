@@ -1068,6 +1068,65 @@ export type Database = {
         }
         Relationships: []
       }
+      commission_payouts: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          dentist_id: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          period_end: string
+          period_start: string
+          status: string
+          total_amount: number
+          transactions_count: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          dentist_id: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          total_amount: number
+          transactions_count?: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          dentist_id?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          total_amount?: number
+          transactions_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_payouts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_rules: {
         Row: {
           clinic_id: string
@@ -1367,6 +1426,7 @@ export type Database = {
           paid_date: string | null
           patient_id: string | null
           payment_method: string | null
+          payout_id: string | null
           status: string
           treatment_plan_id: string | null
           type: string
@@ -1394,6 +1454,7 @@ export type Database = {
           paid_date?: string | null
           patient_id?: string | null
           payment_method?: string | null
+          payout_id?: string | null
           status?: string
           treatment_plan_id?: string | null
           type: string
@@ -1421,6 +1482,7 @@ export type Database = {
           paid_date?: string | null
           patient_id?: string | null
           payment_method?: string | null
+          payout_id?: string | null
           status?: string
           treatment_plan_id?: string | null
           type?: string
@@ -1453,6 +1515,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "commission_payouts"
             referencedColumns: ["id"]
           },
           {
@@ -3927,6 +3996,38 @@ export type Database = {
           _discount_value: number
         }
         Returns: number
+      }
+      close_commission_period: {
+        Args: {
+          _clinic_id: string
+          _dentist_id: string
+          _notes?: string
+          _payment_method?: string
+          _period_end: string
+          _period_start: string
+        }
+        Returns: {
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          dentist_id: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          period_end: string
+          period_start: string
+          status: string
+          total_amount: number
+          transactions_count: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commission_payouts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       delete_email: {
         Args: { message_id: number; queue_name: string }
