@@ -187,6 +187,23 @@ export default function ClinicaHome() {
     },
   });
 
+  // Revenue by professional (current month, paid income) — for ranking.
+  const { data: revenueByPro = [] } = useQuery({
+    queryKey: ['clinica-rev-by-pro', currentClinicId, format(monthStart, 'yyyy-MM')],
+    enabled: !!currentClinicId && visibility.canSeeClinicCash,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('financial_transactions')
+        .select('amount, dentist_id')
+        .eq('clinic_id', currentClinicId!)
+        .eq('type', 'income')
+        .eq('status', 'paid')
+        .gte('paid_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('paid_date', format(monthEnd, 'yyyy-MM-dd'));
+      return data ?? [];
+    },
+  });
+
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
     (monthApts as any[]).forEach((a) => { counts[a.status] = (counts[a.status] ?? 0) + 1; });
