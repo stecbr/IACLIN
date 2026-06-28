@@ -57,6 +57,11 @@ export default function Financial() {
   const [periodFilter, setPeriodFilter] = useState('current');
   const [activeTab, setActiveTab] = useState('overview');
 
+  // Linked dentist (no ownership) → send to their personal finance view.
+  if (visibility.mode === 'professional') {
+    return <Navigate to="/meu-financeiro" replace />;
+  }
+
   // Period calculation
   const now = new Date();
   const getPeriodRange = () => {
