@@ -189,6 +189,7 @@ export default function TeamSection() {
       if (error) throw error;
       toast.success('Membro removido.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
+      queryClient.invalidateQueries({ queryKey: ['clinic-seat-usage'] });
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -203,6 +204,7 @@ export default function TeamSection() {
       if (error) throw error;
       toast.success(nextValue ? 'Acesso liberado.' : 'Acesso suspenso.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
+      queryClient.invalidateQueries({ queryKey: ['clinic-seat-usage'] });
     } catch (err: any) {
       toast.error(err.message);
     }

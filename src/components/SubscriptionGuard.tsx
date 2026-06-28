@@ -15,7 +15,11 @@ export function SubscriptionGuard({ children }: { children: ReactNode }) {
   const { clinicRole, isClinicOwner, signOut, profile } = useAuth();
   const { isOverdueOrCancelled, isLoading, status } = useSubscriptionStatus();
 
-  if (isLoading) return <>{children}</>;
+  if (isLoading) return (
+    <div className="flex flex-1 items-center justify-center py-16">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
   if (!isOverdueOrCancelled) return <>{children}</>;
 
   const isAdmin = isClinicOwner || clinicRole === 'admin';

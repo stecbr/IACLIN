@@ -76,9 +76,10 @@ export function ReconcileInvoiceDialog({
   const canConfirm = useMemo(() => {
     if (!group) return false;
     if (receivedNum < 0) return false;
-    if (!needsGlosas) return true;
-    return Math.abs(diff - sumItemGlosas) < 0.01 || remaining < 0.01;
-  }, [group, receivedNum, needsGlosas, diff, sumItemGlosas, remaining]);
+    // When needsGlosas, any unallocated diff is auto-created as a general glosa in handleConfirm.
+    // So the button is always enabled as long as receivedNum is valid.
+    return true;
+  }, [group, receivedNum]);
 
   const handleConfirm = async () => {
     if (!group) return;
