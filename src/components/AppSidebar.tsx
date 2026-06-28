@@ -112,6 +112,7 @@ const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categor
   { title: 'Credenciamentos',   url: '/clinica/credenciamentos', icon: Building2,  categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
   { title: 'Convênios',         url: '/clinica/convenios',   icon: Receipt,        categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Financeiro',        url: '/financial',           icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary', 'auxiliary'] },
+  { title: 'Meu Financeiro',    url: '/meu-financeiro',      icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['dentist'] },
   { title: 'Orçamentos',        url: '/budgets',             icon: ClipboardList,  categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Secretária IA',     url: '/secretaria-ia',       icon: Bot,            categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
 ];
@@ -253,6 +254,10 @@ export function AppSidebar() {
       .filter((item) => !(isStaff && item.url === '/clinica/aprovacoes'))
       .filter((item) => !isStaff || (item.url === '/clinica/convenios' ? staffPerms?.convenios !== false : true))
       .filter((item) => !isStaff || (item.url === '/financial' ? staffPerms?.financeiro !== false : true))
+      // "Meu Financeiro" só faz sentido para dentista vinculado (não-dono).
+      .filter((item) => item.url !== '/meu-financeiro' || (effectiveRole === 'dentist' && !isClinicOwner && !!currentClinicId))
+      // Dentista vinculado não vê o "Financeiro" da clínica.
+      .filter((item) => item.url !== '/financial' || !(effectiveRole === 'dentist' && !isClinicOwner))
       .filter((item) => !isStaff || (item.url === '/secretaria-ia' ? staffPerms?.secretariaIa !== false : true))
       .map((item) => item.url === '/ferramentas' && toolsUrl !== '/ferramentas' ? { ...item, url: toolsUrl } : item)
   );

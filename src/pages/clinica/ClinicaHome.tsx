@@ -16,6 +16,8 @@ import {
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useFinanceVisibility } from '@/hooks/useFinanceVisibility';
+import { ClinicFinanceOverview } from '@/components/finance/ClinicFinanceOverview';
 
 // ─── Paleta ────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -78,6 +80,7 @@ function DonutCenter({ viewBox, completionRate }: any) {
 
 export default function ClinicaHome() {
   const { currentClinicId, clinicCategory } = useAuth();
+  const visibility = useFinanceVisibility();
   const terms = getClinicTerms(clinicCategory);
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -140,6 +143,23 @@ export default function ClinicaHome() {
     return Object.values(months);
   }, [revenueTxs]);
 
+  // Month transactions for the finance health strip (only when allowed to see clinic cash).
+  const { data: monthTxs = [] } = useQuery({
+    queryKey: ['clinica-finance-month', currentClinicId, format(monthStart, 'yyyy-MM')],
+    enabled: !!currentClinicId && visibility.canSeeClinicCash,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('financial_transactions')
+        .select('amount, status, type, category, approval_status')
+        .eq('clinic_id', currentClinicId!)
+        .gte('due_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('due_date', format(monthEnd, 'yyyy-MM-dd'));
+      return (data ?? []).filter(
+        (t: any) => !t.approval_status || t.approval_status === 'approved'
+      );
+    },
+  });
+
   const { data: monthApts = [] } = useQuery({
     queryKey: ['clinica-month-apts', currentClinicId],
     enabled: !!currentClinicId,
@@ -164,6 +184,23 @@ export default function ClinicaHome() {
         user_id: m.user_id,
         name: profs?.find((p: any) => p.id === m.user_id)?.full_name ?? 'Profissional',
       }));
+    },
+  });
+
+  // Revenue by professional (current month, paid income) — for ranking.
+  const { data: revenueByPro = [] } = useQuery({
+    queryKey: ['clinica-rev-by-pro', currentClinicId, format(monthStart, 'yyyy-MM')],
+    enabled: !!currentClinicId && visibility.canSeeClinicCash,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('financial_transactions')
+        .select('amount, dentist_id')
+        .eq('clinic_id', currentClinicId!)
+        .eq('type', 'income')
+        .eq('status', 'paid')
+        .gte('paid_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('paid_date', format(monthEnd, 'yyyy-MM-dd'));
+      return data ?? [];
     },
   });
 
@@ -199,6 +236,25 @@ export default function ClinicaHome() {
     { name: 'Taxa de conclusão', value: completionRate, fill: '#10b981' },
     { name: 'Taxa de comparecimento', value: Math.max(0, 100 - noShowRate), fill: '#6366f1' },
   ];
+
+  const revenueRanking = useMemo(() => {
+    const totals: Record<string, number> = {};
+    (revenueByPro as any[]).forEach((tx) => {
+      const key = tx.dentist_id ?? '__unassigned';
+      totals[key] = (totals[key] ?? 0) + Number(tx.amount);
+    });
+    const max = Math.max(1, ...Object.values(totals));
+    return Object.entries(totals)
+      .map(([id, value]) => ({
+        id,
+        name:
+          (members as any[]).find((m) => m.user_id === id)?.name ?? 'Sem profissional',
+        value,
+        pct: Math.round((value / max) * 100),
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [revenueByPro, members]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -259,6 +315,54 @@ export default function ClinicaHome() {
       </div>
 
       {/* ── Receita 6 meses + Donut status ────────────────────────── */}
+      {visibility.canSeeClinicCash && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Saúde Financeira · {format(monthStart, 'MMMM', { locale: ptBR })}
+            </h2>
+            <Link to="/financial" className="text-xs text-primary hover:underline">
+              Ver financeiro
+            </Link>
+          </div>
+          <ClinicFinanceOverview transactions={monthTxs as any[]} />
+
+          {revenueRanking.length > 0 && (
+            <Card className="shadow-md border-border/50 mt-4">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  <CardTitle className="text-base">Ranking por profissional</CardTitle>
+                </div>
+                <CardDescription>
+                  Faturamento no mês corrente
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {revenueRanking.map((r, i) => (
+                  <div key={r.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium truncate">
+                        {i + 1}. {r.name}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {fmt(r.value)}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                        style={{ width: `${r.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2 shadow-md border-border/50">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">

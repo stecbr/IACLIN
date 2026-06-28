@@ -26,10 +26,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { ClinicHealthPanel } from '@/components/finance/ClinicHealthPanel';
 import { CommissionsPanel } from '@/components/finance/CommissionsPanel';
+import { SoloFinanceOverview } from '@/components/finance/SoloFinanceOverview';
+import { ClinicFinanceOverview } from '@/components/finance/ClinicFinanceOverview';
 import { generateCommissionsForTransaction } from '@/lib/commissions';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
+import { useFinanceVisibility } from '@/hooks/useFinanceVisibility';
+import { Navigate } from 'react-router-dom';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -40,6 +44,7 @@ export default function Financial() {
   const queryClient = useQueryClient();
   const { effectiveRole } = useRoleAccess();
   const { isSolo } = useSoloMode();
+  const visibility = useFinanceVisibility();
   const canApprove = canManageClinicFinance({
     isSolo,
     role: effectiveRole as any,
@@ -51,6 +56,11 @@ export default function Financial() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('current');
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Linked dentist (no ownership) → send to their personal finance view.
+  if (visibility.mode === 'professional') {
+    return <Navigate to="/meu-financeiro" replace />;
+  }
 
   // Period calculation
   const now = new Date();
@@ -261,10 +271,10 @@ export default function Financial() {
         <TabsList className="w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="transactions">Transações</TabsTrigger>
-          {isClinicOwner && currentClinicId && (
+          {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
             <TabsTrigger value="clinic-health">Saúde da Clínica</TabsTrigger>
           )}
-          {isClinicOwner && currentClinicId && (
+          {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
             <TabsTrigger value="commissions">Comissões</TabsTrigger>
           )}
           {canApprove && currentClinicId && (
@@ -284,6 +294,13 @@ export default function Financial() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          {/* Mode-aware overview block */}
+          {visibility.mode === 'solo' ? (
+            <SoloFinanceOverview transactions={approvedTx} period={period} />
+          ) : visibility.canSeeClinicCash ? (
+            <ClinicFinanceOverview transactions={approvedTx} />
+          ) : null}
+
           {/* Cash Flow Chart */}
           <Card className="shadow-card border-border/50">
             <CardHeader>
@@ -479,7 +496,7 @@ export default function Financial() {
           )}
         </TabsContent>
 
-        {isClinicOwner && currentClinicId && (
+        {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
           <TabsContent value="clinic-health" className="space-y-4">
             <ClinicHealthPanel
               clinicId={currentClinicId}
@@ -489,7 +506,7 @@ export default function Financial() {
           </TabsContent>
         )}
 
-        {isClinicOwner && currentClinicId && (
+        {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
           <TabsContent value="commissions" className="space-y-4">
             <CommissionsPanel
               clinicId={currentClinicId}
