@@ -1681,6 +1681,96 @@ export type Database = {
         }
         Relationships: []
       }
+      insurance_glosas: {
+        Row: {
+          appointment_id: string | null
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          expected_amount: number
+          glosa_amount: number
+          id: string
+          insurance_invoice_period: string
+          loss_transaction_id: string | null
+          operator_id: string
+          reason: string | null
+          received_amount: number
+          status: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          expected_amount: number
+          glosa_amount: number
+          id?: string
+          insurance_invoice_period: string
+          loss_transaction_id?: string | null
+          operator_id: string
+          reason?: string | null
+          received_amount: number
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          expected_amount?: number
+          glosa_amount?: number
+          id?: string
+          insurance_invoice_period?: string
+          loss_transaction_id?: string | null
+          operator_id?: string
+          reason?: string | null
+          received_amount?: number
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_glosas_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_glosas_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_glosas_loss_transaction_id_fkey"
+            columns: ["loss_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_glosas_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_glosas_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurance_operators: {
         Row: {
           active_states: string[]
@@ -4097,6 +4187,19 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      reconcile_insurance_invoice: {
+        Args: {
+          _clinic_id: string
+          _create_loss_transaction?: boolean
+          _glosas?: Json
+          _notes?: string
+          _operator_id: string
+          _payment_method?: string
+          _period: string
+          _received_amount: number
+        }
+        Returns: Json
       }
       record_pix_payment: {
         Args: {
