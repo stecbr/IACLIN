@@ -1,69 +1,84 @@
-## Bloco A — Seat Limit (Limite de Profissionais por Clínica)
+## Blocos B & C — Avisos Globais + Paywall por Inadimplência
 
-### 1. Banco de Dados (migração)
+### 1. Hook `src/hooks/useSubscriptionStatus.ts` (novo)
 
-Criar duas funções `SECURITY DEFINER`:
+Consulta `platform_subscriptions` para a clínica atual (`entity_type='clinic'`, `entity_id=currentClinicId`), ordenando por `created_at` desc e pegando o registro mais recente.
 
-**`public.get_clinic_seat_usage(_clinic_id uuid) RETURNS jsonb`**
-- Conta membros ativos com `role IN ('admin','dentist')` em `clinic_members` (apenas os que ocupam assento profissional; `secretary` e `auxiliary` ficam fora).
-- Busca `max_professionals` do plano vigente via `platform_subscriptions` (entity_type='clinic', entity_id=_clinic_id, status IN ('active','trial')) → join em `platform_plans`.
-- Retorna `{ used, limit, available, has_subscription, status }`. Quando `max_professionals` é NULL = ilimitado (`available = 9999`).
-- Permissão: qualquer membro da clínica pode chamar (`user_belongs_to_clinic`).
-
-**`public.check_clinic_seat_available(_clinic_id uuid) RETURNS boolean`**
-- Wrapper que retorna `used < limit` (ou `true` se ilimitado). Usado pela edge function.
-
-Grants: `EXECUTE ... TO authenticated, service_role`.
-
-### 2. Edge Function `invite-member`
-
-Antes do bloco que cria o usuário (após validar `ownerCheck`, mas só quando `role === 'dentist'`):
-
+Retorno:
 ```ts
-if (role === 'dentist') {
-  const { data: usage } = await adminClient.rpc('get_clinic_seat_usage', { _clinic_id: clinic_id });
-  if (usage && !usage.unlimited && usage.used >= usage.limit) {
-    return jsonResponse({
-      ok: false,
-      code: 'seat_limit_reached',
-      error: `Limite do plano atingido (${usage.used}/${usage.limit} profissionais). Faça upgrade para adicionar mais.`,
-      usage,
-    }, 403);
-  }
+{
+  status: 'active' | 'trialing' | 'overdue' | 'cancelled' | 'none',
+  isActive: boolean,            // active | trialing
+  isTrial: boolean,             // status === 'trialing'
+  isOverdueOrCancelled: boolean,
+  daysUntilDue: number | null,  // diff em dias entre current_period_end e hoje
+  currentPeriodEnd: Date | null,
+  hasSubscription: boolean,
+  isLoading: boolean,
+  refetch: () => void,
 }
 ```
 
-`secretary` e `auxiliary` não consomem assento e continuam permitidos.
+Implementado via `useQuery` (chave: `['subscription-status', clinicId]`), com `staleTime` de 5 min. Se não há `currentClinicId` ou usuário está em modo pessoal, retorna `status: 'none'` e libera.
 
-### 3. Frontend
+### 2. Bloco B — Banner de aviso de vencimento
 
-**Novo hook `src/hooks/useSeatUsage.ts`**
-- Recebe `clinicId`, faz `supabase.rpc('get_clinic_seat_usage', { _clinic_id })`.
-- Retorna `{ used, limit, available, unlimited, isLoading, refetch }`.
-- Invalidação: expõe `refetch` para chamar após convite criado/membro removido.
+**Novo componente `src/components/SubscriptionWarningBanner.tsx`**
+- Usa `useSubscriptionStatus` + `useAuth` (precisa de `isClinicOwner` ou `clinicRole === 'admin'`).
+- Renderiza apenas se: `isActive === true` E `daysUntilDue !== null` E `daysUntilDue <= 7` E usuário é dono/admin.
+- Visual: faixa amber (tokens semânticos, fade-in via Framer Motion conforme regra de modais/animação), ícone `AlertTriangle`, texto curto:
+  - Trial: "Seu período de testes termina em X dias. Ative seu plano para evitar o bloqueio."
+  - Pago: "Sua assinatura vence em X dias. Regularize para evitar o bloqueio."
+  - Vence hoje: "Sua assinatura vence hoje."
+- Link "Ir para assinatura" → `navigate('/settings?tab=subscription')`.
+- Dismissível por sessão (sessionStorage `iaclin.subWarn.dismissed`) — reaparece no próximo login.
 
-**`src/components/settings/TeamSection.tsx`**
-- Importa `useSeatUsage` e mostra badge no header da seção: `"3 de 5 profissionais"` (ou `"3 profissionais (ilimitado)"`).
-- Quando `available <= 0` e role selecionado é `dentist`:
-  - Botão "Adicionar profissional" fica `disabled` com tooltip explicando o motivo.
-  - Se o usuário clica mesmo assim (ou em fluxo paralelo), abre `SeatLimitDialog`.
-- Trata resposta `code === 'seat_limit_reached'` da edge function abrindo o mesmo dialog.
-- Chama `refetch()` após convite bem-sucedido.
+**Integração em `src/components/AppLayout.tsx`**
+- Renderizado dentro do `<main>`, logo acima do `<PublishPendingBanner />`, dentro do `motion.div` (para herdar a animação de rota).
+- Não renderiza se `blockedByPermission` ou `isMembershipSuspended` já estão ativos.
 
-**Novo componente `src/components/settings/SeatLimitDialog.tsx`**
-- Modal amigável (shadcn Dialog, fade-in conforme regra de animação):
-  - Ícone + título "Limite de profissionais atingido".
-  - Texto: "Seu plano permite até {limit} profissionais. Faça upgrade para adicionar mais à sua equipe."
-  - Botões: "Cancelar" e "Ver planos" → navega para `/settings?tab=subscription`.
+### 3. Bloco C — Paywall por inadimplência
 
-### Resumo técnico
+**Novo componente `src/components/SubscriptionGuard.tsx`**
+- Lê `useSubscriptionStatus`, `useAuth` (`clinicRole`, `isClinicOwner`, `signOut`, `profile`), `useLocation`.
+- Se `isLoading` → renderiza `children` (evita flash; banner aparece depois).
+- Se `!isOverdueOrCancelled` → renderiza `children` normalmente.
+- Se `isOverdueOrCancelled === true`:
+  - **Dono/Admin** (`isClinicOwner || clinicRole === 'admin'`):
+    - Permite acesso EXCLUSIVO a `/settings` (qualquer aba) e `/perfil`. Se a rota atual for uma dessas, renderiza `children` (com banner vermelho fixo no topo via `SubscriptionPaywallBanner` interno, lembrando que está em modo restrito).
+    - Caso contrário, renderiza tela cheia `<AdminPaywallScreen />`:
+      - Card central, ícone `Lock` vermelho, título "Assinatura suspensa".
+      - Texto: "Identificamos uma pendência no pagamento da sua assinatura. Regularize agora para reativar o acesso ao IACLIN."
+      - Botão primário "Ir para pagamento" → `navigate('/settings?tab=subscription')`.
+      - Botão secundário "Sair" → `signOut()`.
+  - **Funcionários** (`dentist` vinculado, `secretary`, `auxiliary` que NÃO são donos):
+    - Renderiza tela cheia `<StaffSuspendedScreen />`:
+      - Ícone `AlertOctagon` âmbar, título "Sistema temporariamente indisponível".
+      - Texto: "O acesso ao sistema está suspenso. Entre em contato com o administrador ou responsável pela clínica para regularizar o acesso."
+      - Botão "Sair" → `signOut()`.
+      - Sem qualquer rota interna disponível.
 
-| Camada | Arquivo | Tipo |
-|---|---|---|
-| DB | nova migração | `get_clinic_seat_usage` + `check_clinic_seat_available` |
-| Edge | `supabase/functions/invite-member/index.ts` | guard 403 antes de criar usuário |
-| Hook | `src/hooks/useSeatUsage.ts` | novo |
-| UI | `src/components/settings/TeamSection.tsx` | badge + botão desabilitado + tratamento de erro |
-| UI | `src/components/settings/SeatLimitDialog.tsx` | novo modal de upgrade |
+**Integração em `src/components/AppLayout.tsx`**
+- Envolve o `children` (depois do `PublishPendingBanner` e do `SubscriptionWarningBanner`) com `<SubscriptionGuard>`.
+- Mantém os checks já existentes (`isMembershipSuspended` continua tendo precedência absoluta).
+- Pacientes (`isPatient`) e Operadoras não passam pelo guard (não estão no `AppLayout` da clínica, ou retornam `status: 'none'`).
 
-Sem mudanças em outros fluxos — apenas o convite de **dentista** é travado. Após sua aprovação, executo na ordem: migração → edge function → hook → UI.
+### 4. Regras importantes
+
+- **Não tocar** em webhooks (`stripe-webhook`, `mercadopago-webhook`) — apenas leitura.
+- Status `'none'` (sem assinatura encontrada) NÃO bloqueia — comportamento atual preservado para contas legadas/seed; só `overdue` e `cancelled` ativam o paywall.
+- Modo Pessoal (`isPersonalMode`) ignora completamente — sem clínica, sem assinatura.
+- Super Admin nunca é bloqueado (rotas `/superadmin/*` ficam fora do `AppLayout`/`SubscriptionGuard`).
+- Animações respeitam a regra de UI: fade-in/out apenas, sem slide/zoom.
+- Todas as cores via tokens semânticos do `index.css` — sem `bg-red-500` cru.
+
+### Resumo de arquivos
+
+| Arquivo | Tipo |
+|---|---|
+| `src/hooks/useSubscriptionStatus.ts` | novo |
+| `src/components/SubscriptionWarningBanner.tsx` | novo (Bloco B) |
+| `src/components/SubscriptionGuard.tsx` | novo (Bloco C, inclui Admin/Staff screens) |
+| `src/components/AppLayout.tsx` | integra banner + guard |
+
+Após sua aprovação, executo na ordem: hook → banner → guard → integração no `AppLayout`.
