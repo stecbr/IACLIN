@@ -13,6 +13,7 @@ export interface FinanceVisibility {
   canSeePayouts: boolean;
   canManagePayments: boolean;
   canSeeOwnCommissions: boolean;
+  canViewReports: boolean;
 }
 
 /**
@@ -36,6 +37,7 @@ export function useFinanceVisibility(): FinanceVisibility {
       canSeePayouts: false,
       canManagePayments: false,
       canSeeOwnCommissions: false,
+      canViewReports: false,
     };
   }
 
@@ -48,6 +50,7 @@ export function useFinanceVisibility(): FinanceVisibility {
       canSeePayouts: false, // no third parties to pay out
       canManagePayments: true,
       canSeeOwnCommissions: false,
+      canViewReports: true,
     };
   }
 
@@ -60,6 +63,7 @@ export function useFinanceVisibility(): FinanceVisibility {
       canSeePayouts: false,
       canManagePayments: false,
       canSeeOwnCommissions: true,
+      canViewReports: false,
     };
   }
 
@@ -76,6 +80,7 @@ export function useFinanceVisibility(): FinanceVisibility {
         hasClinic,
       }),
       canSeeOwnCommissions: false,
+      canViewReports: true,
     };
   }
 
@@ -91,5 +96,6 @@ export function useFinanceVisibility(): FinanceVisibility {
       hasClinic,
     }),
     canSeeOwnCommissions: false,
+    canViewReports: true,
   };
 }
