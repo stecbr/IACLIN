@@ -26,6 +26,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { ClinicHealthPanel } from '@/components/finance/ClinicHealthPanel';
 import { CommissionsPanel } from '@/components/finance/CommissionsPanel';
+import { PayoutsPanel } from '@/components/finance/PayoutsPanel';
 import { SoloFinanceOverview } from '@/components/finance/SoloFinanceOverview';
 import { ClinicFinanceOverview } from '@/components/finance/ClinicFinanceOverview';
 import { generateCommissionsForTransaction } from '@/lib/commissions';
@@ -277,6 +278,9 @@ export default function Financial() {
           {isClinicOwner && currentClinicId && visibility.canSeePayouts && (
             <TabsTrigger value="commissions">Comissões</TabsTrigger>
           )}
+          {currentClinicId && visibility.canSeePayouts && (
+            <TabsTrigger value="payouts">Repasses</TabsTrigger>
+          )}
           {canApprove && currentClinicId && (
             <TabsTrigger value="approvals">
               Aprovações
@@ -512,6 +516,12 @@ export default function Financial() {
               clinicId={currentClinicId}
               transactions={approvedTx}
             />
+          </TabsContent>
+        )}
+
+        {currentClinicId && visibility.canSeePayouts && (
+          <TabsContent value="payouts" className="space-y-4">
+            <PayoutsPanel clinicId={currentClinicId} />
           </TabsContent>
         )}
 
