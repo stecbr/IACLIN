@@ -326,6 +326,40 @@ export default function ClinicaHome() {
             </Link>
           </div>
           <ClinicFinanceOverview transactions={monthTxs as any[]} />
+
+          {revenueRanking.length > 0 && (
+            <Card className="shadow-md border-border/50 mt-4">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  <CardTitle className="text-base">Ranking por profissional</CardTitle>
+                </div>
+                <CardDescription>
+                  Faturamento no mês corrente
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {revenueRanking.map((r, i) => (
+                  <div key={r.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium truncate">
+                        {i + 1}. {r.name}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {fmt(r.value)}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                        style={{ width: `${r.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
