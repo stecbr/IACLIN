@@ -24,6 +24,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MemberProceduresDialog } from './MemberProceduresDialog';
 import { StaffPermissionsDialog, type StaffPermissions } from './StaffPermissionsDialog';
+import { useSeatUsage } from '@/hooks/useSeatUsage';
 
 const roleLabels: Record<string, string> = {
   admin:     'Administrador',
@@ -42,6 +43,7 @@ const roleColors: Record<string, string> = {
 export default function TeamSection() {
   const { user, currentClinicId, isClinicOwner } = useAuth();
   const queryClient = useQueryClient();
+  const { usage } = useSeatUsage(currentClinicId);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ email: '', full_name: '', password: '', role: 'secretary' });
   const [saving, setSaving] = useState(false);
@@ -225,6 +227,19 @@ export default function TeamSection() {
         <div>
           <CardTitle className="text-base">Equipe</CardTitle>
           <CardDescription>Gerencie os membros da sua clínica.</CardDescription>
+          {usage && (
+            <div className="pt-2">
+              <Badge
+                variant={!usage.unlimited && usage.available <= 0 ? 'destructive' : 'outline'}
+                className="font-normal"
+              >
+                {usage.unlimited
+                  ? `${usage.used} profissionais (plano ilimitado)`
+                  : `${usage.used} de ${usage.limit} profissionais utilizados`}
+                {usage.plan_name ? ` · ${usage.plan_name}` : ''}
+              </Badge>
+            </div>
+          )}
         </div>
         {isClinicOwner && (
           <Dialog open={open} onOpenChange={setOpen}>
