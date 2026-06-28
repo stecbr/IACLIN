@@ -279,6 +279,20 @@ export default function ClinicaHome() {
       </div>
 
       {/* ── Receita 6 meses + Donut status ────────────────────────── */}
+      {visibility.canSeeClinicCash && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Saúde Financeira · {format(monthStart, 'MMMM', { locale: ptBR })}
+            </h2>
+            <Link to="/financial" className="text-xs text-primary hover:underline">
+              Ver financeiro
+            </Link>
+          </div>
+          <ClinicFinanceOverview transactions={monthTxs as any[]} />
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2 shadow-md border-border/50">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
