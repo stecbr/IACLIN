@@ -7,6 +7,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { CreditCard, ShieldCheck, Banknote, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -37,11 +39,13 @@ export function BudgetPaymentDialog({ open, onOpenChange, plan }: Props) {
   const { user } = useAuth();
   const [method, setMethod] = useState<Method | null>(null);
   const [notes, setNotes] = useState('');
+  const [cardFee, setCardFee] = useState<string>('');
 
   useEffect(() => {
     if (!open) {
       setMethod(null);
       setNotes('');
+      setCardFee('');
     }
   }, [open]);
 
@@ -51,14 +55,18 @@ export function BudgetPaymentDialog({ open, onOpenChange, plan }: Props) {
       if (!method) throw new Error('Escolha a forma de pagamento');
       const nowIso = new Date().toISOString();
       const today = nowIso.slice(0, 10);
+      const fee = method === 'card'
+        ? Math.max(0, parseFloat((cardFee || '0').replace(',', '.')) || 0)
+        : 0;
 
       // 1) Atualiza cobranças pendentes vinculadas ao orçamento, se houver
-      await supabase
+      await (supabase as any)
         .from('financial_transactions')
         .update({
           status: 'paid',
           paid_date: today,
           payment_method: method,
+          ...(fee > 0 ? { card_fee_amount: fee } : {}),
         })
         .eq('treatment_plan_id', plan.id)
         .eq('status', 'pending');
@@ -72,7 +80,7 @@ export function BudgetPaymentDialog({ open, onOpenChange, plan }: Props) {
         .limit(1);
 
       if (!existing || existing.length === 0) {
-        const { error: txErr } = await supabase.from('financial_transactions').insert({
+        const { error: txErr } = await (supabase as any).from('financial_transactions').insert({
           type: 'income',
           category: 'procedure',
           description: `Pagamento orçamento — ${plan.title}`,
@@ -86,6 +94,7 @@ export function BudgetPaymentDialog({ open, onOpenChange, plan }: Props) {
           clinic_id: plan.clinic_id ?? null,
           treatment_plan_id: plan.id,
           notes: notes.trim() || null,
+          card_fee_amount: fee,
         });
         if (txErr) throw txErr;
       }
@@ -181,6 +190,26 @@ export function BudgetPaymentDialog({ open, onOpenChange, plan }: Props) {
               })}
             </div>
           </div>
+
+          {method === 'card' && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">
+                Taxa da maquininha (R$) — opcional
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cardFee}
+                onChange={(e) => setCardFee(e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Deduzido do lucro líquido no DRE. Use o valor cobrado pela operadora do cartão.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Observação (opcional)</label>
