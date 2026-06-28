@@ -44,11 +44,11 @@ export function OperationalExpensesPanel({ clinicId, periodStart, periodEnd, onC
     ],
     enabled: !!clinicId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('financial_transactions')
         .select('id, due_date, paid_date, description, category, amount, status, notes')
         .eq('clinic_id', clinicId)
-        .eq('is_operational' as any, true)
+        .eq('is_operational', true)
         .gte('due_date', format(periodStart, 'yyyy-MM-dd'))
         .lte('due_date', format(periodEnd, 'yyyy-MM-dd'))
         .order('due_date', { ascending: false });
