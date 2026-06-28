@@ -254,6 +254,10 @@ export function AppSidebar() {
       .filter((item) => !(isStaff && item.url === '/clinica/aprovacoes'))
       .filter((item) => !isStaff || (item.url === '/clinica/convenios' ? staffPerms?.convenios !== false : true))
       .filter((item) => !isStaff || (item.url === '/financial' ? staffPerms?.financeiro !== false : true))
+      // "Meu Financeiro" só faz sentido para dentista vinculado (não-dono).
+      .filter((item) => item.url !== '/meu-financeiro' || (effectiveRole === 'dentist' && !isClinicOwner && !!currentClinicId))
+      // Dentista vinculado não vê o "Financeiro" da clínica.
+      .filter((item) => item.url !== '/financial' || !(effectiveRole === 'dentist' && !isClinicOwner))
       .filter((item) => !isStaff || (item.url === '/secretaria-ia' ? staffPerms?.secretariaIa !== false : true))
       .map((item) => item.url === '/ferramentas' && toolsUrl !== '/ferramentas' ? { ...item, url: toolsUrl } : item)
   );
