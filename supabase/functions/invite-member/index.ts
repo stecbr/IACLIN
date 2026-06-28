@@ -75,6 +75,20 @@ Deno.serve(async (req) => {
       return handledError("forbidden", "Apenas o dono da clínica pode adicionar funcionários.");
     }
 
+    // Seat limit guard — only dentist consumes a professional seat.
+    if (role === "dentist") {
+      const { data: usage } = await adminClient.rpc("get_clinic_seat_usage", { _clinic_id: clinic_id });
+      const u = (usage ?? {}) as { unlimited?: boolean; used?: number; limit?: number | null };
+      if (u && u.unlimited !== true && typeof u.limit === "number" && (u.used ?? 0) >= u.limit) {
+        return jsonResponse({
+          ok: false,
+          code: "seat_limit_reached",
+          error: `Limite do plano atingido (${u.used}/${u.limit} profissionais). Faça upgrade do plano para adicionar mais.`,
+          usage: u,
+        }, 403);
+      }
+    }
+
     // Check if a user with this email already exists (paginate to avoid missing it on large bases)
     let emailAlreadyExists = false;
     for (let page = 1; page <= 20; page++) {

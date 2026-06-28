@@ -39,6 +39,27 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Convite expirado" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Seat limit guard (defense in depth) — only for dentist role and only if
+    // the user isn't already a member.
+    if (invite.role === "dentist") {
+      const { data: alreadyMember } = await admin
+        .from("clinic_members")
+        .select("id")
+        .eq("clinic_id", invite.clinic_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!alreadyMember) {
+        const { data: usage } = await admin.rpc("get_clinic_seat_usage", { _clinic_id: invite.clinic_id });
+        const u = (usage ?? {}) as { unlimited?: boolean; used?: number; limit?: number | null };
+        if (u && u.unlimited !== true && typeof u.limit === "number" && (u.used ?? 0) >= u.limit) {
+          return new Response(JSON.stringify({
+            code: "seat_limit_reached",
+            error: `A clínica atingiu o limite de profissionais do plano (${u.used}/${u.limit}). Peça ao administrador para fazer upgrade antes de aceitar.`,
+          }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     const finalSpecialty = (typeof overrideSpecialty === "string" && overrideSpecialty.trim())
       ? overrideSpecialty.trim()
       : invite.specialty;

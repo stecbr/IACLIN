@@ -61,6 +61,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Seat limit guard — block invite creation when the plan limit is reached.
+    const { data: usage } = await admin.rpc("get_clinic_seat_usage", { _clinic_id: clinic_id });
+    const u = (usage ?? {}) as { unlimited?: boolean; used?: number; limit?: number | null };
+    if (u && u.unlimited !== true && typeof u.limit === "number" && (u.used ?? 0) >= u.limit) {
+      return new Response(JSON.stringify({
+        ok: false,
+        code: "seat_limit_reached",
+        error: `Limite do plano atingido (${u.used}/${u.limit} profissionais). Faça upgrade para adicionar mais.`,
+        usage: u,
+      }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const token = generateToken(40);
     const { data: invite, error: insertErr } = await admin
       .from("clinic_invites")
