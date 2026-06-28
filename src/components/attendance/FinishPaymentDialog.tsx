@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Shield, CreditCard, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
@@ -68,6 +69,7 @@ export function FinishPaymentDialog({
   const [priceItems, setPriceItems] = useState<Record<string, number>>({}); // tuss_code -> value_brl
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cardFee, setCardFee] = useState<string>('');
 
   const totalParticular = useMemo(
     () => procedures.reduce((s, p) => s + (p.price || 0), 0),
@@ -282,6 +284,11 @@ export function FinishPaymentDialog({
 
   const handleConfirmPaid = async () => {
     if (totalParticular <= 0) { toast.error('Valor inválido'); return; }
+    const fee = Math.max(0, parseFloat((cardFee || '0').replace(',', '.')) || 0);
+    if (fee > totalParticular) {
+      toast.error('A taxa não pode ser maior que o valor recebido');
+      return;
+    }
     setSaving(true);
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -292,6 +299,7 @@ export function FinishPaymentDialog({
         status: 'paid',
         due_date: today,
         paid_date: today,
+        card_fee_amount: fee,
         notes: 'Pago pelo paciente (registrado pela clínica)',
       });
       toast.success(
@@ -504,6 +512,21 @@ export function FinishPaymentDialog({
               O paciente já efetuou o pagamento ({brl(totalParticular)}) diretamente com a clínica (cartão, dinheiro, PIX, etc.).
               O atendimento será registrado como <Badge variant="secondary" className="mx-1">Pago</Badge> em Contas a Receber.
             </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Taxa da maquininha (R$) — opcional</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cardFee}
+                onChange={(e) => setCardFee(e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Use apenas em cartão crédito/débito. O valor é deduzido do lucro líquido no DRE.
+              </p>
+            </div>
             <div className="flex justify-end">
               <Button onClick={handleConfirmPaid} disabled={saving || totalParticular <= 0} className="gap-2">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

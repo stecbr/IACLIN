@@ -70,6 +70,7 @@ export function TransactionDialog({
     notes: '',
     patient_id: lockedPatientId ?? '',
   });
+  const [cardFee, setCardFee] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
   const [patientPickerOpen, setPatientPickerOpen] = useState(false);
@@ -118,6 +119,10 @@ export function TransactionDialog({
 
     setSaving(true);
     try {
+      const isCard = form.payment_method === 'credit_card' || form.payment_method === 'debit_card';
+      const fee = (form.type === 'income' && isCard)
+        ? Math.max(0, parseFloat((cardFee || '0').replace(',', '.')) || 0)
+        : 0;
       const payload: any = {
         type: form.type,
         category: form.category,
@@ -130,13 +135,14 @@ export function TransactionDialog({
         dentist_id: user.id,
         clinic_id: clinicId ?? null,
         patient_id: patientId,
+        card_fee_amount: fee,
         approval_status: needsApproval ? 'awaiting_approval' : 'approved',
         approval_requested_by: needsApproval ? user.id : null,
         approval_decided_by: needsApproval ? null : user.id,
         approval_decided_at: needsApproval ? null : new Date().toISOString(),
       };
 
-      const { error } = await supabase.from('financial_transactions').insert(payload);
+      const { error } = await (supabase as any).from('financial_transactions').insert(payload);
       if (error) throw error;
 
       toast.success(needsApproval
@@ -149,6 +155,7 @@ export function TransactionDialog({
         due_date: format(new Date(), 'yyyy-MM-dd'), status: 'pending',
         payment_method: '', notes: '', patient_id: lockedPatientId ?? '',
       });
+      setCardFee('');
       setPatientSearch('');
     } catch (err: any) {
       toast.error(err.message);
@@ -314,6 +321,24 @@ export function TransactionDialog({
               </Select>
             </div>
           </div>
+          {form.type === 'income' &&
+            (form.payment_method === 'credit_card' || form.payment_method === 'debit_card') && (
+            <div className="space-y-2">
+              <Label>Taxa da maquininha (R$) — opcional</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cardFee}
+                onChange={(e) => setCardFee(e.target.value)}
+                placeholder="0,00"
+                inputMode="decimal"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Deduzido do lucro líquido no DRE.
+              </p>
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={saving}>
             {saving
               ? 'Salvando...'

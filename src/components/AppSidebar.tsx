@@ -622,6 +622,13 @@ export function AppSidebar() {
             ...(clinicCategory === 'odonto' ? [byUrl('/odontogram')] : []),
           ].filter(Boolean) as typeof finalClinicNav;
           const financialItems  = [byUrl('/financial'), byUrl('/budgets')].filter(Boolean) as typeof finalClinicNav;
+          const reportsItem = byUrl('/financial')
+            ? ({
+                title: 'Relatórios (DRE)',
+                url: '/financeiro/relatorios',
+                icon: byUrl('/financial')!.icon,
+              } as any)
+            : null;
           const automationItems = [byUrl('/secretaria-ia')].filter(Boolean) as typeof finalClinicNav;
 
           return (
@@ -680,6 +687,7 @@ export function AppSidebar() {
                 <NavSection id="financeiro" label="Financeiro" collapsed={collapsed} defaultOpen={false}>
                   <SidebarMenu>
                     {financialItems.map((item) => renderNavItem(item))}
+                    {reportsItem && renderNavItem(reportsItem)}
                   </SidebarMenu>
                 </NavSection>
               )}
