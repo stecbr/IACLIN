@@ -58,11 +58,6 @@ export default function Financial() {
   const [periodFilter, setPeriodFilter] = useState('current');
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Linked dentist (no ownership) → send to their personal finance view.
-  if (visibility.mode === 'professional') {
-    return <Navigate to="/meu-financeiro" replace />;
-  }
-
   // Period calculation
   const now = new Date();
   const getPeriodRange = () => {
@@ -186,6 +181,12 @@ export default function Financial() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Linked dentist (no ownership) → send to their personal finance view.
+  // Placed AFTER all hooks to comply with Rules of Hooks.
+  if (visibility.mode === 'professional') {
+    return <Navigate to="/meu-financeiro" replace />;
+  }
+
   const filtered = approvedTx.filter((tx: any) => {
     if (statusFilter !== 'all' && tx.status !== statusFilter) return false;
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
@@ -305,8 +306,8 @@ export default function Financial() {
             <ClinicFinanceOverview transactions={approvedTx} />
           ) : null}
 
-          {/* Cash Flow Chart */}
-          <Card className="shadow-card border-border/50">
+          {/* Cash Flow Chart — hidden in solo mode: SoloFinanceOverview already renders its own chart */}
+          {visibility.mode !== 'solo' && <Card className="shadow-card border-border/50">
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">Fluxo de Caixa - Últimos 6 Meses</CardTitle>
             </CardHeader>
@@ -328,7 +329,7 @@ export default function Financial() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Pending summary */}
           <div className="grid gap-4 sm:grid-cols-2">
