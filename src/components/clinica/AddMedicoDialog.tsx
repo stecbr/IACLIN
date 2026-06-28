@@ -222,5 +222,15 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
         </Tabs>
       </DialogContent>
     </Dialog>
+    <>
+      <SeatLimitDialog
+        open={seatLimitOpen}
+        onOpenChange={setSeatLimitOpen}
+        used={usage?.used}
+        limit={usage?.limit ?? null}
+        planName={usage?.plan_name ?? null}
+      />
+    </>
+    </>
   );
 }
