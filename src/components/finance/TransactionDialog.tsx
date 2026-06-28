@@ -28,11 +28,16 @@ interface Props {
   lockedPatientName?: string;
   /** Force a clinic context (used from prontuário when patient belongs to a clinic). */
   forcedClinicId?: string | null;
+  /** Pre-select the transaction type when the dialog opens. */
+  defaultType?: 'income' | 'expense';
+  /** Pre-select the category when the dialog opens. */
+  defaultCategory?: string;
 }
 
 export function TransactionDialog({
   open, onOpenChange, onSuccess,
   lockedPatientId, lockedPatientName, forcedClinicId,
+  defaultType = 'income', defaultCategory = 'consultation',
 }: Props) {
   const { user, currentClinicId, clinics } = useAuth();
   const { effectiveRole } = useRoleAccess();
@@ -60,8 +65,8 @@ export function TransactionDialog({
   }, [open, clinicId, clinics]);
 
   const [form, setForm] = useState({
-    type: 'income' as 'income' | 'expense',
-    category: 'consultation',
+    type: defaultType as 'income' | 'expense',
+    category: defaultCategory,
     description: '',
     amount: '',
     due_date: format(new Date(), 'yyyy-MM-dd'),
@@ -151,7 +156,7 @@ export function TransactionDialog({
       onOpenChange(false);
       onSuccess?.();
       setForm({
-        type: 'income', category: 'consultation', description: '', amount: '',
+        type: defaultType, category: defaultCategory, description: '', amount: '',
         due_date: format(new Date(), 'yyyy-MM-dd'), status: 'pending',
         payment_method: '', notes: '', patient_id: lockedPatientId ?? '',
       });
@@ -207,6 +212,9 @@ export function TransactionDialog({
                   <SelectItem value="rent">Aluguel</SelectItem>
                   <SelectItem value="supplies">Material</SelectItem>
                   <SelectItem value="salary">Salário</SelectItem>
+                  <SelectItem value="utilities">Água / Luz</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                  <SelectItem value="internet">Internet</SelectItem>
                   <SelectItem value="other">Outro</SelectItem>
                 </SelectContent>
               </Select>

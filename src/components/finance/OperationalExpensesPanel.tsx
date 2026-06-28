@@ -168,6 +168,8 @@ export function OperationalExpensesPanel({ clinicId, periodStart, periodEnd, onC
       <TransactionDialog
         open={showNew}
         onOpenChange={setShowNew}
+        defaultType="expense"
+        defaultCategory="rent"
         onSuccess={() => {
           refetch();
           onChanged?.();
