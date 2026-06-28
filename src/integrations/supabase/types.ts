@@ -4093,6 +4093,10 @@ export type Database = {
         }
         Returns: number
       }
+      check_clinic_seat_available: {
+        Args: { _clinic_id: string }
+        Returns: boolean
+      }
       close_commission_period: {
         Args: {
           _clinic_id: string
@@ -4143,6 +4147,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_clinic_seat_usage: { Args: { _clinic_id: string }; Returns: Json }
       get_marketplace_doctor_profiles: {
         Args: { _user_ids: string[] }
         Returns: {
