@@ -1,132 +1,147 @@
-# Bloco 3 — Lotes de Convênio & Conciliação de Glosas
+## Bloco 4 — Despesas Operacionais, Taxas e DRE Gerencial
 
-Reaproveita `financial_transactions.insurance_invoice_period/status` (já existe) e a tela `src/pages/financial/InsuranceInvoices.tsx`. Adiciona a entidade de glosa e o fluxo de conciliação manual por lote (operadora × mês).
+Fecha o MVP financeiro: organiza despesas operacionais, registra taxa de cartão sem virar fintech, e cria a tela de DRE alimentada por uma RPC agregadora no Postgres.
 
 ---
 
-## 1. Migração — `insurance_glosas`
+### 1. Migração — colunas + RPC
 
-```sql
-CREATE TABLE public.insurance_glosas (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  clinic_id uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
-  operator_id uuid NOT NULL REFERENCES public.insurance_operators(id) ON DELETE RESTRICT,
-  insurance_invoice_period varchar(7) NOT NULL,    -- 'YYYY-MM'
-  appointment_id uuid REFERENCES public.appointments(id) ON DELETE SET NULL,
-  transaction_id uuid REFERENCES public.financial_transactions(id) ON DELETE SET NULL,
-  expected_amount numeric(10,2) NOT NULL,
-  received_amount numeric(10,2) NOT NULL,
-  glosa_amount   numeric(10,2) NOT NULL,
-  reason text,
-  status varchar(20) NOT NULL DEFAULT 'identified'
-    CHECK (status IN ('identified','accepted','contested','recovered')),
-  loss_transaction_id uuid REFERENCES public.financial_transactions(id) ON DELETE SET NULL,
-  created_by uuid,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+**Colunas novas em `financial_transactions`:**
+- `card_fee_amount numeric(10,2) DEFAULT 0` — taxa cobrada pela maquininha/gateway (informativa, deduzida no DRE).
+- `is_operational boolean GENERATED ALWAYS AS (type = 'expense' AND category NOT IN ('commission','loss_glosa','card_fee')) STORED` — facilita filtros.
+- Categoria reservada `'card_fee'` para taxas lançadas como expense (quando o usuário optar por gerar expense separada em vez de só anotar `card_fee_amount`).
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.insurance_glosas TO authenticated;
-GRANT ALL ON public.insurance_glosas TO service_role;
-ALTER TABLE public.insurance_glosas ENABLE ROW LEVEL SECURITY;
+Sem novas tabelas — reaproveita `financial_transactions`, `commission_payouts`, `insurance_glosas`.
 
-CREATE POLICY "Clinic members read glosas" ON public.insurance_glosas
-  FOR SELECT TO authenticated USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
-CREATE POLICY "Clinic members write glosas" ON public.insurance_glosas
-  FOR INSERT TO authenticated WITH CHECK (public.user_belongs_to_clinic(auth.uid(), clinic_id));
-CREATE POLICY "Clinic members update glosas" ON public.insurance_glosas
-  FOR UPDATE TO authenticated USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
-CREATE POLICY "Clinic members delete glosas" ON public.insurance_glosas
-  FOR DELETE TO authenticated USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+**RPC `get_clinic_financial_summary(_clinic_id uuid, _start date, _end date, _dentist_id uuid default null)`** — `SECURITY DEFINER`, valida `user_belongs_to_clinic`. Retorna `jsonb`:
 
-CREATE INDEX idx_glosas_clinic_period ON public.insurance_glosas(clinic_id, operator_id, insurance_invoice_period);
-
-CREATE TRIGGER trg_glosas_updated_at BEFORE UPDATE ON public.insurance_glosas
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+```jsonc
+{
+  "period": { "start": "...", "end": "..." },
+  "monthly": [
+    {
+      "month": "2026-06",
+      "revenue_particular": 12000.00,   // income paid, sem operator_id
+      "revenue_insurance_received": 4500.00, // income com operator_id e status reconciled/paid
+      "revenue_insurance_invoiced": 8000.00, // income com operator_id e status invoiced/sent (faturado, ainda não recebido)
+      "card_fees": 350.00,              // SUM(card_fee_amount) + expenses category='card_fee'
+      "glosas_accepted": 600.00,        // insurance_glosas.status='accepted' no período
+      "commissions_paid": 3000.00,      // commission_payouts.paid_at no período
+      "commissions_pending": 800.00,    // financial_transactions expense/commission status=pending
+      "operational_expenses": 4200.00,  // is_operational + status=paid
+      "operational_pending": 1500.00,
+      "net_result": 7350.00             // bruto - taxas - glosas - comissões pagas - opex pagas
+    }
+  ],
+  "totals": { /* mesmas chaves, somadas no período */ }
+}
 ```
 
-Estende status do lote (sem nova coluna — usa `financial_transactions.insurance_invoice_status`). Valores passam a incluir: `open` · `invoiced` (antigo `sent`) · `paid` · `reconciled`. Mantém compatibilidade lendo `sent` como `invoiced` na UI.
-
-RPC opcional `reconcile_insurance_invoice(_clinic_id, _operator_id, _period, _received_amount, _glosas jsonb, _payment_method)` para aplicar tudo atomicamente:
-- marca todas as `financial_transactions` do lote (excluindo as referenciadas em glosas `accepted`) como `paid` + `paid_date = today`;
-- marca status do lote como `reconciled`;
-- insere registros em `insurance_glosas`;
-- para cada glosa `accepted`, cria opcionalmente uma `financial_transactions` `expense` / categoria `loss_glosa` e amarra em `loss_transaction_id`.
+Filtro opcional por `_dentist_id` para a visão "Meu Financeiro" do profissional solo.
 
 ---
 
-## 2. UI — `src/pages/financial/InsuranceInvoices.tsx`
+### 2. Hook — `src/hooks/useFinancialSummary.ts`
 
-Refatorar para `Tabs` com 4 abas:
-
-- **Abertos**: grupos com `status = 'open'` (ou null). Mostra contagem e total acumulando no período corrente.
-- **Faturados**: `status ∈ ('sent','invoiced')`. Botão "Conciliar pagamento" abre `ReconcileInvoiceDialog`.
-- **Recebidos**: `status ∈ ('paid','reconciled')`. Mostra valor esperado vs. recebido vs. glosa total (join com `insurance_glosas` do mesmo período/operadora).
-- **Glosas**: lista plana de `insurance_glosas` da clínica com filtros por operadora/período/status; ações: marcar como `contested`, `accepted`, `recovered`; ver consulta vinculada.
-
-Botão "Marcar como faturada" do fluxo atual passa a setar `insurance_invoice_status='invoiced'` (manter aceitar `sent` na leitura por retrocompatibilidade).
+`useFinancialSummary({ clinicId, startDate, endDate, dentistId? })` — `useQuery` chamando o RPC. Cacheia por chave `['financial-summary', clinicId, start, end, dentistId]`. Substitui a soma manual feita hoje em `Financial.tsx` / `MyFinance.tsx` (não remove o resto da tela, só passa a alimentar os KPIs mensais a partir do RPC quando disponível).
 
 ---
 
-## 3. Conciliação Manual — `ReconcileInvoiceDialog.tsx` (novo)
+### 3. UI — Contas a Pagar → Operacional
 
-Arquivo: `src/components/finance/ReconcileInvoiceDialog.tsx`.
+Em `src/pages/Financial.tsx`, na aba **Contas a Pagar**, adicionar sub-abas:
 
-Estrutura:
+- **Repasses** (já existe — `PayoutsPanel`)
+- **Operacional** (nova) — lista `financial_transactions` com `is_operational = true`. Usa `TransactionDialog` existente abrindo já com `type='expense'` e categoria default `rent` (mantém categorias atuais: rent, supplies, salary, other, + novas `utilities`, `marketing`, `internet`).
+- **Glosas** continua acessível pela tela de Convênios (Bloco 3), não duplica aqui.
 
-1. **Cabeçalho** — operadora + período + Valor Esperado (sum `amount` do lote).
-2. **Input "Valor depositado pela operadora"** com máscara BRL.
-3. Se `recebido < esperado`: aparece **Painel de Glosas** com a lista de transações do lote (paciente · data · valor). O usuário escolhe:
-   - **Glosa por consulta**: marca itens, informa `reason` por item; a soma de glosas precisa fechar com `esperado - recebido` (mostra contador "Faltam R$ X").
-   - **Glosa geral do lote** (`appointment_id = null`): aceita a diferença com um único motivo.
-4. Cada glosa pode ser marcada como `accepted` (perde) ou `contested` (em discussão; gera glosa mas não cria transação de perda).
-5. Campo `payment_method` (PIX / Transferência / Boleto / Outro) + observações.
-6. Botão **Confirmar conciliação** → chama RPC `reconcile_insurance_invoice`. Em sucesso: invalida `['insurance-invoices', clinicId]` e `['insurance-glosas', clinicId]`, toast, fecha.
-
-Validações: bloqueia confirmar se `glosas accepted+contested` ≠ `esperado - recebido` (a não ser que usuário marque "diferença é bonificação/sobra", caso `recebido > esperado` — fora de escopo nesse bloco, apenas mostra aviso).
+Sem componente novo pesado — só um `OperationalExpensesPanel.tsx` que reaproveita a listagem/filtros já existentes em `Financial.tsx` recortada.
 
 ---
 
-## 4. Hooks novos — `src/hooks/useInsuranceInvoices.ts`
+### 4. Taxa de cartão nos dialogs de recebimento
 
-- `useInsuranceInvoiceGroups(clinicId)` — agrega `financial_transactions` por `(operator_id, insurance_invoice_period)` e devolve `{ status, expected, received_estimate, count, items }`.
-- `useInsuranceGlosas(clinicId, filters?)` — lista glosas.
-- `useReconcileInvoice()` — mutation que chama o RPC.
+Editar `src/components/attendance/FinishPaymentDialog.tsx` e `src/components/budgets/BudgetPaymentDialog.tsx`:
 
-Substitui parte do que hoje está inline no `InsuranceInvoices.tsx`.
+- Quando `payment_method ∈ ('credit_card','debit_card')` aparece campo opcional **"Taxa da maquininha (R$)"** com máscara BRL.
+- Ao salvar:
+  - grava `card_fee_amount` na própria transação de receita (informativo no DRE);
+  - **não** cria expense automática por padrão — mantém simples. Checkbox opcional "Lançar como despesa separada" cria uma `financial_transactions` `expense / card_fee / status=paid` amarrada via `notes` referenciando o id da receita. Default desligado.
 
----
-
-## 5. Auditoria & não-escopo
-
-- `FinishPaymentDialog.tsx` continua marcando consulta de convênio como `pending` + status `open` (intocado).
-- `OperatorBilling.tsx` (lado operadora) **não muda**.
-- Sem alterar Bloco 1/2 (`useFinanceVisibility`, `commission_payouts`, etc.).
-- Glosa só existe no lado clínica. Sem notificação para operadora.
+`TransactionDialog` também ganha o campo quando `type='income'` + cartão (para lançamentos manuais).
 
 ---
 
-## 6. Critérios de aceite
+### 5. Relatório DRE — `src/pages/financial/FinancialReports.tsx`
 
-1. Tela `/financial/insurance-invoices` mostra 4 abas funcionais.
-2. Conciliação com `recebido = esperado` move o lote para "Recebidos" sem criar glosa.
-3. Conciliação com `recebido < esperado` exige fechar a diferença em glosas; salva tudo atomicamente.
-4. Glosa `accepted` gera (opcionalmente) `financial_transactions` `expense / loss_glosa` amarrada via `loss_transaction_id`.
-5. Aba "Glosas" lista, filtra e permite mudar status (`identified → contested → recovered/accepted`).
-6. Transações do lote passam a `status='paid'` ao conciliar; lote = `reconciled`.
+Nova rota `/financial/relatorios` (registrada em `App.tsx` + link na sidebar dentro do agrupador Financeiro, gated por `canManageClinicFinance`).
+
+Layout:
+
+1. **Filtros**: período (preset Mês atual / Mês anterior / Últimos 3 meses / Customizado com `DateRangePicker`), `Select` de profissional (apenas quando `effectiveRole = admin`; solo já vem fixado).
+2. **Tabela DRE** (linha = mês, coluna = rubrica) na ordem:
+
+```text
+(+) Faturamento particular
+(+) Faturamento convênio (recebido)
+(+) Faturamento convênio (faturado, não recebido)   [linha cinza, informativa]
+(–) Taxas de cartão
+(–) Glosas aceitas
+(–) Repasses pagos
+(–) Despesas operacionais pagas
+─────────────────────────────────────────
+(=) Resultado líquido                                 [bold, verde/vermelho]
+```
+
+3. **Totais do período** no rodapé.
+4. Botão **Exportar CSV** — gera client-side a partir do mesmo payload do RPC (sem libs extras; um `Blob` + `URL.createObjectURL`).
+5. Empty state quando o período não tiver dados.
+
+Visualmente alinhado ao restante do app (shadcn `Table`, `Card`, tokens semânticos — sem cores hardcoded).
 
 ---
 
-## 7. Arquivos
+### 6. Visibilidade & permissões
 
-Migração nova (1) — tabela `insurance_glosas` + RPC `reconcile_insurance_invoice`.
+- `useFinanceVisibility`: DRE liberado para `solo`, `clinic-admin`, `staff-with-finance`. Profissional vinculado (`professional`) **não** acessa DRE — continua só vendo `MyFinance`.
+- RPC valida `user_belongs_to_clinic`; quando `_dentist_id` é passado, exige que o caller seja admin OU o próprio dentista.
 
-Novos:
-- `src/components/finance/ReconcileInvoiceDialog.tsx`
-- `src/components/finance/GlosasPanel.tsx`
-- `src/hooks/useInsuranceInvoices.ts`
+---
 
-Editados:
-- `src/pages/financial/InsuranceInvoices.tsx` (4 abas + integração com dialog/panel)
+### 7. Fora de escopo (mantém limpo)
 
-Posso prosseguir?
+- Sem cálculo automático de taxa por bandeira/parcela (usuário digita o valor).
+- Sem DRE comparativo / projeções.
+- Sem geração de PDF — só CSV.
+- Sem mexer em Marketplace, Agenda, IA, operadora.
+
+---
+
+### 8. Arquivos
+
+**Migração (1)** — colunas `card_fee_amount` / `is_operational` em `financial_transactions` + RPC `get_clinic_financial_summary`.
+
+**Novos:**
+- `src/hooks/useFinancialSummary.ts`
+- `src/components/finance/OperationalExpensesPanel.tsx`
+- `src/pages/financial/FinancialReports.tsx`
+
+**Editados:**
+- `src/pages/Financial.tsx` — sub-abas em Contas a Pagar.
+- `src/components/attendance/FinishPaymentDialog.tsx` — campo taxa.
+- `src/components/budgets/BudgetPaymentDialog.tsx` — campo taxa.
+- `src/components/finance/TransactionDialog.tsx` — campo taxa em receitas cartão.
+- `src/App.tsx` + `src/components/AppSidebar.tsx` — rota e link de Relatórios.
+- `src/hooks/useFinanceVisibility.ts` — flag `canViewReports`.
+
+---
+
+### 9. Critérios de aceite
+
+1. Sub-aba **Operacional** lista, cria e edita despesas não-comissão.
+2. Receita paga em cartão aceita registrar taxa; valor aparece deduzido no DRE.
+3. `/financial/relatorios` mostra DRE mês a mês com os 7 grupos acima e exporta CSV idêntico ao visível.
+4. RPC retorna em < 300 ms para período de 12 meses (sem N+1 no front).
+5. Profissional vinculado não vê o item de Relatórios na sidebar.
+
+Pode confirmar para eu prosseguir?

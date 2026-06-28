@@ -1412,6 +1412,7 @@ export type Database = {
           approval_rejection_reason: string | null
           approval_requested_by: string | null
           approval_status: string
+          card_fee_amount: number
           category: string
           clinic_id: string | null
           created_at: string
@@ -1421,6 +1422,7 @@ export type Database = {
           id: string
           insurance_invoice_period: string | null
           insurance_invoice_status: string | null
+          is_operational: boolean | null
           notes: string | null
           operator_id: string | null
           paid_date: string | null
@@ -1440,6 +1442,7 @@ export type Database = {
           approval_rejection_reason?: string | null
           approval_requested_by?: string | null
           approval_status?: string
+          card_fee_amount?: number
           category: string
           clinic_id?: string | null
           created_at?: string
@@ -1449,6 +1452,7 @@ export type Database = {
           id?: string
           insurance_invoice_period?: string | null
           insurance_invoice_status?: string | null
+          is_operational?: boolean | null
           notes?: string | null
           operator_id?: string | null
           paid_date?: string | null
@@ -1468,6 +1472,7 @@ export type Database = {
           approval_rejection_reason?: string | null
           approval_requested_by?: string | null
           approval_status?: string
+          card_fee_amount?: number
           category?: string
           clinic_id?: string | null
           created_at?: string
@@ -1477,6 +1482,7 @@ export type Database = {
           id?: string
           insurance_invoice_period?: string | null
           insurance_invoice_status?: string | null
+          is_operational?: boolean | null
           notes?: string | null
           operator_id?: string | null
           paid_date?: string | null
@@ -4128,6 +4134,15 @@ export type Database = {
         Returns: number
       }
       generate_clinic_invite_code: { Args: never; Returns: string }
+      get_clinic_financial_summary: {
+        Args: {
+          _clinic_id: string
+          _dentist_id?: string
+          _end: string
+          _start: string
+        }
+        Returns: Json
+      }
       get_marketplace_doctor_profiles: {
         Args: { _user_ids: string[] }
         Returns: {
