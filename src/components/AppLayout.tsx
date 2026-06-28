@@ -23,6 +23,8 @@ import { useClinicBranding } from '@/hooks/useClinicBranding';
 import { FirstAccessClinicDialog } from '@/components/FirstAccessClinicDialog';
 import { PublishPendingBanner } from '@/components/PublishPendingBanner';
 import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
+import { SubscriptionWarningBanner } from '@/components/SubscriptionWarningBanner';
+import { SubscriptionGuard } from '@/components/SubscriptionGuard';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -200,6 +202,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 className="flex-1 flex flex-col min-h-0"
               >
                 <PublishPendingBanner />
+                <SubscriptionWarningBanner />
                 {blockedByPermission ? (
                   <div className="flex flex-1 items-center justify-center">
                     <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 text-center shadow-card">
@@ -214,7 +217,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     </div>
                   </div>
                 ) : (
-                  children
+                  <SubscriptionGuard>{children}</SubscriptionGuard>
                 )}
               </motion.div>
             </AnimatePresence>
