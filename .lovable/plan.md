@@ -1,208 +1,132 @@
+# Bloco 3 — Lotes de Convênio & Conciliação de Glosas
 
-# Bloco 2 — Fechamento de Período & Fluxo de Repasses
-
-Mantém intactos `src/lib/commissions.ts`, `commission_rules`, geração automática e tudo do Bloco 1. Só adiciona a camada de **fechamento** (consolidação de comissões pendentes em um lote pago).
+Reaproveita `financial_transactions.insurance_invoice_period/status` (já existe) e a tela `src/pages/financial/InsuranceInvoices.tsx`. Adiciona a entidade de glosa e o fluxo de conciliação manual por lote (operadora × mês).
 
 ---
 
-## 1. Migração de banco
-
-Nova tabela `commission_payouts` + coluna em `financial_transactions`.
+## 1. Migração — `insurance_glosas`
 
 ```sql
-CREATE TABLE public.commission_payouts (
+CREATE TABLE public.insurance_glosas (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   clinic_id uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
-  dentist_id uuid NOT NULL,                 -- profiles.id / clinic_members.user_id
-  period_start date NOT NULL,
-  period_end   date NOT NULL,
-  total_amount numeric(10,2) NOT NULL,
-  transactions_count int NOT NULL DEFAULT 0,
-  status text NOT NULL DEFAULT 'paid'        -- 'paid' | 'pending_payment'
-    CHECK (status IN ('paid','pending_payment','cancelled')),
-  payment_method text,                       -- 'pix' | 'transfer' | 'cash' | 'other'
-  notes text,
-  paid_at timestamptz,
+  operator_id uuid NOT NULL REFERENCES public.insurance_operators(id) ON DELETE RESTRICT,
+  insurance_invoice_period varchar(7) NOT NULL,    -- 'YYYY-MM'
+  appointment_id uuid REFERENCES public.appointments(id) ON DELETE SET NULL,
+  transaction_id uuid REFERENCES public.financial_transactions(id) ON DELETE SET NULL,
+  expected_amount numeric(10,2) NOT NULL,
+  received_amount numeric(10,2) NOT NULL,
+  glosa_amount   numeric(10,2) NOT NULL,
+  reason text,
+  status varchar(20) NOT NULL DEFAULT 'identified'
+    CHECK (status IN ('identified','accepted','contested','recovered')),
+  loss_transaction_id uuid REFERENCES public.financial_transactions(id) ON DELETE SET NULL,
   created_by uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-GRANT SELECT, INSERT, UPDATE ON public.commission_payouts TO authenticated;
-GRANT ALL ON public.commission_payouts TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.insurance_glosas TO authenticated;
+GRANT ALL ON public.insurance_glosas TO service_role;
+ALTER TABLE public.insurance_glosas ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public.commission_payouts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Clinic members read glosas" ON public.insurance_glosas
+  FOR SELECT TO authenticated USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+CREATE POLICY "Clinic members write glosas" ON public.insurance_glosas
+  FOR INSERT TO authenticated WITH CHECK (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+CREATE POLICY "Clinic members update glosas" ON public.insurance_glosas
+  FOR UPDATE TO authenticated USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+CREATE POLICY "Clinic members delete glosas" ON public.insurance_glosas
+  FOR DELETE TO authenticated USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
 
--- Admins/owners/secretária da clínica veem e gerenciam (gate de financeiro fica na app).
-CREATE POLICY "Clinic members read payouts"
-  ON public.commission_payouts FOR SELECT TO authenticated
-  USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
+CREATE INDEX idx_glosas_clinic_period ON public.insurance_glosas(clinic_id, operator_id, insurance_invoice_period);
 
-CREATE POLICY "Clinic admins write payouts"
-  ON public.commission_payouts FOR INSERT TO authenticated
-  WITH CHECK (public.user_belongs_to_clinic(auth.uid(), clinic_id));
-
-CREATE POLICY "Clinic admins update payouts"
-  ON public.commission_payouts FOR UPDATE TO authenticated
-  USING (public.user_belongs_to_clinic(auth.uid(), clinic_id));
-
-CREATE INDEX idx_payouts_clinic_dentist ON public.commission_payouts(clinic_id, dentist_id, period_end DESC);
-
--- updated_at trigger (reusa update_updated_at_column existente)
-CREATE TRIGGER trg_commission_payouts_updated_at
-  BEFORE UPDATE ON public.commission_payouts
+CREATE TRIGGER trg_glosas_updated_at BEFORE UPDATE ON public.insurance_glosas
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- Amarração no extrato:
-ALTER TABLE public.financial_transactions
-  ADD COLUMN IF NOT EXISTS payout_id uuid REFERENCES public.commission_payouts(id) ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS idx_ft_payout_id ON public.financial_transactions(payout_id);
 ```
 
-RPC para fechar período de forma atômica (evita race-condition entre marcar `paid` e criar o lote):
+Estende status do lote (sem nova coluna — usa `financial_transactions.insurance_invoice_status`). Valores passam a incluir: `open` · `invoiced` (antigo `sent`) · `paid` · `reconciled`. Mantém compatibilidade lendo `sent` como `invoiced` na UI.
 
-```sql
-CREATE OR REPLACE FUNCTION public.close_commission_period(
-  _clinic_id uuid,
-  _dentist_id uuid,
-  _period_start date,
-  _period_end date,
-  _payment_method text DEFAULT NULL,
-  _notes text DEFAULT NULL
-) RETURNS public.commission_payouts
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_total numeric(10,2);
-  v_count int;
-  v_payout public.commission_payouts;
-BEGIN
-  -- Authorization: caller must belong to clinic
-  IF NOT public.user_belongs_to_clinic(auth.uid(), _clinic_id) THEN
-    RAISE EXCEPTION 'Forbidden' USING ERRCODE = '42501';
-  END IF;
-
-  SELECT COALESCE(SUM(amount),0), COUNT(*)
-    INTO v_total, v_count
-    FROM public.financial_transactions
-   WHERE clinic_id = _clinic_id
-     AND dentist_id = _dentist_id
-     AND type = 'expense'
-     AND category = 'commission'
-     AND status = 'pending'
-     AND payout_id IS NULL
-     AND COALESCE(due_date, created_at::date) BETWEEN _period_start AND _period_end;
-
-  IF v_count = 0 THEN
-    RAISE EXCEPTION 'Nenhuma comissão pendente neste período';
-  END IF;
-
-  INSERT INTO public.commission_payouts(
-    clinic_id, dentist_id, period_start, period_end,
-    total_amount, transactions_count, status, payment_method, notes,
-    paid_at, created_by
-  ) VALUES (
-    _clinic_id, _dentist_id, _period_start, _period_end,
-    v_total, v_count, 'paid', _payment_method, _notes,
-    now(), auth.uid()
-  ) RETURNING * INTO v_payout;
-
-  UPDATE public.financial_transactions
-     SET status = 'paid',
-         paid_date = CURRENT_DATE,
-         payout_id = v_payout.id,
-         updated_at = now()
-   WHERE clinic_id = _clinic_id
-     AND dentist_id = _dentist_id
-     AND type = 'expense'
-     AND category = 'commission'
-     AND status = 'pending'
-     AND payout_id IS NULL
-     AND COALESCE(due_date, created_at::date) BETWEEN _period_start AND _period_end;
-
-  -- Notifica o profissional
-  INSERT INTO public.notifications(clinic_id, user_id, type, title, message, reference_id, reference_type)
-  VALUES (
-    _clinic_id, _dentist_id, 'financial',
-    'Repasse recebido',
-    'Foi registrado um repasse de R$ ' || to_char(v_total,'FM999G999G990D00') ||
-      ' referente ao período ' || to_char(_period_start,'DD/MM') || '–' || to_char(_period_end,'DD/MM/YYYY') || '.',
-    v_payout.id, 'commission_payout'
-  );
-
-  RETURN v_payout;
-END $$;
-```
+RPC opcional `reconcile_insurance_invoice(_clinic_id, _operator_id, _period, _received_amount, _glosas jsonb, _payment_method)` para aplicar tudo atomicamente:
+- marca todas as `financial_transactions` do lote (excluindo as referenciadas em glosas `accepted`) como `paid` + `paid_date = today`;
+- marca status do lote como `reconciled`;
+- insere registros em `insurance_glosas`;
+- para cada glosa `accepted`, cria opcionalmente uma `financial_transactions` `expense` / categoria `loss_glosa` e amarra em `loss_transaction_id`.
 
 ---
 
-## 2. UI — Aba "Repasses" no `/financial`
+## 2. UI — `src/pages/financial/InsuranceInvoices.tsx`
 
-Edição em `src/pages/Financial.tsx`: adicionar aba **"Repasses"**, visível somente quando `useFinanceVisibility().canSeePayouts === true` (clínica + staff com perm). Reaproveita a aba de comissões existente — substitui o conteúdo dela pela nova UI quando estiver no modo clínica/staff.
+Refatorar para `Tabs` com 4 abas:
 
-Novos arquivos:
+- **Abertos**: grupos com `status = 'open'` (ou null). Mostra contagem e total acumulando no período corrente.
+- **Faturados**: `status ∈ ('sent','invoiced')`. Botão "Conciliar pagamento" abre `ReconcileInvoiceDialog`.
+- **Recebidos**: `status ∈ ('paid','reconciled')`. Mostra valor esperado vs. recebido vs. glosa total (join com `insurance_glosas` do mesmo período/operadora).
+- **Glosas**: lista plana de `insurance_glosas` da clínica com filtros por operadora/período/status; ações: marcar como `contested`, `accepted`, `recovered`; ver consulta vinculada.
 
-- `src/components/finance/PayoutsPanel.tsx`
-  - **Tabela "A pagar por profissional"** (saldo aberto):
-    - Query agregada: `financial_transactions` com `clinic_id` atual, `type='expense'`, `category='commission'`, `status='pending'`, `payout_id IS NULL`, agrupada por `dentist_id`.
-    - Colunas: Profissional · Comissões pendentes (nº) · Período mais antigo · Total acumulado · botão **Fechar período**.
-  - **Histórico de fechamentos** (abaixo): lista de `commission_payouts` da clínica, mais recente primeiro, com profissional, período, total, método, notas, data de pagamento.
-
-- `src/components/finance/ClosePayoutDialog.tsx`
-  - Abre ao clicar "Fechar período" de um profissional.
-  - Mostra range padrão (`min(due_date)` → hoje), permite editar `period_start` e `period_end`.
-  - Lista de cada comissão dentro do range (data · paciente · valor) com **somatório atualizado**.
-  - Campo `payment_method` (select: PIX / Transferência / Dinheiro / Outro) + `notes` (textarea).
-  - Botão "Confirmar pagamento" → `supabase.rpc('close_commission_period', {...})`.
-  - Em sucesso: toast, invalida `['payouts-open', clinicId]`, `['payout-history', clinicId]`, `['my-commissions', ...]` e fecha.
-
-Hook novo: `src/hooks/usePayouts.ts` com `usePendingByDentist(clinicId)` e `usePayoutHistory(clinicId)`.
+Botão "Marcar como faturada" do fluxo atual passa a setar `insurance_invoice_status='invoiced'` (manter aceitar `sent` na leitura por retrocompatibilidade).
 
 ---
 
-## 3. UI — "Meu Financeiro" do dentista vinculado
+## 3. Conciliação Manual — `ReconcileInvoiceDialog.tsx` (novo)
 
-Edição em `src/pages/dentist/MyFinance.tsx`:
+Arquivo: `src/components/finance/ReconcileInvoiceDialog.tsx`.
 
-- KPIs "A receber" e "Recebido no mês" já usam `status` — apenas garantir que após o RPC `paid_date` reflete corretamente (já reflete).
-- Adicionar Tabs no topo: **"Extrato de comissões"** (já existe) · **"Fechamentos recebidos"** (nova).
-- Nova aba lê `commission_payouts` onde `dentist_id = user.id` e `clinic_id = currentClinicId`, ordem `paid_at DESC`. Colunas: Data do pagamento · Período · Nº de procedimentos · Método · Observações · Total.
-- Cada linha expansível mostra as comissões amarradas (`financial_transactions.payout_id = payout.id`) — opcional, somente um link "Ver detalhes" que abre Dialog com a lista.
+Estrutura:
 
----
+1. **Cabeçalho** — operadora + período + Valor Esperado (sum `amount` do lote).
+2. **Input "Valor depositado pela operadora"** com máscara BRL.
+3. Se `recebido < esperado`: aparece **Painel de Glosas** com a lista de transações do lote (paciente · data · valor). O usuário escolhe:
+   - **Glosa por consulta**: marca itens, informa `reason` por item; a soma de glosas precisa fechar com `esperado - recebido` (mostra contador "Faltam R$ X").
+   - **Glosa geral do lote** (`appointment_id = null`): aceita a diferença com um único motivo.
+4. Cada glosa pode ser marcada como `accepted` (perde) ou `contested` (em discussão; gera glosa mas não cria transação de perda).
+5. Campo `payment_method` (PIX / Transferência / Boleto / Outro) + observações.
+6. Botão **Confirmar conciliação** → chama RPC `reconcile_insurance_invoice`. Em sucesso: invalida `['insurance-invoices', clinicId]` e `['insurance-glosas', clinicId]`, toast, fecha.
 
-## 4. Auditoria & não-escopo
-
-- `src/lib/commissions.ts` permanece intocado — segue gerando `expense + status='pending' + payout_id NULL` (idempotência via `notes`).
-- Nada em `commission_rules` muda.
-- Sem alterar `Budgets`, `BudgetPaymentDialog`, lotes de convênio (Bloco 3) ou DRE (Bloco 4).
-- Solo (`mode==='solo'`) continua sem ver a aba Repasses.
-- Staff com `permissions.financeiro=false` continua bloqueado pela rota.
+Validações: bloqueia confirmar se `glosas accepted+contested` ≠ `esperado - recebido` (a não ser que usuário marque "diferença é bonificação/sobra", caso `recebido > esperado` — fora de escopo nesse bloco, apenas mostra aviso).
 
 ---
 
-## 5. Critérios de aceite
+## 4. Hooks novos — `src/hooks/useInsuranceInvoices.ts`
 
-1. Dono/admin/secretária com perm vê aba **Repasses** em `/financial` com saldo agregado por profissional.
-2. "Fechar período" abre modal, lista as consultas, ao confirmar: cria `commission_payouts`, marca todas as `financial_transactions` envolvidas como `paid` com `payout_id` preenchido — tudo na mesma transação (RPC).
-3. Histórico de fechamentos aparece imediatamente na mesma tela.
-4. Dentista vinculado em `/meu-financeiro` vê valor "A receber" cair e "Recebido no mês" subir; nova aba **Fechamentos recebidos** lista o repasse com método e observações.
-5. Notificação in-app chega ao profissional no momento do fechamento.
-6. Solo não vê Repasses; profissional não vê `/financial`; staff sem perm financeiro segue bloqueado.
+- `useInsuranceInvoiceGroups(clinicId)` — agrega `financial_transactions` por `(operator_id, insurance_invoice_period)` e devolve `{ status, expected, received_estimate, count, items }`.
+- `useInsuranceGlosas(clinicId, filters?)` — lista glosas.
+- `useReconcileInvoice()` — mutation que chama o RPC.
+
+Substitui parte do que hoje está inline no `InsuranceInvoices.tsx`.
 
 ---
 
-## 6. Arquivos
+## 5. Auditoria & não-escopo
 
-Migração nova (1).
+- `FinishPaymentDialog.tsx` continua marcando consulta de convênio como `pending` + status `open` (intocado).
+- `OperatorBilling.tsx` (lado operadora) **não muda**.
+- Sem alterar Bloco 1/2 (`useFinanceVisibility`, `commission_payouts`, etc.).
+- Glosa só existe no lado clínica. Sem notificação para operadora.
+
+---
+
+## 6. Critérios de aceite
+
+1. Tela `/financial/insurance-invoices` mostra 4 abas funcionais.
+2. Conciliação com `recebido = esperado` move o lote para "Recebidos" sem criar glosa.
+3. Conciliação com `recebido < esperado` exige fechar a diferença em glosas; salva tudo atomicamente.
+4. Glosa `accepted` gera (opcionalmente) `financial_transactions` `expense / loss_glosa` amarrada via `loss_transaction_id`.
+5. Aba "Glosas" lista, filtra e permite mudar status (`identified → contested → recovered/accepted`).
+6. Transações do lote passam a `status='paid'` ao conciliar; lote = `reconciled`.
+
+---
+
+## 7. Arquivos
+
+Migração nova (1) — tabela `insurance_glosas` + RPC `reconcile_insurance_invoice`.
 
 Novos:
-- `src/hooks/usePayouts.ts`
-- `src/components/finance/PayoutsPanel.tsx`
-- `src/components/finance/ClosePayoutDialog.tsx`
+- `src/components/finance/ReconcileInvoiceDialog.tsx`
+- `src/components/finance/GlosasPanel.tsx`
+- `src/hooks/useInsuranceInvoices.ts`
 
 Editados:
-- `src/pages/Financial.tsx` (aba "Repasses" gated por `canSeePayouts`)
-- `src/pages/dentist/MyFinance.tsx` (Tabs + aba "Fechamentos recebidos")
+- `src/pages/financial/InsuranceInvoices.tsx` (4 abas + integração com dialog/panel)
 
 Posso prosseguir?
