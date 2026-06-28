@@ -50,6 +50,7 @@ export function GlosasPanel({ clinicId }: { clinicId: string }) {
   const totalRecovered = filtered
     .filter((g) => g.status === 'recovered')
     .reduce((s, g) => s + Number(g.glosa_amount), 0);
+  const displayCount = filtered.length;
 
   const handleStatus = async (id: string, status: Glosa['status']) => {
     try {
@@ -63,7 +64,7 @@ export function GlosasPanel({ clinicId }: { clinicId: string }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="rounded-lg border p-3">
           <p className="text-xs text-muted-foreground">Total de glosas</p>
-          <p className="font-semibold text-lg">{data.length}</p>
+          <p className="font-semibold text-lg">{displayCount}</p>
         </div>
         <div className="rounded-lg border p-3">
           <p className="text-xs text-muted-foreground">Perdas aceitas</p>
