@@ -124,6 +124,7 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -222,15 +223,13 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
         </Tabs>
       </DialogContent>
     </Dialog>
-    <>
-      <SeatLimitDialog
-        open={seatLimitOpen}
-        onOpenChange={setSeatLimitOpen}
-        used={usage?.used}
-        limit={usage?.limit ?? null}
-        planName={usage?.plan_name ?? null}
-      />
-    </>
+    <SeatLimitDialog
+      open={seatLimitOpen}
+      onOpenChange={setSeatLimitOpen}
+      used={usage?.used}
+      limit={usage?.limit ?? null}
+      planName={usage?.plan_name ?? null}
+    />
     </>
   );
 }
