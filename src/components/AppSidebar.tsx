@@ -112,6 +112,7 @@ const clinicNav: Array<{ title: string; url: string; icon: typeof Users; categor
   { title: 'Credenciamentos',   url: '/clinica/credenciamentos', icon: Building2,  categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
   { title: 'Convênios',         url: '/clinica/convenios',   icon: Receipt,        categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist', 'secretary'] },
   { title: 'Financeiro',        url: '/financial',           icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['admin', 'secretary', 'auxiliary'] },
+  { title: 'Meu Financeiro',    url: '/meu-financeiro',      icon: DollarSign,     categories: ALL_CATEGORIES, allowedRoles: ['dentist'] },
   { title: 'Orçamentos',        url: '/budgets',             icon: ClipboardList,  categories: ALL_CATEGORIES, allowedRoles: ['admin', 'dentist'] },
   { title: 'Secretária IA',     url: '/secretaria-ia',       icon: Bot,            categories: ALL_CATEGORIES, allowedRoles: ['admin'] },
 ];
