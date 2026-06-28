@@ -26,10 +26,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { ClinicHealthPanel } from '@/components/finance/ClinicHealthPanel';
 import { CommissionsPanel } from '@/components/finance/CommissionsPanel';
+import { SoloFinanceOverview } from '@/components/finance/SoloFinanceOverview';
+import { ClinicFinanceOverview } from '@/components/finance/ClinicFinanceOverview';
 import { generateCommissionsForTransaction } from '@/lib/commissions';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
+import { useFinanceVisibility } from '@/hooks/useFinanceVisibility';
+import { Navigate } from 'react-router-dom';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -40,6 +44,7 @@ export default function Financial() {
   const queryClient = useQueryClient();
   const { effectiveRole } = useRoleAccess();
   const { isSolo } = useSoloMode();
+  const visibility = useFinanceVisibility();
   const canApprove = canManageClinicFinance({
     isSolo,
     role: effectiveRole as any,
