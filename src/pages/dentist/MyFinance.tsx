@@ -12,12 +12,15 @@ import {
 } from '@/components/ui/table';
 import { Wallet, Clock, CheckCircle2, Receipt } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useMyPayouts } from '@/hooks/usePayouts';
 
 const fmt = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function MyFinance() {
   const { user, currentClinicId } = useAuth();
+  const { data: payouts = [] } = useMyPayouts(currentClinicId, user?.id ?? null);
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
@@ -174,9 +177,21 @@ export default function MyFinance() {
 
       <Card className="shadow-card border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Extrato de comissões</CardTitle>
+          <CardTitle className="text-base">Histórico</CardTitle>
         </CardHeader>
         <CardContent>
+          <Tabs defaultValue="extract">
+            <TabsList>
+              <TabsTrigger value="extract">Extrato de comissões</TabsTrigger>
+              <TabsTrigger value="payouts">
+                Fechamentos recebidos
+                {payouts.length > 0 && (
+                  <Badge variant="outline" className="ml-2 text-[10px] h-5 px-1.5">{payouts.length}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="extract" className="pt-4">
           {isLoading ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
           ) : commissions.length === 0 ? (
@@ -230,6 +245,58 @@ export default function MyFinance() {
               </Table>
             </div>
           )}
+            </TabsContent>
+
+            <TabsContent value="payouts" className="pt-4">
+              {payouts.length === 0 ? (
+                <EmptyState
+                  icon={Receipt}
+                  title="Nenhum fechamento ainda"
+                  description="Quando a administração fechar e pagar um período de comissões, o lançamento aparecerá aqui para sua conferência."
+                />
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[560px]">
+                    <TableHeader>
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableHead>Pago em</TableHead>
+                        <TableHead>Período</TableHead>
+                        <TableHead>Método</TableHead>
+                        <TableHead>Observações</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(payouts as any[]).map((p) => (
+                        <TableRow key={p.id} className="hover:bg-muted/40">
+                          <TableCell className="text-muted-foreground">
+                            {p.paid_at ? format(parseISO(p.paid_at), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {format(parseISO(p.period_start), 'dd/MM/yy', { locale: ptBR })} – {format(parseISO(p.period_end), 'dd/MM/yy', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {p.payment_method === 'pix' ? 'PIX'
+                                : p.payment_method === 'transfer' ? 'Transferência'
+                                : p.payment_method === 'cash' ? 'Dinheiro'
+                                : (p.payment_method ?? '—')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground italic truncate max-w-[260px]">
+                            {p.notes ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">
+                            {fmt(Number(p.total_amount))}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
