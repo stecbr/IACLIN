@@ -237,6 +237,25 @@ export default function ClinicaHome() {
     { name: 'Taxa de comparecimento', value: Math.max(0, 100 - noShowRate), fill: '#6366f1' },
   ];
 
+  const revenueRanking = useMemo(() => {
+    const totals: Record<string, number> = {};
+    (revenueByPro as any[]).forEach((tx) => {
+      const key = tx.dentist_id ?? '__unassigned';
+      totals[key] = (totals[key] ?? 0) + Number(tx.amount);
+    });
+    const max = Math.max(1, ...Object.values(totals));
+    return Object.entries(totals)
+      .map(([id, value]) => ({
+        id,
+        name:
+          (members as any[]).find((m) => m.user_id === id)?.name ?? 'Sem profissional',
+        value,
+        pct: Math.round((value / max) * 100),
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [revenueByPro, members]);
+
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const kpis = [
