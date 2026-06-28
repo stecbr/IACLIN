@@ -17,6 +17,9 @@ import {
   registrationPlaceholderForSpecialty,
   validateRegistrationForSpecialty,
 } from '@/components/SpecialtySelect';
+import { useSeatUsage } from '@/hooks/useSeatUsage';
+import { SeatLimitDialog } from '@/components/settings/SeatLimitDialog';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
   open: boolean;
@@ -33,6 +36,8 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
   const [linkCopied, setLinkCopied] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const { usage, isAtLimit, refetch: refetchUsage } = useSeatUsage(currentClinicId);
+  const [seatLimitOpen, setSeatLimitOpen] = useState(false);
 
   const reset = () => {
     setForm({ name: '', email: '', registration: '', specialty: '' });
@@ -51,6 +56,10 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentClinicId) return;
+    if (isAtLimit) {
+      setSeatLimitOpen(true);
+      return;
+    }
     if (!form.name.trim() || !form.email.trim()) {
       toast.error('Preencha nome e e-mail');
       return;
@@ -76,11 +85,23 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
         },
       });
       if (error) throw error;
+      if ((data as any)?.code === 'seat_limit_reached') {
+        await refetchUsage();
+        setSeatLimitOpen(true);
+        return;
+      }
       setInviteUrl((data as any)?.invite_url ?? null);
       toast.success('Convite criado!', { description: 'Compartilhe o link com o médico.' });
       qc.invalidateQueries({ queryKey: ['clinic-invites'] });
+      refetchUsage();
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao criar convite');
+      const msg = err?.message || 'Erro ao criar convite';
+      if (/seat_limit_reached|Limite do plano/i.test(msg)) {
+        await refetchUsage();
+        setSeatLimitOpen(true);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -110,6 +131,16 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
           <DialogDescription>
             Convide um {terms.teamMember.toLowerCase()} por e-mail ou compartilhe o código da clínica.
           </DialogDescription>
+          {usage && (
+            <div className="pt-1">
+              <Badge variant={isAtLimit ? 'destructive' : 'outline'} className="font-normal">
+                {usage.unlimited
+                  ? `${usage.used} profissionais (ilimitado)`
+                  : `${usage.used} de ${usage.limit} profissionais`}
+                {usage.plan_name ? ` · ${usage.plan_name}` : ''}
+              </Badge>
+            </div>
+          )}
         </DialogHeader>
 
         <Tabs defaultValue="invite" className="w-full">
@@ -163,7 +194,13 @@ export function AddMedicoDialog({ open, onOpenChange }: Props) {
                 </div>
                 <DialogFooter className="gap-2 sm:gap-2">
                   <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={submitting || !form.specialty.trim()}>{submitting ? 'Criando…' : 'Criar convite'}</Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting || !form.specialty.trim() || isAtLimit}
+                    title={isAtLimit ? 'Limite do plano atingido' : undefined}
+                  >
+                    {submitting ? 'Criando…' : isAtLimit ? 'Limite atingido' : 'Criar convite'}
+                  </Button>
                 </DialogFooter>
               </form>
             )}
