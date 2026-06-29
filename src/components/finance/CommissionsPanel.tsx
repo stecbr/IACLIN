@@ -212,7 +212,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   };
 
   const proRulesEditing = editingPro
-    ? (rulesByDentist[editingPro.id] ?? [])
+    ? (editingPro.isDefault ? defaultRules : (rulesByDentist[editingPro.id] ?? []))
     : [];
 
   const addRule = async () => {
