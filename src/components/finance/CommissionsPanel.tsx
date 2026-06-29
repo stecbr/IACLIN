@@ -20,9 +20,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Trash2, HelpCircle } from 'lucide-react';
+import { Settings, Trash2, HelpCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { generateCommissionsForTransaction } from '@/lib/commissions';
 
 interface CommissionRule {
   id: string;
@@ -54,6 +55,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   const queryClient = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
   const [editingPro, setEditingPro] = useState<{ id: string; name: string; isDefault?: boolean } | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
 
   const [draftTrigger, setDraftTrigger] = useState('after_procedure');
   const [draftType, setDraftType] = useState('percentage');
@@ -190,6 +192,41 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
     });
   }, [members, profilesData, transactions, rulesByDentist]);
 
+  // Professionals who have income transactions but no commission posted and no rules
+  const professionalsWithoutCommission = useMemo(() =>
+    professionals.filter((p) => p.earned > 0 && p.rulesCount === 0 && p.posted === 0 && defaultRules.length === 0),
+    [professionals, defaultRules]
+  );
+
+  const handleRetroactiveRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      // Fetch all approved income transactions in the period for this clinic without a commission posted
+      const { data: incomeTxs } = await supabase
+        .from('financial_transactions')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('type', 'income')
+        .or('approval_status.is.null,approval_status.eq.approved');
+      if (!incomeTxs?.length) {
+        toast.info('Nenhuma transação de receita encontrada.');
+        return;
+      }
+      let generated = 0;
+      for (const tx of incomeTxs) {
+        await generateCommissionsForTransaction(tx.id, 'after_procedure');
+        generated++;
+      }
+      toast.success(`Recálculo concluído. ${generated} transação(ões) processada(s).`);
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['commission-rules', clinicId] });
+    } catch (e: any) {
+      toast.error(e.message ?? 'Erro ao recalcular comissões');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   const fmt = (v: number) =>
     `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -260,6 +297,34 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Alerta: profissionais com atendimentos mas sem comissão configurada */}
+      {professionalsWithoutCommission.length > 0 && (
+        <Card className="border-amber-400/40 bg-amber-500/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Atendimentos sem comissão configurada
+              </p>
+              <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-1">
+                {professionalsWithoutCommission.map((p) => p.name).join(', ')} — possuem receitas registradas mas nenhuma regra de comissão.
+                Configure uma regra abaixo e clique em "Recalcular retroativo" para gerar as comissões passadas.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs h-8 border-amber-400/60 text-amber-800 dark:text-amber-200 hover:bg-amber-500/10 flex-shrink-0"
+              onClick={handleRetroactiveRecalculate}
+              disabled={recalculating}
+            >
+              <RefreshCw className={`h-3 w-3 ${recalculating ? 'animate-spin' : ''}`} />
+              {recalculating ? 'Recalculando...' : 'Recalcular retroativo'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Regra padrão da clínica (fallback para profissionais sem regra) */}
       <Card className="border-dashed border-primary/40 bg-primary/5">
         <CardContent className="p-4 flex items-center gap-4">
