@@ -6,7 +6,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, Receipt, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, Loader2, Receipt, Sparkles, CalendarClock } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 import {
   formatBRL,
   SUB_STATUS_LABELS,
@@ -44,8 +55,10 @@ const PAY_STATUS_STYLES: Record<PaymentStatus, string> = {
 export default function SubscriptionSection({ entityType, entityId }: Props) {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
-  const { data: subscription, isLoading } = useQuery({
+  const { data: subscription, isLoading, refetch: refetchSubscription } = useQuery({
     queryKey: ['my-subscription', entityType, entityId],
     enabled: !!entityId,
     queryFn: async () => {
@@ -110,17 +123,35 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Tem certeza que deseja cancelar sua assinatura? O acesso permanece até o fim do período pago.')) return;
     setPortalLoading(true);
     try {
       const { error } = await supabase.functions.invoke('mercadopago-cancel-subscription', {
-        body: { entity_type: entityType, entity_id: entityId },
+        body: { entity_type: entityType, entity_id: entityId, reason: cancelReason || null },
       });
       if (error) throw error;
-      toast.success('Assinatura cancelada.');
-      window.location.reload();
+      toast.success('Cancelamento agendado. Você mantém acesso até o fim do período.');
+      setCancelDialogOpen(false);
+      setCancelReason('');
+      await refetchSubscription();
     } catch (e: any) {
       toast.error('Erro ao cancelar: ' + (e?.message ?? 'desconhecido'));
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    setPortalLoading(true);
+    try {
+      const { error } = await (supabase as any).rpc('reactivate_subscription', {
+        _entity_type: entityType,
+        _entity_id: entityId,
+      });
+      if (error) throw error;
+      toast.success('Assinatura reativada.');
+      await refetchSubscription();
+    } catch (e: any) {
+      toast.error('Erro ao reativar: ' + (e?.message ?? 'desconhecido'));
     } finally {
       setPortalLoading(false);
     }
@@ -218,6 +249,7 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
 
   const overdue = subscription.status === 'overdue';
   const dueDate = subscription.current_period_end || subscription.due_date;
+  const pendingCancellation = Boolean((subscription as any).cancel_at_period_end) && isActive;
 
   return (
     <div className="space-y-4">
@@ -227,6 +259,21 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
           <div className="text-sm text-red-700 dark:text-red-300">
             <strong>Assinatura em atraso.</strong> Regularize o pagamento para evitar o bloqueio do acesso.
           </div>
+        </div>
+      )}
+
+      {pendingCancellation && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-900 p-4">
+          <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className="flex-1 text-sm text-amber-800 dark:text-amber-200">
+            <strong>Cancelamento agendado.</strong>{' '}
+            {dueDate
+              ? <>Seu acesso permanece ativo até {format(new Date(dueDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.</>
+              : <>Seu acesso permanece ativo até o fim do período pago.</>}
+          </div>
+          <Button size="sm" variant="outline" onClick={handleReactivate} disabled={portalLoading}>
+            Reativar assinatura
+          </Button>
         </div>
       )}
 
@@ -280,12 +327,12 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
                 </a>
               </Button>
             )}
-            {isActive && (
+            {isActive && !pendingCancellation && (
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-2 text-destructive hover:text-destructive"
-                onClick={handleCancelSubscription}
+                onClick={() => setCancelDialogOpen(true)}
                 disabled={portalLoading}
               >
                 {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -295,6 +342,39 @@ export default function SubscriptionSection({ entityType, entityId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A renovação automática será interrompida. Seu acesso ao IACLIN continua liberado
+              {dueDate ? <> até <strong>{format(new Date(dueDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</strong></> : ' até o fim do período já pago'}.
+              Após essa data, o sistema entra em modo restrito até a regularização.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <label className="text-xs font-medium text-muted-foreground">Motivo (opcional)</label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Conte-nos por que está cancelando..."
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={portalLoading}>Manter assinatura</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); handleCancelSubscription(); }}
+              disabled={portalLoading}
+            >
+              {portalLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar cancelamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PlansGrid />
 
