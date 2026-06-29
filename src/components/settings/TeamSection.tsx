@@ -408,7 +408,7 @@ export default function TeamSection() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemove(m.id, m.user_id)}
+                          onClick={() => setRemoveTarget({ id: m.id, user_id: m.user_id, name: m.full_name })}
                           className="h-8 w-8 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -454,6 +454,32 @@ export default function TeamSection() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setErrorDialog((s) => ({ ...s, open: false }))}>
               Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover profissional da clínica?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{removeTarget?.name}</strong> perderá imediatamente o acesso a agenda, pacientes,
+              prontuários e financeiro desta clínica. O cadastro pessoal no IACLIN continua ativo —
+              o profissional poderá criar a própria clínica ou aceitar um novo convite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!removeTarget) return;
+                await handleRemove(removeTarget.id, removeTarget.user_id);
+                setRemoveTarget(null);
+              }}
+            >
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
