@@ -38,7 +38,19 @@ export async function generateCommissionsForTransaction(
     .eq('clinic_id', tx.clinic_id)
     .eq('dentist_id', tx.dentist_id)
     .eq('trigger', trigger);
-  if (!rules || rules.length === 0) return;
+  let effectiveRules = rules ?? [];
+
+  // Fallback: regra padrão da clínica quando o profissional não tem regra própria.
+  if (effectiveRules.length === 0) {
+    const { data: defaults } = await supabase
+      .from('commission_rules')
+      .select('*')
+      .eq('clinic_id', tx.clinic_id)
+      .eq('is_clinic_default', true)
+      .eq('trigger', trigger);
+    effectiveRules = defaults ?? [];
+  }
+  if (effectiveRules.length === 0) return;
 
   // Pull professional specialty once (for specialty filtering)
   let memberSpecialty: string | null = null;
@@ -53,7 +65,7 @@ export async function generateCommissionsForTransaction(
   const txInsurance = (tx as any).patients?.insurance_provider ?? null;
   const amount = Number(tx.amount) || 0;
 
-  for (const rule of rules as any[]) {
+  for (const rule of effectiveRules as any[]) {
     if (rule.insurance_provider && rule.insurance_provider !== txInsurance) continue;
     if (rule.specialty && rule.specialty !== memberSpecialty) continue;
 

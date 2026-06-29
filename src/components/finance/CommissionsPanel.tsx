@@ -53,7 +53,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
-  const [editingPro, setEditingPro] = useState<{ id: string; name: string } | null>(null);
+  const [editingPro, setEditingPro] = useState<{ id: string; name: string; isDefault?: boolean } | null>(null);
 
   const [draftTrigger, setDraftTrigger] = useState('after_procedure');
   const [draftType, setDraftType] = useState('percentage');
@@ -78,11 +78,15 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   const rulesByDentist = useMemo(() => {
     const map: Record<string, CommissionRule[]> = {};
     (rulesData as any[]).forEach((r) => {
-      if (!map[r.dentist_id]) map[r.dentist_id] = [];
-      map[r.dentist_id].push(r as CommissionRule);
+      const key = r.is_clinic_default ? '__default__' : r.dentist_id;
+      if (!key) return;
+      if (!map[key]) map[key] = [];
+      map[key].push(r as CommissionRule);
     });
     return map;
   }, [rulesData]);
+
+  const defaultRules = rulesByDentist['__default__'] ?? [];
 
   const { data: members = [] } = useQuery({
     queryKey: ['clinic-members-commissions', clinicId],
@@ -197,7 +201,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
       .join('')
       .toUpperCase();
 
-  const openConfig = (pro: { id: string; name: string }) => {
+  const openConfig = (pro: { id: string; name: string; isDefault?: boolean }) => {
     setEditingPro(pro);
     setDraftTrigger('after_procedure');
     setDraftType('percentage');
@@ -208,7 +212,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   };
 
   const proRulesEditing = editingPro
-    ? (rulesByDentist[editingPro.id] ?? [])
+    ? (editingPro.isDefault ? defaultRules : (rulesByDentist[editingPro.id] ?? []))
     : [];
 
   const addRule = async () => {
@@ -221,7 +225,8 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
     setSavingRule(true);
     const { error } = await supabase.from('commission_rules').insert({
       clinic_id: clinicId,
-      dentist_id: editingPro.id,
+      dentist_id: editingPro.isDefault ? null : editingPro.id,
+      is_clinic_default: !!editingPro.isDefault,
       trigger: draftTrigger,
       type: draftType,
       value: v,
@@ -255,6 +260,36 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Regra padrão da clínica (fallback para profissionais sem regra) */}
+      <Card className="border-dashed border-primary/40 bg-primary/5">
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Settings className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">Regra padrão da clínica</p>
+            <p className="text-xs text-muted-foreground">
+              Aplicada automaticamente quando um profissional não tem regra própria.
+              {defaultRules.length > 0 && ` · ${defaultRules.length} regra${defaultRules.length > 1 ? 's' : ''} cadastrada${defaultRules.length > 1 ? 's' : ''}.`}
+            </p>
+          </div>
+          {defaultRules.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] hidden sm:flex">
+              ativa
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs h-8"
+            onClick={() => openConfig({ id: '__default__', name: 'Regra padrão da clínica', isDefault: true })}
+          >
+            <Settings className="h-3 w-3" />
+            Configurar
+          </Button>
+        </CardContent>
+      </Card>
+
       {professionals.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-border bg-muted/30">
           <p className="text-sm text-muted-foreground">
