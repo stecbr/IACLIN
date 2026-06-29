@@ -14,6 +14,8 @@ import { Wallet, Clock, CheckCircle2, Receipt } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMyPayouts } from '@/hooks/usePayouts';
+import { PayoutsHelpSheet } from '@/components/finance/PayoutsHelpSheet';
+import { Info } from 'lucide-react';
 
 const fmt = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -145,6 +147,22 @@ export default function MyFinance() {
         description="Acompanhe suas comissões, valores a receber e histórico de pagamentos."
       />
 
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+        <div className="h-9 w-9 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+          <Info className="h-4 w-4" />
+        </div>
+        <div className="flex-1 text-sm text-foreground/90 leading-relaxed">
+          <p className="font-medium text-foreground">Como você recebe suas comissões</p>
+          <p className="mt-1 text-muted-foreground">
+            A cada atendimento finalizado, o sistema calcula sua comissão e soma em{' '}
+            <strong>A receber</strong>. A clínica paga você por fora (Pix, transferência,
+            dinheiro) e, ao registrar o pagamento, ele aparece em{' '}
+            <strong>Fechamentos recebidos</strong>.
+          </p>
+        </div>
+        <PayoutsHelpSheet audience="professional" />
+      </div>
+
       {ruleCount === 0 && (
         <Card className="border-warning/30 bg-warning/5">
           <CardContent className="p-4 text-sm text-foreground">
@@ -182,7 +200,7 @@ export default function MyFinance() {
         <CardContent>
           <Tabs defaultValue="extract">
             <TabsList>
-              <TabsTrigger value="extract">Extrato de comissões</TabsTrigger>
+              <TabsTrigger value="extract">A receber</TabsTrigger>
               <TabsTrigger value="payouts">
                 Fechamentos recebidos
                 {payouts.length > 0 && (
@@ -192,13 +210,17 @@ export default function MyFinance() {
             </TabsList>
 
             <TabsContent value="extract" className="pt-4">
+              <p className="text-xs text-muted-foreground mb-3">
+                Comissões geradas pelos seus atendimentos. Aguardam o fechamento e
+                pagamento pela clínica.
+              </p>
           {isLoading ? (
             <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
           ) : commissions.length === 0 ? (
             <EmptyState
               icon={Wallet}
-              title="Nenhuma comissão registrada"
-              description="Quando seus atendimentos gerarem comissão, eles aparecerão aqui."
+              title="Nenhuma comissão ainda"
+              description="Assim que você finalizar um atendimento com pagamento registrado, sua comissão aparece aqui."
             />
           ) : (
             <div className="w-full overflow-x-auto">
@@ -248,6 +270,10 @@ export default function MyFinance() {
             </TabsContent>
 
             <TabsContent value="payouts" className="pt-4">
+              <p className="text-xs text-muted-foreground mb-3">
+                Pagamentos já confirmados pela clínica. Cada linha representa um
+                fechamento de período (semanal, quinzenal ou mensal).
+              </p>
               {payouts.length === 0 ? (
                 <EmptyState
                   icon={Receipt}
