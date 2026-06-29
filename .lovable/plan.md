@@ -1,54 +1,49 @@
+## Diagnóstico: por que não apareceu nada no financeiro
 
-# Melhorar UX do fluxo de Repasses (Comissões)
+Investiguei o caso do Marcio (`marcio@gmail.com`) atendendo o Flavio na clínica **lucas ferreira** e encontrei **3 problemas reais** que, juntos, fazem com que o gestor da clínica não veja despesa nenhuma.
 
-Hoje o fluxo de repasse existe e funciona, mas ele é "silencioso": o dono da clínica precisa adivinhar o que cada botão faz, e o profissional não entende de onde vêm os valores em "Meu Financeiro". Vou tornar o fluxo auto-explicativo em **3 pontos da plataforma**, sem mudar regra de negócio.
+### Como o fluxo deveria funcionar (resumo)
+1. Profissional finaliza atendimento → `FinishPaymentDialog` cria 1 `financial_transaction` do tipo **income** (receita da clínica) com `dentist_id` = profissional, valor = preço da consulta.
+2. `generateCommissionsForTransaction()` lê as `commission_rules` daquele dentista naquela clínica e, se existir regra, cria 1 transação **expense / commission** (despesa de repasse).
+3. Essa despesa aparece para o gestor em **Financeiro → Operacional / Repasses** e para o profissional em **Meu Financeiro → A receber**.
 
----
+### Problemas encontrados
 
-## 1. Painel de Repasses (visão Dono/Admin/Secretária)
-Arquivo: `src/components/finance/PayoutsPanel.tsx` (+ `ClosePayoutDialog.tsx`)
+**1. Não existe regra de comissão para o Marcio**
+Na clínica `lucas ferreira` só existe 1 regra de comissão, e está atribuída a outro dentista (`10086153-…`), não ao Marcio. Sem regra → nenhuma despesa de comissão é gerada. É exatamente o que o "stack overflow" interno descreve.
 
-- **Cabeçalho explicativo** no topo do painel:
-  > "Aqui você fecha o período e registra o pagamento das comissões dos profissionais. O sistema soma automaticamente todas as comissões geradas pelos atendimentos concluídos. Você paga o profissional por fora (Pix, transferência, dinheiro) e registra aqui — assim o profissional vê o recebimento dele em **Meu Financeiro**."
-- Botão **"Como funciona?"** abrindo um `Sheet` lateral com o fluxo ilustrado em 4 passos (Atendimento → Comissão gerada → Fechamento → Pagamento registrado).
-- Cada card de profissional ganha:
-  - Tooltip no valor explicando "Soma das comissões pendentes desde {data mais antiga}".
-  - Microcopy sob o botão: "Fechar período e registrar pagamento".
-  - Badge de período sugerido (ex: "Últimos 30 dias").
-- No `ClosePayoutDialog`:
-  - Texto introdutório curto: "Confirme o período, o método usado e registre. Isso **não envia dinheiro**, apenas registra que você já pagou."
-  - Renomear botão de "Confirmar pagamento" → "Registrar pagamento já realizado" (deixa claro que é registro, não transferência).
-  - Adicionar alerta visual quando `total = 0` orientando ampliar o período.
+**2. As 2 consultas de hoje (29/06) finalizadas como `completed` não geraram nenhum `financial_transaction`**
+Os agendamentos `120f13f4…` e `f068e917…` do Flavio estão com status `completed`, mas não existe nenhuma linha em `financial_transactions` para eles. Ou seja, o `FinishPaymentDialog` não chegou a registrar pagamento (provavelmente foi finalizado direto pelo botão "Finalizar" sem passar pelo modal de pagamento, ou marcado como "A combinar" sem valor).
 
-## 2. Tela "Meu Financeiro" (visão Profissional vinculado)
-Arquivo: `src/pages/dentist/MyFinance.tsx`
+**3. A transação que existe (consulta do dia 26) está com `dentist_id` errado e `amount = 0`**
+A única transação ligada aos atendimentos do Marcio (`ac25021b…`) tem:
+- `dentist_id = e44c667c…` (= `jesuss@gmail.com`, outro profissional) — provavelmente porque o dialog está pegando o dentista do contexto da clínica/usuário logado em vez do dentista do agendamento.
+- `amount = 0.00`, `payment_method = particular_pending` → mesmo se existisse regra de 10%, 10% de 0 = 0.
 
-- Banner de boas-vindas explicando: "Aqui você acompanha as comissões dos seus atendimentos. Os valores são pagos pela clínica fora da plataforma (Pix/transferência). Quando a clínica registra o pagamento, ele aparece em **Fechamentos recebidos**."
-- Renomear/clarificar abas:
-  - "Comissões a receber" → microcopy "Aguardando fechamento pela clínica"
-  - "Fechamentos recebidos" → microcopy "Pagamentos já confirmados pela clínica"
-- Tooltip em cada linha explicando origem (paciente + atendimento).
-- Estado vazio amigável: "Nenhuma comissão ainda. Assim que você finalizar um atendimento com pagamento registrado, ela aparece aqui."
+### O que precisa ser decidido antes de eu codar
 
-## 3. Onboarding contextual / Tour
-Arquivo novo: `src/components/finance/PayoutsHelpSheet.tsx` (reutilizado nos 2 contextos acima)
+Para não sair corrigindo no escuro, preciso confirmar com você:
 
-- Componente único de ajuda com 4 passos visuais + ícones (Lucide), que pode ser aberto tanto pelo dono quanto pelo profissional.
-- Mostra os papéis lado a lado: o que o **Profissional** vê × o que o **Dono/Secretária** vê em cada passo.
+**A. Origem do valor da consulta.** Hoje, quando o profissional finaliza, o valor da consulta vem de onde?
+- (a) preço cadastrado no procedimento/serviço da clínica
+- (b) digitado manualmente no modal de pagamento
+- (c) deve puxar do orçamento aprovado vinculado àquela consulta
 
-## 4. Pequenos ajustes complementares
-- `MyFinance.tsx`: adicionar card "Próximo fechamento estimado" com a data média de fechamento dos últimos 3 períodos (se houver histórico).
-- `PayoutsPanel.tsx`: filtro rápido por profissional quando a clínica tiver muitos.
-- Garantir que todos os textos usem o termo **"Repasse"** de forma consistente (hoje varia entre "comissão", "fechamento", "pagamento").
+**B. Quando criar a transação de receita.** Devo:
+- (a) sempre criar uma transação no `completed` (mesmo que o pagamento seja "A combinar", entrando como `pending`), OU
+- (b) só criar quando a forma de pagamento for de fato registrada
 
----
+**C. Regra de comissão padrão.** Quer que eu:
+- (a) bloqueie a finalização e avise "Cadastre uma regra de comissão para este profissional" quando não existir regra, OU
+- (b) crie silenciosamente uma transação de receita mas sem despesa de comissão (situação atual — gera o problema que você sentiu), OU
+- (c) permita uma "regra padrão da clínica" (ex.: 30% para todo profissional sem regra específica)
 
-## Detalhes técnicos
-- Sem mudanças de schema, RPC ou edge functions. Apenas componentes UI + microcopy.
-- Reutilizo `Sheet`, `Tooltip`, `Alert` e `Card` do shadcn já presentes no projeto.
-- Sem mexer em lógica de geração de comissão (`src/lib/commissions.ts`) nem na RPC `close_commission_period`.
-- Sem alteração de permissões — `useFinanceVisibility` continua governando quem vê o quê.
+### Plano provisório (sujeito às respostas acima)
 
-## Fora de escopo (confirmar se quer incluir)
-- Notificação automática (sino/email) ao profissional quando um repasse é registrado.
-- Geração de comprovante PDF do repasse.
+1. **Bug do `dentist_id` errado** — auditar `FinishPaymentDialog.tsx` e garantir que o `dentist_id` da transação seja sempre `appointment.dentist_id`, não o `user.id` da sessão.
+2. **Bug de transação não criada quando `completed` sem pagamento** — em `Attendance.tsx`, ao finalizar sem registro de pagamento, criar transação `income / pending / particular_pending` com valor do procedimento, para o repasse poder ser calculado depois.
+3. **UX de regra de comissão ausente** — no modal de finalização e em `TeamSection`, mostrar aviso quando o profissional não tem regra, com atalho "Cadastrar regra agora" para o admin.
+4. **Painel do gestor (`PayoutsPanel` + `Financial → Operacional`)** — adicionar um card "Atendimentos sem comissão configurada" listando profissionais com consultas finalizadas mas sem regra, para o dono não ser pego de surpresa.
+5. **Recalcular comissões retroativas** — RPC `recalculate_commissions(clinic_id)` para, após cadastrar uma regra, gerar as despesas das consultas já finalizadas.
+
+Me responda A, B e C que eu fecho o plano final e parto pra implementação.
