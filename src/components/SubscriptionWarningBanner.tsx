@@ -11,7 +11,7 @@ export function SubscriptionWarningBanner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { clinicRole, isClinicOwner } = useAuth();
-  const { isActive, isTrial, daysUntilDue, isOverdueOrCancelled } = useSubscriptionStatus();
+  const { isActive, isTrial, daysUntilDue, isOverdueOrCancelled, isPendingCancellation } = useSubscriptionStatus();
 
   const [dismissed, setDismissed] = useState(() => {
     try { return sessionStorage.getItem(DISMISS_KEY) === '1'; } catch { return false; }
@@ -23,11 +23,17 @@ export function SubscriptionWarningBanner() {
   if (!isAdmin) return null;
   if (isOverdueOrCancelled) return null;
   if (!isActive) return null;
-  if (daysUntilDue === null || daysUntilDue > 7) return null;
+  if (!isPendingCancellation && (daysUntilDue === null || daysUntilDue > 7)) return null;
   if (dismissed) return null;
   if (onSettings) return null;
 
   const message = (() => {
+    if (isPendingCancellation) {
+      if (daysUntilDue === null) return 'Sua assinatura está agendada para cancelamento. Reative para evitar o bloqueio.';
+      if (daysUntilDue <= 0) return 'Sua assinatura encerra hoje. Reative para evitar o bloqueio.';
+      const dias = daysUntilDue === 1 ? '1 dia' : `${daysUntilDue} dias`;
+      return `Sua assinatura será encerrada em ${dias}. Reative para evitar o bloqueio.`;
+    }
     if (daysUntilDue <= 0) {
       return isTrial
         ? 'Seu período de testes termina hoje. Ative seu plano para evitar o bloqueio.'
@@ -60,7 +66,7 @@ export function SubscriptionWarningBanner() {
           onClick={() => navigate('/settings?tab=subscription')}
           className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 px-3 py-1 text-xs font-medium transition-colors"
         >
-          Regularizar
+          {isPendingCancellation ? 'Reativar' : 'Regularizar'}
           <ArrowRight className="h-3 w-3" />
         </button>
         <button
