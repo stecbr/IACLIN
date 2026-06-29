@@ -3220,6 +3220,9 @@ export type Database = {
         Row: {
           amount_cents: number
           billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          cancel_at_period_end: boolean
+          cancellation_reason: string | null
+          cancellation_requested_at: string | null
           coupon_id: string | null
           created_at: string
           current_period_end: string | null
@@ -3250,6 +3253,9 @@ export type Database = {
         Insert: {
           amount_cents?: number
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          cancel_at_period_end?: boolean
+          cancellation_reason?: string | null
+          cancellation_requested_at?: string | null
           coupon_id?: string | null
           created_at?: string
           current_period_end?: string | null
@@ -3280,6 +3286,9 @@ export type Database = {
         Update: {
           amount_cents?: number
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+          cancel_at_period_end?: boolean
+          cancellation_reason?: string | null
+          cancellation_requested_at?: string | null
           coupon_id?: string | null
           created_at?: string
           current_period_end?: string | null
@@ -4200,6 +4209,51 @@ export type Database = {
         }
         Returns: number
       }
+      reactivate_subscription: {
+        Args: {
+          _entity_id: string
+          _entity_type: Database["public"]["Enums"]["entity_type"]
+        }
+        Returns: {
+          amount_cents: number
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          cancel_at_period_end: boolean
+          cancellation_reason: string | null
+          cancellation_requested_at: string | null
+          coupon_id: string | null
+          created_at: string
+          current_period_end: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"] | null
+          discount_value: number | null
+          due_date: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          final_amount_cents: number
+          id: string
+          last_payment_at: string | null
+          last_payment_method:
+            | Database["public"]["Enums"]["payment_method"]
+            | null
+          mp_init_point: string | null
+          mp_payer_email: string | null
+          mp_payer_id: string | null
+          mp_preapproval_id: string | null
+          notes: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          plan_id: string | null
+          plan_name: string | null
+          status: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "platform_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -4251,6 +4305,53 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      remove_clinic_member: { Args: { _member_id: string }; Returns: Json }
+      request_subscription_cancellation: {
+        Args: {
+          _entity_id: string
+          _entity_type: Database["public"]["Enums"]["entity_type"]
+          _reason?: string
+        }
+        Returns: {
+          amount_cents: number
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          cancel_at_period_end: boolean
+          cancellation_reason: string | null
+          cancellation_requested_at: string | null
+          coupon_id: string | null
+          created_at: string
+          current_period_end: string | null
+          discount_type: Database["public"]["Enums"]["discount_type"] | null
+          discount_value: number | null
+          due_date: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          final_amount_cents: number
+          id: string
+          last_payment_at: string | null
+          last_payment_method:
+            | Database["public"]["Enums"]["payment_method"]
+            | null
+          mp_init_point: string | null
+          mp_payer_email: string | null
+          mp_payer_id: string | null
+          mp_preapproval_id: string | null
+          notes: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          plan_id: string | null
+          plan_name: string | null
+          status: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "platform_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_or_create_ai_tenant_for_clinic: {
         Args: { _clinic_id: string }
         Returns: string
@@ -4258,6 +4359,27 @@ export type Database = {
       resolve_or_create_ai_tenant_for_user: {
         Args: { _user_id: string }
         Returns: string
+      }
+      set_clinic_member_active: {
+        Args: { _is_active: boolean; _member_id: string }
+        Returns: {
+          clinic_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_owner: boolean
+          permissions: Json | null
+          registration_number: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          specialty: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "clinic_members"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       upsert_platform_subscription: {
         Args: {
@@ -4276,6 +4398,9 @@ export type Database = {
         Returns: {
           amount_cents: number
           billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+          cancel_at_period_end: boolean
+          cancellation_reason: string | null
+          cancellation_requested_at: string | null
           coupon_id: string | null
           created_at: string
           current_period_end: string | null
