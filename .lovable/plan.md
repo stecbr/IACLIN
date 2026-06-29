@@ -1,47 +1,54 @@
-## Causa raiz
 
-Ao finalizar o atendimento, `Attendance.tsx` dispara em background `archiveAttendanceFiles(...)`, que gera vários PDFs (resumo, receituário, exames, encaminhamentos) via `htmlToPdfBlob`. Cada chamada injeta um `<iframe>` no DOM com:
+# Melhorar UX do fluxo de Repasses (Comissões)
 
-```ts
-iframe.style.position = 'fixed';
-iframe.style.left = '0';
-iframe.style.top = '0';
-iframe.style.width = '794px';
-iframe.style.height = '1123px';
-iframe.style.zIndex = '-1';
-```
+Hoje o fluxo de repasse existe e funciona, mas ele é "silencioso": o dono da clínica precisa adivinhar o que cada botão faz, e o profissional não entende de onde vêm os valores em "Meu Financeiro". Vou tornar o fluxo auto-explicativo em **3 pontos da plataforma**, sem mudar regra de negócio.
 
-`z-index: -1` deixa o iframe atrás do conteúdo, mas no instante em que a rota muda para `/agenda` o root da nova página ainda não pintou um fundo opaco por cima dele — então o iframe (logo centralizado, cabeçalho preto-e-branco do PDF) aparece piscando até `iframe.remove()` rodar no `finally`.
+---
 
-O `setTimeout(220ms)` antes do `navigate('/agenda')` no `AttendanceSummaryModal` não resolve, porque os PDFs continuam sendo gerados depois que o modal fecha.
+## 1. Painel de Repasses (visão Dono/Admin/Secretária)
+Arquivo: `src/components/finance/PayoutsPanel.tsx` (+ `ClosePayoutDialog.tsx`)
 
-## Correção
+- **Cabeçalho explicativo** no topo do painel:
+  > "Aqui você fecha o período e registra o pagamento das comissões dos profissionais. O sistema soma automaticamente todas as comissões geradas pelos atendimentos concluídos. Você paga o profissional por fora (Pix, transferência, dinheiro) e registra aqui — assim o profissional vê o recebimento dele em **Meu Financeiro**."
+- Botão **"Como funciona?"** abrindo um `Sheet` lateral com o fluxo ilustrado em 4 passos (Atendimento → Comissão gerada → Fechamento → Pagamento registrado).
+- Cada card de profissional ganha:
+  - Tooltip no valor explicando "Soma das comissões pendentes desde {data mais antiga}".
+  - Microcopy sob o botão: "Fechar período e registrar pagamento".
+  - Badge de período sugerido (ex: "Últimos 30 dias").
+- No `ClosePayoutDialog`:
+  - Texto introdutório curto: "Confirme o período, o método usado e registre. Isso **não envia dinheiro**, apenas registra que você já pagou."
+  - Renomear botão de "Confirmar pagamento" → "Registrar pagamento já realizado" (deixa claro que é registro, não transferência).
+  - Adicionar alerta visual quando `total = 0` orientando ampliar o período.
 
-Posicionar o iframe fora da viewport em `src/lib/htmlToPdfBlob.ts`, de forma que ele nunca seja visível mesmo durante transições de rota. `html2canvas` clona o elemento em um sandbox próprio para capturar, então o posicionamento real na tela não afeta o PDF gerado.
+## 2. Tela "Meu Financeiro" (visão Profissional vinculado)
+Arquivo: `src/pages/dentist/MyFinance.tsx`
 
-Mudar:
+- Banner de boas-vindas explicando: "Aqui você acompanha as comissões dos seus atendimentos. Os valores são pagos pela clínica fora da plataforma (Pix/transferência). Quando a clínica registra o pagamento, ele aparece em **Fechamentos recebidos**."
+- Renomear/clarificar abas:
+  - "Comissões a receber" → microcopy "Aguardando fechamento pela clínica"
+  - "Fechamentos recebidos" → microcopy "Pagamentos já confirmados pela clínica"
+- Tooltip em cada linha explicando origem (paciente + atendimento).
+- Estado vazio amigável: "Nenhuma comissão ainda. Assim que você finalizar um atendimento com pagamento registrado, ela aparece aqui."
 
-```ts
-iframe.style.position = 'fixed';
-iframe.style.left = '0';
-iframe.style.top = '0';
-// ...
-iframe.style.zIndex = '-1';
-```
+## 3. Onboarding contextual / Tour
+Arquivo novo: `src/components/finance/PayoutsHelpSheet.tsx` (reutilizado nos 2 contextos acima)
 
-para:
+- Componente único de ajuda com 4 passos visuais + ícones (Lucide), que pode ser aberto tanto pelo dono quanto pelo profissional.
+- Mostra os papéis lado a lado: o que o **Profissional** vê × o que o **Dono/Secretária** vê em cada passo.
 
-```ts
-iframe.style.position = 'fixed';
-iframe.style.left = '-10000px';
-iframe.style.top = '0';
-// ...
-iframe.style.zIndex = '-1';
-iframe.style.opacity = '0';
-```
+## 4. Pequenos ajustes complementares
+- `MyFinance.tsx`: adicionar card "Próximo fechamento estimado" com a data média de fechamento dos últimos 3 períodos (se houver histórico).
+- `PayoutsPanel.tsx`: filtro rápido por profissional quando a clínica tiver muitos.
+- Garantir que todos os textos usem o termo **"Repasse"** de forma consistente (hoje varia entre "comissão", "fechamento", "pagamento").
 
-Isso elimina o flash de logo/cabeçalho do PDF durante a transição Atendimento → Agenda, sem alterar o conteúdo do PDF nem o fluxo de finalização. Nenhuma outra mudança é necessária (o `setTimeout` no modal pode continuar para a animação do Dialog).
+---
 
-## Arquivos alterados
+## Detalhes técnicos
+- Sem mudanças de schema, RPC ou edge functions. Apenas componentes UI + microcopy.
+- Reutilizo `Sheet`, `Tooltip`, `Alert` e `Card` do shadcn já presentes no projeto.
+- Sem mexer em lógica de geração de comissão (`src/lib/commissions.ts`) nem na RPC `close_commission_period`.
+- Sem alteração de permissões — `useFinanceVisibility` continua governando quem vê o quê.
 
-- `src/lib/htmlToPdfBlob.ts` — ajuste do posicionamento/opacidade do iframe de renderização.
+## Fora de escopo (confirmar se quer incluir)
+- Notificação automática (sino/email) ao profissional quando um repasse é registrado.
+- Geração de comprovante PDF do repasse.

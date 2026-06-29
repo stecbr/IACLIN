@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -113,6 +115,16 @@ export function ClosePayoutDialog({
           <DialogTitle>Fechar período · {dentistName}</DialogTitle>
         </DialogHeader>
 
+        <Alert className="border-primary/30 bg-primary/5">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-xs leading-relaxed">
+            Confirme o período e o método usado para pagar o profissional.
+            <strong> A plataforma não envia o dinheiro</strong> — você paga por fora
+            (Pix, transferência, dinheiro) e aqui apenas registra que o repasse
+            foi feito. O profissional verá esse lançamento em <em>Meu Financeiro</em>.
+          </AlertDescription>
+        </Alert>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Início do período</Label>
@@ -185,10 +197,16 @@ export function ClosePayoutDialog({
           <span className="text-lg font-semibold tabular-nums">{fmt(total)}</span>
         </div>
 
+        {!isLoading && (items as any[]).length === 0 && (
+          <p className="text-xs text-muted-foreground -mt-2 text-center">
+            Nenhuma comissão neste intervalo. Tente ampliar o período acima.
+          </p>
+        )}
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>
           <Button onClick={handleConfirm} disabled={submitting || total <= 0}>
-            {submitting ? 'Registrando…' : 'Confirmar pagamento'}
+            {submitting ? 'Registrando…' : 'Registrar pagamento já realizado'}
           </Button>
         </DialogFooter>
       </DialogContent>
