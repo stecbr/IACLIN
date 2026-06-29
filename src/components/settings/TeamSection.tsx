@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -59,6 +60,7 @@ export default function TeamSection() {
     title: '',
     message: '',
   });
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; user_id: string; name: string } | null>(null);
 
   const { data: clinicCategory } = useQuery({
     queryKey: ['clinic-category', currentClinicId],
@@ -185,22 +187,22 @@ export default function TeamSection() {
       return;
     }
     try {
-      const { error } = await supabase.from('clinic_members').delete().eq('id', memberId);
+      const { error } = await (supabase as any).rpc('remove_clinic_member', { _member_id: memberId });
       if (error) throw error;
-      toast.success('Membro removido.');
+      toast.success('Profissional desvinculado da clínica.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
       queryClient.invalidateQueries({ queryKey: ['clinic-seat-usage'] });
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message ?? 'Falha ao remover membro');
     }
   };
 
   const handleToggleActive = async (memberId: string, nextValue: boolean) => {
     try {
-      const { error } = await (supabase as any)
-        .from('clinic_members')
-        .update({ is_active: nextValue })
-        .eq('id', memberId);
+      const { error } = await (supabase as any).rpc('set_clinic_member_active', {
+        _member_id: memberId,
+        _is_active: nextValue,
+      });
       if (error) throw error;
       toast.success(nextValue ? 'Acesso liberado.' : 'Acesso suspenso.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
@@ -406,7 +408,7 @@ export default function TeamSection() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemove(m.id, m.user_id)}
+                          onClick={() => setRemoveTarget({ id: m.id, user_id: m.user_id, name: m.full_name })}
                           className="h-8 w-8 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -452,6 +454,32 @@ export default function TeamSection() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setErrorDialog((s) => ({ ...s, open: false }))}>
               Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover profissional da clínica?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{removeTarget?.name}</strong> perderá imediatamente o acesso a agenda, pacientes,
+              prontuários e financeiro desta clínica. O cadastro pessoal no IACLIN continua ativo —
+              o profissional poderá criar a própria clínica ou aceitar um novo convite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!removeTarget) return;
+                await handleRemove(removeTarget.id, removeTarget.user_id);
+                setRemoveTarget(null);
+              }}
+            >
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

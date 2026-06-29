@@ -9,6 +9,8 @@ export interface SubscriptionStatusResult {
   isActive: boolean;
   isTrial: boolean;
   isOverdueOrCancelled: boolean;
+  cancelAtPeriodEnd: boolean;
+  isPendingCancellation: boolean;
   daysUntilDue: number | null;
   currentPeriodEnd: Date | null;
   hasSubscription: boolean;
@@ -38,7 +40,7 @@ export function useSubscriptionStatus(): SubscriptionStatusResult {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_subscriptions')
-        .select('status, current_period_end')
+        .select('status, current_period_end, cancel_at_period_end')
         .eq('entity_type', 'clinic')
         .eq('entity_id', currentClinicId!)
         .order('created_at', { ascending: false })
@@ -52,6 +54,7 @@ export function useSubscriptionStatus(): SubscriptionStatusResult {
   const status = normalizeStatus((data as { status?: string } | null)?.status);
   const periodEndRaw = (data as { current_period_end?: string } | null)?.current_period_end ?? null;
   const currentPeriodEnd = periodEndRaw ? new Date(periodEndRaw) : null;
+  const cancelAtPeriodEnd = Boolean((data as { cancel_at_period_end?: boolean } | null)?.cancel_at_period_end);
 
   let daysUntilDue: number | null = null;
   if (currentPeriodEnd) {
@@ -65,6 +68,8 @@ export function useSubscriptionStatus(): SubscriptionStatusResult {
     isActive: status === 'active' || status === 'trialing',
     isTrial: status === 'trialing',
     isOverdueOrCancelled: status === 'overdue' || status === 'cancelled',
+    cancelAtPeriodEnd,
+    isPendingCancellation: cancelAtPeriodEnd && (status === 'active' || status === 'trialing'),
     daysUntilDue,
     currentPeriodEnd,
     hasSubscription: !!data,

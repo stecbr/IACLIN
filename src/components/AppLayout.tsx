@@ -25,6 +25,7 @@ import { PublishPendingBanner } from '@/components/PublishPendingBanner';
 import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
 import { SubscriptionWarningBanner } from '@/components/SubscriptionWarningBanner';
 import { SubscriptionGuard } from '@/components/SubscriptionGuard';
+import { SoloTransitionBanner } from '@/components/SoloTransitionBanner';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -203,6 +204,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               >
                 <PublishPendingBanner />
                 <SubscriptionWarningBanner />
+                <SoloTransitionBanner />
                 {blockedByPermission ? (
                   <div className="flex flex-1 items-center justify-center">
                     <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 text-center shadow-card">

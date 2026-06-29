@@ -174,6 +174,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Realtime: refresh clinics list when this user's clinic_members rows change
+  // (e.g. removed by clinic owner, suspended, role updated). Ensures the ex-member
+  // loses access instantly without needing a page reload.
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`clinic-members-self-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clinic_members', filter: `user_id=eq.${user.id}` },
+        () => {
+          const fn = (globalThis as any).__iaclinFetchUserData as ((id: string) => void) | undefined;
+          if (fn) fn(user.id);
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const signOut = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(SIMULATED_ROLE_STORAGE_KEY);

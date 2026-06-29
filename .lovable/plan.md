@@ -1,84 +1,111 @@
-## Blocos B & C — Avisos Globais + Paywall por Inadimplência
+## Fluxo 1 — Cancelar assinatura da clínica (soft-cancel)
 
-### 1. Hook `src/hooks/useSubscriptionStatus.ts` (novo)
+### Banco
+- Migration em `platform_subscriptions`:
+  - Adicionar `cancel_at_period_end BOOLEAN NOT NULL DEFAULT false`.
+  - Adicionar `cancellation_requested_at TIMESTAMPTZ`.
+  - Adicionar `cancellation_reason TEXT`.
+- RPC `request_subscription_cancellation(_entity_type, _entity_id, _reason)`:
+  - Verifica que `auth.uid()` é dono/admin daquela clínica.
+  - Marca `cancel_at_period_end=true`, `cancellation_requested_at=now()`, `cancellation_reason=_reason`. NÃO muda `status` — fica `active`/`trialing` até `current_period_end`.
+- RPC `reactivate_subscription(_entity_type, _entity_id)` para o botão "Reativar" enquanto ainda estiver dentro do período.
+- Job de expiração (pg_cron diário): `UPDATE platform_subscriptions SET status='cancelled' WHERE cancel_at_period_end AND current_period_end < CURRENT_DATE AND status IN ('active','trial')`. Sem pg_cron habilitado, alternativa: uma Edge Function `subscription-expire-canceled` agendada manualmente; em qualquer caso o paywall continua dependendo apenas do `status`, então o efeito visual já é correto assim que a data passa porque também adicionamos check no `useSubscriptionStatus` (ver abaixo).
 
-Consulta `platform_subscriptions` para a clínica atual (`entity_type='clinic'`, `entity_id=currentClinicId`), ordenando por `created_at` desc e pegando o registro mais recente.
+### Edge function
+- Reaproveitar/ajustar `mercadopago-cancel-subscription`:
+  - Em vez de marcar `status='cancelled'` imediato, chamar a preapproval do MP para parar a renovação (MP aceita `status='cancelled'` para encerrar cobranças futuras) e localmente apenas chamar a RPC `request_subscription_cancellation`. O webhook do MP continua a fonte da verdade para `status` final.
+  - Tratar caso sem `mp_preapproval_id` (assinatura manual/trial) chamando direto a RPC.
+- Nova edge function `reactivate-subscription` espelhando a operação inversa (best-effort, só funciona se ainda houver preapproval ativo no MP — caso não, instrui o usuário a refazer o checkout).
 
-Retorno:
-```ts
-{
-  status: 'active' | 'trialing' | 'overdue' | 'cancelled' | 'none',
-  isActive: boolean,            // active | trialing
-  isTrial: boolean,             // status === 'trialing'
-  isOverdueOrCancelled: boolean,
-  daysUntilDue: number | null,  // diff em dias entre current_period_end e hoje
-  currentPeriodEnd: Date | null,
-  hasSubscription: boolean,
-  isLoading: boolean,
-  refetch: () => void,
-}
-```
+### Frontend — `src/components/settings/SubscriptionSection.tsx`
+- Substituir o `confirm()` atual por um `<AlertDialog>` (fade-in puro, sem slide) com:
+  - Título "Cancelar assinatura".
+  - Texto explicando: renovação automática interrompida, acesso garantido até `current_period_end` formatado em pt-BR, depois disso o sistema bloqueia para regularização.
+  - Campo opcional "Motivo do cancelamento".
+  - Botões "Manter assinatura" / "Confirmar cancelamento".
+- Após confirmar, invocar `mercadopago-cancel-subscription` (ou a RPC direto para assinaturas manuais), invalidar `['my-subscription']` e `['subscription-status']`.
+- Quando `subscription.cancel_at_period_end === true`:
+  - Esconder o botão "Cancelar".
+  - Mostrar banner âmbar "Cancelamento agendado para DD/MM/AAAA" + botão "Reativar assinatura".
 
-Implementado via `useQuery` (chave: `['subscription-status', clinicId]`), com `staleTime` de 5 min. Se não há `currentClinicId` ou usuário está em modo pessoal, retorna `status: 'none'` e libera.
+### `src/hooks/useSubscriptionStatus.ts`
+- Selecionar também `cancel_at_period_end`.
+- Expor `cancelAtPeriodEnd: boolean` e `isPendingCancellation` (active + cancel_at_period_end).
+- Manter `isOverdueOrCancelled` baseado apenas em `status` — o paywall continua só disparando quando o status virar `cancelled`/`overdue`.
 
-### 2. Bloco B — Banner de aviso de vencimento
+### `src/components/SubscriptionWarningBanner.tsx`
+- Se `isPendingCancellation`, exibir variante específica: "Sua assinatura será encerrada em X dias. Reative para evitar o bloqueio." com link para `/settings?tab=subscription`.
 
-**Novo componente `src/components/SubscriptionWarningBanner.tsx`**
-- Usa `useSubscriptionStatus` + `useAuth` (precisa de `isClinicOwner` ou `clinicRole === 'admin'`).
-- Renderiza apenas se: `isActive === true` E `daysUntilDue !== null` E `daysUntilDue <= 7` E usuário é dono/admin.
-- Visual: faixa amber (tokens semânticos, fade-in via Framer Motion conforme regra de modais/animação), ícone `AlertTriangle`, texto curto:
-  - Trial: "Seu período de testes termina em X dias. Ative seu plano para evitar o bloqueio."
-  - Pago: "Sua assinatura vence em X dias. Regularize para evitar o bloqueio."
-  - Vence hoje: "Sua assinatura vence hoje."
-- Link "Ir para assinatura" → `navigate('/settings?tab=subscription')`.
-- Dismissível por sessão (sessionStorage `iaclin.subWarn.dismissed`) — reaparece no próximo login.
+---
 
-**Integração em `src/components/AppLayout.tsx`**
-- Renderizado dentro do `<main>`, logo acima do `<PublishPendingBanner />`, dentro do `motion.div` (para herdar a animação de rota).
-- Não renderiza se `blockedByPermission` ou `isMembershipSuspended` já estão ativos.
+## Fluxo 2 — Remoção de profissional (revogação total + assento liberado)
 
-### 3. Bloco C — Paywall por inadimplência
+### Banco
+- Atualizar a função `public.user_belongs_to_clinic` para considerar apenas vínculos ativos:
+  ```sql
+  SELECT EXISTS (
+    SELECT 1 FROM public.clinic_members
+    WHERE user_id=_user_id AND clinic_id=_clinic_id
+      AND COALESCE(is_active,true)=true
+  )
+  ```
+  Isso revoga em cascata o acesso a `appointments`, `patients`, `clinical_records`, `financial_transactions`, `treatment_plans`, `clinic_member_*`, etc., porque todas as policies usam esse helper.
+- `is_clinic_member(_user_id)` idem: passar a retornar apenas `clinic_id` onde `is_active=true`.
+- `get_clinic_seat_usage`: passar a contar somente `is_active=true` (já contagem está com esse filtro; manter).
+- RPC nova `remove_clinic_member(_member_id)` `SECURITY DEFINER`:
+  - Verifica solicitante é dono/admin da clínica.
+  - Bloqueia auto-remoção e remoção do último dono.
+  - Hard delete da linha em `clinic_members` (o cascade já existe pelas FKs; especialidades, comissões pendentes ficam atreladas ao histórico via `dentist_id` mas o usuário deixa de enxergar).
+  - Cria notificação tipo `system` para o profissional removido: "Você foi desvinculado da clínica X. Faça login para criar/entrar em outra clínica."
+- RPC `set_clinic_member_active(_member_id, _is_active)` `SECURITY DEFINER` para a suspensão temporária, com as mesmas checagens.
 
-**Novo componente `src/components/SubscriptionGuard.tsx`**
-- Lê `useSubscriptionStatus`, `useAuth` (`clinicRole`, `isClinicOwner`, `signOut`, `profile`), `useLocation`.
-- Se `isLoading` → renderiza `children` (evita flash; banner aparece depois).
-- Se `!isOverdueOrCancelled` → renderiza `children` normalmente.
-- Se `isOverdueOrCancelled === true`:
-  - **Dono/Admin** (`isClinicOwner || clinicRole === 'admin'`):
-    - Permite acesso EXCLUSIVO a `/settings` (qualquer aba) e `/perfil`. Se a rota atual for uma dessas, renderiza `children` (com banner vermelho fixo no topo via `SubscriptionPaywallBanner` interno, lembrando que está em modo restrito).
-    - Caso contrário, renderiza tela cheia `<AdminPaywallScreen />`:
-      - Card central, ícone `Lock` vermelho, título "Assinatura suspensa".
-      - Texto: "Identificamos uma pendência no pagamento da sua assinatura. Regularize agora para reativar o acesso ao IACLIN."
-      - Botão primário "Ir para pagamento" → `navigate('/settings?tab=subscription')`.
-      - Botão secundário "Sair" → `signOut()`.
-  - **Funcionários** (`dentist` vinculado, `secretary`, `auxiliary` que NÃO são donos):
-    - Renderiza tela cheia `<StaffSuspendedScreen />`:
-      - Ícone `AlertOctagon` âmbar, título "Sistema temporariamente indisponível".
-      - Texto: "O acesso ao sistema está suspenso. Entre em contato com o administrador ou responsável pela clínica para regularizar o acesso."
-      - Botão "Sair" → `signOut()`.
-      - Sem qualquer rota interna disponível.
+### Frontend — `src/components/settings/TeamSection.tsx`
+- Substituir o `delete` direto por chamada `supabase.rpc('remove_clinic_member', { _member_id })`.
+- Confirmação em `<AlertDialog>` explicando: "O profissional perderá imediatamente acesso a agenda, pacientes, prontuários e financeiro desta clínica. O cadastro pessoal dele continua ativo no IACLIN."
+- Toggle `is_active` passa a usar `set_clinic_member_active` (mantém UX atual com texto "Suspenso/Ativo" e libera assento — o usuário fica sem acesso pois `user_belongs_to_clinic` checa `is_active`).
+- Invalidar `['clinic-members']`, `['clinic-seat-usage']`, e disparar `realtime` se o usuário removido estiver com app aberto (canal `clinic_members` já existente — verificar; se não, esse refresh acontece naturalmente no próximo `fetchUserData`).
 
-**Integração em `src/components/AppLayout.tsx`**
-- Envolve o `children` (depois do `PublishPendingBanner` e do `SubscriptionWarningBanner`) com `<SubscriptionGuard>`.
-- Mantém os checks já existentes (`isMembershipSuspended` continua tendo precedência absoluta).
-- Pacientes (`isPatient`) e Operadoras não passam pelo guard (não estão no `AppLayout` da clínica, ou retornam `status: 'none'`).
+### `src/contexts/AuthContext.tsx`
+- Já filtra `is_active` para popular `clinics`; manter. Adicionar listener em `clinic_members` (subscribe realtime) para reexecutar `fetchUserData` quando uma linha do usuário atual for `UPDATE`/`DELETE` — garante logout instantâneo da clínica enquanto a sessão estiver aberta.
+- Quando após o refresh `memberships.length === 0`, limpar `currentClinicId` e `localStorage` da clínica selecionada.
 
-### 4. Regras importantes
+---
 
-- **Não tocar** em webhooks (`stripe-webhook`, `mercadopago-webhook`) — apenas leitura.
-- Status `'none'` (sem assinatura encontrada) NÃO bloqueia — comportamento atual preservado para contas legadas/seed; só `overdue` e `cancelled` ativam o paywall.
-- Modo Pessoal (`isPersonalMode`) ignora completamente — sem clínica, sem assinatura.
-- Super Admin nunca é bloqueado (rotas `/superadmin/*` ficam fora do `AppLayout`/`SubscriptionGuard`).
-- Animações respeitam a regra de UI: fade-in/out apenas, sem slide/zoom.
-- Todas as cores via tokens semânticos do `index.css` — sem `bg-red-500` cru.
+## Fluxo 3 — Transição para Solo/Autônomo
 
-### Resumo de arquivos
+### Comportamento
+- Profissional removido faz login → `AuthContext` carrega zero memberships → `currentClinicId = null`.
+- `useSoloMode`/`Index.tsx` já tratam esse caso. Ajustes:
+  - `src/pages/Index.tsx`: se usuário tem `role` profissional (dentist/médico) e `clinics.length === 0`, redirecionar para `/onboarding`.
+  - `src/pages/Onboarding.tsx`: garantir que o fluxo permite "Criar minha própria clínica" (já existe) e, ao final, mostrar a assinatura `/settings?tab=subscription` para escolher plano antes de operar.
+- Adicionar componente leve `SoloTransitionBanner` em `AppLayout` quando `clinics.length === 0 && !isPatient && !isOperator`: card amistoso "Você não está vinculado a nenhuma clínica. Crie sua clínica própria para começar a atender." + CTA `/onboarding`.
+- Dados antigos: como o `user_belongs_to_clinic` agora exige vínculo ativo, ele não vê NADA da clínica anterior. Os registros antigos permanecem para a clínica (histórico do paciente, financeiro), apenas não são acessíveis pelo ex-profissional.
 
-| Arquivo | Tipo |
+---
+
+## Resumo de mudanças
+
+### Banco (migrations)
+| Arquivo | Conteúdo |
 |---|---|
-| `src/hooks/useSubscriptionStatus.ts` | novo |
-| `src/components/SubscriptionWarningBanner.tsx` | novo (Bloco B) |
-| `src/components/SubscriptionGuard.tsx` | novo (Bloco C, inclui Admin/Staff screens) |
-| `src/components/AppLayout.tsx` | integra banner + guard |
+| nova migration | colunas `cancel_at_period_end`, `cancellation_requested_at`, `cancellation_reason` em `platform_subscriptions` |
+| nova migration | RPCs `request_subscription_cancellation`, `reactivate_subscription`, `remove_clinic_member`, `set_clinic_member_active` |
+| nova migration | atualiza `user_belongs_to_clinic` e `is_clinic_member` para exigir `is_active=true` |
+| nova migration (opcional) | pg_cron para expirar assinaturas com `cancel_at_period_end` vencido |
 
-Após sua aprovação, executo na ordem: hook → banner → guard → integração no `AppLayout`.
+### Edge functions
+- `mercadopago-cancel-subscription`: ajustar para soft-cancel (não muda `status` localmente, só dispara MP + RPC).
+- nova `reactivate-subscription` (opcional, best-effort).
+
+### Frontend
+| Arquivo | Mudança |
+|---|---|
+| `src/components/settings/SubscriptionSection.tsx` | AlertDialog de cancelamento, banner de cancelamento agendado, botão Reativar |
+| `src/hooks/useSubscriptionStatus.ts` | expõe `cancelAtPeriodEnd`, `isPendingCancellation` |
+| `src/components/SubscriptionWarningBanner.tsx` | variante "cancelamento agendado em X dias" |
+| `src/components/settings/TeamSection.tsx` | usa RPCs + AlertDialog de remoção |
+| `src/contexts/AuthContext.tsx` | realtime listener em `clinic_members`, limpa clínica ao ficar sem vínculos |
+| `src/pages/Index.tsx` | redireciona profissional sem clínica para `/onboarding` |
+| novo `src/components/SoloTransitionBanner.tsx` | banner para ex-membros sem clínica |
+
+Após aprovação, executo na ordem: migrations → ajuste do edge function → hook → componentes de UI → AuthContext realtime → onboarding/solo.

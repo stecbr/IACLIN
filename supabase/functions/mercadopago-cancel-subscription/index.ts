@@ -31,19 +31,32 @@ Deno.serve(async (req) => {
       .eq('entity_id', entityId)
       .maybeSingle();
 
-    if (!sub?.mp_preapproval_id) return json({ error: 'Nenhuma assinatura ativa' }, 404);
+    if (!sub?.id) return json({ error: 'Nenhuma assinatura encontrada' }, 404);
 
-    await mpFetch(`/preapproval/${sub.mp_preapproval_id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: 'cancelled' }),
-    });
+    // Stop future billing at Mercado Pago (best-effort)
+    if (sub.mp_preapproval_id) {
+      try {
+        await mpFetch(`/preapproval/${sub.mp_preapproval_id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ status: 'cancelled' }),
+        });
+      } catch (e) {
+        console.warn('mp cancel failed (continuing soft-cancel):', e);
+      }
+    }
 
+    // Soft cancel: keep access until current_period_end
     await admin
       .from('platform_subscriptions')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .update({
+        cancel_at_period_end: true,
+        cancellation_requested_at: new Date().toISOString(),
+        cancellation_reason: body?.reason ?? null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', sub.id);
 
-    return json({ ok: true });
+    return json({ ok: true, soft_cancel: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('mercadopago-cancel-subscription error:', msg);
