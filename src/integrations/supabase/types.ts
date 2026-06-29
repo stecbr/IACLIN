@@ -1132,9 +1132,10 @@ export type Database = {
           clinic_id: string
           created_at: string
           created_by: string | null
-          dentist_id: string
+          dentist_id: string | null
           id: string
           insurance_provider: string | null
+          is_clinic_default: boolean
           specialty: string | null
           trigger: string
           type: string
@@ -1145,9 +1146,10 @@ export type Database = {
           clinic_id: string
           created_at?: string
           created_by?: string | null
-          dentist_id: string
+          dentist_id?: string | null
           id?: string
           insurance_provider?: string | null
+          is_clinic_default?: boolean
           specialty?: string | null
           trigger: string
           type: string
@@ -1158,9 +1160,10 @@ export type Database = {
           clinic_id?: string
           created_at?: string
           created_by?: string | null
-          dentist_id?: string
+          dentist_id?: string | null
           id?: string
           insurance_provider?: string | null
+          is_clinic_default?: boolean
           specialty?: string | null
           trigger?: string
           type?: string
