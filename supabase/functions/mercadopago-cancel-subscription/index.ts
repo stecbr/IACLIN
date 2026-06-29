@@ -24,6 +24,22 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Authorization: for clinic entities, caller must be admin or owner of that clinic.
+    // For doctor/operator entities, the entityId must match the authenticated user.
+    if (entityType === 'clinic') {
+      const { data: membership } = await admin
+        .from('clinic_members')
+        .select('id, is_owner, role')
+        .eq('clinic_id', entityId)
+        .eq('user_id', userId)
+        .maybeSingle() as any;
+      const isAdminOrOwner = membership && (membership.is_owner || membership.role === 'admin');
+      if (!isAdminOrOwner) return json({ error: 'Forbidden' }, 403);
+    } else if (entityId !== userId) {
+      return json({ error: 'Forbidden' }, 403);
+    }
+
     const { data: sub } = await admin
       .from('platform_subscriptions')
       .select('id, mp_preapproval_id')

@@ -8,10 +8,10 @@ import { useAuth } from '@/contexts/AuthContext';
  * clínica própria para passar a operar em modo Solo/Autônomo.
  */
 export function SoloTransitionBanner() {
-  const { clinics, clinicsLoaded, isPatient, isOperator, isPersonalMode, user } = useAuth();
+  const { clinics, clinicsLoaded, isPatient, isOperator, user } = useAuth();
 
   if (!user || !clinicsLoaded) return null;
-  if (isPatient || isOperator || isPersonalMode) return null;
+  if (isPatient || isOperator) return null;
   if (clinics.length > 0) return null;
 
   return (
