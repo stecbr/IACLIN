@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -185,22 +186,22 @@ export default function TeamSection() {
       return;
     }
     try {
-      const { error } = await supabase.from('clinic_members').delete().eq('id', memberId);
+      const { error } = await (supabase as any).rpc('remove_clinic_member', { _member_id: memberId });
       if (error) throw error;
-      toast.success('Membro removido.');
+      toast.success('Profissional desvinculado da clínica.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
       queryClient.invalidateQueries({ queryKey: ['clinic-seat-usage'] });
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message ?? 'Falha ao remover membro');
     }
   };
 
   const handleToggleActive = async (memberId: string, nextValue: boolean) => {
     try {
-      const { error } = await (supabase as any)
-        .from('clinic_members')
-        .update({ is_active: nextValue })
-        .eq('id', memberId);
+      const { error } = await (supabase as any).rpc('set_clinic_member_active', {
+        _member_id: memberId,
+        _is_active: nextValue,
+      });
       if (error) throw error;
       toast.success(nextValue ? 'Acesso liberado.' : 'Acesso suspenso.');
       queryClient.invalidateQueries({ queryKey: ['clinic-members'] });
