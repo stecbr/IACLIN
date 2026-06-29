@@ -13,13 +13,14 @@ import html2pdf from 'html2pdf.js';
 export async function htmlToPdfBlob(html: string, filename = 'documento.pdf'): Promise<Blob> {
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
-  iframe.style.left = '0';
+  iframe.style.left = '-10000px';
   iframe.style.top = '0';
   iframe.style.width = '794px';
   iframe.style.height = '1123px';
   iframe.style.border = '0';
   iframe.style.pointerEvents = 'none';
   iframe.style.zIndex = '-1';
+  iframe.style.opacity = '0';
   iframe.setAttribute('aria-hidden', 'true');
   document.body.appendChild(iframe);
 
