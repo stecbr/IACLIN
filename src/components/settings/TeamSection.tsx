@@ -60,6 +60,7 @@ export default function TeamSection() {
     title: '',
     message: '',
   });
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; user_id: string; name: string } | null>(null);
 
   const { data: clinicCategory } = useQuery({
     queryKey: ['clinic-category', currentClinicId],
