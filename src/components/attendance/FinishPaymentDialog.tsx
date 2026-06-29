@@ -35,6 +35,8 @@ interface Props {
   onCompleted: () => void;
   /** Convênio registrado na ficha do paciente (texto livre). */
   patientInsuranceProvider?: string | null;
+  /** Profissional que de fato realizou o atendimento. Se ausente, usa o usuário logado. */
+  appointmentDentistId?: string | null;
 }
 
 type Mode = '' | 'insurance' | 'paid' | 'later';
@@ -52,7 +54,7 @@ interface OperatorOption {
 
 export function FinishPaymentDialog({
   open, onOpenChange, appointmentId, patientId, patientName, clinicId, procedures, onCompleted,
-  patientInsuranceProvider,
+  patientInsuranceProvider, appointmentDentistId,
 }: Props) {
   const { user } = useAuth();
   const { effectiveRole } = useRoleAccess();
@@ -213,7 +215,7 @@ export function FinishPaymentDialog({
     const payload: any = {
       patient_id: patientId,
       appointment_id: appointmentId,
-      dentist_id: user!.id,
+      dentist_id: appointmentDentistId ?? user!.id,
       clinic_id: clinicId ?? null,
       type: 'income',
       description: desc,
