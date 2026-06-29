@@ -211,7 +211,7 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full" style={{ backgroundColor: procedureColor }} />
@@ -360,9 +360,9 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-1.5 pt-2">
+          <div className="flex flex-nowrap gap-1.5 pt-2 items-center">
             {isCompleted && (
-              <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-xs font-normal" onClick={() => setShowSummary(true)}>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs font-normal" onClick={() => setShowSummary(true)}>
                 <Eye className="h-3.5 w-3.5" />
                 Ver resumo do atendimento
               </Button>
@@ -370,7 +370,7 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
             {canStartAttendance && (
               <Button
                 size="sm"
-                className={`flex-1 gap-1.5 text-xs font-normal ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
+                className={`gap-1.5 text-xs font-normal ${isStartingSoon ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse' : ''}`}
                 onClick={handleStartAttendance}
               >
                 <Play className="h-3.5 w-3.5" />
