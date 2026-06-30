@@ -142,10 +142,10 @@ export default function SuperAdminOperatorsDatabase() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Database className="h-6 w-6 text-primary" />
+          <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <Database className="h-5 w-5 text-primary" />
             Banco de dados de operadoras
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground mt-1">
             {operators.length} operadora{operators.length !== 1 ? 's' : ''} no catálogo · cadastre operadoras e seus planos para vincular convênios em toda a plataforma.
           </p>
