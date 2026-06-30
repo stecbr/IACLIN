@@ -95,7 +95,7 @@ export default function SuperAdminOperatorsDatabase() {
   const { data: operators = [], isLoading } = useQuery({
     queryKey: ['platform-operators'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc('admin_get_operators');
+      const { data, error } = await (supabase as any).rpc('admin_get_all_operators');
       if (error) throw error;
       return (data ?? []) as Operator[];
     },
