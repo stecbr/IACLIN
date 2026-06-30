@@ -12,6 +12,7 @@ import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, Che
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import { formatCnpj, isValidCnpj } from '@/lib/cnpj';
 import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
+import { OperatorCatalogSearch, type CatalogOperator } from '@/components/auth/OperatorCatalogSearch';
 import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
 const logoLight = iaclinLogoAsset.url;
 const logoDark = iaclinLogoAsset.url;
@@ -91,6 +92,10 @@ export default function Auth() {
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
   const [cnpjFetched, setCnpjFetched] = useState(false);
   const [cnpjHint, setCnpjHint] = useState<string | null>(null);
+
+  // Operator catalog (ANS) search/select
+  const [operatorSearchText, setOperatorSearchText] = useState('');
+  const [catalogOperatorId, setCatalogOperatorId] = useState<string | null>(null);
 
   // When a signup hits an already-registered email, show a persistent banner
   // and route the user to the login form with the email pre-filled.
@@ -375,6 +380,7 @@ export default function Auth() {
                 operator_type: operatorType || 'ambos',
                 phone: phone.trim(),
                 responsible_name: responsibleName.trim(),
+                catalog_operator_id: catalogOperatorId,
               }),
             },
           },
@@ -771,13 +777,47 @@ export default function Auth() {
 
                 {isOperatorSignup && (
                   <>
+                    {/* Buscar operadora no banco de dados (ANS) */}
+                    <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.06 }}>
+                      <Label htmlFor="op-search">
+                        Nome da Operadora <span className="text-destructive">*</span>
+                      </Label>
+                      <OperatorCatalogSearch
+                        value={operatorSearchText}
+                        selectedId={catalogOperatorId}
+                        onTextChange={(t) => {
+                          setOperatorSearchText(t);
+                          if (!catalogOperatorId) setTradeName(t);
+                        }}
+                        onSelect={(op) => {
+                          if (!op) {
+                            setCatalogOperatorId(null);
+                            return;
+                          }
+                          setCatalogOperatorId(op.id);
+                          setTradeName(op.name ?? '');
+                          setLegalName(op.legal_name ?? '');
+                          setCnpj(op.cnpj ? formatCnpj(op.cnpj) : '');
+                          setRegistrationNumber(op.ans_code ?? '');
+                          setOperatorType(op.type ?? 'ambos');
+                          if (op.responsible_name) setResponsibleName(op.responsible_name);
+                          if (op.contact_phone) setPhone(op.contact_phone);
+                          setCnpjFetched(false);
+                          setCnpjHint(null);
+                        }}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Comece a digitar para localizar a operadora no banco de dados oficial (ANS) e preencher tudo automaticamente. Se não encontrar, continue preenchendo manualmente.
+                      </p>
+                    </motion.div>
+
                     {/* CNPJ */}
                     <motion.div className="space-y-2" variants={item} initial="initial" animate="animate" transition={{ delay: 0.08 }}>
                       <Label htmlFor="op-cnpj">CNPJ</Label>
                       <div className="flex gap-2">
                         <Input
                           id="op-cnpj" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))}
-                          placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric" autoFocus
+                          placeholder="00.000.000/0000-00" required className="h-10" inputMode="numeric"
                         />
                         <Button type="button" variant="outline" size="icon" onClick={() => fetchCnpjData(false)} disabled={fetchingCnpj} className="h-10 w-10 flex-shrink-0">
                           {fetchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : cnpjFetched ? <Check className="h-4 w-4 text-green-600" /> : <Search className="h-4 w-4" />}

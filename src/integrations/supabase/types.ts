@@ -1801,6 +1801,7 @@ export type Database = {
           fax: string | null
           id: string
           is_active: boolean
+          is_platform_account: boolean
           legal_name: string | null
           logo_url: string | null
           modality: string | null
@@ -1836,6 +1837,7 @@ export type Database = {
           fax?: string | null
           id?: string
           is_active?: boolean
+          is_platform_account?: boolean
           legal_name?: string | null
           logo_url?: string | null
           modality?: string | null
@@ -1871,6 +1873,7 @@ export type Database = {
           fax?: string | null
           id?: string
           is_active?: boolean
+          is_platform_account?: boolean
           legal_name?: string | null
           logo_url?: string | null
           modality?: string | null
@@ -4155,6 +4158,7 @@ export type Database = {
           fax: string | null
           id: string
           is_active: boolean
+          is_platform_account: boolean
           legal_name: string | null
           logo_url: string | null
           modality: string | null
@@ -4218,6 +4222,7 @@ export type Database = {
           fax: string | null
           id: string
           is_active: boolean
+          is_platform_account: boolean
           legal_name: string | null
           logo_url: string | null
           modality: string | null
