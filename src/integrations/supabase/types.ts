@@ -1783,20 +1783,32 @@ export type Database = {
       insurance_operators: {
         Row: {
           active_states: string[]
+          address_city: string | null
+          address_complement: string | null
+          address_district: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
           ans_code: string | null
+          ans_registered_at: string | null
           approval_status: string
           brand_color: string | null
           cnpj: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          fax: string | null
           id: string
           is_active: boolean
           legal_name: string | null
           logo_url: string | null
+          modality: string | null
           name: string
           owner_id: string | null
+          phone_area_code: string | null
           rejection_reason: string | null
+          representative_role: string | null
           responsible_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -1806,20 +1818,32 @@ export type Database = {
         }
         Insert: {
           active_states?: string[]
+          address_city?: string | null
+          address_complement?: string | null
+          address_district?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           ans_code?: string | null
+          ans_registered_at?: string | null
           approval_status?: string
           brand_color?: string | null
           cnpj?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          fax?: string | null
           id?: string
           is_active?: boolean
           legal_name?: string | null
           logo_url?: string | null
+          modality?: string | null
           name: string
           owner_id?: string | null
+          phone_area_code?: string | null
           rejection_reason?: string | null
+          representative_role?: string | null
           responsible_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1829,20 +1853,32 @@ export type Database = {
         }
         Update: {
           active_states?: string[]
+          address_city?: string | null
+          address_complement?: string | null
+          address_district?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           ans_code?: string | null
+          ans_registered_at?: string | null
           approval_status?: string
           brand_color?: string | null
           cnpj?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          fax?: string | null
           id?: string
           is_active?: boolean
           legal_name?: string | null
           logo_url?: string | null
+          modality?: string | null
           name?: string
           owner_id?: string | null
+          phone_area_code?: string | null
           rejection_reason?: string | null
+          representative_role?: string | null
           responsible_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -4101,20 +4137,32 @@ export type Database = {
         Args: { _operator_id: string; _reason?: string; _status: string }
         Returns: {
           active_states: string[]
+          address_city: string | null
+          address_complement: string | null
+          address_district: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
           ans_code: string | null
+          ans_registered_at: string | null
           approval_status: string
           brand_color: string | null
           cnpj: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          fax: string | null
           id: string
           is_active: boolean
           legal_name: string | null
           logo_url: string | null
+          modality: string | null
           name: string
           owner_id: string | null
+          phone_area_code: string | null
           rejection_reason: string | null
+          representative_role: string | null
           responsible_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -4152,20 +4200,32 @@ export type Database = {
         Args: { payload: Json }
         Returns: {
           active_states: string[]
+          address_city: string | null
+          address_complement: string | null
+          address_district: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
           ans_code: string | null
+          ans_registered_at: string | null
           approval_status: string
           brand_color: string | null
           cnpj: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          fax: string | null
           id: string
           is_active: boolean
           legal_name: string | null
           logo_url: string | null
+          modality: string | null
           name: string
           owner_id: string | null
+          phone_area_code: string | null
           rejection_reason: string | null
+          representative_role: string | null
           responsible_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
