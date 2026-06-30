@@ -12,6 +12,7 @@ import { Stethoscope, FileHeart, Building2, Briefcase, UserCheck, ArrowLeft, Che
 import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import { formatCnpj, isValidCnpj } from '@/lib/cnpj';
 import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
+import { OperatorCatalogSearch, type CatalogOperator } from '@/components/auth/OperatorCatalogSearch';
 import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
 const logoLight = iaclinLogoAsset.url;
 const logoDark = iaclinLogoAsset.url;
