@@ -102,7 +102,9 @@ function SuperAdminSidebar() {
                       <NavLink
                         to={item.to}
                         end={item.end}
-                        className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+                        className={`relative flex items-center gap-3 rounded-xl py-2.5 text-sm transition-all duration-200 ${
+                          collapsed ? 'justify-center px-0 w-full' : 'px-3'
+                        } ${
                           active
                             ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]'
                             : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
