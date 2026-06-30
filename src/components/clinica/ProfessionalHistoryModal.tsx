@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -32,9 +32,17 @@ function fmtDuration(seconds: number): string {
 }
 
 function getDurationSeconds(apt: any): number {
+  // Preferência: tempo real do timer (procedure_duration_seconds)
   const records: any[] = apt.clinical_records ?? [];
-  const secs = records[0]?.procedure_duration_seconds ?? 0;
-  return secs > 0 ? secs : 0;
+  const timerSecs = records[0]?.procedure_duration_seconds ?? 0;
+  if (timerSecs > 0) return timerSecs;
+
+  // Fallback: diferença entre end_time e start_time (slot agendado)
+  if (apt.start_time && apt.end_time) {
+    const mins = differenceInMinutes(parseISO(apt.end_time), parseISO(apt.start_time));
+    return mins > 0 ? mins * 60 : 0;
+  }
+  return 0;
 }
 
 interface Props {
@@ -46,9 +54,6 @@ interface Props {
 }
 
 export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentistUserId, dentistName }: Props) {
-  const rangeStart = subMonths(startOfMonth(new Date()), 11);
-  const rangeEnd = endOfMonth(new Date());
-
   const [searchName, setSearchName] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
@@ -70,8 +75,6 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
         .select('id, start_time, end_time, status, patients(full_name), clinical_records(procedure_duration_seconds)')
         .eq('clinic_id', clinicId)
         .eq('dentist_id', dentistUserId)
-        .gte('start_time', rangeStart.toISOString())
-        .lte('start_time', rangeEnd.toISOString())
         .order('start_time', { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -132,7 +135,7 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
           </DialogHeader>
 
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Últimos 12 meses</span>
+            <span>Todo o histórico</span>
             <span className="text-border">·</span>
             <span><strong className="text-foreground">{totalConcluidas}</strong> concluída(s)</span>
             {totalMinutos > 0 && (
@@ -202,7 +205,7 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
               <CalendarDays className="h-10 w-10 mb-3 opacity-30" />
               <p className="text-sm font-medium">
-                {hasFilters ? 'Nenhuma consulta encontrada para este filtro' : 'Nenhuma consulta nos últimos 12 meses'}
+                {hasFilters ? 'Nenhuma consulta encontrada para este filtro' : 'Nenhuma consulta registrada'}
               </p>
               {hasFilters && (
                 <Button variant="link" size="sm" onClick={clearFilters} className="mt-2 text-xs">
