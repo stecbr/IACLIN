@@ -226,7 +226,7 @@ export default function ClinicaMedicos() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {canViewHistory && (
+                        {canViewHistory && !m.is_owner && m.role !== 'admin' && m.role !== 'secretary' && m.role !== 'auxiliary' && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
