@@ -98,18 +98,21 @@ function SuperAdminSidebar() {
                 const active = isActive(item.to, item.end);
                 return (
                   <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                      <NavLink
-                        to={item.to}
-                        end={item.end}
-                        className={`relative flex items-center gap-3 rounded-xl py-2.5 text-sm transition-all duration-200 ${
-                          collapsed ? 'justify-center px-0 w-full' : 'px-3'
-                        } ${
-                          active
-                            ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]'
-                            : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
-                        }`}
-                      >
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.label}
+                      className={`relative rounded-xl text-sm transition-all duration-200 ${
+                        collapsed
+                          ? 'justify-center px-0'
+                          : 'gap-3 px-3 py-2.5 h-auto'
+                      } ${
+                        active
+                          ? 'bg-gradient-to-r from-primary/12 to-primary/6 text-primary font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] hover:bg-gradient-to-r hover:from-primary/12 hover:to-primary/6 hover:text-primary'
+                          : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
+                      }`}
+                    >
+                      <NavLink to={item.to} end={item.end}>
                         <item.icon
                           className={`h-4 w-4 flex-shrink-0 transition-colors ${active ? 'text-primary' : ''}`}
                         />
