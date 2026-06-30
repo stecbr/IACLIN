@@ -364,14 +364,10 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
       const entityType = currentClinicId ? 'clinic' : 'doctor';
       const entityId   = currentClinicId ?? user.id;
 
-      const { error } = await (supabase as any).rpc('upsert_platform_subscription', {
-        p_entity_id:     entityId,
-        p_entity_type:   entityType,
-        p_plan_id:       plan.id,
-        p_status:        'active',
-        p_payment_method: 'manual',
-        p_billing_cycle: plan.billing_cycle,
-        p_notes:         'Plano de teste ativado manualmente pela equipe de desenvolvimento',
+      const { error } = await (supabase as any).rpc('activate_test_plan', {
+        p_entity_type:        entityType,
+        p_entity_id:          entityId,
+        p_plan_id:            plan.id,
         p_current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
