@@ -4533,60 +4533,116 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      upsert_platform_subscription: {
-        Args: {
-          p_billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
-          p_coupon_id?: string
-          p_discount_type?: Database["public"]["Enums"]["discount_type"]
-          p_discount_value?: number
-          p_due_date?: string
-          p_entity_id: string
-          p_entity_type: Database["public"]["Enums"]["entity_type"]
-          p_notes?: string
-          p_payment_method?: Database["public"]["Enums"]["payment_method"]
-          p_plan_id?: string
-          p_status?: Database["public"]["Enums"]["sub_status"]
-        }
-        Returns: {
-          amount_cents: number
-          billing_cycle: Database["public"]["Enums"]["billing_cycle"]
-          cancel_at_period_end: boolean
-          cancellation_reason: string | null
-          cancellation_requested_at: string | null
-          coupon_id: string | null
-          created_at: string
-          current_period_end: string | null
-          discount_type: Database["public"]["Enums"]["discount_type"] | null
-          discount_value: number | null
-          due_date: string | null
-          entity_id: string
-          entity_type: Database["public"]["Enums"]["entity_type"]
-          final_amount_cents: number
-          id: string
-          last_payment_at: string | null
-          last_payment_method:
-            | Database["public"]["Enums"]["payment_method"]
-            | null
-          mp_init_point: string | null
-          mp_payer_email: string | null
-          mp_payer_id: string | null
-          mp_preapproval_id: string | null
-          notes: string | null
-          payment_method: Database["public"]["Enums"]["payment_method"]
-          plan_id: string | null
-          plan_name: string | null
-          status: Database["public"]["Enums"]["sub_status"]
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "platform_subscriptions"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      upsert_platform_subscription:
+        | {
+            Args: {
+              p_billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+              p_coupon_id?: string
+              p_discount_type?: Database["public"]["Enums"]["discount_type"]
+              p_discount_value?: number
+              p_due_date?: string
+              p_entity_id: string
+              p_entity_type: Database["public"]["Enums"]["entity_type"]
+              p_notes?: string
+              p_payment_method?: Database["public"]["Enums"]["payment_method"]
+              p_plan_id?: string
+              p_status?: Database["public"]["Enums"]["sub_status"]
+            }
+            Returns: {
+              amount_cents: number
+              billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+              cancel_at_period_end: boolean
+              cancellation_reason: string | null
+              cancellation_requested_at: string | null
+              coupon_id: string | null
+              created_at: string
+              current_period_end: string | null
+              discount_type: Database["public"]["Enums"]["discount_type"] | null
+              discount_value: number | null
+              due_date: string | null
+              entity_id: string
+              entity_type: Database["public"]["Enums"]["entity_type"]
+              final_amount_cents: number
+              id: string
+              last_payment_at: string | null
+              last_payment_method:
+                | Database["public"]["Enums"]["payment_method"]
+                | null
+              mp_init_point: string | null
+              mp_payer_email: string | null
+              mp_payer_id: string | null
+              mp_preapproval_id: string | null
+              notes: string | null
+              payment_method: Database["public"]["Enums"]["payment_method"]
+              plan_id: string | null
+              plan_name: string | null
+              status: Database["public"]["Enums"]["sub_status"]
+              stripe_customer_id: string | null
+              stripe_subscription_id: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "platform_subscriptions"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
+              p_coupon_id?: string
+              p_current_period_end?: string
+              p_discount_type?: Database["public"]["Enums"]["discount_type"]
+              p_discount_value?: number
+              p_due_date?: string
+              p_entity_id: string
+              p_entity_type: Database["public"]["Enums"]["entity_type"]
+              p_notes?: string
+              p_payment_method?: Database["public"]["Enums"]["payment_method"]
+              p_plan_id?: string
+              p_status?: Database["public"]["Enums"]["sub_status"]
+            }
+            Returns: {
+              amount_cents: number
+              billing_cycle: Database["public"]["Enums"]["billing_cycle"]
+              cancel_at_period_end: boolean
+              cancellation_reason: string | null
+              cancellation_requested_at: string | null
+              coupon_id: string | null
+              created_at: string
+              current_period_end: string | null
+              discount_type: Database["public"]["Enums"]["discount_type"] | null
+              discount_value: number | null
+              due_date: string | null
+              entity_id: string
+              entity_type: Database["public"]["Enums"]["entity_type"]
+              final_amount_cents: number
+              id: string
+              last_payment_at: string | null
+              last_payment_method:
+                | Database["public"]["Enums"]["payment_method"]
+                | null
+              mp_init_point: string | null
+              mp_payer_email: string | null
+              mp_payer_id: string | null
+              mp_preapproval_id: string | null
+              notes: string | null
+              payment_method: Database["public"]["Enums"]["payment_method"]
+              plan_id: string | null
+              plan_name: string | null
+              status: Database["public"]["Enums"]["sub_status"]
+              stripe_customer_id: string | null
+              stripe_subscription_id: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "platform_subscriptions"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       user_belongs_to_clinic: {
         Args: { _clinic_id: string; _user_id: string }
         Returns: boolean
