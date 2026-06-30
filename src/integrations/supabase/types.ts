@@ -1918,6 +1918,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          operator_id: string | null
           operator_name: string
           plan_name: string
           type: string
@@ -1927,6 +1928,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          operator_id?: string | null
           operator_name: string
           plan_name: string
           type?: string
@@ -1936,11 +1938,20 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          operator_id?: string | null
           operator_name?: string
           plan_name?: string
           type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "insurance_plans_catalog_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_operators"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -4035,6 +4046,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_delete_catalog_plan: { Args: { p_id: string }; Returns: undefined }
+      admin_delete_operator: { Args: { p_id: string }; Returns: undefined }
       admin_get_clinics: {
         Args: never
         Returns: {
@@ -4063,10 +4076,80 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_get_operator_plans: {
+        Args: { p_operator_id: string }
+        Returns: {
+          ans_code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          operator_id: string | null
+          operator_name: string
+          plan_name: string
+          type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "insurance_plans_catalog"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_operators: { Args: never; Returns: Json[] }
       admin_get_stats: { Args: never; Returns: Json }
       admin_set_operator_approval: {
         Args: { _operator_id: string; _reason?: string; _status: string }
+        Returns: {
+          active_states: string[]
+          ans_code: string | null
+          approval_status: string
+          brand_color: string | null
+          cnpj: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          legal_name: string | null
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          rejection_reason: string | null
+          responsible_name: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          slug: string | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "insurance_operators"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_upsert_catalog_plan: {
+        Args: { payload: Json }
+        Returns: {
+          ans_code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          operator_id: string | null
+          operator_name: string
+          plan_name: string
+          type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "insurance_plans_catalog"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_upsert_operator: {
+        Args: { payload: Json }
         Returns: {
           active_states: string[]
           ans_code: string | null
