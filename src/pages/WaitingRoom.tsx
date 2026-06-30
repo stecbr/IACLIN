@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ import { FinishPaymentDialog, type FinishProcedure } from '@/components/attendan
 export default function WaitingRoom() {
   const { currentClinicId, clinicRole, isClinicOwner } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [doctorFilter, setDoctorFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export default function WaitingRoom() {
     patientId: string;
     patientName: string;
     patientInsuranceProvider: string | null;
+    dentistId: string | null;
     procedures: FinishProcedure[];
   } | null>(null);
   const [loadingPayment, setLoadingPayment] = useState(false);
@@ -195,7 +198,7 @@ export default function WaitingRoom() {
       // Carrega procedimentos do prontuário desta consulta
       const { data: apt, error: aptErr } = await supabase
         .from('appointments')
-        .select('id, patient_id, patients(full_name, insurance_provider)')
+        .select('id, patient_id, dentist_id, patients(full_name, insurance_provider)')
         .eq('id', appointmentId)
         .single();
       if (aptErr) throw aptErr;
@@ -218,6 +221,7 @@ export default function WaitingRoom() {
         patientId: (apt as any).patient_id,
         patientName: (apt as any).patients?.full_name ?? 'Paciente',
         patientInsuranceProvider: (apt as any).patients?.insurance_provider ?? null,
+        dentistId: (apt as any).dentist_id ?? null,
         procedures,
       });
     } catch (err) {
@@ -418,11 +422,13 @@ export default function WaitingRoom() {
           patientName={paymentApt.patientName}
           clinicId={currentClinicId ?? null}
           patientInsuranceProvider={paymentApt.patientInsuranceProvider}
+          appointmentDentistId={paymentApt.dentistId}
           procedures={paymentApt.procedures}
           onCompleted={() => {
             setPaymentApt(null);
             queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
             queryClient.invalidateQueries({ queryKey: ['waiting-room'] });
+            navigate('/agenda');
           }}
         />
       )}
