@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -187,57 +187,61 @@ const CARD_GAP   = 12;
 const CARD_STEP  = CARD_WIDTH + CARD_GAP;
 
 function PlansCarousel({ plans }: { plans: any[] }) {
-  const trackRef   = useRef<HTMLDivElement>(null);
-  const x          = useMotionValue(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
   const [active, setActive] = useState(0);
+  const [containerW, setContainerW] = useState(0);
 
-  const maxDrag = -(plans.length * CARD_STEP - CARD_GAP - (trackRef.current?.offsetWidth ?? CARD_WIDTH + 32));
+  // Measure container once mounted
+  useEffect(() => {
+    if (trackRef.current) setContainerW(trackRef.current.offsetWidth);
+  }, []);
+
+  const trackWidth = plans.length * CARD_STEP - CARD_GAP;
+  const maxDrag = containerW > 0 ? Math.min(-(trackWidth - containerW), 0) : 0;
 
   const snapTo = (idx: number) => {
     const clamped = Math.max(0, Math.min(idx, plans.length - 1));
     setActive(clamped);
-    animate(x, -clamped * CARD_STEP, { type: 'spring', stiffness: 300, damping: 30 });
+    const target = Math.max(-clamped * CARD_STEP, maxDrag);
+    animate(x, target, { type: 'spring', stiffness: 350, damping: 35 });
   };
 
-  const handleDragEnd = () => {
-    const current = x.get();
-    const nearest = Math.round(-current / CARD_STEP);
-    snapTo(nearest);
+  const handleDragEnd = (_: any, info: { velocity: { x: number } }) => {
+    const vx = info.velocity.x;
+    let next = active;
+    if (vx < -100) next = Math.min(active + 1, plans.length - 1);
+    else if (vx > 100) next = Math.max(active - 1, 0);
+    else next = Math.round(-x.get() / CARD_STEP);
+    snapTo(next);
   };
-
-  // Dot opacity driven by x position
-  const opacity = useTransform(x, [maxDrag, 0], [1, 1]);
 
   return (
     <div className="space-y-3">
-      {/* Carousel viewport */}
       <div ref={trackRef} className="overflow-hidden cursor-grab active:cursor-grabbing select-none">
         <motion.div
           drag="x"
-          style={{ x }}
-          dragConstraints={{ left: Math.min(maxDrag, 0), right: 0 }}
+          dragConstraints={{ left: maxDrag, right: 0 }}
           dragElastic={0.08}
-          dragTransition={{ bounceStiffness: 300, bounceDamping: 30 }}
+          dragMomentum={false}
           onDragEnd={handleDragEnd}
+          style={{ x, width: trackWidth }}
           className="flex gap-3 pb-1"
-          style={{ x, width: plans.length * CARD_STEP }}
         >
           {plans.map((plan: any, idx: number) => {
-            const cfg     = PLAN_CONFIG[idx % PLAN_CONFIG.length];
+            const cfg = PLAN_CONFIG[idx % PLAN_CONFIG.length];
             const PlanIcon = cfg.icon;
             const features: string[] = Array.isArray(plan.features) ? plan.features : [];
 
             return (
               <motion.div
                 key={plan.id}
-                animate={{ opacity: active === idx ? 1 : 0.7, scale: active === idx ? 1 : 0.97 }}
-                transition={{ duration: 0.25 }}
+                animate={{ opacity: active === idx ? 1 : 0.65, scale: active === idx ? 1 : 0.96 }}
+                transition={{ duration: 0.2 }}
                 style={{ width: CARD_WIDTH, flexShrink: 0 }}
                 className={`relative overflow-hidden rounded-xl border ${cfg.border} bg-gradient-to-br ${cfg.gradient} p-4 flex flex-col gap-3`}
               >
-                {/* glow */}
                 <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-
                 <div className="relative">
                   <div className={`h-9 w-9 rounded-lg ${cfg.iconBg} flex items-center justify-center mb-3`}>
                     <PlanIcon className="h-4 w-4" />
@@ -250,7 +254,6 @@ function PlansCarousel({ plans }: { plans: any[] }) {
                     {fmtPrice(plan.price_cents, plan.billing_cycle)}
                   </p>
                 </div>
-
                 {features.length > 0 && (
                   <ul className="space-y-1 flex-1">
                     {features.slice(0, 5).map((f) => (
@@ -261,7 +264,6 @@ function PlansCarousel({ plans }: { plans: any[] }) {
                     ))}
                   </ul>
                 )}
-
                 <Button disabled variant="outline" size="sm" className="w-full mt-auto opacity-60 pointer-events-none">
                   Em breve
                 </Button>
@@ -271,7 +273,6 @@ function PlansCarousel({ plans }: { plans: any[] }) {
         </motion.div>
       </div>
 
-      {/* Dot indicators */}
       {plans.length > 1 && (
         <div className="flex items-center justify-center gap-1.5">
           {plans.map((_, idx) => (
@@ -311,38 +312,54 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
     },
   });
 
+  const [activateError, setActivateError] = useState<string | null>(null);
+
   const handleActivateTest = async (plan: any) => {
     if (!user) return;
     setActivating(plan.id);
+    setActivateError(null);
     try {
       const entityType = currentClinicId ? 'clinic' : 'doctor';
       const entityId   = currentClinicId ?? user.id;
       const periodEnd  = new Date();
       periodEnd.setFullYear(periodEnd.getFullYear() + 1);
 
+      const payload = {
+        entity_type: entityType,
+        entity_id: entityId,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        status: 'active',
+        payment_method: 'manual',
+        billing_cycle: plan.billing_cycle,
+        amount_cents: plan.price_cents,
+        final_amount_cents: 0,
+        current_period_end: periodEnd.toISOString(),
+        notes: 'Plano de teste ativado manualmente pela equipe de desenvolvimento',
+      };
+
+      // Try upsert so it works even if a row already exists
       const { error } = await (supabase as any)
         .from('platform_subscriptions')
-        .insert({
-          entity_type: entityType,
-          entity_id: entityId,
-          plan_id: plan.id,
-          plan_name: plan.name,
-          status: 'active',
-          payment_method: 'manual',
-          billing_cycle: plan.billing_cycle,
-          amount_cents: plan.price_cents,
-          final_amount_cents: 0,
-          current_period_end: periodEnd.toISOString(),
-          notes: 'Plano de teste ativado manualmente pela equipe de desenvolvimento',
-        });
+        .upsert(payload, { onConflict: 'entity_id,entity_type' });
 
-      if (error) throw error;
+      if (error) {
+        // Fallback: try plain insert in case upsert fails due to no unique constraint
+        const { error: insertError } = await (supabase as any)
+          .from('platform_subscriptions')
+          .insert(payload);
+        if (insertError) throw insertError;
+      }
+
       await qc.invalidateQueries({ queryKey: ['subscription-status'] });
       await qc.invalidateQueries({ queryKey: ['active-sub-check'] });
       toast.success('Plano de teste ativado! Bem-vindo ao IACLIN.');
       onSuccess();
     } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao ativar plano de teste');
+      console.error('[SubscriptionOnboarding] activate error:', e);
+      const msg = e?.message ?? 'Erro ao ativar plano de teste';
+      setActivateError(msg);
+      toast.error(msg);
     } finally {
       setActivating(null);
     }
@@ -407,6 +424,9 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
                     {activating === testPlan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Assinar'}
                   </Button>
                 </div>
+                {activateError && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 mt-2 break-all">{activateError}</p>
+                )}
               </div>
             </motion.div>
           )}
