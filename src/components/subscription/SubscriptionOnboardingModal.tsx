@@ -27,11 +27,10 @@ function fmtPrice(cents: number, cycle: string) {
   return `${v}${label}`;
 }
 
-// Plan visual config by index position
 const PLAN_CONFIG = [
-  { icon: Zap,   gradient: 'from-blue-500/10 to-primary/5',   border: 'border-primary/30',   iconBg: 'bg-primary/10 text-primary' },
-  { icon: Star,  gradient: 'from-violet-500/10 to-primary/5', border: 'border-violet-400/40', iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400' },
-  { icon: Crown, gradient: 'from-amber-500/10 to-orange-500/5', border: 'border-amber-400/40', iconBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+  { icon: Zap,   gradient: 'from-blue-500/10 to-primary/5',     border: 'border-primary/30',   iconBg: 'bg-primary/10 text-primary' },
+  { icon: Star,  gradient: 'from-violet-500/10 to-primary/5',   border: 'border-violet-400/40', iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400' },
+  { icon: Crown, gradient: 'from-amber-500/10 to-orange-500/5', border: 'border-amber-400/40',  iconBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
 ];
 
 const containerVariants = {
@@ -181,115 +180,156 @@ function ClinicStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =
   );
 }
 
-/* ─── Plans carousel ─── */
-const CARD_WIDTH = 220;
-const CARD_GAP   = 12;
-const CARD_STEP  = CARD_WIDTH + CARD_GAP;
+/* ─── Reusable plan card ─── */
+function PlanCard({
+  plan, idx, style, className,
+}: {
+  plan: any;
+  idx: number;
+  style?: React.CSSProperties;
+  className?: string;
+}) {
+  const cfg = PLAN_CONFIG[idx % PLAN_CONFIG.length];
+  const PlanIcon = cfg.icon;
+  const features: string[] = Array.isArray(plan.features) ? plan.features : [];
 
+  return (
+    <div
+      style={style}
+      className={`relative overflow-hidden rounded-xl border ${cfg.border} bg-gradient-to-br ${cfg.gradient} p-4 flex flex-col gap-3 ${className ?? ''}`}
+    >
+      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+      <div className="relative">
+        <div className={`h-9 w-9 rounded-lg ${cfg.iconBg} flex items-center justify-center mb-3`}>
+          <PlanIcon className="h-4 w-4" />
+        </div>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="font-bold text-sm">{plan.name}</p>
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Em breve</Badge>
+        </div>
+        <p className="text-lg font-bold text-primary tabular-nums">
+          {fmtPrice(plan.price_cents, plan.billing_cycle)}
+        </p>
+      </div>
+      {features.length > 0 && (
+        <ul className="space-y-1 flex-1">
+          {features.slice(0, 5).map((f) => (
+            <li key={f} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+              <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+              {f}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button disabled variant="outline" size="sm" className="w-full mt-auto opacity-60 pointer-events-none">
+        Em breve
+      </Button>
+    </div>
+  );
+}
+
+/* ─── Plans display: grid on desktop, carousel on mobile ─── */
 function PlansCarousel({ plans }: { plans: any[] }) {
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
-  // Update active dot from scroll position
+  // Find the closest card to the current scroll position
   const handleScroll = () => {
-    const el = scrollerRef.current;
+    const el = carouselRef.current;
     if (!el) return;
-    const idx = Math.round(el.scrollLeft / CARD_STEP);
-    setActive(Math.max(0, Math.min(idx, plans.length - 1)));
+    const inner = el.firstElementChild as HTMLElement | null;
+    if (!inner) return;
+    const cards = Array.from(inner.children) as HTMLElement[];
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    cards.forEach((card, i) => {
+      const dist = Math.abs(card.offsetLeft - el.scrollLeft);
+      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+    });
+    setActive(Math.max(0, Math.min(bestIdx, plans.length - 1)));
   };
 
+  // Scroll to the exact left offset of the target card
   const scrollToIdx = (idx: number) => {
-    const el = scrollerRef.current;
+    const el = carouselRef.current;
     if (!el) return;
-    el.scrollTo({ left: idx * CARD_STEP, behavior: 'smooth' });
+    const inner = el.firstElementChild as HTMLElement | null;
+    if (!inner) return;
+    const card = inner.children[idx] as HTMLElement | undefined;
+    if (!card) return;
+    el.scrollTo({ left: card.offsetLeft, behavior: 'smooth' });
   };
 
-  // Mouse drag-to-scroll (desktop). Touch uses native scrolling.
+  // Mouse drag-to-scroll for desktop
   const drag = useRef({ active: false, startX: 0, startScroll: 0 });
   const onMouseDown = (e: React.MouseEvent) => {
-    const el = scrollerRef.current;
+    const el = carouselRef.current;
     if (!el) return;
     drag.current = { active: true, startX: e.pageX, startScroll: el.scrollLeft };
   };
   const onMouseMove = (e: React.MouseEvent) => {
     if (!drag.current.active) return;
-    const el = scrollerRef.current;
+    const el = carouselRef.current;
     if (!el) return;
     el.scrollLeft = drag.current.startScroll - (e.pageX - drag.current.startX);
   };
   const endDrag = () => { drag.current.active = false; };
 
+  const cols = Math.min(plans.length, 3);
+
   return (
     <div className="space-y-3">
+      {/* Desktop: responsive grid (visible on md+) */}
       <div
-        ref={scrollerRef}
-        onScroll={handleScroll}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={endDrag}
-        onMouseLeave={endDrag}
-        className="overflow-x-auto scroll-smooth snap-x snap-mandatory touch-pan-x overscroll-x-contain pb-2 cursor-grab active:cursor-grabbing select-none [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+        className="hidden md:grid gap-4"
+        style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
-        <div className="flex gap-3">
-          {plans.map((plan: any, idx: number) => {
-            const cfg = PLAN_CONFIG[idx % PLAN_CONFIG.length];
-            const PlanIcon = cfg.icon;
-            const features: string[] = Array.isArray(plan.features) ? plan.features : [];
-
-            return (
-              <div
-                key={plan.id}
-                style={{ width: CARD_WIDTH }}
-                className={`relative overflow-hidden rounded-xl border ${cfg.border} bg-gradient-to-br ${cfg.gradient} p-4 flex flex-col gap-3 shrink-0 snap-start`}
-              >
-                <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-                <div className="relative">
-                  <div className={`h-9 w-9 rounded-lg ${cfg.iconBg} flex items-center justify-center mb-3`}>
-                    <PlanIcon className="h-4 w-4" />
-                  </div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-bold text-sm">{plan.name}</p>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Em breve</Badge>
-                  </div>
-                  <p className="text-lg font-bold text-primary tabular-nums">
-                    {fmtPrice(plan.price_cents, plan.billing_cycle)}
-                  </p>
-                </div>
-                {features.length > 0 && (
-                  <ul className="space-y-1 flex-1">
-                    {features.slice(0, 5).map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Button disabled variant="outline" size="sm" className="w-full mt-auto opacity-60 pointer-events-none">
-                  Em breve
-                </Button>
-              </div>
-            );
-          })}
-        </div>
+        {plans.map((plan, idx) => (
+          <PlanCard key={plan.id} plan={plan} idx={idx} />
+        ))}
       </div>
 
-      {plans.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5">
-          {plans.map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => scrollToIdx(idx)}
-              className={`rounded-full transition-all duration-300 ${
-                active === idx
-                  ? 'w-5 h-2 bg-primary'
-                  : 'w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
-              }`}
-            />
-          ))}
+      {/* Mobile: horizontal snap carousel (visible below md) */}
+      <div className="md:hidden space-y-3">
+        <div
+          ref={carouselRef}
+          onScroll={handleScroll}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          className="overflow-x-auto scroll-smooth snap-x snap-mandatory touch-pan-x overscroll-x-contain pb-2 cursor-grab active:cursor-grabbing select-none [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+        >
+          <div className="flex gap-3 px-1">
+            {plans.map((plan, idx) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                idx={idx}
+                style={{ width: '80vw', maxWidth: 280 }}
+                className="shrink-0 snap-start"
+              />
+            ))}
+          </div>
         </div>
-      )}
+
+        {plans.length > 1 && (
+          <div className="flex items-center justify-center gap-1.5">
+            {plans.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => scrollToIdx(idx)}
+                className={`rounded-full transition-all duration-300 ${
+                  active === idx
+                    ? 'w-5 h-2 bg-primary'
+                    : 'w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -324,7 +364,6 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
       const entityType = currentClinicId ? 'clinic' : 'doctor';
       const entityId   = currentClinicId ?? user.id;
 
-      // Use the SECURITY DEFINER RPC to bypass RLS on platform_subscriptions
       const { error } = await (supabase as any).rpc('upsert_platform_subscription', {
         p_entity_id:     entityId,
         p_entity_type:   entityType,
@@ -352,8 +391,7 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
     }
   };
 
-  // Separate test plan from others
-  const testPlan  = (plans as any[]).find((p) => IS_TEST_PLAN(p.name));
+  const testPlan   = (plans as any[]).find((p) => IS_TEST_PLAN(p.name));
   const otherPlans = (plans as any[]).filter((p) => !IS_TEST_PLAN(p.name));
 
   return (
@@ -383,16 +421,16 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
 
               {/* Test plan card */}
               <div className="relative overflow-hidden rounded-b-xl border border-t-0 border-amber-400/50 bg-gradient-to-br from-amber-50/60 to-orange-50/30 dark:from-amber-950/30 dark:to-orange-950/20 p-5">
-                {/* glow blob */}
                 <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-amber-400/20 blur-2xl" />
 
-                <div className="relative flex items-center justify-between gap-4">
+                {/* Info + button: stacks on small screens, row on sm+ */}
+                <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                       <Zap className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm">{testPlan.name}</p>
                         <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400/30 hover:bg-amber-500/15">
                           Teste
@@ -403,10 +441,11 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
                       </p>
                     </div>
                   </div>
+
                   <Button
                     onClick={() => handleActivateTest(testPlan)}
                     disabled={!!activating}
-                    className="shrink-0 h-10 px-5 bg-amber-500 hover:bg-amber-600 text-white border-0 gap-2"
+                    className="shrink-0 h-10 px-5 bg-amber-500 hover:bg-amber-600 text-white border-0 gap-2 w-full sm:w-auto"
                   >
                     {activating === testPlan.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -418,6 +457,7 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
                     )}
                   </Button>
                 </div>
+
                 {activateError && (
                   <p className="text-[11px] text-red-600 dark:text-red-400 mt-2 break-all">{activateError}</p>
                 )}
@@ -437,13 +477,15 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
             </motion.div>
           )}
 
-          {/* Plans carousel */}
+          {/* Plans grid / carousel */}
           {otherPlans.length > 0 && (
-            <PlansCarousel plans={otherPlans} />
+            <motion.div variants={cardVariants}>
+              <PlansCarousel plans={otherPlans} />
+            </motion.div>
           )}
+
         </motion.div>
       )}
-
     </motion.div>
   );
 }
@@ -510,7 +552,7 @@ export function SubscriptionOnboardingModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
