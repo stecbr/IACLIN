@@ -69,8 +69,8 @@ function SuperAdminSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="p-4 bg-background border-b border-sidebar-border/60">
-        <div className="flex items-center gap-2">
+      <SidebarHeader className={collapsed ? 'items-center p-2 bg-background border-b border-sidebar-border/60' : 'p-4 bg-background border-b border-sidebar-border/60'}>
+        <div className={collapsed ? 'flex w-full items-center justify-center' : 'flex items-center gap-2'}>
           <img
             src={resolved === 'dark' ? logoDark : logoLight}
             alt="IACLIN"
@@ -85,15 +85,15 @@ function SuperAdminSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
-        <SidebarGroup>
+      <SidebarContent className={collapsed ? 'px-0' : 'px-2'}>
+        <SidebarGroup className={collapsed ? 'p-2' : undefined}>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-3 mb-1 font-semibold">
               Plataforma
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className={collapsed ? 'items-center' : undefined}>
               {nav.map((item) => {
                 const active = isActive(item.to, item.end);
                 return (
@@ -104,7 +104,7 @@ function SuperAdminSidebar() {
                       tooltip={item.label}
                       className={`relative rounded-xl text-sm transition-all duration-200 ${
                         collapsed
-                          ? 'justify-center px-0'
+                          ? 'mx-auto justify-center'
                           : 'gap-3 px-3 py-2.5 h-auto'
                       } ${
                         active
