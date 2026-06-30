@@ -101,14 +101,13 @@ export default function SuperAdminOperators() {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <HeartPulse className="h-6 w-6 text-rose-500" />
-          Operadoras de Saúde
-        </h1>
+        <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+          <HeartPulse className="h-5 w-5 text-rose-500" />
+          Cadastro de operadoras
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          {operators.length} operadora{operators.length !== 1 ? 's' : ''} cadastrada{operators.length !== 1 ? 's' : ''} na plataforma
+          {operators.length} operadora{operators.length !== 1 ? 's' : ''} cadastrada{operators.length !== 1 ? 's' : ''} na plataforma · solicitações em análise, aprovadas e recusadas.
         </p>
       </div>
 
