@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { generateCommissionsForTransaction } from '@/lib/commissions';
+import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Wallet, Receipt, ChevronRight, Info, Search } from 'lucide-react';
+import { Wallet, Receipt, ChevronRight, Info, Search, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
@@ -32,6 +38,48 @@ export function PayoutsPanel({ clinicId }: Props) {
   const { data: history = [] } = usePayoutHistory(clinicId);
   const [selected, setSelected] = useState<PendingByDentistRow | null>(null);
   const [filter, setFilter] = useState('');
+  const [recalculating, setRecalculating] = useState(false);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const { data: rulesCount = 0 } = useQuery({
+    queryKey: ['commission-rules-count', clinicId],
+    enabled: !!clinicId,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('commission_rules')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId);
+      return count ?? 0;
+    },
+  });
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const { data: incomes, error } = await supabase
+        .from('financial_transactions')
+        .select('id, status')
+        .eq('clinic_id', clinicId)
+        .eq('type', 'income')
+        .in('status', ['pending', 'paid']);
+      if (error) throw error;
+      let processed = 0;
+      for (const tx of incomes ?? []) {
+        await generateCommissionsForTransaction(
+          (tx as any).id,
+          (tx as any).status === 'paid' ? 'after_payment' : 'after_procedure',
+        );
+        processed += 1;
+      }
+      toast.success(`Recalculado · ${processed} receita(s) verificada(s)`);
+      qc.invalidateQueries({ queryKey: ['payouts-pending-by-dentist', clinicId] });
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao recalcular comissões');
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   const filteredOpen = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -41,6 +89,53 @@ export function PayoutsPanel({ clinicId }: Props) {
 
   return (
     <div className="space-y-6">
+      {rulesCount === 0 && (
+        <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start gap-3">
+          <div className="h-9 w-9 shrink-0 rounded-lg bg-amber-200/60 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center">
+            <AlertTriangle className="h-4 w-4" />
+          </div>
+          <div className="flex-1 text-sm leading-relaxed">
+            <p className="font-medium text-amber-900 dark:text-amber-200">
+              Nenhuma regra de comissão cadastrada
+            </p>
+            <p className="mt-1 text-amber-900/80 dark:text-amber-100/80">
+              As consultas só geram repasses automáticos quando existe uma regra
+              padrão da clínica ou uma regra individual por profissional. Cadastre
+              uma regra em <em>Financeiro → Comissões</em> e depois clique em
+              "Recalcular" para aplicar às receitas já existentes.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/financial?tab=comissoes')}
+            >
+              Criar regra
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {rulesCount > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {recalculating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Recalcular comissões em aberto
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
         <div className="h-9 w-9 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
           <Info className="h-4 w-4" />
