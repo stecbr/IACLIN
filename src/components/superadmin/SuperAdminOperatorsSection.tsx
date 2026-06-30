@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ClipboardList, Database } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { useSidebar } from '@/components/ui/sidebar';
 
 const items = [
   {
@@ -17,15 +19,24 @@ const items = [
 
 export function SuperAdminOperatorsSection() {
   const location = useLocation();
+  const { setOpen, open } = useSidebar();
+  // Colapsa a sidebar principal automaticamente nesta tela para liberar espaço,
+  // restaurando o estado anterior ao sair.
+  useEffect(() => {
+    const prev = open;
+    setOpen(false);
+    return () => setOpen(prev);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-[calc(100vh-3.5rem-2rem)] md:h-[calc(100vh-3.5rem-3rem)]">
       <PageHeader
         title="Operadoras"
         description="Gerencie solicitações de cadastro e o catálogo de operadoras e planos aceitos na plataforma."
       />
-      <div className="flex flex-col md:flex-row gap-6">
-        <nav className="flex md:flex-col gap-1 md:w-48 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 shrink-0">
+      <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0 mt-6">
+        <nav className="flex md:flex-col gap-1 md:w-48 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 shrink-0 md:self-start md:sticky md:top-0">
           {items.map((item) => {
             const active = location.pathname.startsWith(item.to);
             return (
@@ -44,7 +55,7 @@ export function SuperAdminOperatorsSection() {
             );
           })}
         </nav>
-        <div className="flex-1 min-w-0 rounded-xl border bg-card p-4 md:p-6 shadow-sm">
+        <div className="flex-1 min-w-0 min-h-0 rounded-xl border bg-card shadow-sm overflow-y-auto p-4 md:p-6">
           <Outlet />
         </div>
       </div>
