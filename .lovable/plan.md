@@ -1,51 +1,58 @@
-## 1. Ajustes visuais — card "Aguardando pagamento" da Sala de Espera
+## Objetivo
+Refinar gating, UX e atalho DEV do `SubscriptionOnboardingModal`.
 
-Arquivo: `src/components/waiting-room/WaitingRoomCard.tsx`
+## 1. Visibilidade do modal (`AppLayout.tsx`)
 
-O card fica apertado porque os botões "Registrar pagamento" + "Cobrar depois" disputam espaço na mesma linha dentro de uma coluna estreita do Kanban. Vou:
+Reescrever a query/effect em `AppLayout.tsx` (linhas 48-75):
 
-- Empilhar os botões verticalmente (`flex-col`) na seção `awaiting_payment`, com largura cheia (`w-full`) e altura `h-8`.
-- Reduzir o padding do card de `p-4` para `p-3` e o espaçamento interno de `space-y-3` para `space-y-2.5`.
-- Encolher a linha "Dr(a). … • especialidade" para uma única linha truncada (já está, mas vou apertar `gap-1` e `text-[11px]`).
-- Trocar o botão "Prontuário" por um link sutil (texto pequeno + ícone) acima dos botões de ação, liberando espaço.
-- Botão principal de "Registrar pagamento" continua verde e em destaque; "Cobrar depois" vira `variant="ghost"` mais discreto (é ação secundária).
+- **Roles permitidos** (whitelist explícita): `admin`, `owner`, `dentist`, `doctor` (qualquer profissional clínico). Bloquear estritamente `secretary`, `auxiliary`, `patient`, `operator`, `super_admin`/`platform_admin`.
+- **Check de assinatura ativa cobrindo vínculo**:
+  - Para o usuário (`entity_type='doctor'`, `entity_id=user.id`) — cobre autônomo.
+  - Para a clínica atual (`entity_type='clinic'`, `entity_id=currentClinicId`) — cobre dono.
+  - Para **todas** as clínicas em que o usuário é membro ativo (`clinic_members.status='active'`) — cobre médico/dentista vinculado. Buscar lista via `clinic_members` e incluir esses IDs no `.in('entity_id', ids)` com `status='active'`.
+- Só abre o modal quando: usuário tem role permitido **E** nenhuma das entidades acima tem assinatura ativa.
 
-Nenhuma mudança nos outros estados (Aguardados / Na recepção / Em atendimento) além das medidas globais do card.
+## 2. Aviso de desvinculação
 
-## 2. Sair da página após confirmar o pagamento
+- Adicionar detecção: usuário com role profissional, `clinicsLoaded=true`, sem nenhum vínculo ativo (`clinic_members`/`isPersonalMode`), e que previamente teve vínculo. Heurística simples: se `roles` inclui `dentist`/`doctor` mas `clinics.length === 0` e não há assinatura própria → exibir banner.
+- Criar `UnlinkedFromClinicBanner.tsx` (variante `destructive`/amber) com texto: "Você foi desvinculado da clínica anterior. Escolha como continuar usando o IACLIN." e botão "Escolher opção" que abre o modal.
+- Forçar `setSubOnboardingOpen(true)` automaticamente nesse cenário (já coberto pela regra 1, mas garantir prioridade).
+- Renderizar o banner em `AppLayout.tsx` junto aos demais (`SubscriptionWarningBanner`, `SoloTransitionBanner`).
 
-Arquivo: `src/pages/WaitingRoom.tsx`
+## 3. Fluidez do carrossel (`SubscriptionOnboardingModal.tsx` – `PlansCarousel`)
 
-Hoje o `onCompleted` do `FinishPaymentDialog` só fecha o modal e invalida as queries — o usuário fica parado na Sala de Espera. Vou:
+Substituir a implementação atual baseada em `motion.div drag` (que trava por causa de `dragMomentum={false}` e snap rígido) por um carrossel CSS nativo:
 
-- No `onCompleted`, chamar `navigate('/agenda')` após o `toast.success` (já existente no dialog).
-- Passar `appointmentDentistId={paymentApt.dentistId}` para o `FinishPaymentDialog` (hoje não é passado — o dialog está atribuindo o `dentist_id` ao usuário logado, e não ao médico da consulta).
-- Acrescentar `dentistId` ao estado `paymentApt` e carregá-lo junto em `handleRegisterPayment` (já buscamos o appointment; basta selecionar `dentist_id`).
+```
+<div className="overflow-x-auto scroll-smooth snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1 px-1 pb-2 [&::-webkit-scrollbar]:hidden">
+  <div className="flex gap-3">
+    {plans.map(... className="snap-start shrink-0 w-[220px]")}
+  </div>
+</div>
+```
 
-## 3. Comissões do Marcio não aparecem em "Repasses"
+- Manter dots clicáveis usando `scrollTo({left, behavior:'smooth'})` no container ref.
+- Atualizar índice ativo via `onScroll` (debounced) calculando `Math.round(scrollLeft / CARD_STEP)`.
+- Habilitar drag-com-mouse no desktop via handlers `onMouseDown/Move/Up` que ajustam `scrollLeft` (mantém touch nativo no mobile).
+- Remover `useMotionValue`/`animate` e a lógica `dragMomentum`.
 
-Diagnóstico após inspecionar a base:
+## 4. Botão DEV "Ativar Modo Desenvolvedor"
 
-- Existe a receita do atendimento (`financial_transactions` com `type=income`, R$ 150, `dentist_id` correto).
-- **Não existe nenhuma `commission_rules` cadastrada para a clínica** — nem regra específica do Marcio, nem `is_clinic_default = true`.
-- Sem regra, o `generateCommissionsForTransaction` em `src/lib/commissions.ts` retorna sem criar a despesa `category='commission'`, e o painel "Comissões em aberto" fica vazio (ele só lista despesas dessa categoria).
+No card do plano de teste (`PlansStep`, linhas ~366-410):
 
-Correções de UX para deixar isso claro (sem mudar a regra de negócio):
+- Renomear botão "Assinar" → **"Ativar Modo Desenvolvedor"** (ícone `Zap`).
+- A função `handleActivateTest` já chama o RPC `upsert_platform_subscription` com `status='active'` e `payment_method='manual'` — **manter**, mas:
+  - Garantir que **não** dispare `mercadopago-create-subscription` nem redirecione externamente (verificado: já não dispara).
+  - Adicionar `p_current_period_end` = `now() + interval '1 year'` ao RPC para evitar que o `SubscriptionGuard` marque como vencido. Se o RPC atual não aceitar esse parâmetro, criar migração para adicionar parâmetro opcional (default 1 ano à frente quando `notes` contém "desenvolvimento").
+  - Após sucesso: invalidar `['active-sub-check']` e `['subscription-status']`, fechar modal, `toast.success('Modo Desenvolvedor ativado — acesso liberado.')`.
+- Adicionar microcopy abaixo do botão: "Libera acesso completo sem cobrança. Apenas para times de desenvolvimento."
 
-a) **Aviso no painel de Repasses** (`src/components/finance/PayoutsPanel.tsx`): quando não houver nenhuma `commission_rules` ativa na clínica, mostrar um alerta amarelo acima de "Comissões em aberto" com texto:
+## Arquivos afetados
 
-> "Nenhuma regra de comissão cadastrada. As consultas não vão gerar repasses automáticos enquanto você não criar uma regra padrão da clínica ou uma regra individual em **Financeiro → Comissões**."
+- `src/components/AppLayout.tsx` — gating do modal + render do novo banner.
+- `src/components/subscription/SubscriptionOnboardingModal.tsx` — carrossel CSS + botão DEV renomeado.
+- `src/components/subscription/UnlinkedFromClinicBanner.tsx` — novo.
+- Migração SQL (se necessário) ajustando `upsert_platform_subscription` para aceitar `p_current_period_end`.
 
-E um botão "Criar regra" levando para a aba Comissões. Vou usar uma query simples (`select count from commission_rules where clinic_id = ?`) com `react-query`.
-
-b) **Reprocessar a consulta do Marcio**: depois que o usuário cadastrar a regra (padrão ou individual), as receitas antigas continuariam sem comissão. Para resolver isso vou adicionar um botão discreto "Recalcular comissões em aberto" no mesmo aviso, que percorre `financial_transactions` (`type=income`, `status in (pending, paid)`, `clinic_id` atual, sem expense correspondente) e chama `generateCommissionsForTransaction(id, 'after_procedure')` para cada uma. Idempotência já está garantida pela tag `[rule:id]` na coluna `notes`.
-
-c) **Correção do bug de atribuição** descrito no item 2 (passar o `dentist_id` do agendamento) impede que pagamentos registrados pela recepcionista atribuam a receita à conta dela em vez do médico que atendeu.
-
-## Resumo dos arquivos tocados
-
-- `src/components/waiting-room/WaitingRoomCard.tsx` — visual do card
-- `src/pages/WaitingRoom.tsx` — redirecionamento + `appointmentDentistId`
-- `src/components/finance/PayoutsPanel.tsx` — alerta + botão "Recalcular comissões em aberto"
-
-Nenhuma migração de banco é necessária.
+## Fora de escopo
+Cancelamento real de plano, integração com Mercado Pago, alterações em `platform_plans`.
