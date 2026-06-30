@@ -19,7 +19,6 @@ import {
 
 type Step = 'choice' | 'clinic' | 'plans';
 
-const DISMISS_KEY = 'iaclin.subOnboardingDismissed';
 const IS_TEST_PLAN = (name: string) => name.toLowerCase().includes('teste');
 
 function fmtPrice(cents: number, cycle: string) {
@@ -293,7 +292,7 @@ function PlansCarousel({ plans }: { plans: any[] }) {
 }
 
 /* ─── Plans step ─── */
-function PlansStep({ onBack, onSuccess, onDismiss }: { onBack: () => void; onSuccess: () => void; onDismiss: () => void }) {
+function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
   const { user, currentClinicId } = useAuth();
   const qc = useQueryClient();
   const [activating, setActivating] = useState<string | null>(null);
@@ -428,20 +427,12 @@ function PlansStep({ onBack, onSuccess, onDismiss }: { onBack: () => void; onSuc
         </motion.div>
       )}
 
-      <div className="pt-1 text-center">
-        <button
-          onClick={onDismiss}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-        >
-          Continuar sem plano por enquanto
-        </button>
-      </div>
     </motion.div>
   );
 }
 
 /* ─── Choice step ─── */
-function ChoiceStep({ onClinic, onPlans, onDismiss }: { onClinic: () => void; onPlans: () => void; onDismiss: () => void }) {
+function ChoiceStep({ onClinic, onPlans }: { onClinic: () => void; onPlans: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.25 }} className="space-y-3 pt-2">
@@ -484,11 +475,6 @@ function ChoiceStep({ onClinic, onPlans, onDismiss }: { onClinic: () => void; on
         </div>
       </motion.button>
 
-      <div className="text-center pt-1">
-        <button onClick={onDismiss} className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2">
-          Decidir depois
-        </button>
-      </div>
     </motion.div>
   );
 }
@@ -499,11 +485,6 @@ export function SubscriptionOnboardingModal({ open, onClose }: Props) {
 
   useEffect(() => { if (open) setStep('choice'); }, [open]);
 
-  const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, '1');
-    onClose();
-  };
-
   const titles: Record<Step, string> = {
     choice: 'Como você vai usar o IACLIN?',
     clinic: 'Vincular a uma clínica',
@@ -511,7 +492,7 @@ export function SubscriptionOnboardingModal({ open, onClose }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleDismiss(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
@@ -522,25 +503,23 @@ export function SubscriptionOnboardingModal({ open, onClose }: Props) {
           </DialogTitle>
           {step === 'choice' && (
             <DialogDescription>
-              Escolha como deseja usar a plataforma. Você pode mudar isso mais tarde.
+              Escolha como deseja usar a plataforma.
             </DialogDescription>
           )}
         </DialogHeader>
 
         <AnimatePresence mode="wait">
           {step === 'choice' && (
-            <ChoiceStep key="choice" onClinic={() => setStep('clinic')} onPlans={() => setStep('plans')} onDismiss={handleDismiss} />
+            <ChoiceStep key="choice" onClinic={() => setStep('clinic')} onPlans={() => setStep('plans')} />
           )}
           {step === 'clinic' && (
             <ClinicStep key="clinic" onBack={() => setStep('choice')} onSuccess={onClose} />
           )}
           {step === 'plans' && (
-            <PlansStep key="plans" onBack={() => setStep('choice')} onSuccess={onClose} onDismiss={handleDismiss} />
+            <PlansStep key="plans" onBack={() => setStep('choice')} onSuccess={onClose} />
           )}
         </AnimatePresence>
       </DialogContent>
     </Dialog>
   );
 }
-
-export { DISMISS_KEY as SUB_ONBOARDING_DISMISS_KEY };

@@ -28,7 +28,7 @@ import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
 import { SubscriptionWarningBanner } from '@/components/SubscriptionWarningBanner';
 import { SubscriptionGuard } from '@/components/SubscriptionGuard';
 import { SoloTransitionBanner } from '@/components/SoloTransitionBanner';
-import { SubscriptionOnboardingModal, SUB_ONBOARDING_DISMISS_KEY } from '@/components/subscription/SubscriptionOnboardingModal';
+import { SubscriptionOnboardingModal } from '@/components/subscription/SubscriptionOnboardingModal';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -68,9 +68,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!clinicsLoaded || subCheckLoading || hasActiveSub === undefined) return;
     if (hasActiveSub) return;
-    const dismissed = !!localStorage.getItem(SUB_ONBOARDING_DISMISS_KEY);
-    if (dismissed) return;
-    const EXCLUDED: string[] = ['patient', 'secretary', 'admin', 'auxiliary'];
+    // Only skip for non-professionals — clinic owners (admin) must see the modal
+    const EXCLUDED: string[] = ['patient', 'secretary', 'auxiliary'];
     const isProfessional = roles.some((r) => !EXCLUDED.includes(r));
     if (isProfessional) setSubOnboardingOpen(true);
   }, [clinicsLoaded, subCheckLoading, hasActiveSub, roles]);
