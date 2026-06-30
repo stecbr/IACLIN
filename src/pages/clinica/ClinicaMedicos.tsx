@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, UserMinus, Settings2, History } from 'lucide-react';
 import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
 import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
@@ -186,6 +186,7 @@ export default function ClinicaMedicos() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
+                          <AvatarImage src={m.profile?.avatar_url ?? undefined} alt={m.profile?.full_name ?? ''} />
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
                             {initials(m.profile?.full_name)}
                           </AvatarFallback>
