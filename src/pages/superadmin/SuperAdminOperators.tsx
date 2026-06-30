@@ -107,7 +107,7 @@ export default function SuperAdminOperators() {
           Cadastro de operadoras
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          {operators.length} operadora{operators.length !== 1 ? 's' : ''} cadastrada{operators.length !== 1 ? 's' : ''} na plataforma · solicitações em análise, aprovadas e recusadas.
+          {operators.length} conta{operators.length !== 1 ? 's' : ''} de operadora na plataforma · solicitações em análise, aprovadas e recusadas. O catálogo completo (ANS) fica em <span className="font-medium">Banco de dados</span>.
         </p>
       </div>
 
