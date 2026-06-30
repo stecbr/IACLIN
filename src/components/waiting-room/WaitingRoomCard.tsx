@@ -80,7 +80,7 @@ export function WaitingRoomCard({
 
   return (
     <Card
-      className="p-4 space-y-3 border-l-4 transition-all hover:shadow-md"
+      className="p-3 space-y-2.5 border-l-4 transition-all hover:shadow-md"
       style={{ borderLeftColor: procedureColor }}
     >
       <div className="flex items-start gap-3">
@@ -116,8 +116,8 @@ export function WaitingRoomCard({
       </div>
 
       {appointment.dentist_name && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Stethoscope className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Stethoscope className="h-3 w-3 shrink-0" />
           <span className="truncate">
             Dr(a). {appointment.dentist_name}
             {appointment.dentist_specialty ? ` • ${specialtyLabel(appointment.dentist_specialty)}` : ''}
@@ -140,17 +140,17 @@ export function WaitingRoomCard({
       )}
 
       {/* Action buttons (contextual) */}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="gap-1.5 h-9 text-muted-foreground hover:text-primary"
+      <div className="flex flex-col gap-1.5 pt-1">
+        <button
+          type="button"
           onClick={() => navigate(`/patients/${appointment.patient_id}`)}
+          className="self-start inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
           title="Abrir prontuário"
         >
-          <FolderHeart className="h-4 w-4" />
+          <FolderHeart className="h-3 w-3" />
           Prontuário
-        </Button>
+        </button>
+        <div className="flex flex-wrap gap-1.5">
         {presence === 'not_arrived' && (
           <>
             <Button
@@ -199,24 +199,24 @@ export function WaitingRoomCard({
           </>
         )}
         {presence === 'awaiting_payment' && (
-          <>
+          <div className="flex flex-col gap-1.5 w-full">
             {canManagePayment ? (
               <>
                 {onRegisterPayment && (
                   <Button
                     size="sm"
-                    className="flex-1 gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
                     onClick={() => onRegisterPayment(appointment.id)}
                     disabled={isBusy}
                   >
-                    <Wallet className="h-4 w-4" />
+                    <Wallet className="h-3.5 w-3.5" />
                     Registrar pagamento
                   </Button>
                 )}
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="gap-1.5 h-9"
+                  variant="ghost"
+                  className="w-full gap-1.5 h-7 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => onMarkFinished(appointment.id)}
                   disabled={isBusy}
                   title="Finalizar sem lançamento financeiro"
@@ -225,12 +225,13 @@ export function WaitingRoomCard({
                 </Button>
               </>
             ) : (
-              <span className="text-xs text-muted-foreground px-1">
+              <span className="text-[11px] text-muted-foreground px-1">
                 Aguardando pagamento — somente secretário ou admin pode finalizar.
               </span>
             )}
-          </>
+          </div>
         )}
+        </div>
       </div>
     </Card>
   );
