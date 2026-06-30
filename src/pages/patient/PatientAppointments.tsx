@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO, isFuture } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Calendar, Plus, Loader2, ChevronRight, History, CalendarCheck, Search, X,
@@ -113,7 +113,8 @@ export default function PatientAppointments() {
     if (req?.status === 'approved') refetch();
   };
 
-  const upcoming = appointments.filter((a) => isFuture(parseISO(a.start_time)) && a.status !== 'cancelled');
+  const today = startOfDay(new Date());
+  const upcoming = appointments.filter((a) => parseISO(a.start_time) >= today && a.status !== 'cancelled');
   const upcomingApptIds = new Set(upcoming.map((a) => a.id));
   const requestsToShow = pendingRequests.filter((r) => {
     if (r.status === 'approved' && r.appointment_id && upcomingApptIds.has(r.appointment_id)) return false;

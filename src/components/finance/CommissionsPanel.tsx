@@ -252,6 +252,30 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
     ? (editingPro.isDefault ? defaultRules : (rulesByDentist[editingPro.id] ?? []))
     : [];
 
+  const editingProData = editingPro && !editingPro.isDefault
+    ? professionals.find((p) => p.id === editingPro.id) ?? null
+    : null;
+
+  const hasDuplicateTrigger = proRulesEditing.some((r) => r.trigger === draftTrigger);
+
+  const previewCommission = useMemo(() => {
+    if (!draftValue || parseFloat(draftValue) <= 0 || !editingPro || editingPro.isDefault) return null;
+    const v = parseFloat(draftValue);
+    const memberSpecialty = members.find((m) => m.user_id === editingPro.id)?.specialty ?? null;
+    let base = transactions.filter(
+      (t: any) =>
+        t.dentist_id === editingPro.id &&
+        t.type === 'income' &&
+        (!t.approval_status || t.approval_status === 'approved')
+    );
+    if (draftTrigger === 'after_payment') base = base.filter((t: any) => t.status === 'paid');
+    if (draftInsurance) base = base.filter((t: any) => (t.patients as any)?.insurance_provider === draftInsurance);
+    if (draftSpecialty && memberSpecialty !== draftSpecialty) base = [];
+    const totalBase = base.reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const amount = draftType === 'percentage' ? totalBase * (v / 100) : v * base.length;
+    return { amount, base: totalBase, count: base.length };
+  }, [draftValue, draftType, draftTrigger, draftInsurance, draftSpecialty, editingPro, members, transactions]);
+
   const addRule = async () => {
     if (!editingPro) return;
     const v = parseFloat(draftValue);
@@ -435,6 +459,24 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Resumo financeiro do profissional */}
+            {editingProData && (
+              <div className="grid grid-cols-3 gap-2 rounded-lg border border-border/50 bg-muted/30 p-3">
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Faturado</p>
+                  <p className="text-sm font-semibold">{fmt(editingProData.earned)}</p>
+                </div>
+                <div className="text-center border-x border-border/40">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Calculado</p>
+                  <p className="text-sm font-semibold text-primary">{fmt(editingProData.commission)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Lançado</p>
+                  <p className="text-sm font-semibold">{fmt(editingProData.posted)}</p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1 col-span-2">
                 <Label className="text-xs">
@@ -483,6 +525,14 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                   onChange={(e) => setDraftValue(e.target.value)}
                   className="h-9"
                 />
+                {/* Preview em tempo real */}
+                {previewCommission !== null && (
+                  <p className="text-[11px] text-primary font-medium leading-tight mt-1">
+                    {draftType === 'percentage'
+                      ? `Com ${draftValue}% → ${fmt(previewCommission.amount)} (base ${fmt(previewCommission.base)})`
+                      : `${fmt(parseFloat(draftValue))} × ${previewCommission.count} atend. → ${fmt(previewCommission.amount)}`}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -527,6 +577,14 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                 </Select>
               </div>
             </div>
+
+            {/* Aviso de regra duplicada */}
+            {hasDuplicateTrigger && (
+              <p className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                Já existe uma regra para "{TRIGGERS.find((t) => t.value === draftTrigger)?.label}". Adicionar outra pode gerar comissões duplicadas.
+              </p>
+            )}
 
             <Button
               variant="outline"
