@@ -403,14 +403,6 @@ function OperatorFormDialog({
               </Select>
             </div>
             <div>
-              <Label>Logo (URL)</Label>
-              <Input
-                value={form.logo_url ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-            <div>
               <Label>E-mail de contato</Label>
               <Input
                 type="email"
