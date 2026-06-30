@@ -50,8 +50,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!clinicsLoaded) return;
     const dismissed = !!localStorage.getItem(SUB_ONBOARDING_DISMISS_KEY);
-    const isDentist = roles.includes('dentist' as any);
-    if (isDentist && clinics.length === 0 && !dismissed) {
+    const EXCLUDED: string[] = ['patient', 'secretary', 'admin', 'auxiliary'];
+    const isProfessional = roles.some((r) => !EXCLUDED.includes(r));
+    if (isProfessional && clinics.length === 0 && !dismissed) {
       setSubOnboardingOpen(true);
     }
   }, [clinicsLoaded, roles, clinics]);
