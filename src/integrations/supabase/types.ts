@@ -4087,6 +4087,7 @@ export type Database = {
     Functions: {
       admin_delete_catalog_plan: { Args: { p_id: string }; Returns: undefined }
       admin_delete_operator: { Args: { p_id: string }; Returns: undefined }
+      admin_get_all_operators: { Args: never; Returns: Json[] }
       admin_get_clinics: {
         Args: never
         Returns: {
