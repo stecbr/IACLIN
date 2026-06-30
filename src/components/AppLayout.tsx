@@ -29,6 +29,7 @@ import { SubscriptionWarningBanner } from '@/components/SubscriptionWarningBanne
 import { SubscriptionGuard } from '@/components/SubscriptionGuard';
 import { SoloTransitionBanner } from '@/components/SoloTransitionBanner';
 import { SubscriptionOnboardingModal } from '@/components/subscription/SubscriptionOnboardingModal';
+import { UnlinkedFromClinicBanner } from '@/components/subscription/UnlinkedFromClinicBanner';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -44,15 +45,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinicsLoaded, user } = useAuth();
+  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinicsLoaded, user, clinics } = useAuth();
   const [subOnboardingOpen, setSubOnboardingOpen] = useState(false);
 
-  // Check for any active subscription (clinic or personal doctor)
-  const entityIds = [currentClinicId, user?.id].filter(Boolean) as string[];
+  // Whitelist of roles that gate behind a paid plan
+  const PROFESSIONAL_ROLES = new Set(['admin', 'owner', 'dentist', 'doctor']);
+  const hasProfessionalRole = roles.some((r) => PROFESSIONAL_ROLES.has(r as string));
+
+  // Collect all entity ids that could own an active subscription covering this user:
+  // self (autônomo), current clinic, and every clinic where user is an active member.
+  const memberClinicIds = (clinics ?? [])
+    .map((c: any) => c?.clinicId ?? c?.clinic_id ?? c?.id)
+    .filter(Boolean) as string[];
+  const entityIds = Array.from(new Set(
+    [currentClinicId, user?.id, ...memberClinicIds].filter(Boolean) as string[]
+  ));
+
   const { data: hasActiveSub, isLoading: subCheckLoading } = useQuery({
-    queryKey: ['active-sub-check', user?.id, currentClinicId],
-    enabled: !!user && clinicsLoaded,
-    staleTime: 0,
+    queryKey: ['active-sub-check', user?.id, currentClinicId, memberClinicIds.join(',')],
+    enabled: !!user && clinicsLoaded && hasProfessionalRole && entityIds.length > 0,
+    staleTime: 30 * 1000,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from('platform_subscriptions')
@@ -65,14 +77,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
     },
   });
 
+  // Detect dangling professional (no active clinic membership and not in personal mode)
+  const isDangling =
+    hasProfessionalRole &&
+    clinicsLoaded &&
+    (clinics?.length ?? 0) === 0 &&
+    !isPersonalMode;
+
   useEffect(() => {
-    if (!clinicsLoaded || subCheckLoading || hasActiveSub === undefined) return;
+    if (!hasProfessionalRole) return;
+    if (!clinicsLoaded || subCheckLoading) return;
     if (hasActiveSub) return;
-    // Only skip for non-professionals — clinic owners (admin) must see the modal
-    const EXCLUDED: string[] = ['patient', 'secretary', 'auxiliary'];
-    const isProfessional = roles.some((r) => !EXCLUDED.includes(r));
-    if (isProfessional) setSubOnboardingOpen(true);
-  }, [clinicsLoaded, subCheckLoading, hasActiveSub, roles]);
+    setSubOnboardingOpen(true);
+  }, [clinicsLoaded, subCheckLoading, hasActiveSub, hasProfessionalRole]);
   const { effectiveRole, canAccess } = useRoleAccess();
   const { isStaff } = useStaffPermissions();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
@@ -236,6 +253,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <PublishPendingBanner />
                 <SubscriptionWarningBanner />
                 <SoloTransitionBanner />
+                {isDangling && !hasActiveSub && (
+                  <UnlinkedFromClinicBanner onChoose={() => setSubOnboardingOpen(true)} />
+                )}
                 {blockedByPermission ? (
                   <div className="flex flex-1 items-center justify-center">
                     <div className="max-w-md w-full rounded-2xl border border-border bg-card p-8 text-center shadow-card">

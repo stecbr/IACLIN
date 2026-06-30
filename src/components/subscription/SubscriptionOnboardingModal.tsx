@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -187,54 +187,60 @@ const CARD_GAP   = 12;
 const CARD_STEP  = CARD_WIDTH + CARD_GAP;
 
 function PlansCarousel({ plans }: { plans: any[] }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
-  const trackWidth = plans.length * CARD_STEP - CARD_GAP;
-
-  const snapTo = (idx: number) => {
-    const clamped = Math.max(0, Math.min(idx, plans.length - 1));
-    setActive(clamped);
-    const containerW = containerRef.current?.offsetWidth ?? 0;
-    const maxDrag = Math.min(-(trackWidth - containerW), 0);
-    const target = Math.max(-clamped * CARD_STEP, maxDrag);
-    animate(x, target, { type: 'spring', stiffness: 350, damping: 35 });
+  // Update active dot from scroll position
+  const handleScroll = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / CARD_STEP);
+    setActive(Math.max(0, Math.min(idx, plans.length - 1)));
   };
 
-  const handleDragEnd = (_: any, info: { velocity: { x: number } }) => {
-    const vx = info.velocity.x;
-    let next: number;
-    if (vx < -150) next = Math.min(active + 1, plans.length - 1);
-    else if (vx > 150) next = Math.max(active - 1, 0);
-    else next = Math.max(0, Math.min(Math.round(-x.get() / CARD_STEP), plans.length - 1));
-    snapTo(next);
+  const scrollToIdx = (idx: number) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTo({ left: idx * CARD_STEP, behavior: 'smooth' });
   };
+
+  // Mouse drag-to-scroll (desktop). Touch uses native scrolling.
+  const drag = useRef({ active: false, startX: 0, startScroll: 0 });
+  const onMouseDown = (e: React.MouseEvent) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    drag.current = { active: true, startX: e.pageX, startScroll: el.scrollLeft };
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!drag.current.active) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollLeft = drag.current.startScroll - (e.pageX - drag.current.startX);
+  };
+  const endDrag = () => { drag.current.active = false; };
 
   return (
     <div className="space-y-3">
-      <div ref={containerRef} className="overflow-hidden cursor-grab active:cursor-grabbing select-none">
-        <motion.div
-          drag="x"
-          dragConstraints={containerRef}
-          dragElastic={0.15}
-          dragMomentum={false}
-          onDragEnd={handleDragEnd}
-          style={{ x, width: trackWidth }}
-          className="flex gap-3 pb-1"
-        >
+      <div
+        ref={scrollerRef}
+        onScroll={handleScroll}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
+        className="overflow-x-auto scroll-smooth snap-x snap-mandatory touch-pan-x overscroll-x-contain pb-2 cursor-grab active:cursor-grabbing select-none [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+      >
+        <div className="flex gap-3">
           {plans.map((plan: any, idx: number) => {
             const cfg = PLAN_CONFIG[idx % PLAN_CONFIG.length];
             const PlanIcon = cfg.icon;
             const features: string[] = Array.isArray(plan.features) ? plan.features : [];
 
             return (
-              <motion.div
+              <div
                 key={plan.id}
-                animate={{ opacity: active === idx ? 1 : 0.65, scale: active === idx ? 1 : 0.96 }}
-                transition={{ duration: 0.2 }}
-                style={{ width: CARD_WIDTH, flexShrink: 0 }}
-                className={`relative overflow-hidden rounded-xl border ${cfg.border} bg-gradient-to-br ${cfg.gradient} p-4 flex flex-col gap-3`}
+                style={{ width: CARD_WIDTH }}
+                className={`relative overflow-hidden rounded-xl border ${cfg.border} bg-gradient-to-br ${cfg.gradient} p-4 flex flex-col gap-3 shrink-0 snap-start`}
               >
                 <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
                 <div className="relative">
@@ -262,10 +268,10 @@ function PlansCarousel({ plans }: { plans: any[] }) {
                 <Button disabled variant="outline" size="sm" className="w-full mt-auto opacity-60 pointer-events-none">
                   Em breve
                 </Button>
-              </motion.div>
+              </div>
             );
           })}
-        </motion.div>
+        </div>
       </div>
 
       {plans.length > 1 && (
@@ -273,7 +279,8 @@ function PlansCarousel({ plans }: { plans: any[] }) {
           {plans.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => snapTo(idx)}
+              type="button"
+              onClick={() => scrollToIdx(idx)}
               className={`rounded-full transition-all duration-300 ${
                 active === idx
                   ? 'w-5 h-2 bg-primary'
@@ -326,13 +333,14 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
         p_payment_method: 'manual',
         p_billing_cycle: plan.billing_cycle,
         p_notes:         'Plano de teste ativado manualmente pela equipe de desenvolvimento',
+        p_current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
       if (error) throw error;
 
       await qc.invalidateQueries({ queryKey: ['subscription-status'] });
       await qc.invalidateQueries({ queryKey: ['active-sub-check'] });
-      toast.success('Plano de teste ativado! Bem-vindo ao IACLIN.');
+      toast.success('Modo Desenvolvedor ativado — acesso liberado.');
       onSuccess();
     } catch (e: any) {
       console.error('[SubscriptionOnboarding] activate error:', e);
@@ -398,14 +406,24 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
                   <Button
                     onClick={() => handleActivateTest(testPlan)}
                     disabled={!!activating}
-                    className="shrink-0 h-10 px-5 bg-amber-500 hover:bg-amber-600 text-white border-0"
+                    className="shrink-0 h-10 px-5 bg-amber-500 hover:bg-amber-600 text-white border-0 gap-2"
                   >
-                    {activating === testPlan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Assinar'}
+                    {activating === testPlan.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4" />
+                        Ativar Modo Desenvolvedor
+                      </>
+                    )}
                   </Button>
                 </div>
                 {activateError && (
                   <p className="text-[11px] text-red-600 dark:text-red-400 mt-2 break-all">{activateError}</p>
                 )}
+                <p className="relative text-[11px] text-amber-700/80 dark:text-amber-300/70 mt-3">
+                  Libera acesso completo sem cobrança e sem redirecionar para gateway. Apenas para times de desenvolvimento.
+                </p>
               </div>
             </motion.div>
           )}
