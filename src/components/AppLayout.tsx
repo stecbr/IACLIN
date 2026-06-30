@@ -26,6 +26,7 @@ import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
 import { SubscriptionWarningBanner } from '@/components/SubscriptionWarningBanner';
 import { SubscriptionGuard } from '@/components/SubscriptionGuard';
 import { SoloTransitionBanner } from '@/components/SoloTransitionBanner';
+import { SubscriptionOnboardingModal, SUB_ONBOARDING_DISMISS_KEY } from '@/components/subscription/SubscriptionOnboardingModal';
 
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
@@ -41,7 +42,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile } = useAuth();
+  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinics, clinicsLoaded } = useAuth();
+  const [subOnboardingOpen, setSubOnboardingOpen] = useState(
+    () => false // initialised after clinics load
+  );
+
+  useEffect(() => {
+    if (!clinicsLoaded) return;
+    const dismissed = !!localStorage.getItem(SUB_ONBOARDING_DISMISS_KEY);
+    const isDentist = roles.includes('dentist' as any);
+    if (isDentist && clinics.length === 0 && !dismissed) {
+      setSubOnboardingOpen(true);
+    }
+  }, [clinicsLoaded, roles, clinics]);
   const { effectiveRole, canAccess } = useRoleAccess();
   const { isStaff } = useStaffPermissions();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
@@ -231,6 +244,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <WelcomeTour />
       <FirstAccessClinicDialog />
       <GettingStartedChecklist />
+      <SubscriptionOnboardingModal
+        open={subOnboardingOpen}
+        onClose={() => setSubOnboardingOpen(false)}
+      />
     </SidebarProvider>
   );
 }
