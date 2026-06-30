@@ -93,6 +93,10 @@ export default function Auth() {
   const [cnpjFetched, setCnpjFetched] = useState(false);
   const [cnpjHint, setCnpjHint] = useState<string | null>(null);
 
+  // Operator catalog (ANS) search/select
+  const [operatorSearchText, setOperatorSearchText] = useState('');
+  const [catalogOperatorId, setCatalogOperatorId] = useState<string | null>(null);
+
   // When a signup hits an already-registered email, show a persistent banner
   // and route the user to the login form with the email pre-filled.
   const [duplicateEmail, setDuplicateEmail] = useState<string | null>(null);
