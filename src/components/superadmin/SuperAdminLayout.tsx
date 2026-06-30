@@ -200,7 +200,7 @@ export function SuperAdminLayout({ children }: { children?: ReactNode }) {
           <main className="flex-1 p-4 md:p-6 overflow-auto">
             <AnimatePresence mode="wait">
               <motion.div
-                key={location.pathname}
+                key={location.pathname.split('/').slice(0, 3).join('/')}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
