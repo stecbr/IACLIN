@@ -380,6 +380,7 @@ export default function Auth() {
                 operator_type: operatorType || 'ambos',
                 phone: phone.trim(),
                 responsible_name: responsibleName.trim(),
+                catalog_operator_id: catalogOperatorId,
               }),
             },
           },
