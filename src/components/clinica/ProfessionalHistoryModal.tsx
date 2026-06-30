@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths, differenceInMinutes, isWithinInterval } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -23,11 +23,18 @@ const STATUS_LABEL: Record<string, { label: string; variant: 'default' | 'second
   cancelled: { label: 'Cancelada',  variant: 'destructive' },
 };
 
-function fmtDuration(minutes: number): string {
+function fmtDuration(seconds: number): string {
+  const minutes = Math.max(1, Math.floor(seconds / 60));
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+function getDurationSeconds(apt: any): number {
+  const records: any[] = apt.clinical_records ?? [];
+  const secs = records[0]?.procedure_duration_seconds ?? 0;
+  return secs > 0 ? secs : 0;
 }
 
 interface Props {
@@ -60,7 +67,7 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select('id, start_time, end_time, status, patients(full_name)')
+        .select('id, start_time, end_time, status, patients(full_name), clinical_records(procedure_duration_seconds)')
         .eq('clinic_id', clinicId)
         .eq('dentist_id', dentistUserId)
         .gte('start_time', rangeStart.toISOString())
@@ -107,11 +114,10 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
     (a: any) => ['completed', 'finished', 'done'].includes(a.status)
   ).length;
 
-  const totalMinutos = filtered.reduce((sum: number, a: any) => {
-    if (!a.end_time || !a.start_time) return sum;
-    const mins = differenceInMinutes(parseISO(a.end_time), parseISO(a.start_time));
-    return sum + (mins > 0 ? mins : 0);
+  const totalSegundos = filtered.reduce((sum: number, a: any) => {
+    return sum + getDurationSeconds(a);
   }, 0);
+  const totalMinutos = Math.floor(totalSegundos / 60);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,7 +140,7 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
                 <span className="text-border">·</span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <strong className="text-foreground">{fmtDuration(totalMinutos)}</strong> em atendimento
+                  <strong className="text-foreground">{fmtDuration(totalSegundos)}</strong> em atendimento
                 </span>
               </>
             )}
@@ -209,11 +215,8 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
               const concluded = items.filter((a) =>
                 ['completed', 'finished', 'done'].includes(a.status)
               ).length;
-              const monthMinutes = items.reduce((sum: number, a: any) => {
-                if (!a.end_time || !a.start_time) return sum;
-                const mins = differenceInMinutes(parseISO(a.end_time), parseISO(a.start_time));
-                return sum + (mins > 0 ? mins : 0);
-              }, 0);
+              const monthSecs = items.reduce((sum: number, a: any) => sum + getDurationSeconds(a), 0);
+              const monthMinutes = Math.floor(monthSecs / 60);
 
               return (
                 <div key={key} className="rounded-xl border border-border/60 overflow-hidden">
@@ -230,7 +233,7 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
                       {monthMinutes > 0 && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {fmtDuration(monthMinutes)}
+                          {fmtDuration(monthSecs)}
                         </span>
                       )}
                     </div>
@@ -248,9 +251,8 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
                   <div className="divide-y divide-border/40">
                     {items.map((apt: any) => {
                       const statusInfo = STATUS_LABEL[apt.status] ?? { label: apt.status, variant: 'outline' as const };
-                      const durationMins = apt.start_time && apt.end_time
-                        ? differenceInMinutes(parseISO(apt.end_time), parseISO(apt.start_time))
-                        : 0;
+                      const durationSecs = getDurationSeconds(apt);
+                      const durationMins = durationSecs > 0 ? Math.floor(durationSecs / 60) : 0;
 
                       return (
                         <div
@@ -264,7 +266,7 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
                             {apt.patients?.full_name ?? '—'}
                           </span>
                           <span className="text-xs text-muted-foreground text-center tabular-nums">
-                            {durationMins > 0 ? fmtDuration(durationMins) : '—'}
+                            {durationSecs > 0 ? fmtDuration(durationSecs) : '—'}
                           </span>
                           <div className="flex justify-end">
                             <Badge variant={statusInfo.variant} className="text-[10px] shrink-0">
