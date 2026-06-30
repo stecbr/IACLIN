@@ -110,98 +110,104 @@ export function ClosePayoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Fechar período · {dentistName}</DialogTitle>
         </DialogHeader>
 
-        <Alert className="border-primary/30 bg-primary/5">
-          <Info className="h-4 w-4 text-primary" />
-          <AlertDescription className="text-xs leading-relaxed">
-            Confirme o período e o método usado para pagar o profissional.
-            <strong> A plataforma não envia o dinheiro</strong> — você paga por fora
-            (Pix, transferência, dinheiro) e aqui apenas registra que o repasse
-            foi feito. O profissional verá esse lançamento em <em>Meu Financeiro</em>.
-          </AlertDescription>
-        </Alert>
+        <div className="flex gap-6 items-start">
+          {/* Left: form controls */}
+          <div className="flex flex-col gap-3 w-72 shrink-0">
+            <Alert className="border-primary/30 bg-primary/5">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-xs leading-relaxed">
+                Confirme o período e o método usado para pagar o profissional.
+                <strong> A plataforma não envia o dinheiro</strong> — você paga por fora
+                (Pix, transferência, dinheiro) e aqui apenas registra que o repasse
+                foi feito. O profissional verá esse lançamento em <em>Meu Financeiro</em>.
+              </AlertDescription>
+            </Alert>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Início do período</Label>
-            <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label>Início do período</Label>
+              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Fim do período</Label>
+              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Método de pagamento</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="transfer">Transferência</SelectItem>
+                  <SelectItem value="cash">Dinheiro</SelectItem>
+                  <SelectItem value="other">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Observações</Label>
+              <Textarea
+                placeholder="Ex.: PIX Banco Itaú, comprovante #1234"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Fim do período</Label>
-            <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Método de pagamento</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="transfer">Transferência</SelectItem>
-                <SelectItem value="cash">Dinheiro</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Observações</Label>
-            <Textarea
-              placeholder="Ex.: PIX Banco Itaú, comprovante #1234"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-            />
-          </div>
-        </div>
 
-        <div className="rounded-lg border border-border/60 max-h-72 overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead>Data</TableHead>
-                <TableHead>Paciente</TableHead>
-                <TableHead>Origem</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Carregando…</TableCell></TableRow>
-              ) : (items as any[]).length === 0 ? (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Nenhuma comissão pendente neste período.</TableCell></TableRow>
-              ) : (
-                (items as any[]).map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="text-muted-foreground">
-                      {r.due_date
-                        ? format(parseISO(r.due_date), 'dd/MM/yyyy', { locale: ptBR })
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="font-medium">{r.patients?.full_name ?? '—'}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground truncate max-w-[260px]">{r.description ?? 'Comissão sobre atendimento'}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(Number(r.amount))}</TableCell>
+          {/* Right: commission list */}
+          <div className="flex-1 flex flex-col gap-3 min-w-0">
+            <div className="rounded-lg border border-border/60 max-h-80 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead>Data</TableHead>
+                    <TableHead>Paciente</TableHead>
+                    <TableHead>Origem</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Carregando…</TableCell></TableRow>
+                  ) : (items as any[]).length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Nenhuma comissão pendente neste período.</TableCell></TableRow>
+                  ) : (
+                    (items as any[]).map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">
+                          {r.due_date
+                            ? format(parseISO(r.due_date), 'dd/MM/yyyy', { locale: ptBR })
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="font-medium">{r.patients?.full_name ?? '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{r.description ?? 'Comissão sobre atendimento'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmt(Number(r.amount))}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-4 py-3 text-sm">
-          <span className="text-muted-foreground">
-            {(items as any[]).length} comissão(ões) no período
-          </span>
-          <span className="text-lg font-semibold tabular-nums">{fmt(total)}</span>
-        </div>
+            <div className="flex items-center justify-between rounded-lg bg-muted/40 px-4 py-3 text-sm">
+              <span className="text-muted-foreground">
+                {(items as any[]).length} comissão(ões) no período
+              </span>
+              <span className="text-lg font-semibold tabular-nums">{fmt(total)}</span>
+            </div>
 
-        {!isLoading && (items as any[]).length === 0 && (
-          <p className="text-xs text-muted-foreground -mt-2 text-center">
-            Nenhuma comissão neste intervalo. Tente ampliar o período acima.
-          </p>
-        )}
+            {!isLoading && (items as any[]).length === 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                Nenhuma comissão neste intervalo. Tente ampliar o período acima.
+              </p>
+            )}
+          </div>
+        </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>Cancelar</Button>

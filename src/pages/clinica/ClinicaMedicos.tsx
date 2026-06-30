@@ -8,10 +8,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, UserMinus, Settings2 } from 'lucide-react';
+import { Plus, Stethoscope, Mail, X, Copy, AlertTriangle, UserMinus, Settings2, History } from 'lucide-react';
 import { AddMedicoDialog } from '@/components/clinica/AddMedicoDialog';
 import { ClinicInviteCodeCard } from '@/components/clinica/ClinicInviteCodeCard';
 import { EditDoctorSpecialtiesDialog } from '@/components/clinica/EditDoctorSpecialtiesDialog';
+import { ProfessionalHistoryModal } from '@/components/clinica/ProfessionalHistoryModal';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { specialtyLabel, isCatalogSpecialty, registrationLabelForSpecialty } from '@/components/SpecialtySelect';
@@ -40,13 +42,18 @@ interface MemberRow {
 }
 
 export default function ClinicaMedicos() {
-  const { currentClinicId, user, clinicCategory } = useAuth();
+  const { currentClinicId, user, clinicCategory, clinicRole, isClinicOwner } = useAuth();
   const terms = getClinicTerms(clinicCategory);
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [unlinkTarget, setUnlinkTarget] = useState<MemberRow | null>(null);
   const [unlinking, setUnlinking] = useState(false);
   const [editSpecsTarget, setEditSpecsTarget] = useState<MemberRow | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<MemberRow | null>(null);
+
+  const { isStaff, permissions: staffPerms } = useStaffPermissions();
+  const canViewHistory =
+    isClinicOwner || clinicRole === 'admin' || (isStaff && !!staffPerms?.historicoConsultas);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['clinica-medicos', currentClinicId],
@@ -219,6 +226,25 @@ export default function ClinicaMedicos() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {canViewHistory && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => setHistoryTarget(m)}
+                                >
+                                  <History className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs">
+                                Histórico de consultas
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -320,6 +346,16 @@ export default function ClinicaMedicos() {
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {historyTarget && (
+        <ProfessionalHistoryModal
+          open={!!historyTarget}
+          onOpenChange={(v) => !v && setHistoryTarget(null)}
+          clinicId={currentClinicId!}
+          dentistUserId={historyTarget.user_id}
+          dentistName={historyTarget.profile?.full_name ?? 'Profissional'}
+        />
       )}
 
       <AddMedicoDialog open={addOpen} onOpenChange={setAddOpen} />

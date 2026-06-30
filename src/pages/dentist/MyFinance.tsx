@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMyPayouts } from '@/hooks/usePayouts';
 import { PayoutsHelpSheet } from '@/components/finance/PayoutsHelpSheet';
 import { Info } from 'lucide-react';
+import { toast } from 'sonner';
 
 const fmt = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -27,6 +28,19 @@ export default function MyFinance() {
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 
+  const { data: clinicName = '' } = useQuery({
+    queryKey: ['clinic-name', currentClinicId],
+    enabled: !!currentClinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clinics')
+        .select('name')
+        .eq('id', currentClinicId!)
+        .maybeSingle();
+      return data?.name ?? '';
+    },
+  });
+
   // Commissions assigned to me (this clinic).
   const { data: commissions = [], isLoading } = useQuery({
     queryKey: ['my-commissions', user?.id, currentClinicId],
@@ -35,7 +49,7 @@ export default function MyFinance() {
       const { data, error } = await supabase
         .from('financial_transactions')
         .select(
-          'id, amount, status, due_date, paid_date, appointment_id, notes, description, created_at, patients(full_name)'
+          'id, amount, status, due_date, paid_date, appointment_id, notes, description, created_at'
         )
         .eq('clinic_id', currentClinicId!)
         .eq('dentist_id', user!.id)
@@ -95,6 +109,19 @@ export default function MyFinance() {
       return data ?? [];
     },
   });
+
+  // Aviso ao sair da página: verificar depósito bancário
+  const payoutsRef = useRef(payouts);
+  useEffect(() => { payoutsRef.current = payouts; }, [payouts]);
+  useEffect(() => {
+    return () => {
+      if (payoutsRef.current.length > 0) {
+        toast.info('Lembre-se de verificar se o valor depositado pela clínica chegou na sua conta bancária.', {
+          duration: 8000,
+        });
+      }
+    };
+  }, []);
 
   const monthFilter = (d: string | null) => {
     if (!d) return false;
@@ -228,7 +255,7 @@ export default function MyFinance() {
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableHead>Data</TableHead>
-                    <TableHead>Paciente</TableHead>
+                    <TableHead>Clínica</TableHead>
                     <TableHead>Origem</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -241,7 +268,7 @@ export default function MyFinance() {
                         {format(parseISO(c.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {c.patients?.full_name ?? '—'}
+                        {clinicName || '—'}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground truncate max-w-[260px]">
                         {c.description ?? c.notes ?? 'Comissão sobre atendimento'}
