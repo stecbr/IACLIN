@@ -230,16 +230,18 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
         }
       }
 
-      let generated = 0;
+      let created = 0;
       for (const tx of incomeTxs as any[]) {
-        await generateCommissionsForTransaction(tx.id, 'after_procedure');
-        generated++;
+        created += await generateCommissionsForTransaction(tx.id, 'after_procedure');
       }
 
-      const msg = fixed > 0
-        ? `Recálculo concluído: ${generated} receita(s) processada(s), ${fixed} profissional(is) corrigido(s).`
-        : `Recálculo concluído: ${generated} receita(s) processada(s).`;
-      toast.success(msg);
+      const parts = [];
+      if (created > 0) parts.push(`${created} comissão(ões) gerada(s)`);
+      if (fixed > 0) parts.push(`${fixed} profissional(is) corrigido(s)`);
+      const msg = parts.length > 0
+        ? `Recálculo concluído: ${parts.join(', ')}.`
+        : 'Recálculo concluído: nenhuma comissão nova gerada (regras ou valores podem estar zerados).';
+      if (created > 0) toast.success(msg); else toast.info(msg);
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['payouts-pending-by-dentist', clinicId] });
       queryClient.invalidateQueries({ queryKey: ['payouts-open', clinicId] });

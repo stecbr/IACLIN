@@ -83,19 +83,21 @@ export function PayoutsPanel({ clinicId }: Props) {
         }
       }
 
-      let processed = 0;
+      let created = 0;
       for (const tx of incomes ?? []) {
-        await generateCommissionsForTransaction(
+        created += await generateCommissionsForTransaction(
           (tx as any).id,
           (tx as any).status === 'paid' ? 'after_payment' : 'after_procedure',
         );
-        processed += 1;
       }
 
-      const msg = fixed > 0
-        ? `Recalculado · ${processed} receita(s) · ${fixed} profissional(is) corrigido(s)`
-        : `Recalculado · ${processed} receita(s) verificada(s)`;
-      toast.success(msg);
+      const parts = [];
+      if (created > 0) parts.push(`${created} comissão(ões) gerada(s)`);
+      if (fixed > 0) parts.push(`${fixed} profissional(is) corrigido(s)`);
+      const msg = parts.length > 0
+        ? `Recalculado · ${parts.join(' · ')}`
+        : 'Recalculado · nenhuma comissão nova (verifique regras e valores)';
+      if (created > 0) toast.success(msg); else toast.info(msg);
       qc.invalidateQueries({ queryKey: ['payouts-pending-by-dentist', clinicId] });
       qc.invalidateQueries({ queryKey: ['payouts-open', clinicId] });
       qc.invalidateQueries({ queryKey: ['financial-transactions'] });

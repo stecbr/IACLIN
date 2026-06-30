@@ -11,14 +11,15 @@ import { supabase } from '@/integrations/supabase/client';
  *   - "after_payment": fired when status moves to "paid".
  *
  * Idempotency: we look for an existing expense row with category='commission',
- * the same appointment_id and the same dentist_id, and the same rule id
- * encoded in `notes`. If found, we skip.
+ * the same dentist_id, and the same rule id encoded in `notes`. If found, skip.
+ *
+ * Returns the number of commission rows inserted.
  */
 export async function generateCommissionsForTransaction(
   txId: string,
   trigger: 'after_procedure' | 'after_payment'
-) {
-  if (!txId) return;
+): Promise<number> {
+  if (!txId) return 0;
 
   const { data: tx, error } = await supabase
     .from('financial_transactions')
@@ -27,10 +28,10 @@ export async function generateCommissionsForTransaction(
     )
     .eq('id', txId)
     .maybeSingle();
-  if (error || !tx) return;
-  if (tx.type !== 'income') return;
-  if (!tx.clinic_id || !tx.dentist_id) return;
-  if (tx.approval_status && tx.approval_status !== 'approved') return;
+  if (error || !tx) return 0;
+  if (tx.type !== 'income') return 0;
+  if (!tx.clinic_id || !tx.dentist_id) return 0;
+  if (tx.approval_status && tx.approval_status !== 'approved') return 0;
 
   const { data: rules } = await supabase
     .from('commission_rules')
@@ -50,7 +51,7 @@ export async function generateCommissionsForTransaction(
       .eq('trigger', trigger);
     effectiveRules = defaults ?? [];
   }
-  if (effectiveRules.length === 0) return;
+  if (effectiveRules.length === 0) return 0;
 
   // Pull professional specialty once (for specialty filtering)
   let memberSpecialty: string | null = null;
@@ -65,6 +66,8 @@ export async function generateCommissionsForTransaction(
   const txInsurance = (tx as any).patients?.insurance_provider ?? null;
   const amount = Number(tx.amount) || 0;
 
+  let created = 0;
+
   for (const rule of effectiveRules as any[]) {
     if (rule.insurance_provider && rule.insurance_provider !== txInsurance) continue;
     if (rule.specialty && rule.specialty !== memberSpecialty) continue;
@@ -75,7 +78,7 @@ export async function generateCommissionsForTransaction(
         : Number(rule.value);
     if (!commissionAmount || commissionAmount <= 0) continue;
 
-    // Idempotency: skip if an expense for this rule + tx already exists.
+    // Idempotency: skip if an expense for this rule + dentist already exists.
     const ruleTag = `[rule:${rule.id}]`;
     const { data: existing } = await supabase
       .from('financial_transactions')
@@ -88,7 +91,7 @@ export async function generateCommissionsForTransaction(
     if (existing && existing.length > 0) continue;
 
     const today = new Date().toISOString().slice(0, 10);
-    await supabase.from('financial_transactions').insert({
+    const { error: insertErr } = await supabase.from('financial_transactions').insert({
       clinic_id: tx.clinic_id,
       dentist_id: tx.dentist_id,
       appointment_id: tx.appointment_id,
@@ -98,7 +101,7 @@ export async function generateCommissionsForTransaction(
       amount: Number(commissionAmount.toFixed(2)),
       status: 'pending',
       due_date: today,
-      payment_method: 'commission',
+      payment_method: null,
       approval_status: 'approved',
       notes:
         `${ruleTag} Origem tx ${tx.id} · ` +
@@ -106,5 +109,9 @@ export async function generateCommissionsForTransaction(
           ? `${rule.value}% de ${amount.toFixed(2)}`
           : `valor fixo R$ ${Number(rule.value).toFixed(2)}`),
     });
+    if (insertErr) throw insertErr;
+    created++;
   }
+
+  return created;
 }
