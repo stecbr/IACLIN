@@ -67,15 +67,17 @@ export function ProfessionalHistoryModal({ open, onOpenChange, clinicId, dentist
   };
 
   const { data: appointments = [], isLoading } = useQuery({
-    queryKey: ['professional-history', clinicId, dentistUserId],
+    queryKey: ['professional-history-all', clinicId, dentistUserId],
     enabled: open && !!clinicId && !!dentistUserId,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
         .select('id, start_time, end_time, status, patients(full_name), clinical_records(procedure_duration_seconds)')
         .eq('clinic_id', clinicId)
         .eq('dentist_id', dentistUserId)
-        .order('start_time', { ascending: false });
+        .order('start_time', { ascending: false })
+        .limit(2000);
       if (error) throw error;
       return data ?? [];
     },
