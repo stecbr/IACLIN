@@ -201,10 +201,9 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   const handleRetroactiveRecalculate = async () => {
     setRecalculating(true);
     try {
-      // Fetch all approved income transactions in the period for this clinic without a commission posted
       const { data: incomeTxs } = await supabase
         .from('financial_transactions')
-        .select('id')
+        .select('id, dentist_id, appointment_id')
         .eq('clinic_id', clinicId)
         .eq('type', 'income')
         .or('approval_status.is.null,approval_status.eq.approved');
@@ -212,13 +211,38 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
         toast.info('Nenhuma transação de receita encontrada.');
         return;
       }
+
+      // Corrige dentist_id divergente: usa o dentist_id real da consulta quando difere
+      let fixed = 0;
+      for (const tx of incomeTxs as any[]) {
+        if (!tx.appointment_id) continue;
+        const { data: apt } = await supabase
+          .from('appointments')
+          .select('dentist_id')
+          .eq('id', tx.appointment_id)
+          .maybeSingle();
+        if (apt?.dentist_id && apt.dentist_id !== tx.dentist_id) {
+          await supabase
+            .from('financial_transactions')
+            .update({ dentist_id: apt.dentist_id })
+            .eq('id', tx.id);
+          fixed++;
+        }
+      }
+
       let generated = 0;
-      for (const tx of incomeTxs) {
+      for (const tx of incomeTxs as any[]) {
         await generateCommissionsForTransaction(tx.id, 'after_procedure');
         generated++;
       }
-      toast.success(`Recálculo concluído. ${generated} transação(ões) processada(s).`);
+
+      const msg = fixed > 0
+        ? `Recálculo concluído: ${generated} receita(s) processada(s), ${fixed} profissional(is) corrigido(s).`
+        : `Recálculo concluído: ${generated} receita(s) processada(s).`;
+      toast.success(msg);
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['payouts-pending-by-dentist', clinicId] });
+      queryClient.invalidateQueries({ queryKey: ['payouts-open', clinicId] });
       queryClient.invalidateQueries({ queryKey: ['commission-rules', clinicId] });
     } catch (e: any) {
       toast.error(e.message ?? 'Erro ao recalcular comissões');

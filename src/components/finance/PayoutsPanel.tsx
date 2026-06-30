@@ -59,11 +59,30 @@ export function PayoutsPanel({ clinicId }: Props) {
     try {
       const { data: incomes, error } = await supabase
         .from('financial_transactions')
-        .select('id, status')
+        .select('id, status, dentist_id, appointment_id')
         .eq('clinic_id', clinicId)
         .eq('type', 'income')
         .in('status', ['pending', 'paid']);
       if (error) throw error;
+
+      // Corrige dentist_id divergente: usa o dentist_id real da consulta quando difere
+      let fixed = 0;
+      for (const tx of incomes ?? []) {
+        if (!(tx as any).appointment_id) continue;
+        const { data: apt } = await supabase
+          .from('appointments')
+          .select('dentist_id')
+          .eq('id', (tx as any).appointment_id)
+          .maybeSingle();
+        if (apt?.dentist_id && apt.dentist_id !== (tx as any).dentist_id) {
+          await supabase
+            .from('financial_transactions')
+            .update({ dentist_id: apt.dentist_id })
+            .eq('id', (tx as any).id);
+          fixed++;
+        }
+      }
+
       let processed = 0;
       for (const tx of incomes ?? []) {
         await generateCommissionsForTransaction(
@@ -72,8 +91,14 @@ export function PayoutsPanel({ clinicId }: Props) {
         );
         processed += 1;
       }
-      toast.success(`Recalculado · ${processed} receita(s) verificada(s)`);
+
+      const msg = fixed > 0
+        ? `Recalculado · ${processed} receita(s) · ${fixed} profissional(is) corrigido(s)`
+        : `Recalculado · ${processed} receita(s) verificada(s)`;
+      toast.success(msg);
       qc.invalidateQueries({ queryKey: ['payouts-pending-by-dentist', clinicId] });
+      qc.invalidateQueries({ queryKey: ['payouts-open', clinicId] });
+      qc.invalidateQueries({ queryKey: ['financial-transactions'] });
     } catch (e: any) {
       toast.error(e?.message ?? 'Erro ao recalcular comissões');
     } finally {
