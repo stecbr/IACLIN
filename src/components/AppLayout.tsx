@@ -1,4 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sun, Moon, User, ArrowLeft, Stethoscope, Shield, ClipboardList, Building2 as BuildingIcon, UserCircle } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -42,20 +44,36 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinics, clinicsLoaded } = useAuth();
-  const [subOnboardingOpen, setSubOnboardingOpen] = useState(
-    () => false // initialised after clinics load
-  );
+  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinicsLoaded, user } = useAuth();
+  const [subOnboardingOpen, setSubOnboardingOpen] = useState(false);
+
+  // Check for any active subscription (clinic or personal doctor)
+  const entityIds = [currentClinicId, user?.id].filter(Boolean) as string[];
+  const { data: hasActiveSub, isLoading: subCheckLoading } = useQuery({
+    queryKey: ['active-sub-check', user?.id, currentClinicId],
+    enabled: !!user && clinicsLoaded,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('platform_subscriptions')
+        .select('id')
+        .in('entity_id', entityIds)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+      return !!data;
+    },
+  });
 
   useEffect(() => {
-    if (!clinicsLoaded) return;
+    if (!clinicsLoaded || subCheckLoading || hasActiveSub === undefined) return;
+    if (hasActiveSub) return;
     const dismissed = !!localStorage.getItem(SUB_ONBOARDING_DISMISS_KEY);
+    if (dismissed) return;
     const EXCLUDED: string[] = ['patient', 'secretary', 'admin', 'auxiliary'];
     const isProfessional = roles.some((r) => !EXCLUDED.includes(r));
-    if (isProfessional && clinics.length === 0 && !dismissed) {
-      setSubOnboardingOpen(true);
-    }
-  }, [clinicsLoaded, roles, clinics]);
+    if (isProfessional) setSubOnboardingOpen(true);
+  }, [clinicsLoaded, subCheckLoading, hasActiveSub, roles]);
   const { effectiveRole, canAccess } = useRoleAccess();
   const { isStaff } = useStaffPermissions();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
