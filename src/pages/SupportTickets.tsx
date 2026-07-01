@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,6 +51,8 @@ import {
   Monitor,
   PenLine,
   Info,
+  Building2,
+  Stethoscope,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -64,6 +67,7 @@ interface Ticket {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   clinic_id: string | null;
   operator_id: string | null;
+  ticket_type: 'to_operator' | 'to_clinic';
   forwarded_by: string | null;
   forwarded_at: string | null;
   created_by: string;
@@ -102,6 +106,12 @@ const STATUS_LABELS: Record<string, string> = {
   closed: 'Fechado',
 };
 
+const STATUS_LABELS_CLINIC: Record<string, string> = {
+  open: 'Aguardando resposta',
+  answered: 'Respondido',
+  closed: 'Fechado',
+};
+
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   pending_owner: 'secondary',
   open: 'default',
@@ -116,15 +126,25 @@ const PRIORITY_LABELS: Record<string, string> = {
   urgent: 'Urgente',
 };
 
+function getStatusLabel(ticket: Pick<Ticket, 'status' | 'ticket_type'>): string {
+  if (ticket.ticket_type === 'to_clinic') {
+    return STATUS_LABELS_CLINIC[ticket.status] ?? ticket.status;
+  }
+  return STATUS_LABELS[ticket.status] ?? ticket.status;
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SupportTickets() {
   const { user, currentClinicId, isClinicOwner } = useAuth();
+  const { isStaff, permissions: staffPerms } = useStaffPermissions();
   const qc = useQueryClient();
+
+  const canRespondClinic = isClinicOwner || (isStaff && !!staffPerms?.responderChamados);
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [tab, setTab] = useState<'mine' | 'clinic'>('mine');
+  const [tab, setTab] = useState<'mine' | 'received'>('mine');
 
   const { data: myTickets = [], isLoading } = useQuery({
     queryKey: ['my-tickets', user?.id],
@@ -140,14 +160,15 @@ export default function SupportTickets() {
     },
   });
 
-  const { data: clinicTickets = [] } = useQuery({
-    queryKey: ['clinic-tickets', currentClinicId],
-    enabled: !!currentClinicId && !!isClinicOwner,
+  const { data: receivedTickets = [] } = useQuery({
+    queryKey: ['received-tickets', currentClinicId],
+    enabled: !!currentClinicId && canRespondClinic,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('support_tickets')
         .select('*')
         .eq('clinic_id', currentClinicId!)
+        .eq('ticket_type', 'to_clinic')
         .neq('created_by', user!.id)
         .order('updated_at', { ascending: false });
       if (error) throw error;
@@ -184,7 +205,8 @@ export default function SupportTickets() {
     },
   });
 
-  const displayTickets = tab === 'mine' ? myTickets : clinicTickets;
+  const pendingReceived = receivedTickets.filter((t) => t.status === 'open').length;
+  const displayTickets = tab === 'mine' ? myTickets : receivedTickets;
 
   return (
     <div className="space-y-6">
@@ -192,7 +214,7 @@ export default function SupportTickets() {
         <div>
           <h1 className="text-2xl font-semibold">Chamados</h1>
           <p className="text-sm text-muted-foreground">
-            Envie dúvidas e solicitações às operadoras de saúde
+            Envie dúvidas e solicitações às operadoras ou à administração da clínica
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
@@ -201,7 +223,7 @@ export default function SupportTickets() {
         </Button>
       </div>
 
-      {isClinicOwner && (
+      {canRespondClinic && (
         <div className="flex gap-2">
           <button
             onClick={() => setTab('mine')}
@@ -214,17 +236,17 @@ export default function SupportTickets() {
             Meus chamados
           </button>
           <button
-            onClick={() => setTab('clinic')}
+            onClick={() => setTab('received')}
             className={`relative rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              tab === 'clinic'
+              tab === 'received'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:text-foreground'
             }`}
           >
-            Da clínica
-            {clinicTickets.length > 0 && (
+            Recebidos
+            {pendingReceived > 0 && (
               <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                {clinicTickets.length}
+                {pendingReceived}
               </span>
             )}
           </button>
@@ -241,7 +263,9 @@ export default function SupportTickets() {
             <MessageSquareDot className="h-10 w-10 text-muted-foreground/30" />
             <p className="font-medium text-muted-foreground">Nenhum chamado encontrado</p>
             <p className="text-sm text-muted-foreground">
-              Clique em "Novo Chamado" para iniciar uma conversa com a operadora
+              {tab === 'received'
+                ? 'Nenhum chamado foi enviado à administração ainda.'
+                : 'Clique em "Novo Chamado" para iniciar uma conversa'}
             </p>
           </CardContent>
         </Card>
@@ -253,7 +277,13 @@ export default function SupportTickets() {
                 <CardContent className="flex items-center gap-4 p-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
+                      <Badge variant={STATUS_VARIANT[t.status]}>{getStatusLabel(t)}</Badge>
+                      {t.ticket_type === 'to_clinic' && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Building2 className="h-3 w-3" />
+                          Clínica
+                        </Badge>
+                      )}
                       {t.priority !== 'normal' && (
                         <Badge variant="outline" className="text-xs">
                           {PRIORITY_LABELS[t.priority]}
@@ -279,6 +309,7 @@ export default function SupportTickets() {
           operators={operators}
           loadingOperators={loadingOperators}
           currentClinicId={currentClinicId}
+          isClinicOwner={isClinicOwner}
           userId={user!.id}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
@@ -293,12 +324,13 @@ export default function SupportTickets() {
           ticket={selectedTicket}
           userId={user!.id}
           isClinicOwner={isClinicOwner}
+          canRespondClinic={canRespondClinic}
           operators={operators}
           onClose={() => setSelectedTicket(null)}
           onUpdated={(updated) => {
             setSelectedTicket(updated);
             qc.invalidateQueries({ queryKey: ['my-tickets'] });
-            qc.invalidateQueries({ queryKey: ['clinic-tickets'] });
+            qc.invalidateQueries({ queryKey: ['received-tickets'] });
           }}
         />
       )}
@@ -334,6 +366,7 @@ function CreateTicketDialog({
   operators,
   loadingOperators,
   currentClinicId,
+  isClinicOwner,
   userId,
   onClose,
   onCreated,
@@ -341,10 +374,15 @@ function CreateTicketDialog({
   operators: Operator[];
   loadingOperators: boolean;
   currentClinicId: string | null;
+  isClinicOwner: boolean;
   userId: string;
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const isSolo = !currentClinicId;
+  // Clinic owners can only send to operators; solo users too
+  const showDestinationSelector = !isSolo && !isClinicOwner;
+  const [destination, setDestination] = useState<'operator' | 'clinic'>('operator');
   const [subject, setSubject] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [body, setBody] = useState('');
@@ -353,7 +391,6 @@ function CreateTicketDialog({
   const [saving, setSaving] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
 
-  const isSolo = !currentClinicId;
   const matchedPreset = PRESET_SUBJECTS.find(
     (s) => s.label.toLowerCase() === subject.trim().toLowerCase()
   );
@@ -376,38 +413,42 @@ function CreateTicketDialog({
 
   const handleSubmit = async () => {
     if (!subject.trim()) { toast.error('Informe o assunto do chamado'); return; }
-    if (!operatorId) { toast.error('Selecione a operadora'); return; }
+    if (destination === 'operator' && !operatorId) { toast.error('Selecione a operadora'); return; }
     if (!body.trim()) { toast.error('Descreva sua solicitação'); return; }
 
     setSaving(true);
     try {
+      const isToClinic = destination === 'clinic';
+      const status = isToClinic ? 'open' : (isSolo ? 'open' : 'pending_owner');
+
       const { data: ticket, error: tErr } = await supabase
         .from('support_tickets')
         .insert({
           subject: subject.trim(),
-          status: isSolo ? 'open' : 'pending_owner',
+          status,
           created_by: userId,
           clinic_id: currentClinicId ?? null,
-          operator_id: operatorId,
-        })
+          operator_id: isToClinic ? null : operatorId,
+          ticket_type: isToClinic ? 'to_clinic' : 'to_operator',
+        } as any)
         .select()
         .single();
       if (tErr) throw tErr;
 
       const { data: msg, error: mErr } = await supabase
         .from('support_ticket_messages')
-        .insert({ ticket_id: ticket.id, sender_id: userId, content: body.trim() })
+        .insert({ ticket_id: (ticket as any).id, sender_id: userId, content: body.trim() })
         .select()
         .single();
       if (mErr) throw mErr;
 
       for (const file of files) {
-        const path = `tickets/${ticket.id}/${Date.now()}_${file.name}`;
+        const path = `tickets/${(ticket as any).id}/${Date.now()}_${file.name}`;
         const { error: upErr } = await supabase.storage.from('clinic-assets').upload(path, file);
         if (upErr) continue;
         const { data: urlData } = supabase.storage.from('clinic-assets').getPublicUrl(path);
         await supabase.from('support_ticket_attachments').insert({
-          message_id: msg.id,
+          message_id: (msg as any).id,
           file_url: urlData.publicUrl,
           file_name: file.name,
           file_type: file.type,
@@ -424,38 +465,8 @@ function CreateTicketDialog({
     }
   };
 
-  const canSubmit = !!subject.trim() && !!body.trim() && !!operatorId;
-
-  // ── No operators: show empty-state dialog ──
-  if (!loadingOperators && operators.length === 0) {
-    return (
-      <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Sem vínculo com operadoras</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-4 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-              <AlertCircle className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div className="space-y-1.5">
-              <p className="font-medium text-foreground">
-                Nenhuma operadora vinculada
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {currentClinicId
-                  ? 'Sua clínica não possui vínculo ativo com nenhuma operadora no momento. Entre em contato com o responsável da clínica para solicitar um credenciamento.'
-                  : 'Você não possui vínculo ativo com nenhuma operadora no momento. Acesse a área de Credenciamentos para solicitar vínculo.'}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  const needsOperator = destination === 'operator';
+  const canSubmit = !!subject.trim() && !!body.trim() && (!needsOperator || !!operatorId);
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -463,11 +474,44 @@ function CreateTicketDialog({
         <DialogHeader>
           <DialogTitle className="text-xl">Novo Chamado</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Descreva sua solicitação à operadora de saúde
+            Descreva sua solicitação
           </p>
         </DialogHeader>
 
         <div className="space-y-5 py-1">
+
+          {/* ── Destino ── */}
+          {showDestinationSelector && (
+            <div className="space-y-1.5">
+              <Label>Enviar para</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDestination('operator')}
+                  className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-sm transition-colors ${
+                    destination === 'operator'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  }`}
+                >
+                  <Stethoscope className="h-5 w-5" />
+                  <span className="font-medium text-xs text-center">Operadora de Saúde</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDestination('clinic')}
+                  className={`flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-sm transition-colors ${
+                    destination === 'clinic'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  }`}
+                >
+                  <Building2 className="h-5 w-5" />
+                  <span className="font-medium text-xs text-center">Administração da Clínica</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Assunto com autocomplete ── */}
           <div className="space-y-1.5">
@@ -504,7 +548,6 @@ function CreateTicketDialog({
                 )}
               </div>
 
-              {/* Dropdown de sugestões */}
               {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute z-50 mt-1 w-full rounded-xl border bg-popover shadow-lg overflow-hidden">
                   {suggestions.map((s) => {
@@ -534,30 +577,45 @@ function CreateTicketDialog({
             </div>
           </div>
 
-          {/* ── Operadora ── */}
-          <div className="space-y-1.5">
-            <Label>
-              Operadora <span className="text-destructive">*</span>
-            </Label>
-            <Select value={operatorId} onValueChange={setOperatorId} disabled={loadingOperators}>
-              <SelectTrigger>
-                <SelectValue placeholder={loadingOperators ? 'Carregando...' : 'Selecione a operadora'} />
-              </SelectTrigger>
-              <SelectContent>
-                {operators.map((op) => (
-                  <SelectItem key={op.id} value={op.id}>
-                    {op.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!isSolo && (
-              <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                <Info className="h-3.5 w-3.5 shrink-0" />
-                <span>Após enviar, o chamado passará pelo dono da clínica antes de chegar à operadora.</span>
-              </div>
-            )}
-          </div>
+          {/* ── Operadora (apenas quando destino = operadora) ── */}
+          {needsOperator && (
+            <div className="space-y-1.5">
+              <Label>
+                Operadora <span className="text-destructive">*</span>
+              </Label>
+              {!loadingOperators && operators.length === 0 ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
+                  <span>
+                    {currentClinicId
+                      ? 'Sua clínica não possui vínculo ativo com nenhuma operadora.'
+                      : 'Você não possui vínculo ativo com nenhuma operadora. Acesse Credenciamentos para solicitar vínculo.'}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <Select value={operatorId} onValueChange={setOperatorId} disabled={loadingOperators}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingOperators ? 'Carregando...' : 'Selecione a operadora'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map((op) => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!isSolo && (
+                    <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      <Info className="h-3.5 w-3.5 shrink-0" />
+                      <span>Após enviar, o chamado passará pelo dono da clínica antes de chegar à operadora.</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* ── Descrição ── */}
           <div className="space-y-1.5">
@@ -567,7 +625,7 @@ function CreateTicketDialog({
             <Textarea
               placeholder={
                 subject
-                  ? `Descreva com detalhes sua solicitação sobre "${subject}"...\n\nInclua informações como: número do paciente, data do procedimento, código TUSS, protocolo, etc.`
+                  ? `Descreva com detalhes sua solicitação sobre "${subject}"...`
                   : 'Informe o assunto acima e descreva sua solicitação em detalhes...'
               }
               rows={5}
@@ -648,6 +706,7 @@ function TicketDetailDialog({
   ticket,
   userId,
   isClinicOwner,
+  canRespondClinic,
   operators,
   onClose,
   onUpdated,
@@ -655,6 +714,7 @@ function TicketDetailDialog({
   ticket: Ticket;
   userId: string;
   isClinicOwner: boolean;
+  canRespondClinic: boolean;
   operators: Operator[];
   onClose: () => void;
   onUpdated: (t: Ticket) => void;
@@ -663,10 +723,12 @@ function TicketDetailDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [forwarding, setForwarding] = useState(false);
-  // Pre-populate with the operator already chosen by the doctor at ticket creation
   const [forwardOpId, setForwardOpId] = useState(ticket.operator_id ?? '');
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const isClinicTicket = ticket.ticket_type === 'to_clinic';
+  const isCreator = ticket.created_by === userId;
 
   const { data: messages = [], refetch } = useQuery({
     queryKey: ['ticket-messages', ticket.id],
@@ -719,7 +781,7 @@ function TicketDetailDialog({
         if (upErr) continue;
         const { data: urlData } = supabase.storage.from('clinic-assets').getPublicUrl(path);
         await supabase.from('support_ticket_attachments').insert({
-          message_id: msg.id,
+          message_id: (msg as any).id,
           file_url: urlData.publicUrl,
           file_name: file.name,
           file_type: file.type,
@@ -727,9 +789,25 @@ function TicketDetailDialog({
         });
       }
 
-      if (ticket.status === 'answered') {
-        await supabase.from('support_tickets').update({ status: 'open' }).eq('id', ticket.id);
-        onUpdated({ ...ticket, status: 'open' });
+      // Status update logic
+      let newStatus: Ticket['status'] | null = null;
+      if (isClinicTicket) {
+        // Admin/staff replies → 'answered'; creator replies → 'open'
+        if (!isCreator && canRespondClinic) {
+          newStatus = 'answered';
+        } else if (isCreator && ticket.status === 'answered') {
+          newStatus = 'open';
+        }
+      } else {
+        // Existing to_operator flow
+        if (ticket.status === 'answered') {
+          newStatus = 'open';
+        }
+      }
+
+      if (newStatus) {
+        await supabase.from('support_tickets').update({ status: newStatus }).eq('id', ticket.id);
+        onUpdated({ ...ticket, status: newStatus });
       }
 
       setReply('');
@@ -777,7 +855,8 @@ function TicketDetailDialog({
   };
 
   const isClosed = ticket.status === 'closed';
-  const canForward = isClinicOwner && ticket.status === 'pending_owner';
+  // Forward panel: only for to_operator tickets waiting for clinic owner
+  const canForward = !isClinicTicket && isClinicOwner && ticket.status === 'pending_owner';
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -785,9 +864,17 @@ function TicketDetailDialog({
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between gap-3 pr-6">
-            <DialogTitle className="text-base leading-tight">{ticket.subject}</DialogTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <DialogTitle className="text-base leading-tight">{ticket.subject}</DialogTitle>
+              {isClinicTicket && (
+                <Badge variant="outline" className="text-xs gap-1 shrink-0">
+                  <Building2 className="h-3 w-3" />
+                  Clínica
+                </Badge>
+              )}
+            </div>
             <Badge variant={STATUS_VARIANT[ticket.status]} className="shrink-0">
-              {STATUS_LABELS[ticket.status]}
+              {getStatusLabel(ticket)}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -796,7 +883,7 @@ function TicketDetailDialog({
           </p>
         </DialogHeader>
 
-        {/* Forward panel (clinic owner only) */}
+        {/* Forward panel (clinic owner, to_operator tickets only) */}
         {canForward && (
           <div className="mx-6 mt-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20 p-3 space-y-2">
             <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
@@ -919,7 +1006,7 @@ function TicketDetailDialog({
                   {files.length > 0 && (
                     <span className="text-xs text-muted-foreground">{files.length} anexo(s)</span>
                   )}
-                  {ticket.created_by === userId && (
+                  {isCreator && (
                     <button
                       type="button"
                       onClick={handleCloseTicket}

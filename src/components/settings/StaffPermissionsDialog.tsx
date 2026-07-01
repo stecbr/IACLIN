@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Calendar, DoorOpen, ClipboardCheck, Users, Receipt,
-  DollarSign, Bot, Sparkles, MessageSquare, FolderHeart, ClipboardList,
+  DollarSign, Bot, Sparkles, MessageSquare, FolderHeart, ClipboardList, Reply,
 } from 'lucide-react';
 
 export type StaffPermissions = {
@@ -22,6 +22,7 @@ export type StaffPermissions = {
   iaGestor: boolean;
   secretariaIa: boolean;
   chamados: boolean;
+  responderChamados: boolean;
   settings: boolean;
   historicoConsultas: boolean;
 };
@@ -30,12 +31,12 @@ export const STAFF_PERMISSION_DEFAULTS: Record<string, StaffPermissions> = {
   secretary: {
     dashboard: true, agenda: true, salaEspera: true, aprovacoes: true,
     pacientes: true, abrirProntuario: true, convenios: true, financeiro: true, iaGestor: true,
-    secretariaIa: false, chamados: true, settings: true, historicoConsultas: false,
+    secretariaIa: false, chamados: true, responderChamados: false, settings: true, historicoConsultas: false,
   },
   auxiliary: {
     dashboard: true, agenda: true, salaEspera: true, aprovacoes: false,
     pacientes: true, abrirProntuario: false, convenios: false, financeiro: false, iaGestor: false,
-    secretariaIa: false, chamados: true, settings: true, historicoConsultas: false,
+    secretariaIa: false, chamados: true, responderChamados: false, settings: true, historicoConsultas: false,
   },
 };
 
@@ -83,7 +84,8 @@ const PERMISSION_ITEMS: Array<{
   { key: 'financeiro',   label: 'Financeiro',          description: 'Lançamentos e recebimentos',         icon: DollarSign },
   { key: 'iaGestor',     label: 'IA Gestor',           description: 'Assistente de gestão por IA',        icon: Bot },
   { key: 'secretariaIa', label: 'Secretária IA',       description: 'Configurar a secretária no WhatsApp', icon: Sparkles },
-  { key: 'chamados',          label: 'Chamados / Suporte',       description: 'Abrir e responder chamados',                     icon: MessageSquare },
+  { key: 'chamados',           label: 'Chamados / Suporte',          description: 'Abrir chamados para operadoras e para a clínica',    icon: MessageSquare },
+  { key: 'responderChamados', label: 'Responder chamados da equipe', description: 'Ver e responder chamados enviados à administração',   icon: Reply },
   { key: 'historicoConsultas', label: 'Histórico de consultas',  description: 'Ver histórico mensal de consultas por profissional', icon: ClipboardList },
 ];
 
