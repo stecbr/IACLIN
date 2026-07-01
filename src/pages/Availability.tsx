@@ -1,6 +1,5 @@
 import { CalendarOff, CalendarRange, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
 import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { useViewMode } from '@/hooks/useViewMode';
 import { PageHeader } from '@/components/PageHeader';
@@ -14,7 +13,20 @@ export default function Availability() {
   const { viewMode } = useViewMode();
   const { user, currentClinicId, isPersonalMode } = useAuth();
 
-  if (isClinicSignup && viewMode !== 'consult') return <Navigate to="/" replace />;
+  if (isClinicSignup && viewMode !== 'consult') {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Disponibilidade" description="Defina seus dias e horários de atendimento." />
+        <Card className="p-10 text-center border-dashed">
+          <CalendarOff className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm font-medium text-foreground mb-1">Disponível apenas no modo de atendimento</p>
+          <p className="text-sm text-muted-foreground">
+            Para configurar sua disponibilidade pessoal, troque para o modo de atendimento usando o seletor no topo da tela.
+          </p>
+        </Card>
+      </div>
+    );
+  }
   const hasScope = !!currentClinicId || isPersonalMode;
 
   if (!user || !hasScope) {
