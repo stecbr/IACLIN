@@ -29,6 +29,7 @@ import SettingsPage from "./pages/SettingsPage";
 import Budgets from "./pages/Budgets";
 import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
+import AccessDenied from "./pages/AccessDenied";
 import Onboarding from "./pages/Onboarding";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceBooking from "./pages/MarketplaceBooking";
@@ -121,7 +122,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!currentClinicId && !isPersonalMode) {
     return <Navigate to="/onboarding" replace />;
   }
-  if (!canAccess(location.pathname)) return <Navigate to="/" replace />;
+  if (!canAccess(location.pathname)) return <AccessDenied />;
 
   return <AppLayout>{children}</AppLayout>;
 }
