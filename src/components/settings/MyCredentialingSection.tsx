@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, MapPin, RefreshCw } from 'lucide-react';
+import { Building2, Check, X, Clock, Ban, Search, Upload, FileText, Info, Landmark, User, MapPin, RefreshCw, Package, Hash } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CitySelect } from '@/components/address/CitySelect';
 import { BR_UF_LIST } from '@/lib/brazilCities';
@@ -21,11 +21,26 @@ import iaclinDefaultLogo from '@/assets/logo-iaclin.png';
 type Operator = {
   id: string;
   name: string;
+  legal_name: string | null;
   ans_code: string | null;
   type: string;
   brand_color: string | null;
   logo_url: string | null;
+  brand_group: string | null;
+  modality: string | null;
+  address_city: string | null;
+  address_state: string | null;
   created_at: string;
+};
+
+type CatalogPlanRow = {
+  id: string;
+  plan_name: string;
+  type: string;
+  ans_code: string | null;
+  contratacao: string | null;
+  abrangencia_cobertura: string | null;
+  situacao_plano: string | null;
 };
 
 type Credentialing = {
@@ -155,6 +170,9 @@ export default function MyCredentialingSection() {
   const [query, setQuery] = useState('');
   const [busyOp, setBusyOp] = useState<string | null>(null);
   const [openFor, setOpenFor] = useState<Operator | null>(null);
+  const [viewingPlansFor, setViewingPlansFor] = useState<Operator | null>(null);
+  const [catalogPlans, setCatalogPlans] = useState<CatalogPlanRow[]>([]);
+  const [loadingCatalogPlans, setLoadingCatalogPlans] = useState(false);
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [addressFromSettings, setAddressFromSettings] = useState(false);
   const [clinicCategory, setClinicCategory] = useState<string | null>(null);
@@ -257,6 +275,30 @@ export default function MyCredentialingSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openFor?.id, clinicState]);
 
+  // Carrega o catálogo de planos/convênios publicado pela operadora ao abrir "Ver planos"
+  useEffect(() => {
+    if (!viewingPlansFor) {
+      setCatalogPlans([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingCatalogPlans(true);
+      try {
+        const { data } = await supabase
+          .from('insurance_plans_catalog')
+          .select('id, plan_name, type, ans_code, contratacao, abrangencia_cobertura, situacao_plano')
+          .eq('operator_id', viewingPlansFor.id)
+          .eq('is_active', true)
+          .order('plan_name');
+        if (!cancelled) setCatalogPlans((data as any) ?? []);
+      } finally {
+        if (!cancelled) setLoadingCatalogPlans(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [viewingPlansFor]);
+
   const load = async () => {
     if (!user || !currentClinicId) return;
     setLoading(true);
@@ -311,7 +353,11 @@ export default function MyCredentialingSection() {
       setEntityType(et);
 
       const [{ data: ops, error: opsError }, { data: cds, error: cdsError }, { data: procData, error: procError }] = await Promise.all([
-        supabase.from('insurance_operators').select('id, name, ans_code, type, brand_color, logo_url, created_at').eq('is_active', true).order('name'),
+        supabase
+          .from('insurance_operators')
+          .select('id, name, legal_name, ans_code, type, brand_color, logo_url, brand_group, modality, address_city, address_state, created_at')
+          .eq('is_active', true)
+          .order('name'),
         currentClinicId
           ? supabase
               .from('operator_credentialings')
@@ -573,45 +619,73 @@ export default function MyCredentialingSection() {
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma operadora encontrada.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map((op) => {
               const cred = byOp.get(op.id);
               const st = cred ? statusMap[cred.status] : null;
               const Icon = st?.icon;
+              const location = [op.address_city, op.address_state].filter(Boolean).join(' - ');
               return (
-                <div key={op.id} className="rounded-lg border border-border/50 p-3">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                  <div
-                    className="h-10 w-10 rounded-md flex items-center justify-center shrink-0 overflow-hidden bg-background border border-border/60"
-                  >
+                <div
+                  key={op.id}
+                  className="rounded-lg border bg-card hover:border-foreground/20 transition-colors p-4 flex flex-col gap-3 min-w-0"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
                     <img
                       src={op.logo_url || iaclinDefaultLogo}
                       alt={op.name}
-                      className="h-8 w-8 object-contain"
+                      className="h-10 w-10 rounded object-contain border bg-white p-0.5 shrink-0"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinDefaultLogo; }}
                     />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{op.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {op.ans_code ? `ANS ${op.ans_code}` : 'Sem código ANS'} · {op.type === 'medico' ? 'Médica' : op.type === 'odonto' ? 'Odontológica' : 'Médica e odontológica'}
-                    </p>
-                    {cred?.status === 'rejected' && cred.rejection_reason && (
-                      <p className="text-xs text-destructive mt-1">Motivo: {cred.rejection_reason}</p>
-                    )}
-                    {invitedOperatorId === op.id && (
-                      <p className="text-xs text-primary mt-1">Convite recebido por link da operadora.</p>
-                    )}
-                  </div>
-                      {st && Icon && (
-                        <Badge variant="outline" className={`gap-1 shrink-0 ${st.cls}`}>
-                          <Icon className="h-3 w-3" /> {st.label}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{op.name}</p>
+                      {op.legal_name && op.legal_name !== op.name && (
+                        <p className="text-xs text-muted-foreground truncate">{op.legal_name}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        <Badge variant="outline" className="text-[10px]">
+                          {op.type === 'medico' ? 'Médica' : op.type === 'odonto' ? 'Odontológica' : 'Médica e odontológica'}
                         </Badge>
+                        {op.ans_code && (
+                          <Badge variant="outline" className="text-[10px] gap-1 font-mono">
+                            <Hash className="h-3 w-3" /> {op.ans_code}
+                          </Badge>
+                        )}
+                        {op.brand_group && (
+                          <Badge variant="outline" className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950 dark:text-cyan-300">
+                            {op.brand_group}
+                          </Badge>
+                        )}
+                        {st && Icon && (
+                          <Badge variant="outline" className={`gap-1 text-[10px] ${st.cls}`}>
+                            <Icon className="h-3 w-3" /> {st.label}
+                          </Badge>
+                        )}
+                      </div>
+                      {(op.modality || location) && (
+                        <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                          {[op.modality, location].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                      {cred?.status === 'rejected' && cred.rejection_reason && (
+                        <p className="text-xs text-destructive mt-1">Motivo: {cred.rejection_reason}</p>
+                      )}
+                      {invitedOperatorId === op.id && (
+                        <p className="text-xs text-primary mt-1">Convite recebido por link da operadora.</p>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40 justify-end">
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40 justify-between items-center">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1.5 text-xs text-primary hover:text-primary px-0 h-auto"
+                      onClick={() => setViewingPlansFor(op)}
+                    >
+                      <Package className="h-3.5 w-3.5" /> Ver planos
+                    </Button>
+                    <div className="flex flex-wrap gap-2 justify-end">
                       {!cred && (
                         <Button size="sm" variant="outline" disabled={busyOp === op.id || !memberId} onClick={() => setOpenFor(op)}>
                           Solicitar credenciamento
@@ -933,6 +1007,44 @@ export default function MyCredentialingSection() {
               {submittingRequest ? 'Enviando...' : 'Enviar solicitação'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingPlansFor} onOpenChange={(open) => !open && setViewingPlansFor(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Planos / convênios {viewingPlansFor ? `· ${viewingPlansFor.name}` : ''}</DialogTitle>
+            <DialogDescription>
+              Catálogo de planos publicados por esta operadora.
+            </DialogDescription>
+          </DialogHeader>
+          {loadingCatalogPlans ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">Carregando...</p>
+          ) : catalogPlans.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              Nenhum plano publicado por esta operadora ainda.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {catalogPlans.map((p) => (
+                <div key={p.id} className="rounded-lg border p-3">
+                  <p className="text-sm font-medium">{p.plan_name}</p>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <Badge variant="outline" className="text-[10px]">
+                      {p.type === 'medico' ? 'Médico' : p.type === 'odonto' ? 'Odontológico' : 'Médico + Odonto'}
+                    </Badge>
+                    {p.ans_code && (
+                      <Badge variant="outline" className="text-[10px] gap-1 font-mono">
+                        <Hash className="h-3 w-3" /> {p.ans_code}
+                      </Badge>
+                    )}
+                    {p.contratacao && <Badge variant="outline" className="text-[10px]">{p.contratacao}</Badge>}
+                    {p.abrangencia_cobertura && <Badge variant="outline" className="text-[10px]">{p.abrangencia_cobertura}</Badge>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </Card>

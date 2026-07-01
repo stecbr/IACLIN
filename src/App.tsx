@@ -165,12 +165,14 @@ function OperatorProtectedRoute({ children }: { children?: React.ReactNode }) {
   }
   if (!user) return <Navigate to="/auth" replace />;
   if (!isOperator) return <Navigate to="/" replace />;
-  if (opStatus && opStatus.approval_status !== "approved") {
+  // Fail closed: sem status resolvido (ex.: vínculo operator_members ausente) ou
+  // status diferente de "approved" nunca deve liberar o painel.
+  if (!opStatus || opStatus.approval_status !== "approved") {
     return (
       <OperatorPendingScreen
-        status={opStatus.approval_status === "rejected" ? "rejected" : "pending"}
-        operatorName={opStatus.name ?? null}
-        reason={opStatus.rejection_reason ?? null}
+        status={opStatus?.approval_status === "rejected" ? "rejected" : "pending"}
+        operatorName={opStatus?.name ?? null}
+        reason={opStatus?.rejection_reason ?? null}
       />
     );
   }

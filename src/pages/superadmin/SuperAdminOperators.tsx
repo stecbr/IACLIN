@@ -73,7 +73,7 @@ export default function SuperAdminOperators() {
   const [selected, setSelected] = useState<PlatformOperator | null>(null);
 
   const { data: operators = [], isLoading, error } = useQuery({
-    queryKey: ['platform-operators'],
+    queryKey: ['platform-operator-requests'],
     queryFn: fetchOperators,
     retry: 1,
   });

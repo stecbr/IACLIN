@@ -60,6 +60,7 @@ interface Operator {
   is_active: boolean;
   owner_id: string | null;
   approval_status?: string;
+  brand_group: string | null;
 }
 
 interface CatalogPlan {
@@ -70,7 +71,34 @@ interface CatalogPlan {
   type: 'medico' | 'odonto' | 'ambos';
   ans_code: string | null;
   is_active: boolean;
+  vigencia: string | null;
+  contratacao: string | null;
+  segmentacao_assistencial: string | null;
+  cobertura: string | null;
+  tipo_financiamento: string | null;
+  abrangencia_cobertura: string | null;
+  fator_moderador: string | null;
+  acomodacao_hospitalar: string | null;
+  livre_escolha: string | null;
+  obstetricia: string | null;
+  has_odontologico: boolean | null;
+  situacao_plano: string | null;
+  porte_operadora: string | null;
+  dt_situacao: string | null;
+  dt_registro_plano: string | null;
 }
+
+const CONTRATACAO_OPTIONS = ['Individual ou familiar', 'Coletivo empresarial', 'Coletivo por adesão'];
+const COBERTURA_OPTIONS = ['Médico-hospitalar', 'Odontológica'];
+const TIPO_FINANCIAMENTO_OPTIONS = ['Preestabelecido', 'Pós-estabelecido', 'Misto'];
+const ABRANGENCIA_OPTIONS = ['Nacional', 'Grupo de estados', 'Estadual', 'Grupo de municípios', 'Municipal', 'Outras'];
+const FATOR_MODERADOR_OPTIONS = ['Ausente', 'Coparticipação', 'Franquia', 'Franquia + Coparticipação'];
+const ACOMODACAO_OPTIONS = ['Coletiva', 'Individual', 'Não se Aplica'];
+const LIVRE_ESCOLHA_OPTIONS = ['Ausente', 'Total', 'Parcial com internação', 'Parcial sem internação'];
+const OBSTETRICIA_OPTIONS = ['Com Obstetrícia', 'Sem Obstetrícia', 'Não se Aplica'];
+const SITUACAO_PLANO_OPTIONS = ['Ativo', 'Suspenso', 'Cancelado', 'Transferido'];
+const PORTE_OPTIONS = ['Pequeno', 'Médio', 'Grande'];
+const VIGENCIA_OPTIONS: Record<string, string> = { A: 'Anterior à Lei 9.656/1998', P: 'Posterior à Lei 9.656/1998' };
 
 const TYPE_LABELS: Record<string, string> = {
   medico: 'Médico',
@@ -88,18 +116,24 @@ export default function SuperAdminOperatorsDatabase() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterGroup, setFilterGroup] = useState<string>('all');
   const [selected, setSelected] = useState<Operator | null>(null);
   const [editing, setEditing] = useState<Operator | 'new' | null>(null);
   const [toDelete, setToDelete] = useState<Operator | null>(null);
 
   const { data: operators = [], isLoading } = useQuery({
-    queryKey: ['platform-operators'],
+    queryKey: ['platform-operators-catalog'],
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc('admin_get_all_operators');
       if (error) throw error;
       return (data ?? []) as Operator[];
     },
   });
+
+  const brandGroups = useMemo(
+    () => Array.from(new Set(operators.map((o) => o.brand_group).filter(Boolean))).sort() as string[],
+    [operators],
+  );
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -109,11 +143,13 @@ export default function SuperAdminOperatorsDatabase() {
         o.name.toLowerCase().includes(q) ||
         (o.legal_name ?? '').toLowerCase().includes(q) ||
         (o.cnpj ?? '').includes(q) ||
-        (o.ans_code ?? '').toLowerCase().includes(q);
+        (o.ans_code ?? '').toLowerCase().includes(q) ||
+        (o.brand_group ?? '').toLowerCase().includes(q);
       const matchType = filterType === 'all' || o.type === filterType;
-      return matchSearch && matchType;
+      const matchGroup = filterGroup === 'all' || o.brand_group === filterGroup;
+      return matchSearch && matchType && matchGroup;
     });
-  }, [operators, search, filterType]);
+  }, [operators, search, filterType, filterGroup]);
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
@@ -122,7 +158,7 @@ export default function SuperAdminOperatorsDatabase() {
     },
     onSuccess: () => {
       toast.success('Operadora excluída');
-      qc.invalidateQueries({ queryKey: ['platform-operators'] });
+      qc.invalidateQueries({ queryKey: ['platform-operators-catalog'] });
       setToDelete(null);
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao excluir'),
@@ -177,6 +213,19 @@ export default function SuperAdminOperatorsDatabase() {
             <SelectItem value="ambos">Médico + Odonto</SelectItem>
           </SelectContent>
         </Select>
+        {brandGroups.length > 0 && (
+          <Select value={filterGroup} onValueChange={setFilterGroup}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Grupo/marca" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os grupos</SelectItem>
+              {brandGroups.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {isLoading ? (
@@ -221,6 +270,11 @@ export default function SuperAdminOperatorsDatabase() {
                     {op.ans_code && (
                       <Badge variant="outline" className="text-[10px] gap-1 font-mono">
                         <Hash className="h-3 w-3" /> {op.ans_code}
+                      </Badge>
+                    )}
+                    {op.brand_group && (
+                      <Badge variant="outline" className="text-[10px] bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950 dark:text-cyan-300">
+                        {op.brand_group}
                       </Badge>
                     )}
                     {op.owner_id && (
@@ -329,7 +383,7 @@ function OperatorFormDialog({
     },
     onSuccess: () => {
       toast.success(operator ? 'Operadora atualizada' : 'Operadora cadastrada');
-      qc.invalidateQueries({ queryKey: ['platform-operators'] });
+      qc.invalidateQueries({ queryKey: ['platform-operators-catalog'] });
       onOpenChange(false);
     },
     onError: (e: any) => toast.error(e.message ?? 'Erro ao salvar'),
@@ -415,6 +469,14 @@ function OperatorFormDialog({
               <Input
                 value={form.contact_phone ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Grupo/marca</Label>
+              <Input
+                value={form.brand_group ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, brand_group: e.target.value || null }))}
+                placeholder="Ex.: Unimed, Uniodonto (deixe em branco se não fizer parte de um grupo)"
               />
             </div>
           </div>
@@ -544,6 +606,15 @@ function OperatorPlansView({
                       <Hash className="h-3 w-3" /> {p.ans_code}
                     </Badge>
                   )}
+                  {p.contratacao && (
+                    <Badge variant="outline" className="text-[10px]">{p.contratacao}</Badge>
+                  )}
+                  {p.abrangencia_cobertura && (
+                    <Badge variant="outline" className="text-[10px]">{p.abrangencia_cobertura}</Badge>
+                  )}
+                  {p.situacao_plano && p.situacao_plano !== 'Ativo' && (
+                    <Badge variant="outline" className="text-[10px]">{p.situacao_plano}</Badge>
+                  )}
                   {!p.is_active && (
                     <Badge variant="outline" className="text-[10px]">Inativo</Badge>
                   )}
@@ -650,16 +721,55 @@ function CatalogPlanFormDialog({
       type: form.type ?? operatorType,
       ans_code: form.ans_code ?? null,
       is_active: form.is_active ?? true,
+      vigencia: form.vigencia ?? null,
+      contratacao: form.contratacao ?? null,
+      segmentacao_assistencial: form.segmentacao_assistencial ?? null,
+      cobertura: form.cobertura ?? null,
+      tipo_financiamento: form.tipo_financiamento ?? null,
+      abrangencia_cobertura: form.abrangencia_cobertura ?? null,
+      fator_moderador: form.fator_moderador ?? null,
+      acomodacao_hospitalar: form.acomodacao_hospitalar ?? null,
+      livre_escolha: form.livre_escolha ?? null,
+      obstetricia: form.obstetricia ?? null,
+      has_odontologico: form.has_odontologico ?? false,
+      situacao_plano: form.situacao_plano ?? null,
+      porte_operadora: form.porte_operadora ?? null,
+      dt_situacao: form.dt_situacao ?? null,
+      dt_registro_plano: form.dt_registro_plano ?? null,
     });
   };
 
+  const selectField = (
+    label: string,
+    key: keyof CatalogPlan,
+    options: string[],
+  ) => (
+    <div>
+      <Label>{label}</Label>
+      <Select
+        value={(form[key] as string) ?? '__none'}
+        onValueChange={(v) => setForm((f) => ({ ...f, [key]: v === '__none' ? null : v }))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Não informado" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none">Não informado</SelectItem>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{plan ? 'Editar plano' : 'Novo plano'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Nome do plano *</Label>
             <Input
@@ -669,7 +779,7 @@ function CatalogPlanFormDialog({
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Tipo</Label>
               <Select
@@ -692,6 +802,58 @@ function CatalogPlanFormDialog({
                 value={form.ans_code ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, ans_code: e.target.value }))}
               />
+            </div>
+            {selectField('Vigência', 'vigencia', Object.keys(VIGENCIA_OPTIONS))}
+          </div>
+
+          <div className="border-t pt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Características do produto (ANS)</p>
+            <div className="grid grid-cols-2 gap-3">
+              {selectField('Contratação', 'contratacao', CONTRATACAO_OPTIONS)}
+              {selectField('Cobertura', 'cobertura', COBERTURA_OPTIONS)}
+              {selectField('Financiamento', 'tipo_financiamento', TIPO_FINANCIAMENTO_OPTIONS)}
+              {selectField('Abrangência', 'abrangencia_cobertura', ABRANGENCIA_OPTIONS)}
+              {selectField('Fator moderador', 'fator_moderador', FATOR_MODERADOR_OPTIONS)}
+              {selectField('Acomodação hospitalar', 'acomodacao_hospitalar', ACOMODACAO_OPTIONS)}
+              {selectField('Livre escolha', 'livre_escolha', LIVRE_ESCOLHA_OPTIONS)}
+              {selectField('Obstetrícia', 'obstetricia', OBSTETRICIA_OPTIONS)}
+              {selectField('Porte da operadora', 'porte_operadora', PORTE_OPTIONS)}
+              {selectField('Situação do plano', 'situacao_plano', SITUACAO_PLANO_OPTIONS)}
+              <div>
+                <Label>Segmentação assistencial</Label>
+                <Input
+                  value={form.segmentacao_assistencial ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, segmentacao_assistencial: e.target.value }))}
+                  placeholder="Ex.: Ambulatorial + Hospitalar com obstetrícia"
+                />
+              </div>
+              <div className="flex items-end pb-1.5">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.has_odontologico ?? false}
+                    onChange={(e) => setForm((f) => ({ ...f, has_odontologico: e.target.checked }))}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  Inclui cobertura odontológica
+                </label>
+              </div>
+              <div>
+                <Label>Data da situação</Label>
+                <Input
+                  type="date"
+                  value={form.dt_situacao ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, dt_situacao: e.target.value || null }))}
+                />
+              </div>
+              <div>
+                <Label>Data de registro na ANS</Label>
+                <Input
+                  type="date"
+                  value={form.dt_registro_plano ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, dt_registro_plano: e.target.value || null }))}
+                />
+              </div>
             </div>
           </div>
 
