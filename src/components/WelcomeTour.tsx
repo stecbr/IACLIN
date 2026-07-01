@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar, Users, DollarSign, ArrowRight, Check } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const steps = [
   {
@@ -25,19 +26,23 @@ const steps = [
 ];
 
 export function WelcomeTour() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const shown = useRef(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem('iaclin-welcome-seen');
-    if (!seen) {
+    if (!user?.id || shown.current) return;
+    const key = `iaclin-welcome-seen-${user.id}`;
+    if (!localStorage.getItem(key)) {
+      shown.current = true;
       const timer = setTimeout(() => setOpen(true), 800);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [user?.id]);
 
   const handleClose = () => {
-    localStorage.setItem('iaclin-welcome-seen', 'true');
+    if (user?.id) localStorage.setItem(`iaclin-welcome-seen-${user.id}`, 'true');
     setOpen(false);
   };
 
