@@ -12,9 +12,9 @@ import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
-import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
-const logoLight = iaclinLogoAsset.url;
-const logoDark = iaclinLogoAsset.url;
+import iaclinLogoAsset from '@/assets/logo-iaclin.png';
+const logoLight = iaclinLogoAsset;
+const logoDark = iaclinLogoAsset;
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,

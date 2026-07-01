@@ -13,7 +13,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { geocodeAddress } from "@/lib/geocode";
 import { useTheme } from "@/components/ThemeProvider";
-import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
+import iaclinDefaultLogo from "@/assets/logo-iaclin.png";
 import { EXTERNAL_CLINICS } from "@/data/externalClinics";
 import { lookupManausCoords } from "@/data/manausCoords";
 
@@ -235,7 +235,7 @@ export default function OperatorProfessionals() {
       state: c.state,
       phone: c.phone,
       email: c.email,
-      logo_url: iaclinDefaultLogo.url,
+      logo_url: iaclinDefaultLogo,
       address: c.address,
       address_number: c.address_number,
       neighborhood: c.neighborhood,
@@ -466,10 +466,10 @@ export default function OperatorProfessionals() {
     visibleClinics.forEach(({ clinic, coords: c }) => {
       const realLatLng = L.latLng(c.lat, c.lng);
       bounds.push(realLatLng);
-      const logoSrc = clinic.logo_url || iaclinDefaultLogo.url;
+      const logoSrc = clinic.logo_url || iaclinDefaultLogo;
       const logoBg =
         clinic.source === "servdonto" ? GENERAL_NETWORK_LOGO_BG : resolved === "dark" ? DARK_LOGO_BACKGROUND : "#fff";
-      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};padding:${clinic.source === "servdonto" ? 4 : 0}px;" onerror="this.onerror=null;this.src='${iaclinDefaultLogo.url}';"/>`;
+      const inner = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:9999px;background:${logoBg};padding:${clinic.source === "servdonto" ? 4 : 0}px;" onerror="this.onerror=null;this.src='${iaclinDefaultLogo}';"/>`;
       const icon = L.divIcon({
         className: "",
         html: `<div style="position:relative;width:${markerSize}px;height:${markerSize}px"><div style="position:absolute;inset:0;border-radius:9999px;background:${logoBg};border:3px solid hsl(var(--primary));box-shadow:0 2px 5px rgba(0,0,0,.14);overflow:hidden">${inner}</div><div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid hsl(var(--primary));"></div></div>`,

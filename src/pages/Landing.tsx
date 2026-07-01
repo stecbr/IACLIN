@@ -28,8 +28,8 @@ import {
   type LandingContent,
   type Segment,
 } from "@/config/landingContent";
-import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
-const logoLight = iaclinLogoAsset.url;
+import iaclinLogoAsset from '@/assets/logo-iaclin.png';
+const logoLight = iaclinLogoAsset;
 import landingDashboard from "@/assets/landing-dashboard.png";
 
 const fadeUp = {

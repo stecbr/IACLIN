@@ -24,7 +24,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { NotificationBell } from "@/components/NotificationBell";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import iaclinDefaultLogo from "@/assets/iaclin-logo.png.asset.json";
+import iaclinDefaultLogo from "@/assets/logo-iaclin.png";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -149,7 +149,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-10 w-10 shrink-0 flex items-center justify-center">
               <img
-                src={op?.logo_url || iaclinDefaultLogo.url}
+                src={op?.logo_url || iaclinDefaultLogo}
                 alt={op?.name ?? "Operadora"}
                 className="h-full w-full object-contain"
               />
@@ -206,7 +206,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
         <div className="py-4 w-full flex items-center justify-center">
           <div className="h-10 w-10 flex items-center justify-center">
             <img
-              src={op?.logo_url || iaclinDefaultLogo.url}
+              src={op?.logo_url || iaclinDefaultLogo}
               alt={op?.name ?? "Operadora"}
               className="h-full w-full object-contain"
             />
@@ -305,7 +305,7 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="h-10 w-10 shrink-0 flex items-center justify-center">
                           <img
-                            src={op?.logo_url || iaclinDefaultLogo.url}
+                            src={op?.logo_url || iaclinDefaultLogo}
                             alt={op?.name ?? "Operadora"}
                             className="h-full w-full object-contain"
                           />

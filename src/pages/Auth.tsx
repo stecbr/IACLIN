@@ -13,9 +13,9 @@ import { formatCpf, isValidCpf, unmaskCpf } from '@/lib/cpf';
 import { formatCnpj, isValidCnpj } from '@/lib/cnpj';
 import { InsuranceOperatorSelect } from '@/components/InsuranceOperatorSelect';
 import { OperatorCatalogSearch, type CatalogOperator } from '@/components/auth/OperatorCatalogSearch';
-import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
-const logoLight = iaclinLogoAsset.url;
-const logoDark = iaclinLogoAsset.url;
+import iaclinLogoAsset from '@/assets/logo-iaclin.png';
+const logoLight = iaclinLogoAsset;
+const logoDark = iaclinLogoAsset;
 import { useTheme } from '@/components/ThemeProvider';
 import { IaclinWordmark } from '@/components/IaclinWordmark';
 import {

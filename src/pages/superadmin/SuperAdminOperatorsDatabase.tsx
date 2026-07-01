@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import iaclinLogo from '@/assets/iaclin-logo.png.asset.json';
+import iaclinLogo from '@/assets/logo-iaclin.png';
 
 // ── Tipos ───────────────────────────────────────────────────────
 interface Operator {
@@ -202,11 +202,11 @@ export default function SuperAdminOperatorsDatabase() {
                 className="text-left flex items-start gap-3 min-w-0"
               >
                 <img
-                  src={op.logo_url || iaclinLogo.url}
+                  src={op.logo_url || iaclinLogo}
                   alt={op.name}
                   className="h-10 w-10 rounded object-contain border bg-white p-0.5 shrink-0"
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = iaclinLogo.url;
+                    (e.currentTarget as HTMLImageElement).src = iaclinLogo;
                   }}
                 />
                 <div className="min-w-0 flex-1">
@@ -481,11 +481,11 @@ function OperatorPlansView({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <img
-            src={operator.logo_url || iaclinLogo.url}
+            src={operator.logo_url || iaclinLogo}
             alt={operator.name}
             className="h-12 w-12 rounded object-contain border bg-white p-0.5 shrink-0"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = iaclinLogo.url;
+              (e.currentTarget as HTMLImageElement).src = iaclinLogo;
             }}
           />
           <div className="min-w-0">

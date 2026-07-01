@@ -6,9 +6,9 @@ import { PatientNotificationBell } from '@/components/patient/PatientNotificatio
 import { DevRoleSwitcher } from '@/components/DevRoleSwitcher';
 import { useTheme } from '@/components/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
-import iaclinLogoAsset from '@/assets/iaclin-logo.png.asset.json';
-const logoLight = iaclinLogoAsset.url;
-const logoDark = iaclinLogoAsset.url;
+import iaclinLogoAsset from '@/assets/logo-iaclin.png';
+const logoLight = iaclinLogoAsset;
+const logoDark = iaclinLogoAsset;
 import { GettingStartedChecklist } from '@/components/GettingStartedChecklist';
 
 const breadcrumbMap: Record<string, string> = {

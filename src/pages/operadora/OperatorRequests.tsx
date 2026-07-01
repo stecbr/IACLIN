@@ -30,7 +30,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { DocumentFullscreenViewer, type FullscreenDocFile } from '@/components/operadora/DocumentFullscreenViewer';
-import iaclinLogo from '@/assets/iaclin-logo.png.asset.json';
+import iaclinLogo from '@/assets/logo-iaclin.png';
 
 interface Req {
   id: string;
@@ -386,10 +386,10 @@ export default function OperatorRequests() {
                 <div className="flex min-w-0 flex-1 items-start gap-3">
                   <div className="shrink-0 h-14 w-14 rounded-xl overflow-hidden border bg-muted flex items-center justify-center">
                     <img
-                      src={r.clinic_logo_url || iaclinLogo.url}
+                      src={r.clinic_logo_url || iaclinLogo}
                       alt={r.clinic_name ?? 'Clínica'}
                       className="h-full w-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinLogo.url; }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = iaclinLogo; }}
                     />
                   </div>
                   <div className="min-w-0 flex-1">
