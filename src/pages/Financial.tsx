@@ -3,12 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, subMonths, addMonths, startOfYear, endOfYear, subYears, addYears, isSameMonth, isSameYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   DollarSign, TrendingUp, TrendingDown, Clock, Plus, Upload, Filter, Pencil,
   CheckCircle2, XCircle, ArrowUpRight, ArrowDownRight, FileText, Sparkles,
-  Building2, User as UserIcon,
+  Building2, User as UserIcon, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,17 +56,15 @@ export default function Financial() {
   const [showImport, setShowImport] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [periodFilter, setPeriodFilter] = useState('current');
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedDate, setSelectedDate] = useState(() => startOfMonth(new Date()));
+  const [periodMode, setPeriodMode] = useState<'month' | 'year'>('month');
 
   // Period calculation
   const now = new Date();
   const getPeriodRange = () => {
-    if (periodFilter === 'current') return { start: startOfMonth(now), end: endOfMonth(now) };
-    if (periodFilter === 'last') return { start: startOfMonth(subMonths(now, 1)), end: endOfMonth(subMonths(now, 1)) };
-    if (periodFilter === 'last3') return { start: startOfMonth(subMonths(now, 2)), end: endOfMonth(now) };
-    if (periodFilter === 'all') return { start: new Date(2000, 0, 1), end: new Date(2100, 0, 1) };
-    return { start: startOfMonth(subMonths(now, 5)), end: endOfMonth(now) };
+    if (periodMode === 'year') return { start: startOfYear(selectedDate), end: endOfYear(selectedDate) };
+    return { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) };
   };
   const period = getPeriodRange();
 
@@ -138,11 +136,11 @@ export default function Financial() {
     !tx.approval_status || tx.approval_status === 'approved'
   );
 
-  // Dedicated 6-month chart query — always fetches last 6 months by paid_date, independent of periodFilter
-  const chartStart = startOfMonth(subMonths(now, 5));
-  const chartEnd = endOfMonth(now);
+  // Chart query — 6 months ending at selectedDate in month mode; full year in year mode
+  const chartStart = periodMode === 'year' ? startOfYear(selectedDate) : startOfMonth(subMonths(selectedDate, 5));
+  const chartEnd   = periodMode === 'year' ? endOfYear(selectedDate)   : endOfMonth(selectedDate);
   const { data: chartTxRaw = [] } = useQuery({
-    queryKey: ['financial-chart-6m', format(chartStart, 'yyyy-MM'), currentClinicId, user?.id, isPersonalMode],
+    queryKey: ['financial-chart-6m', format(chartStart, 'yyyy-MM'), format(chartEnd, 'yyyy-MM'), currentClinicId, user?.id, isPersonalMode],
     enabled: !!user,
     queryFn: async () => {
       let q = supabase
@@ -201,11 +199,12 @@ export default function Financial() {
   const pendingExpense = approvedTx.filter((t: any) => t.type === 'expense' && t.status === 'pending').reduce((s: number, t: any) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
-  // Monthly chart data — always last 6 months, grouped by paid_date
+  // Monthly chart data — 6 months ending at selectedDate (month mode) or full year (year mode)
   const chartData = useMemo(() => {
     const months: Record<string, { income: number; expense: number }> = {};
-    for (let i = 5; i >= 0; i--) {
-      const m = subMonths(now, i);
+    const count = periodMode === 'year' ? 12 : 6;
+    for (let i = count - 1; i >= 0; i--) {
+      const m = subMonths(periodMode === 'year' ? endOfYear(selectedDate) : selectedDate, i);
       const key = format(m, 'MMM', { locale: ptBR });
       months[key] = { income: 0, expense: 0 };
     }
@@ -218,7 +217,7 @@ export default function Financial() {
       }
     });
     return Object.entries(months).map(([month, data]) => ({ month, ...data }));
-  }, [chartTxRaw]);
+  }, [chartTxRaw, periodMode, selectedDate]);
 
   const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -256,6 +255,63 @@ export default function Financial() {
           <span className="sm:hidden">Nova</span>
         </Button>
       </PageHeader>
+
+      {/* Period selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-muted/40 rounded-xl border border-border/50">
+        {/* Presets */}
+        <div className="flex gap-1 flex-wrap">
+          {[
+            {
+              label: 'Este mês',
+              active: periodMode === 'month' && isSameMonth(selectedDate, now),
+              onClick: () => { setPeriodMode('month'); setSelectedDate(startOfMonth(now)); },
+            },
+            {
+              label: 'Mês anterior',
+              active: periodMode === 'month' && isSameMonth(selectedDate, subMonths(now, 1)),
+              onClick: () => { setPeriodMode('month'); setSelectedDate(startOfMonth(subMonths(now, 1))); },
+            },
+            {
+              label: 'Este ano',
+              active: periodMode === 'year' && isSameYear(selectedDate, now),
+              onClick: () => { setPeriodMode('year'); setSelectedDate(startOfYear(now)); },
+            },
+          ].map((p) => (
+            <button
+              key={p.label}
+              onClick={p.onClick}
+              className={`h-7 px-3 text-xs rounded-lg font-medium transition-colors ${
+                p.active
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Month / Year navigation */}
+        <div className="flex items-center gap-1 sm:ml-auto">
+          <button
+            onClick={() => setSelectedDate(prev => periodMode === 'year' ? subYears(prev, 1) : subMonths(prev, 1))}
+            className="h-7 w-7 rounded-md flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold w-36 text-center capitalize select-none">
+            {periodMode === 'year'
+              ? format(selectedDate, 'yyyy')
+              : format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
+          </span>
+          <button
+            onClick={() => setSelectedDate(prev => periodMode === 'year' ? addYears(prev, 1) : addMonths(prev, 1))}
+            className="h-7 w-7 rounded-md flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -322,7 +378,11 @@ export default function Financial() {
           {/* Cash Flow Chart — hidden in solo mode: SoloFinanceOverview already renders its own chart */}
           {visibility.mode !== 'solo' && <Card className="shadow-card border-border/50">
             <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Fluxo de Caixa - Últimos 6 Meses</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {periodMode === 'year'
+                  ? `Fluxo de Caixa - ${format(selectedDate, 'yyyy')}`
+                  : `Fluxo de Caixa - 6 meses (até ${format(selectedDate, 'MMM/yy', { locale: ptBR })})`}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-64">
@@ -392,18 +452,8 @@ export default function Financial() {
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
-          {/* Filters */}
+          {/* Filters — type and status only; period is controlled globally above */}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
-            <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current">Mês Atual</SelectItem>
-                <SelectItem value="last">Mês Anterior</SelectItem>
-                <SelectItem value="last3">Últimos 3 Meses</SelectItem>
-                <SelectItem value="last6">Últimos 6 Meses</SelectItem>
-                <SelectItem value="all">Todos os períodos</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-full sm:w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
