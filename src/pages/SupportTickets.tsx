@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Loader2,
   Plus,
@@ -725,6 +725,7 @@ function TicketDetailDialog({
   const [forwarding, setForwarding] = useState(false);
   const [forwardOpId, setForwardOpId] = useState(ticket.operator_id ?? '');
   const [profileNames, setProfileNames] = useState<Map<string, string>>(new Map());
+  const [profileAvatars, setProfileAvatars] = useState<Map<string, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isClinicTicket = ticket.ticket_type === 'to_clinic';
@@ -748,11 +749,17 @@ function TicketDetailDialog({
     const senderIds = [...new Set(messages.map((m) => m.sender_id))];
     supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, avatar_url')
       .in('id', senderIds)
       .then(({ data }) => {
-        const map = new Map((data ?? []).map((p) => [p.id, p.full_name ?? 'Usuário']));
-        setProfileNames(map);
+        const names = new Map((data ?? []).map((p) => [p.id, p.full_name ?? 'Usuário']));
+        const avatars = new Map(
+          (data ?? [])
+            .filter((p) => p.avatar_url)
+            .map((p) => [p.id, p.avatar_url as string])
+        );
+        setProfileNames(names);
+        setProfileAvatars(avatars);
       });
   }, [messages]);
 
@@ -927,11 +934,22 @@ function TicketDetailDialog({
           {messages.map((msg) => {
             const isMe = msg.sender_id === userId;
             const senderName = isMe ? 'Você' : (profileNames.get(msg.sender_id) ?? 'Usuário');
+            const avatarUrl = profileAvatars.get(msg.sender_id);
+            const initials = (profileNames.get(msg.sender_id) ?? senderName)
+              .split(' ')
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w) => w[0])
+              .join('')
+              .toUpperCase();
             return (
               <div key={msg.id} className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                    {senderName.slice(0, 2).toUpperCase()}
+                <Avatar className="h-8 w-8 shrink-0 ring-2 ring-background">
+                  {avatarUrl && (
+                    <AvatarImage src={avatarUrl} alt={senderName} className="object-cover" />
+                  )}
+                  <AvatarFallback className={`text-[10px] font-semibold ${isMe ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    {initials || senderName.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div
