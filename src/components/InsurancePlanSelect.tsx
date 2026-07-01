@@ -35,18 +35,39 @@ export function InsurancePlanSelect({
 }: InsurancePlanSelectProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // O catálogo tem dezenas de milhares de planos (todas as operadoras ativas
+  // da ANS) — buscar tudo de uma vez estoura o limite padrão de 1000 linhas
+  // do Supabase e planos de operadoras "no fim do alfabeto" nunca aparecem.
+  // Por isso a busca é feita no servidor, com debounce.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const { data: plans = [], isLoading } = useQuery({
-    queryKey: ['insurance-plans-catalog'],
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['insurance-plans-catalog', debouncedQuery],
+    enabled: open,
+    staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('insurance_plans_catalog')
         .select('id, operator_name, plan_name, type')
-        .eq('is_active', true)
+        .eq('is_active', true);
+      if (debouncedQuery) {
+        // vírgula e parênteses têm significado especial na sintaxe do .or() do PostgREST
+        const safe = debouncedQuery.replace(/[,()]/g, ' ').trim();
+        if (safe) {
+          const term = `%${safe}%`;
+          q = q.or(`plan_name.ilike.${term},operator_name.ilike.${term}`);
+        }
+      }
+      const { data, error } = await q
         .order('operator_name')
-        .order('plan_name');
+        .order('plan_name')
+        .limit(200);
       if (error) throw error;
       return (data ?? []) as CatalogRow[];
     },
@@ -62,21 +83,14 @@ export function InsurancePlanSelect({
   }, [selectedLabel, open]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = !q
-      ? plans
-      : plans.filter(
-          (p) =>
-            p.operator_name.toLowerCase().includes(q) ||
-            p.plan_name.toLowerCase().includes(q),
-        );
+    // A filtragem já é feita no servidor (debouncedQuery); aqui só agrupamos por operadora.
     const map = new Map<string, CatalogRow[]>();
-    for (const p of list) {
+    for (const p of plans) {
       if (!map.has(p.operator_name)) map.set(p.operator_name, []);
       map.get(p.operator_name)!.push(p);
     }
     return Array.from(map.entries());
-  }, [plans, query]);
+  }, [plans]);
 
   const handleSelect = (operator: string, plan: string) => {
     onChange(operator, plan);

@@ -151,6 +151,10 @@ type CredentialingPayload = {
   };
 };
 
+// Colapsa espaços duplicados/sobrando para busca por substring não falhar
+// com nomes vindos "sujos" da base da ANS (ex.: "UNIMED  FLORIANO").
+const normSpace = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
 const statusMap: Record<string, { label: string; icon: any; cls: string }> = {
   pending: { label: 'Pendente', icon: Clock, cls: 'bg-warning/15 text-warning border-warning/30' },
   approved: { label: 'Credenciado', icon: Check, cls: 'bg-success/15 text-success border-success/30' },
@@ -404,7 +408,7 @@ export default function MyCredentialingSection() {
   }, [creds]);
 
   const filtered = operators.filter((o) => {
-    if (!o.name.toLowerCase().includes(query.toLowerCase())) return false;
+    if (!normSpace(o.name).includes(normSpace(query))) return false;
     const opType = (o.type ?? '').toLowerCase();
     if (opType === 'ambos' || opType === '') return true;
     if (clinicCategory === 'odonto') return opType === 'odonto';

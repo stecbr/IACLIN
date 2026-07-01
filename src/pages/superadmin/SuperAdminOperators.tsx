@@ -49,6 +49,10 @@ const TYPE_COLORS: Record<string, string> = {
   ambos:  'bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-950 dark:text-violet-300',
 };
 
+// Colapsa espaços duplicados/sobrando para busca por substring não falhar
+// com nomes vindos "sujos" da base da ANS (ex.: "UNIMED  FLORIANO").
+const normSpace = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
 const APPROVAL_BADGE: Record<string, { label: string; cls: string; icon: any }> = {
   pending:  { label: 'Em análise', cls: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300', icon: Clock },
   approved: { label: 'Aprovada',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300', icon: CheckCircle2 },
@@ -79,14 +83,14 @@ export default function SuperAdminOperators() {
   });
 
   const filtered = operators.filter(op => {
-    const q = search.toLowerCase();
+    const q = normSpace(search);
     const matchSearch =
-      !search ||
-      op.name.toLowerCase().includes(q) ||
-      (op.legal_name ?? '').toLowerCase().includes(q) ||
+      !q ||
+      normSpace(op.name).includes(q) ||
+      normSpace(op.legal_name ?? '').includes(q) ||
       (op.cnpj ?? '').includes(q) ||
       (op.ans_code ?? '').toLowerCase().includes(q) ||
-      (op.contact_email ?? '').toLowerCase().includes(q);
+      normSpace(op.contact_email ?? '').includes(q);
 
     const matchType   = filterType === 'all'   || op.type === filterType;
     const matchApproval =

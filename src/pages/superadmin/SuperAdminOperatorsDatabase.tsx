@@ -100,6 +100,10 @@ const SITUACAO_PLANO_OPTIONS = ['Ativo', 'Suspenso', 'Cancelado', 'Transferido']
 const PORTE_OPTIONS = ['Pequeno', 'Médio', 'Grande'];
 const VIGENCIA_OPTIONS: Record<string, string> = { A: 'Anterior à Lei 9.656/1998', P: 'Posterior à Lei 9.656/1998' };
 
+// Colapsa espaços duplicados/sobrando para busca por substring não falhar
+// com nomes vindos "sujos" da base da ANS (ex.: "UNIMED  FLORIANO").
+const normSpace = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
 const TYPE_LABELS: Record<string, string> = {
   medico: 'Médico',
   odonto: 'Odontológico',
@@ -136,15 +140,15 @@ export default function SuperAdminOperatorsDatabase() {
   );
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
+    const q = normSpace(search);
     return operators.filter((o) => {
       const matchSearch =
         !q ||
-        o.name.toLowerCase().includes(q) ||
-        (o.legal_name ?? '').toLowerCase().includes(q) ||
+        normSpace(o.name).includes(q) ||
+        normSpace(o.legal_name ?? '').includes(q) ||
         (o.cnpj ?? '').includes(q) ||
         (o.ans_code ?? '').toLowerCase().includes(q) ||
-        (o.brand_group ?? '').toLowerCase().includes(q);
+        normSpace(o.brand_group ?? '').includes(q);
       const matchType = filterType === 'all' || o.type === filterType;
       const matchGroup = filterGroup === 'all' || o.brand_group === filterGroup;
       return matchSearch && matchType && matchGroup;

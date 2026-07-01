@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield, Wallet, Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,50 +14,42 @@ interface CoverageStepProps {
   onSelect: (choice: CoverageChoice) => void;
 }
 
-interface CatalogRow {
-  id: string;
-  plan_name: string;
-  operator_name: string;
-}
-
 export function CoverageStep({ value, onSelect }: CoverageStepProps) {
   const [mode, setMode] = useState<'private' | 'insurance' | null>(
     value?.kind === 'insurance' ? 'insurance' : value?.kind === 'private' ? 'private' : null,
   );
-  const [plans, setPlans] = useState<CatalogRow[]>([]);
   const [selectedOperator, setSelectedOperator] = useState('');
   const [selectedPlan, setSelectedPlan] = useState('');
 
+  // Hydrate selection from existing value (single row lookup by id — the
+  // catalog has tens of thousands of rows, so it can't be fetched in bulk).
   useEffect(() => {
-    if (mode !== 'insurance') return;
+    if (value?.kind !== 'insurance') return;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('insurance_plans_catalog')
         .select('id, plan_name, operator_name')
-        .eq('is_active', true);
-      if (!cancelled) setPlans((data ?? []) as CatalogRow[]);
+        .eq('id', value.planId)
+        .maybeSingle();
+      if (!cancelled && data) {
+        setSelectedOperator(data.operator_name);
+        setSelectedPlan(data.plan_name);
+      }
     })();
     return () => { cancelled = true; };
-  }, [mode]);
+  }, [value]);
 
-  // Hydrate selection from existing value
-  useEffect(() => {
-    if (value?.kind === 'insurance' && plans.length) {
-      const row = plans.find((p) => p.id === value.planId);
-      if (row) {
-        setSelectedOperator(row.operator_name);
-        setSelectedPlan(row.plan_name);
-      }
-    }
-  }, [value, plans]);
-
-  const handlePlanChange = (operator: string, plan: string) => {
+  const handlePlanChange = async (operator: string, plan: string) => {
     setSelectedOperator(operator);
     setSelectedPlan(plan);
-    const row = plans.find(
-      (p) => p.operator_name === operator && p.plan_name === plan,
-    );
+    if (!operator || !plan) return;
+    const { data: row } = await supabase
+      .from('insurance_plans_catalog')
+      .select('id, plan_name, operator_name')
+      .eq('operator_name', operator)
+      .eq('plan_name', plan)
+      .maybeSingle();
     if (row) {
       onSelect({
         kind: 'insurance',
