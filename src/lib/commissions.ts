@@ -78,7 +78,7 @@ export async function generateCommissionsForTransaction(
         : Number(rule.value);
     if (!commissionAmount || commissionAmount <= 0) continue;
 
-    // Idempotency: skip if an expense for this rule + dentist already exists.
+    // Idempotency: skip if a commission for this specific transaction + rule already exists.
     const ruleTag = `[rule:${rule.id}]`;
     const { data: existing } = await supabase
       .from('financial_transactions')
@@ -86,7 +86,8 @@ export async function generateCommissionsForTransaction(
       .eq('clinic_id', tx.clinic_id)
       .eq('dentist_id', tx.dentist_id)
       .eq('category', 'commission')
-      .ilike('notes', `%${ruleTag}%`)
+      .ilike('notes', `%[rule:${rule.id}]%`)
+      .ilike('notes', `%Origem tx ${tx.id}%`)
       .limit(1);
     if (existing && existing.length > 0) continue;
 
