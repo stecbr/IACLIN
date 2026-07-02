@@ -17,7 +17,7 @@ import {
   Circle, ArrowLeft, AlertTriangle, Zap, Star, Crown,
 } from 'lucide-react';
 
-type Step = 'choice' | 'clinic' | 'plans';
+type Step = 'choice' | 'clinic' | 'plans' | 'linked';
 
 const IS_TEST_PLAN = (name: string) => name.toLowerCase().includes('teste');
 
@@ -486,6 +486,75 @@ function PlansStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
   );
 }
 
+/* ─── Linked step — user already belongs to a clinic but clinic has no active plan ─── */
+function LinkedStep({ onPlans, onClose }: { onPlans: () => void; onClose: () => void }) {
+  const { currentClinicId } = useAuth();
+
+  const { data: clinicName } = useQuery({
+    queryKey: ['clinic-name-sub-modal', currentClinicId],
+    enabled: !!currentClinicId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase.from('clinics').select('name').eq('id', currentClinicId!).maybeSingle();
+      return (data as any)?.name as string | null;
+    },
+  });
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.25 }} className="space-y-4 pt-2">
+
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">{clinicName ?? 'Sua clínica'}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckCircle2 className="inline h-3 w-3 mr-1" />
+              Você já está vinculado
+            </p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          A clínica ainda não possui um plano ativo no IACLIN. Solicite ao responsável pela clínica que regularize a assinatura para liberar o acesso completo.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={onPlans}
+          className="w-full rounded-xl border border-border bg-gradient-to-br from-violet-500/5 to-violet-500/0 hover:border-violet-400/50 hover:from-violet-500/10 transition-all duration-200 p-4 text-left group"
+        >
+          <div className="flex items-start gap-4">
+            <div className="h-11 w-11 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 group-hover:bg-violet-500/15 transition-colors">
+              <UserCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Contratar plano independente</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Quero assinar um plano próprio e usar o IACLIN de forma autônoma.
+              </p>
+            </div>
+          </div>
+        </motion.button>
+
+        <div className="text-center pt-1">
+          <button
+            onClick={onClose}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Fechar por agora
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ─── Choice step ─── */
 function ChoiceStep({ onClinic, onPlans }: { onClinic: () => void; onPlans: () => void }) {
   return (
@@ -536,14 +605,26 @@ function ChoiceStep({ onClinic, onPlans }: { onClinic: () => void; onPlans: () =
 
 /* ─── Root modal ─── */
 export function SubscriptionOnboardingModal({ open, onClose }: Props) {
-  const [step, setStep] = useState<Step>('choice');
+  const { clinics } = useAuth();
+  const hasLinkedClinics = (clinics?.length ?? 0) > 0;
 
-  useEffect(() => { if (open) setStep('choice'); }, [open]);
+  const defaultStep = (): Step => hasLinkedClinics ? 'linked' : 'choice';
+  const [step, setStep] = useState<Step>(defaultStep);
+
+  useEffect(() => {
+    if (open) setStep(defaultStep());
+  }, [open, hasLinkedClinics]);
 
   const titles: Record<Step, string> = {
+    linked: 'Assinatura necessária',
     choice: 'Como você vai usar o IACLIN?',
     clinic: 'Vincular a uma clínica',
     plans:  'Planos disponíveis',
+  };
+
+  const descriptions: Partial<Record<Step, string>> = {
+    linked: 'Você já pertence a uma clínica, mas ela ainda não tem um plano ativo.',
+    choice: 'Escolha como deseja usar a plataforma.',
   };
 
   return (
@@ -556,14 +637,15 @@ export function SubscriptionOnboardingModal({ open, onClose }: Props) {
             </div>
             {titles[step]}
           </DialogTitle>
-          {step === 'choice' && (
-            <DialogDescription>
-              Escolha como deseja usar a plataforma.
-            </DialogDescription>
+          {descriptions[step] && (
+            <DialogDescription>{descriptions[step]}</DialogDescription>
           )}
         </DialogHeader>
 
         <AnimatePresence mode="wait">
+          {step === 'linked' && (
+            <LinkedStep key="linked" onPlans={() => setStep('plans')} onClose={onClose} />
+          )}
           {step === 'choice' && (
             <ChoiceStep key="choice" onClinic={() => setStep('clinic')} onPlans={() => setStep('plans')} />
           )}
@@ -571,7 +653,7 @@ export function SubscriptionOnboardingModal({ open, onClose }: Props) {
             <ClinicStep key="clinic" onBack={() => setStep('choice')} onSuccess={onClose} />
           )}
           {step === 'plans' && (
-            <PlansStep key="plans" onBack={() => setStep('choice')} onSuccess={onClose} />
+            <PlansStep key="plans" onBack={() => setStep(hasLinkedClinics ? 'linked' : 'choice')} onSuccess={onClose} />
           )}
         </AnimatePresence>
       </DialogContent>

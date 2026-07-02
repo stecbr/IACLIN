@@ -161,18 +161,23 @@ export default function Budgets() {
     const activeItem = plans.find((p: any) => p.id === active.id);
     if (!activeItem) return;
 
-    // Check if dropped on a column
-    const targetColumn = COLUMNS.find(c => c.id === overId);
-    if (targetColumn && activeItem.status !== targetColumn.id) {
-      updateStatus.mutate({ id: activeItem.id, status: targetColumn.id });
+    const resolveTargetStatus = (): string | null => {
+      const col = COLUMNS.find(c => c.id === overId);
+      if (col) return col.id;
+      const card = plans.find((p: any) => p.id === overId);
+      return card ? card.status : null;
+    };
+
+    const targetStatus = resolveTargetStatus();
+    if (!targetStatus || targetStatus === activeItem.status) return;
+
+    // Dentists cannot drag to 'approved' — approval must go through admin/secretary
+    if (isDentist && targetStatus === 'approved') {
+      toast.error('Somente a secretaria ou admin pode aprovar orçamentos.');
       return;
     }
 
-    // Check if dropped on another card - find the column of that card
-    const targetCard = plans.find((p: any) => p.id === overId);
-    if (targetCard && activeItem.status !== targetCard.status) {
-      updateStatus.mutate({ id: activeItem.id, status: targetCard.status });
-    }
+    updateStatus.mutate({ id: activeItem.id, status: targetStatus });
   };
 
   const activePlan = activeId ? plans.find((p: any) => p.id === activeId) : null;

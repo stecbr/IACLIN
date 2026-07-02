@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Calendar, Users, DollarSign, ArrowRight, Check } from 'lucide-react';
+import { Calendar, Users, DollarSign, ArrowRight, Check, Building2, Clock, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
-const steps = [
+const STEPS_DENTIST = [
   {
     icon: Users,
     title: 'Cadastre seus pacientes',
-    description: 'Comece adicionando pacientes com prontuário completo, histórico e odontograma digital.',
+    description: 'Adicione pacientes com prontuário completo, histórico clínico e ficha de atendimento.',
     color: 'from-blue-500 to-blue-600',
   },
   {
@@ -20,16 +21,63 @@ const steps = [
   {
     icon: DollarSign,
     title: 'Controle financeiro',
-    description: 'Gerencie receitas, despesas e acompanhe os pagamentos dos pacientes em um só lugar.',
+    description: 'Gerencie receitas, despesas e acompanhe os pagamentos dos seus pacientes em um só lugar.',
+    color: 'from-amber-500 to-amber-600',
+  },
+];
+
+const STEPS_CLINIC = [
+  {
+    icon: Building2,
+    title: 'Configure sua clínica',
+    description: 'Preencha os dados da clínica — nome, endereço, horários de funcionamento e convênios aceitos.',
+    color: 'from-blue-500 to-blue-600',
+  },
+  {
+    icon: Users,
+    title: 'Adicione sua equipe',
+    description: 'Cadastre médicos, dentistas e secretárias. Cada profissional recebe acesso com o papel correto.',
+    color: 'from-violet-500 to-violet-600',
+  },
+  {
+    icon: ClipboardList,
+    title: 'Defina os procedimentos',
+    description: 'Cadastre os procedimentos e valores. Seus orçamentos e agendamentos ficam muito mais ágeis.',
+    color: 'from-emerald-500 to-emerald-600',
+  },
+];
+
+const STEPS_STAFF = [
+  {
+    icon: Calendar,
+    title: 'Gerencie a agenda da clínica',
+    description: 'Visualize, agende e confirme consultas para todos os profissionais da clínica em um só lugar.',
+    color: 'from-blue-500 to-blue-600',
+  },
+  {
+    icon: Clock,
+    title: 'Cuide da sala de espera',
+    description: 'Acompanhe os pacientes em tempo real, registre chegadas e gerencie a fila de atendimento.',
+    color: 'from-emerald-500 to-emerald-600',
+  },
+  {
+    icon: ClipboardList,
+    title: 'Acompanhe as aprovações',
+    description: 'Revise solicitações de agendamento e orçamentos que precisam de atenção antes de serem confirmados.',
     color: 'from-amber-500 to-amber-600',
   },
 ];
 
 export function WelcomeTour() {
-  const { user } = useAuth();
+  const { user, isClinicOwner, clinicRole } = useAuth();
+  const { effectiveRole } = useRoleAccess();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const shown = useRef(false);
+
+  const isStaff = clinicRole === 'secretary' || clinicRole === 'auxiliary';
+  const isOwnerOrAdmin = isClinicOwner || effectiveRole === 'admin';
+  const steps = isStaff ? STEPS_STAFF : isOwnerOrAdmin ? STEPS_CLINIC : STEPS_DENTIST;
 
   useEffect(() => {
     if (!user?.id || shown.current) return;

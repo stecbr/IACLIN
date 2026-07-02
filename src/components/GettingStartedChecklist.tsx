@@ -35,7 +35,7 @@ interface ChecklistItem {
 
 const STORAGE_KEY_PREFIX = 'iaclin.gettingStarted';
 
-type Persona = 'clinic' | 'dentist' | 'patient' | 'operator';
+type Persona = 'clinic' | 'dentist' | 'patient' | 'operator' | 'staff';
 
 /**
  * Floating "Comece por aqui" checklist. Adapts to the current persona
@@ -57,7 +57,7 @@ export function GettingStartedChecklist() {
   } = useAuth();
   const { effectiveRole } = useRoleAccess();
 
-  // Resolve persona (priority: patient → operator → clinic-admin → dentist).
+  // Resolve persona (priority: patient → operator → clinic-admin → dentist → staff).
   const persona: Persona | null = isPatient
     ? 'patient'
     : isOperator
@@ -66,10 +66,12 @@ export function GettingStartedChecklist() {
         ? 'clinic'
         : currentClinicId && clinicRole === 'dentist'
           ? 'dentist'
-          : null;
+          : currentClinicId && (clinicRole === 'secretary' || clinicRole === 'auxiliary')
+            ? 'staff'
+            : null;
 
   const scopeId =
-    persona === 'patient' || persona === 'dentist'
+    persona === 'patient' || persona === 'dentist' || persona === 'staff'
       ? user?.id ?? null
       : persona === 'operator'
         ? operatorId
@@ -96,14 +98,15 @@ export function GettingStartedChecklist() {
     dentist:  ['/auth', '/onboarding', '/superadmin', '/operadora', '/paciente', '/marketplace'],
     patient:  ['/auth', '/onboarding', '/superadmin', '/operadora', '/marketplace'],
     operator: ['/auth', '/onboarding', '/superadmin', '/paciente', '/marketplace'],
+    staff:    ['/auth', '/onboarding', '/superadmin', '/operadora', '/paciente', '/marketplace'],
   };
   const onHiddenRoute = persona
     ? HIDDEN_ROUTES[persona].some((r) => location.pathname.startsWith(r))
     : true;
 
   const canSee = !!persona && !!scopeId && !onHiddenRoute &&
-    // For clinic/dentist personas, hide while user is in personal (no-clinic) mode.
-    !((persona === 'clinic' || persona === 'dentist') && isPersonalMode);
+    // For clinic/dentist/staff personas, hide while user is in personal (no-clinic) mode.
+    !((persona === 'clinic' || persona === 'dentist' || persona === 'staff') && isPersonalMode);
 
   const { data: progress } = useQuery({
     queryKey: ['getting-started', persona, scopeId],
@@ -174,6 +177,20 @@ export function GettingStartedChecklist() {
         };
       }
 
+      if (persona === 'staff') {
+        const [profile, appts, patients] = await Promise.all([
+          supabase.from('profiles').select('full_name, phone').eq('id', user!.id).maybeSingle(),
+          supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('clinic_id', currentClinicId!),
+          supabase.from('patients').select('id', { count: 'exact', head: true }).eq('clinic_id', currentClinicId!),
+        ]);
+        const p: any = profile.data ?? {};
+        return {
+          profileComplete: !!(p.full_name && p.phone),
+          hasPatient: (patients.count ?? 0) > 0,
+          hasAppointment: (appts.count ?? 0) > 0,
+        };
+      }
+
       // operator
       const [op, tables, credentialings] = await Promise.all([
         supabase.from('insurance_operators').select('name, contact_email, contact_phone, logo_url').eq('id', operatorId!).maybeSingle(),
@@ -220,6 +237,13 @@ export function GettingStartedChecklist() {
         { key: 'address',     label: 'Cadastre seu endereço',                 to: '/paciente/configuracoes', icon: Building2, done: !!progress.hasAddress },
         { key: 'insurance',   label: 'Vincule seu plano de saúde',            to: '/paciente/plano',         icon: Shield,    done: !!progress.hasInsurance, optional: true },
         { key: 'appointment', label: 'Agende sua primeira consulta',          to: '/paciente/agendar',       icon: Calendar,  done: !!progress.hasAppointment },
+      ];
+    }
+    if (persona === 'staff') {
+      return [
+        { key: 'profile',     label: 'Complete seu perfil (nome e telefone)', to: '/settings?section=profile', icon: UserIcon,  done: !!progress.profileComplete },
+        { key: 'patient',     label: 'Verifique os pacientes da clínica',     to: '/patients',                  icon: Users,     done: !!progress.hasPatient },
+        { key: 'appointment', label: 'Explore a agenda da clínica',           to: '/agenda',                    icon: Calendar,  done: !!progress.hasAppointment },
       ];
     }
     // operator

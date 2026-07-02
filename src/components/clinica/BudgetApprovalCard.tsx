@@ -14,6 +14,7 @@ export interface BudgetApprovalRequest {
   status: string;
   created_at: string;
   rejection_reason: string | null;
+  dentist_id?: string | null;
   patient_name?: string;
   dentist_name?: string;
   items?: Array<{ name: string; price: number }>;

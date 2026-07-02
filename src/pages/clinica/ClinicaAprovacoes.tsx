@@ -216,16 +216,31 @@ export default function ClinicaAprovacoes() {
     if (budgetActingId) return;
     setBudgetActingId(req.id);
     try {
+      const approvedBy = (await supabase.auth.getUser()).data.user?.id ?? null;
       const { error } = await supabase
         .from('treatment_plans')
         .update({
           status: 'pending',
-          approved_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+          approved_by: approvedBy,
           approved_at: new Date().toISOString(),
           rejection_reason: null,
         } as any)
         .eq('id', req.id);
       if (error) throw error;
+
+      // Notify the dentist that the clinic approved their budget
+      if (req.dentist_id) {
+        await supabase.from('notifications').insert({
+          clinic_id: currentClinicId ?? null,
+          user_id: req.dentist_id,
+          type: 'budget',
+          title: 'Orçamento aprovado pela clínica',
+          message: `Seu orçamento "${req.title}" para ${req.patient_name ?? 'o paciente'} foi aprovado e já está disponível no Kanban.`,
+          reference_id: req.id,
+          reference_type: 'treatment_plan',
+        });
+      }
+
       toast.success('Orçamento aprovado.');
       qc.invalidateQueries({ queryKey: ['budget-approvals', currentClinicId] });
       qc.invalidateQueries({ queryKey: ['treatment-plans-kanban'] });
@@ -249,6 +264,20 @@ export default function ClinicaAprovacoes() {
         } as any)
         .eq('id', budgetRejectReq.id);
       if (error) throw error;
+
+      // Notify the dentist that the clinic rejected their budget
+      if (budgetRejectReq.dentist_id) {
+        await supabase.from('notifications').insert({
+          clinic_id: currentClinicId ?? null,
+          user_id: budgetRejectReq.dentist_id,
+          type: 'budget',
+          title: 'Orçamento recusado pela clínica',
+          message: `Seu orçamento "${budgetRejectReq.title}" para ${budgetRejectReq.patient_name ?? 'o paciente'} foi recusado${budgetRejectReason.trim() ? `: ${budgetRejectReason.trim()}` : '.'}`,
+          reference_id: budgetRejectReq.id,
+          reference_type: 'treatment_plan',
+        });
+      }
+
       toast.success('Orçamento recusado.');
       setBudgetRejectReq(null);
       setBudgetRejectReason('');
