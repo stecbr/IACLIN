@@ -124,6 +124,8 @@ export default function OperatorProfessionals() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searched, setSearched] = useState(false);
   const [network, setNetwork] = useState<"iaclin" | "general">("iaclin");
+  const [ibgeCities, setIbgeCities] = useState<string[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -224,6 +226,25 @@ export default function OperatorProfessionals() {
     load();
   }, []);
 
+  // Fetch all municipalities from IBGE when a state is selected
+  useEffect(() => {
+    if (stateFilter === "all") {
+      setIbgeCities([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingCities(true);
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateFilter}/municipios`)
+      .then((r) => r.json())
+      .then((data: Array<{ nome: string }>) => {
+        if (cancelled) return;
+        setIbgeCities(data.map((d) => d.nome).sort((a, b) => a.localeCompare(b, "pt-BR")));
+      })
+      .catch(() => { if (!cancelled) setIbgeCities([]); })
+      .finally(() => { if (!cancelled) setLoadingCities(false); });
+    return () => { cancelled = true; };
+  }, [stateFilter]);
+
   // External clinics (Servdonto network) mapped into the same row shape
   const externalRows: ClinicSearchRow[] = useMemo(() => {
     return EXTERNAL_CLINICS.map((c) => ({
@@ -267,10 +288,12 @@ export default function OperatorProfessionals() {
   const stateOptions = useMemo(() => BR_STATES, []);
 
   const cityOptions = useMemo(() => {
+    // When a state is selected and IBGE data loaded, show all municipalities of that state
+    if (stateFilter !== "all" && ibgeCities.length > 0) return ibgeCities;
     const source =
       stateFilter === "all" ? activeRows : activeRows.filter((r) => (r.state ?? "").toUpperCase() === stateFilter);
     return [...new Set(source.map((r) => r.city).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
-  }, [activeRows, stateFilter]);
+  }, [activeRows, stateFilter, ibgeCities]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -658,9 +681,9 @@ export default function OperatorProfessionals() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Cidade</label>
-                  <Select value={cityFilter} onValueChange={setCityFilter}>
+                  <Select value={cityFilter} onValueChange={setCityFilter} disabled={loadingCities}>
                     <SelectTrigger className="h-10 rounded-2xl">
-                      <SelectValue placeholder="Selecione" />
+                      <SelectValue placeholder={loadingCities ? "Carregando…" : "Selecione"} />
                     </SelectTrigger>
                     <SelectContent className="z-[1000]">
                       <SelectItem value="all">Todas as cidades</SelectItem>

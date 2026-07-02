@@ -197,6 +197,17 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
           ))}
         </nav>
 
+        {/* Sair */}
+        <div className="px-3 pb-4 border-t border-sidebar-border pt-3">
+          <button
+            onClick={signOut}
+            className="flex items-center gap-3 w-full rounded-xl px-3 py-2 text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span>Sair</span>
+          </button>
+        </div>
+
       </aside>
 
       {/* Collapsed icon rail */}
@@ -274,6 +285,17 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                   </Tooltip>
                 );
               })}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={signOut}
+                  className="flex items-center justify-center h-10 w-10 rounded-xl transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                >
+                  <LogOut size={18} strokeWidth={2} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Sair</TooltipContent>
+            </Tooltip>
           </div>
         </TooltipProvider>
       </aside>
@@ -349,6 +371,15 @@ export function OperatorLayout({ children }: { children?: ReactNode }) {
                         </div>
                       ))}
                     </nav>
+                    <div className="px-3 pb-4 border-t border-sidebar-border pt-3">
+                      <button
+                        onClick={signOut}
+                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2 text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4 shrink-0" />
+                        <span>Sair</span>
+                      </button>
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
