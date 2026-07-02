@@ -103,6 +103,7 @@ function AdminChartTooltip({ active, payload, label }: any) {
 
 function AdminHome() {
   const { profile, currentClinicId } = useAuth();
+  const { canAccess } = useRoleAccess();
   const firstName = profile?.full_name?.split(" ")[0] ?? "Doutor(a)";
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -409,7 +410,7 @@ function AdminHome() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">Receita Mensal</CardTitle>
-              <Link to="/financial" className="text-xs text-primary hover:underline">Ver financeiro</Link>
+              {canAccess('/financial') && <Link to="/financial" className="text-xs text-primary hover:underline">Ver financeiro</Link>}
             </div>
           </CardHeader>
           <CardContent>
@@ -491,7 +492,7 @@ function AdminHome() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Pagamentos Pendentes</CardTitle>
-                <Link to="/financial" className="text-xs text-primary hover:underline">Ver financeiro</Link>
+                {canAccess('/financial') && <Link to="/financial" className="text-xs text-primary hover:underline">Ver financeiro</Link>}
               </div>
             </CardHeader>
             <CardContent>

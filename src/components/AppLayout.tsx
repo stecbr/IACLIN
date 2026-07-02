@@ -34,10 +34,29 @@ import { UnlinkedFromClinicBanner } from '@/components/subscription/UnlinkedFrom
 const breadcrumbMap: Record<string, string> = {
   '/': 'Dashboard',
   '/agenda': 'Agenda',
+  '/minha-agenda': 'Minha Agenda',
+  '/disponibilidade': 'Disponibilidade',
+  '/sala-de-espera': 'Sala de Espera',
+  '/pacientes-do-dia': 'Pacientes do Dia',
   '/patients': 'Pacientes',
+  '/prontuarios': 'Abrir Prontuário',
+  '/clinica': 'Clínica',
+  '/clinica/medicos': 'Equipe Médica',
+  '/clinica/aprovacoes': 'Aprovações',
+  '/clinica/credenciamentos': 'Credenciamentos',
+  '/clinica/convenios': 'Convênios',
   '/odontogram': 'Odontograma',
+  '/ferramentas': 'Ferramentas',
   '/financial': 'Financeiro',
+  '/meu-financeiro': 'Meu Financeiro',
+  '/financeiro/faturas-convenio': 'Faturas de Convênio',
+  '/financeiro/relatorios': 'Relatórios Financeiros',
   '/budgets': 'Orçamentos',
+  '/secretaria-ia': 'Secretária IA',
+  '/secretaria-ia/painel': 'Painel Secretária IA',
+  '/ia-gestor': 'IA Gestor',
+  '/chamados': 'Chamados',
+  '/atendimentos-ia': 'Atendimentos IA',
   '/settings': 'Configurações',
 };
 
@@ -102,6 +121,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     admin:     { label: 'IACLINADMIN',     chip: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 ring-violet-500/30',    Icon: Shield },
     dentist:   { label: professionalLabel, chip: dentistChip,                                                                   Icon: Stethoscope },
     secretary: { label: 'Secretário(a)',   chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/30',            Icon: ClipboardList },
+    auxiliary: { label: 'Auxiliar Adm',   chip: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30',         Icon: ClipboardList },
     owner:     { label: 'IACLINADMIN',     chip: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 ring-indigo-500/30',    Icon: Shield },
     operator:  { label: 'Operadora',       chip: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 ring-orange-500/30',    Icon: BuildingIcon },
     patient:   { label: 'Paciente',        chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30', Icon: UserCircle },
@@ -117,6 +137,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const getBreadcrumb = () => {
     const path = location.pathname;
     if (path.startsWith('/patients/')) return ['Pacientes', 'Detalhes'];
+    if (path.startsWith('/atendimento/')) return ['Ferramentas', 'Consulta'];
+    if (path.startsWith('/ia-gestor/')) return ['IA Gestor'];
     const label = breadcrumbMap[path];
     return label ? [label] : ['Página'];
   };
