@@ -209,6 +209,40 @@ export function AppSidebar() {
     enabled: !!user?.id && !!currentClinicId && isDentist,
   });
 
+  const canRespondClinic = isClinicOwner || (isStaff && !!staffPerms?.responderChamados);
+
+  const { data: receivedOpenCount = 0 } = useQuery({
+    queryKey: ['received-tickets', currentClinicId],
+    enabled: !!currentClinicId && canRespondClinic,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('support_tickets')
+        .select('id')
+        .eq('clinic_id', currentClinicId!)
+        .eq('ticket_type', 'to_clinic')
+        .eq('status', 'open')
+        .neq('created_by', user!.id);
+      return (data ?? []).length;
+    },
+  });
+
+  const { data: myAnsweredCount = 0 } = useQuery({
+    queryKey: ['my-tickets-answered', user?.id],
+    enabled: !!user?.id,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('support_tickets')
+        .select('id')
+        .eq('created_by', user!.id)
+        .eq('status', 'answered');
+      return (data ?? []).length;
+    },
+  });
+
+  const chamadosBadge = receivedOpenCount + myAnsweredCount;
+
   const dynamicMap   = isDentist ? getMapForSpecialty(memberSpecialty)  : null;
   const familyConfig = isDentist ? getFamilyConfig(memberSpecialty)     : null;
   const isPsi        = familyConfig?.family === 'psi';
@@ -510,6 +544,11 @@ export function AppSidebar() {
         >
           <MessageSquare className={`h-4 w-4 flex-shrink-0 transition-colors ${isActive('/chamados') ? 'text-primary' : ''}`} />
           {!collapsed && <span className="flex-1">Chamados</span>}
+          {chamadosBadge > 0 && (
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+              {chamadosBadge}
+            </span>
+          )}
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
