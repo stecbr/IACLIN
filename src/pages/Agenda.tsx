@@ -101,7 +101,7 @@ export default function Agenda() {
         // Mostrar tudo, inclusive canceladas que tenham origem registrada
         // (cancelled_by = patient | clinic) — ficam riscadas em vermelho
         // para que a clínica perceba que o horário abriu.
-        .or('status.neq.cancelled,cancelled_by.not.is.null')
+        .or('status.neq.cancelled,cancelled_by.in.(patient,clinic)')
         .order('start_time');
       if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
       else if (isPersonalMode && user) query = query.is('clinic_id', null).eq('dentist_id', user.id);
