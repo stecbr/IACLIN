@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Printer, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Plus, Printer, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppointmentFormDialog } from '@/components/agenda/AppointmentFormDialog';
@@ -396,6 +396,7 @@ export default function Agenda() {
                           const presence = apt.presence_status as string | undefined;
                           const isArrived = presence === 'arrived' && apt.arrived_at;
                           const isInService = presence === 'in_service';
+                          const isCompleted = apt.status === 'completed';
                           const isPatientCancelled =
                             apt.status === 'cancelled' && apt.cancelled_by === 'patient';
                           const isClinicCancelled =
@@ -408,6 +409,8 @@ export default function Agenda() {
                                   className={`relative overflow-hidden rounded-lg px-2 py-1.5 mb-1 text-xs transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${
                                     isCancelled
                                       ? 'ring-1 ring-destructive/60 opacity-70'
+                                      : isCompleted
+                                      ? 'ring-1 ring-emerald-500/40 opacity-75'
                                       : isArrived
                                       ? 'ring-1 ring-amber-500/60'
                                       : isInService
@@ -418,9 +421,13 @@ export default function Agenda() {
                                   style={{
                                     backgroundColor: isCancelled
                                       ? 'hsl(var(--destructive) / 0.10)'
+                                      : isCompleted
+                                      ? `${procedureColor}0A`
                                       : `${procedureColor}15`,
                                     borderLeft: isCancelled
                                       ? '3px solid hsl(var(--destructive))'
+                                      : isCompleted
+                                      ? '3px solid #10b981'
                                       : `3px solid ${procedureColor}`,
                                   }}
                                 >
@@ -451,6 +458,12 @@ export default function Agenda() {
                                     <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-wide text-destructive">
                                       {isPatientCancelled ? 'Cancelada · paciente' : 'Cancelada · clínica'}
                                     </p>
+                                  )}
+                                  {isCompleted && (
+                                    <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      concluída
+                                    </div>
                                   )}
                                   {isArrived && (
                                     <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
