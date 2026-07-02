@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Users, DollarSign, ArrowRight, Check, Building2, Clock, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { supabase } from '@/integrations/supabase/client';
 
 const STEPS_DENTIST = [
   {
@@ -81,16 +82,28 @@ export function WelcomeTour() {
 
   useEffect(() => {
     if (!user?.id || shown.current) return;
-    const key = `iaclin-welcome-seen-${user.id}`;
-    if (!localStorage.getItem(key)) {
-      shown.current = true;
-      const timer = setTimeout(() => setOpen(true), 800);
-      return () => clearTimeout(timer);
+    // Fast local check first (same device)
+    const localKey = `iaclin-welcome-seen-${user.id}`;
+    if (localStorage.getItem(localKey)) return;
+    // Cross-device check via auth metadata
+    const meta = user.user_metadata as Record<string, unknown> | undefined;
+    if (meta?.welcome_tour_seen) {
+      // Mark locally so we skip the check next time on this device
+      localStorage.setItem(localKey, 'true');
+      return;
     }
+    shown.current = true;
+    const timer = setTimeout(() => setOpen(true), 800);
+    return () => clearTimeout(timer);
   }, [user?.id]);
 
   const handleClose = () => {
-    if (user?.id) localStorage.setItem(`iaclin-welcome-seen-${user.id}`, 'true');
+    if (user?.id) {
+      const localKey = `iaclin-welcome-seen-${user.id}`;
+      localStorage.setItem(localKey, 'true');
+      // Persist across devices via Supabase auth metadata (fire-and-forget)
+      supabase.auth.updateUser({ data: { welcome_tour_seen: true } });
+    }
     setOpen(false);
   };
 
