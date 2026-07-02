@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Send, MessageCircle, X, Mail, Phone, MapPin, ArrowLeft, SlidersHorizontal } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Search, Send, MessageCircle, X, Mail, Phone, MapPin, ArrowLeft, SlidersHorizontal, Check, ChevronsUpDown } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -126,6 +129,7 @@ export default function OperatorProfessionals() {
   const [network, setNetwork] = useState<"iaclin" | "general">("iaclin");
   const [ibgeCities, setIbgeCities] = useState<string[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [cityPopoverOpen, setCityPopoverOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -681,19 +685,63 @@ export default function OperatorProfessionals() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Cidade</label>
-                  <Select value={cityFilter} onValueChange={setCityFilter} disabled={loadingCities}>
-                    <SelectTrigger className="h-10 rounded-2xl">
-                      <SelectValue placeholder={loadingCities ? "Carregando…" : "Selecione"} />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1000]">
-                      <SelectItem value="all">Todas as cidades</SelectItem>
-                      {cityOptions.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={cityPopoverOpen} onOpenChange={setCityPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={cityPopoverOpen}
+                        disabled={loadingCities}
+                        className="h-10 w-full rounded-2xl justify-between font-normal text-sm px-3"
+                      >
+                        <span className="truncate text-left">
+                          {loadingCities
+                            ? "Carregando…"
+                            : cityFilter === "all"
+                              ? "Todas as cidades"
+                              : cityFilter}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-0 z-[2000]"
+                      style={{ width: "var(--radix-popover-trigger-width)" }}
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Buscar cidade…" />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="all"
+                              onSelect={() => {
+                                setCityFilter("all");
+                                setCityPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4 shrink-0", cityFilter === "all" ? "opacity-100" : "opacity-0")} />
+                              Todas as cidades
+                            </CommandItem>
+                            {cityOptions.map((city) => (
+                              <CommandItem
+                                key={city}
+                                value={city}
+                                onSelect={() => {
+                                  setCityFilter(city === cityFilter ? "all" : city);
+                                  setCityPopoverOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4 shrink-0", cityFilter === city ? "opacity-100" : "opacity-0")} />
+                                {city}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <Button className="w-full h-11 rounded-2xl mt-2" onClick={handleSubmitSearch} disabled={loading}>
