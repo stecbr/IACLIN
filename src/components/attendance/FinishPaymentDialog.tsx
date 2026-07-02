@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Shield, CreditCard, Clock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Shield, CreditCard, Clock, CheckCircle2, Loader2, QrCode, Banknote } from 'lucide-react';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import { useSoloMode } from '@/hooks/useSoloMode';
 import { canManageClinicFinance } from '@/lib/financePermissions';
@@ -39,7 +39,7 @@ interface Props {
   appointmentDentistId?: string | null;
 }
 
-type Mode = '' | 'insurance' | 'paid' | 'later';
+type Mode = '' | 'insurance' | 'card' | 'pix' | 'cash' | 'later';
 
 function brl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -286,7 +286,9 @@ export function FinishPaymentDialog({
 
   const handleConfirmPaid = async () => {
     if (totalParticular <= 0) { toast.error('Valor inválido'); return; }
-    const fee = Math.max(0, parseFloat((cardFee || '0').replace(',', '.')) || 0);
+    const fee = mode === 'card'
+      ? Math.max(0, parseFloat((cardFee || '0').replace(',', '.')) || 0)
+      : 0;
     if (fee > totalParticular) {
       toast.error('A taxa não pode ser maior que o valor recebido');
       return;
@@ -297,11 +299,11 @@ export function FinishPaymentDialog({
       await createBaseTx({
         category: 'consultation',
         amount: totalParticular,
-        payment_method: 'card',
+        payment_method: mode, // 'card' | 'pix' | 'cash'
         status: 'paid',
         due_date: today,
         paid_date: today,
-        card_fee_amount: fee,
+        card_fee_amount: fee > 0 ? fee : null,
         notes: 'Pago pelo paciente (registrado pela clínica)',
       });
       toast.success(
@@ -370,37 +372,28 @@ export function FinishPaymentDialog({
         </div>
 
         {/* Seleção de modo */}
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => setMode('insurance')}
-            className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
-              mode === 'insurance' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-            }`}
-          >
-            <Shield className="h-5 w-5" />
-            Convênio
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('paid')}
-            className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
-              mode === 'paid' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-            }`}
-          >
-            <CreditCard className="h-5 w-5" />
-            Cartão / Pago
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('later')}
-            className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
-              mode === 'later' ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary' : 'border-border hover:bg-muted/50'
-            }`}
-          >
-            <Clock className="h-5 w-5" />
-            A combinar
-          </button>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {([
+            { id: 'insurance', label: 'Convênio',   Icon: Shield,    color: 'text-violet-600' },
+            { id: 'card',      label: 'Cartão',      Icon: CreditCard, color: 'text-blue-600'  },
+            { id: 'pix',       label: 'PIX',         Icon: QrCode,    color: 'text-emerald-600'},
+            { id: 'cash',      label: 'Dinheiro',    Icon: Banknote,  color: 'text-green-600' },
+            { id: 'later',     label: 'A combinar',  Icon: Clock,     color: 'text-amber-600' },
+          ] as const).map(({ id, label, Icon, color }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMode(id)}
+              className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs font-medium transition ${
+                mode === id
+                  ? 'border-primary bg-primary/8 text-primary ring-1 ring-primary'
+                  : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <Icon className={`h-5 w-5 ${mode === id ? 'text-primary' : color}`} />
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Convênio */}
@@ -507,28 +500,31 @@ export function FinishPaymentDialog({
           </div>
         )}
 
-        {/* Cartão / Pago */}
-        {mode === 'paid' && (
+        {/* Cartão / PIX / Dinheiro */}
+        {(mode === 'card' || mode === 'pix' || mode === 'cash') && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              O paciente já efetuou o pagamento ({brl(totalParticular)}) diretamente com a clínica (cartão, dinheiro, PIX, etc.).
+              O paciente já efetuou o pagamento ({brl(totalParticular)}) via{' '}
+              <strong>{mode === 'card' ? 'cartão' : mode === 'pix' ? 'PIX' : 'dinheiro'}</strong>.
               O atendimento será registrado como <Badge variant="secondary" className="mx-1">Pago</Badge> em Contas a Receber.
             </p>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Taxa da maquininha (R$) — opcional</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={cardFee}
-                onChange={(e) => setCardFee(e.target.value)}
-                placeholder="0,00"
-                inputMode="decimal"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Use apenas em cartão crédito/débito. O valor é deduzido do lucro líquido no DRE.
-              </p>
-            </div>
+            {mode === 'card' && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Taxa da maquininha (R$) — opcional</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cardFee}
+                  onChange={(e) => setCardFee(e.target.value)}
+                  placeholder="0,00"
+                  inputMode="decimal"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  O valor é deduzido do lucro líquido no DRE.
+                </p>
+              </div>
+            )}
             <div className="flex justify-end">
               <Button onClick={handleConfirmPaid} disabled={saving || totalParticular <= 0} className="gap-2">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
