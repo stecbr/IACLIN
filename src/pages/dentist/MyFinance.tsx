@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import {
+  format, parseISO,
+  startOfMonth, endOfMonth, startOfYear, endOfYear,
+  subMonths, addMonths, subYears, addYears,
+  isSameMonth, isSameYear,
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Wallet, Clock, CheckCircle2, Receipt } from 'lucide-react';
+import { Wallet, Clock, CheckCircle2, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMyPayouts } from '@/hooks/usePayouts';
@@ -25,9 +30,21 @@ export default function MyFinance() {
   const { user, currentClinicId } = useAuth();
   const { data: payouts = [] } = useMyPayouts(currentClinicId, user?.id ?? null);
   const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
 
+  // ── Period selector ────────────────────────────────────────────────────────
+  const [selectedDate, setSelectedDate] = useState(() => startOfMonth(now));
+  const [periodMode, setPeriodMode] = useState<'month' | 'year'>('month');
+
+  const period = useMemo(() => {
+    if (periodMode === 'year') return { start: startOfYear(selectedDate), end: endOfYear(selectedDate) };
+    return { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) };
+  }, [selectedDate, periodMode]);
+
+  const periodLabel = periodMode === 'year'
+    ? format(selectedDate, 'yyyy')
+    : format(selectedDate, 'MMMM yyyy', { locale: ptBR });
+
+  // ── Queries ────────────────────────────────────────────────────────────────
   const { data: clinicName = '' } = useQuery({
     queryKey: ['clinic-name', currentClinicId],
     enabled: !!currentClinicId,
@@ -41,7 +58,7 @@ export default function MyFinance() {
     },
   });
 
-  // Commissions assigned to me (this clinic).
+  // All commissions (used for "A receber" total — unpaid regardless of period)
   const { data: commissions = [], isLoading } = useQuery({
     queryKey: ['my-commissions', user?.id, currentClinicId],
     enabled: !!user && !!currentClinicId,
@@ -56,13 +73,13 @@ export default function MyFinance() {
         .eq('type', 'expense')
         .eq('category', 'commission')
         .order('created_at', { ascending: false })
-        .limit(80);
+        .limit(200);
       if (error) throw error;
       return data ?? [];
     },
   });
 
-  // Has any commission rule configured for me in this clinic?
+  // Has any commission rule configured?
   const { data: ruleCount = 0 } = useQuery({
     queryKey: ['my-commission-rules', user?.id, currentClinicId],
     enabled: !!user && !!currentClinicId,
@@ -76,9 +93,9 @@ export default function MyFinance() {
     },
   });
 
-  // My appointments this month (informational ticket médio).
-  const { data: myMonthApts = [] } = useQuery({
-    queryKey: ['my-month-apts', user?.id, currentClinicId, format(now, 'yyyy-MM')],
+  // Appointments in the selected period
+  const { data: myPeriodApts = [] } = useQuery({
+    queryKey: ['my-period-apts', user?.id, currentClinicId, period.start.toISOString(), period.end.toISOString()],
     enabled: !!user && !!currentClinicId,
     queryFn: async () => {
       const { data } = await supabase
@@ -87,15 +104,15 @@ export default function MyFinance() {
         .eq('clinic_id', currentClinicId!)
         .eq('dentist_id', user!.id)
         .in('status', ['completed', 'finished', 'done'])
-        .gte('start_time', monthStart.toISOString())
-        .lte('start_time', monthEnd.toISOString());
+        .gte('start_time', period.start.toISOString())
+        .lte('start_time', period.end.toISOString());
       return data ?? [];
     },
   });
 
-  // My income transactions (for ticket médio).
-  const { data: myIncomeMonth = [] } = useQuery({
-    queryKey: ['my-income-month', user?.id, currentClinicId, format(now, 'yyyy-MM')],
+  // Income transactions in the selected period (for ticket médio)
+  const { data: myIncomePeriod = [] } = useQuery({
+    queryKey: ['my-income-period', user?.id, currentClinicId, period.start.toISOString(), period.end.toISOString()],
     enabled: !!user && !!currentClinicId,
     queryFn: async () => {
       const { data } = await supabase
@@ -104,13 +121,13 @@ export default function MyFinance() {
         .eq('clinic_id', currentClinicId!)
         .eq('dentist_id', user!.id)
         .eq('type', 'income')
-        .gte('paid_date', format(monthStart, 'yyyy-MM-dd'))
-        .lte('paid_date', format(monthEnd, 'yyyy-MM-dd'));
+        .gte('paid_date', format(period.start, 'yyyy-MM-dd'))
+        .lte('paid_date', format(period.end, 'yyyy-MM-dd'));
       return data ?? [];
     },
   });
 
-  // Aviso ao sair da página: verificar depósito bancário
+  // ── Toast on unmount ───────────────────────────────────────────────────────
   const payoutsRef = useRef(payouts);
   useEffect(() => { payoutsRef.current = payouts; }, [payouts]);
   useEffect(() => {
@@ -123,10 +140,11 @@ export default function MyFinance() {
     };
   }, []);
 
-  const monthFilter = (d: string | null) => {
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const periodFilter = (d: string | null) => {
     if (!d) return false;
     const dt = parseISO(d);
-    return dt >= monthStart && dt <= monthEnd;
+    return dt >= period.start && dt <= period.end;
   };
 
   const toReceive = useMemo(
@@ -136,35 +154,39 @@ export default function MyFinance() {
     [commissions]
   );
 
-  const receivedMonth = useMemo(
+  const receivedPeriod = useMemo(
     () => commissions
-      .filter((c: any) => c.status === 'paid' && monthFilter(c.paid_date))
+      .filter((c: any) => c.status === 'paid' && periodFilter(c.paid_date))
       .reduce((s: number, c: any) => s + Number(c.amount), 0),
-    [commissions]
+    [commissions, period]
   );
 
-  const apptCountMonth = useMemo(() => {
+  const commissionsInPeriod = useMemo(
+    () => commissions.filter((c: any) => periodFilter(c.created_at)),
+    [commissions, period]
+  );
+
+  const apptCountPeriod = useMemo(() => {
     const ids = new Set<string>();
     (commissions as any[]).forEach((c) => {
-      if (c.appointment_id && monthFilter(c.created_at)) ids.add(c.appointment_id);
+      if (c.appointment_id && periodFilter(c.created_at)) ids.add(c.appointment_id);
     });
-    // Fallback to appointments table if no commission yet linked.
-    return ids.size || (myMonthApts as any[]).length;
-  }, [commissions, myMonthApts]);
+    return ids.size || (myPeriodApts as any[]).length;
+  }, [commissions, myPeriodApts, period]);
 
   const ticket = useMemo(() => {
-    const paidIncome = (myIncomeMonth as any[])
+    const paidIncome = (myIncomePeriod as any[])
       .filter((t) => t.status === 'paid')
       .reduce((s, t) => s + Number(t.amount), 0);
-    const n = (myMonthApts as any[]).length;
+    const n = (myPeriodApts as any[]).length;
     return n > 0 ? paidIncome / n : 0;
-  }, [myIncomeMonth, myMonthApts]);
+  }, [myIncomePeriod, myPeriodApts]);
 
   const kpis = [
-    { label: 'A receber',          value: fmt(toReceive),     icon: Clock,        color: 'text-warning',   bg: 'bg-warning/10' },
-    { label: 'Recebido no mês',    value: fmt(receivedMonth), icon: CheckCircle2, color: 'text-success',   bg: 'bg-success/10' },
-    { label: 'Atendimentos no mês',value: String(apptCountMonth), icon: Wallet,   color: 'text-primary',   bg: 'bg-primary/10' },
-    { label: 'Ticket médio',       value: fmt(ticket),        icon: Receipt,      color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10' },
+    { label: 'A receber',              value: fmt(toReceive),       icon: Clock,        color: 'text-warning',   bg: 'bg-warning/10' },
+    { label: 'Recebido no período',    value: fmt(receivedPeriod),  icon: CheckCircle2, color: 'text-success',   bg: 'bg-success/10' },
+    { label: 'Atendimentos no período',value: String(apptCountPeriod), icon: Wallet,   color: 'text-primary',   bg: 'bg-primary/10' },
+    { label: 'Ticket médio',           value: fmt(ticket),          icon: Receipt,      color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10' },
   ];
 
   return (
@@ -174,6 +196,59 @@ export default function MyFinance() {
         description="Acompanhe suas comissões, valores a receber e histórico de pagamentos."
       />
 
+      {/* ── Period selector ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-muted/40 rounded-xl border border-border/50">
+        <div className="flex gap-1 flex-wrap">
+          {[
+            {
+              label: 'Este mês',
+              active: periodMode === 'month' && isSameMonth(selectedDate, now),
+              onClick: () => { setPeriodMode('month'); setSelectedDate(startOfMonth(now)); },
+            },
+            {
+              label: 'Mês anterior',
+              active: periodMode === 'month' && isSameMonth(selectedDate, subMonths(now, 1)),
+              onClick: () => { setPeriodMode('month'); setSelectedDate(startOfMonth(subMonths(now, 1))); },
+            },
+            {
+              label: 'Este ano',
+              active: periodMode === 'year' && isSameYear(selectedDate, now),
+              onClick: () => { setPeriodMode('year'); setSelectedDate(startOfYear(now)); },
+            },
+          ].map((p) => (
+            <button
+              key={p.label}
+              onClick={p.onClick}
+              className={`h-7 px-3 text-xs rounded-lg font-medium transition-colors ${
+                p.active
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 sm:ml-auto">
+          <button
+            onClick={() => setSelectedDate(prev => periodMode === 'year' ? subYears(prev, 1) : subMonths(prev, 1))}
+            className="h-7 w-7 rounded-md flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold w-36 text-center capitalize select-none">
+            {periodLabel}
+          </span>
+          <button
+            onClick={() => setSelectedDate(prev => periodMode === 'year' ? addYears(prev, 1) : addMonths(prev, 1))}
+            className="h-7 w-7 rounded-md flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Info banner ── */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
         <div className="h-9 w-9 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
           <Info className="h-4 w-4" />
@@ -200,6 +275,7 @@ export default function MyFinance() {
         </Card>
       )}
 
+      {/* ── KPIs ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => (
           <Card key={kpi.label} className="shadow-card border-border/50">
@@ -220,9 +296,12 @@ export default function MyFinance() {
         ))}
       </div>
 
+      {/* ── Histórico ── */}
       <Card className="shadow-card border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Histórico</CardTitle>
+          <CardTitle className="text-base">
+            Histórico · <span className="capitalize font-normal text-muted-foreground">{periodLabel}</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="extract">
@@ -238,62 +317,61 @@ export default function MyFinance() {
 
             <TabsContent value="extract" className="pt-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Comissões geradas pelos seus atendimentos. Aguardam o fechamento e
-                pagamento pela clínica.
+                Comissões geradas pelos seus atendimentos no período selecionado.
               </p>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
-          ) : commissions.length === 0 ? (
-            <EmptyState
-              icon={Wallet}
-              title="Nenhuma comissão ainda"
-              description="Assim que você finalizar um atendimento com pagamento registrado, sua comissão aparece aqui."
-            />
-          ) : (
-            <div className="w-full overflow-x-auto">
-              <Table className="min-w-[560px]">
-                <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30">
-                    <TableHead>Data</TableHead>
-                    <TableHead>Clínica</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(commissions as any[]).map((c) => (
-                    <TableRow key={c.id} className="hover:bg-muted/40">
-                      <TableCell className="text-muted-foreground">
-                        {format(parseISO(c.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {clinicName || '—'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground truncate max-w-[260px]">
-                        {c.description ?? c.notes ?? 'Comissão sobre atendimento'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            c.status === 'paid'
-                              ? 'border-success/30 text-success'
-                              : 'border-warning/30 text-warning'
-                          }
-                        >
-                          {c.status === 'paid' ? 'Pago' : 'A receber'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {fmt(Number(c.amount))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">Carregando…</p>
+              ) : commissionsInPeriod.length === 0 ? (
+                <EmptyState
+                  icon={Wallet}
+                  title="Nenhuma comissão neste período"
+                  description="Assim que você finalizar um atendimento com pagamento registrado, sua comissão aparece aqui."
+                />
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[560px]">
+                    <TableHeader>
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableHead>Data</TableHead>
+                        <TableHead>Clínica</TableHead>
+                        <TableHead>Origem</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(commissionsInPeriod as any[]).map((c) => (
+                        <TableRow key={c.id} className="hover:bg-muted/40">
+                          <TableCell className="text-muted-foreground">
+                            {format(parseISO(c.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {clinicName || '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground truncate max-w-[260px]">
+                            {c.description ?? c.notes ?? 'Comissão sobre atendimento'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                c.status === 'paid'
+                                  ? 'border-success/30 text-success'
+                                  : 'border-warning/30 text-warning'
+                              }
+                            >
+                              {c.status === 'paid' ? 'Pago' : 'A receber'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">
+                            {fmt(Number(c.amount))}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="payouts" className="pt-4">
