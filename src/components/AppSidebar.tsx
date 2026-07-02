@@ -212,7 +212,7 @@ export function AppSidebar() {
   const canRespondClinic = isClinicOwner || (isStaff && !!staffPerms?.responderChamados);
 
   const { data: receivedOpenCount = 0 } = useQuery({
-    queryKey: ['received-tickets', currentClinicId],
+    queryKey: ['sidebar-chamados-received', currentClinicId],
     enabled: !!currentClinicId && canRespondClinic,
     staleTime: 30_000,
     queryFn: async () => {
@@ -228,7 +228,7 @@ export function AppSidebar() {
   });
 
   const { data: myAnsweredCount = 0 } = useQuery({
-    queryKey: ['my-tickets-answered', user?.id],
+    queryKey: ['sidebar-chamados-answered', user?.id],
     enabled: !!user?.id,
     staleTime: 30_000,
     queryFn: async () => {
