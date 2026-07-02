@@ -63,6 +63,55 @@ type ClinicRow = Omit<
 
 const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
+// Specialty normalization helpers
+const normalizeSpecialtyKey = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const toTitleCase = (s: string) =>
+  s
+    .replace(/[-_]/g, " ")
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ""))
+    .join(" ");
+
+// Canonical display names for known specialty variations
+const SPECIALTY_CANONICAL: Record<string, string> = {
+  "clinico geral": "Clínico Geral",
+  "clinica geral": "Clínico Geral",
+  "medico geral": "Clínico Geral",
+  "medico da familia": "Médico de Família",
+  "medico familia": "Médico de Família",
+  "cirurgia de mao": "Cirurgia de Mão",
+  "cirurgia mao": "Cirurgia de Mão",
+  "cirurgia geral": "Cirurgia Geral",
+  "ortopedia": "Ortopedia e Traumatologia",
+  "ortopedia e traumatologia": "Ortopedia e Traumatologia",
+  "pediatra": "Pediatria",
+  "ginecologista": "Ginecologia e Obstetrícia",
+  "ginecologia": "Ginecologia e Obstetrícia",
+  "ginecologia e obstetricia": "Ginecologia e Obstetrícia",
+  "cardiologista": "Cardiologia",
+  "dermatologista": "Dermatologia",
+  "neurologista": "Neurologia",
+  "psiquiatra": "Psiquiatria",
+  "urologista": "Urologia",
+  "endocrinologista": "Endocrinologia",
+  "oftalmologista": "Oftalmologia",
+  "otorrinolaringologista": "Otorrinolaringologia",
+  "otorrino": "Otorrinolaringologia",
+};
+
+const canonicalizeSpecialty = (s: string): string => {
+  const key = normalizeSpecialtyKey(s);
+  return SPECIALTY_CANONICAL[key] ?? toTitleCase(s);
+};
+
 const BR_STATES = [
   "AC",
   "AL",
@@ -130,6 +179,7 @@ export default function OperatorProfessionals() {
   const [ibgeCities, setIbgeCities] = useState<string[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
   const [cityPopoverOpen, setCityPopoverOpen] = useState(false);
+  const [specialtyPopoverOpen, setSpecialtyPopoverOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -286,7 +336,15 @@ export default function OperatorProfessionals() {
   );
 
   const specialtyOptions = useMemo(() => {
-    return [...new Set(activeRows.flatMap((r) => r.specialties).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const seen = new Map<string, string>(); // normalized key → canonical display name
+    for (const r of activeRows) {
+      for (const s of r.specialties) {
+        if (!s) continue;
+        const key = normalizeSpecialtyKey(s);
+        if (!seen.has(key)) seen.set(key, canonicalizeSpecialty(s));
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [activeRows]);
 
   const stateOptions = useMemo(() => BR_STATES, []);
@@ -324,7 +382,10 @@ export default function OperatorProfessionals() {
           : professionalType === "medico"
             ? r.category === "medico"
             : r.category === "odonto";
-      const specialtyMatch = specialtyFilter === "all" || r.specialties.includes(specialtyFilter);
+      const specialtyFilterKey = normalizeSpecialtyKey(specialtyFilter);
+      const specialtyMatch =
+        specialtyFilter === "all" ||
+        r.specialties.some((s) => normalizeSpecialtyKey(s) === specialtyFilterKey);
       const stateMatch = stateFilter === "all" || (r.state ?? "").toUpperCase() === stateFilter;
       const cityMatch = cityFilter === "all" || (r.city ?? "").toLowerCase() === cityFilter.toLowerCase();
       return searchMatch && specialtyMatch && stateMatch && cityMatch && typeMatch;
@@ -647,19 +708,58 @@ export default function OperatorProfessionals() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Especialidade</label>
-                  <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                    <SelectTrigger className="h-10 rounded-2xl">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1000]">
-                      <SelectItem value="all">Todas as especialidades</SelectItem>
-                      {specialtyOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={specialtyPopoverOpen} onOpenChange={setSpecialtyPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={specialtyPopoverOpen}
+                        className="h-10 w-full rounded-2xl justify-between font-normal text-sm px-3"
+                      >
+                        <span className="truncate text-left">
+                          {specialtyFilter === "all" ? "Todas as especialidades" : specialtyFilter}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-0 z-[2000]"
+                      style={{ width: "var(--radix-popover-trigger-width)" }}
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Buscar especialidade…" />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma especialidade encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="all"
+                              onSelect={() => {
+                                setSpecialtyFilter("all");
+                                setSpecialtyPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4 shrink-0", specialtyFilter === "all" ? "opacity-100" : "opacity-0")} />
+                              Todas as especialidades
+                            </CommandItem>
+                            {specialtyOptions.map((s) => (
+                              <CommandItem
+                                key={s}
+                                value={s}
+                                onSelect={() => {
+                                  setSpecialtyFilter(s === specialtyFilter ? "all" : s);
+                                  setSpecialtyPopoverOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4 shrink-0", specialtyFilter === s ? "opacity-100" : "opacity-0")} />
+                                {s}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">UF</label>
