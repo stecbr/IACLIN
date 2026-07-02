@@ -36,7 +36,6 @@ import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { AttendanceSummaryModal } from '@/components/attendance/AttendanceSummaryModal';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { WaitingTimer } from '@/components/waiting-room/WaitingTimer';
 import { syncAgendaAppointments } from '@/hooks/useAiSync';
 
@@ -222,27 +221,20 @@ export function AppointmentDetailDialog({ open, onOpenChange, appointment, onSta
         <div className="space-y-4">
           {/* Patient */}
           {canViewPatient ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleOpenPatient}
-                    className="group w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-primary/10 transition-colors text-left"
-                  >
-                    <FolderHeart className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">
-                        {appointment.patients?.full_name ?? 'Paciente'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Abrir prontuário</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Abrir prontuário do paciente</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <button
+              type="button"
+              onClick={handleOpenPatient}
+              className="group w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-primary/10 transition-colors text-left"
+            >
+              <FolderHeart className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                  {appointment.patients?.full_name ?? 'Paciente'}
+                </p>
+                <p className="text-xs text-muted-foreground">Abrir prontuário</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </button>
           ) : (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <User className="h-5 w-5 text-muted-foreground" />
