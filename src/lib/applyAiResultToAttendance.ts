@@ -3,6 +3,16 @@ import type { RequestItem, RequestKind } from '@/components/attendance/RequestsE
 import type { SoapSession } from '@/components/attendance/SoapSessionForm';
 import type { VitalSigns } from '@/components/attendance/VitalSignsForm';
 
+export interface AiPrescription {
+  medication: string;
+  concentration?: string;
+  dosage?: string;
+  duration?: string;
+  route?: string;
+  controlled?: boolean;
+  notes?: string;
+}
+
 export interface AiAttendanceResult {
   transcript?: string;
   summary?: string;
@@ -16,6 +26,7 @@ export interface AiAttendanceResult {
   severity?: string;
   treatment_plan?: string;
   follow_up_reason?: string;
+  prescriptions?: AiPrescription[];
   requests?: Partial<Record<RequestKind, Record<string, string>>>;
   soap?: SoapSession;
   anamnesis?: Record<string, unknown>;
@@ -70,6 +81,25 @@ export function applyAiResultToAttendance(result: AiAttendanceResult, setters: A
   if (nonEmpty(result.summary)) {
     // O resumo vai para "Evolução / Anotações" — não sobrescreve, faz append se já houver texto.
     setters.setClinicalNotes(result.summary!);
+  }
+
+  // Structured prescriptions from recording → each becomes a RequestItem with kind='prescription'
+  if (Array.isArray(result.prescriptions) && result.prescriptions.length > 0) {
+    const presReqs: RequestItem[] = result.prescriptions
+      .filter((p) => nonEmpty(p.medication))
+      .map((p) => ({
+        id: crypto.randomUUID(),
+        kind: 'prescription' as RequestKind,
+        payload: {
+          medication:    p.medication || '',
+          concentration: p.concentration || '',
+          dosage:        p.dosage || '',
+          duration:      p.duration || '',
+          route:         p.route || 'oral',
+          type:          p.controlled ? 'controlled' : 'common',
+        },
+      }));
+    if (presReqs.length) setters.setRequests((prev) => [...prev, ...presReqs]);
   }
 
   if (result.requests) {

@@ -36,6 +36,7 @@ import { useIsClinicSignup } from '@/hooks/useIsClinicSignup';
 import { useViewMode } from '@/hooks/useViewMode';
 import { Navigate } from 'react-router-dom';
 import { RecordConsultationButton } from '@/components/attendance/recording/RecordConsultationButton';
+import { AiSuggestionsCard } from '@/components/attendance/AiSuggestionsCard';
 import { PatientOverviewTab } from '@/components/attendance/PatientOverviewTab';
 import { DocumentsTab } from '@/components/attendance/DocumentsTab';
 import { useOperatorPriceCatalog, type OperatorCatalogItem } from '@/hooks/useOperatorPriceCatalog';
@@ -949,7 +950,15 @@ export default function Attendance() {
           />
         </TabsContent>
 
-        <TabsContent value="conduct">
+        <TabsContent value="conduct" className="space-y-4">
+          <AiSuggestionsCard
+            chiefComplaint={chiefComplaint}
+            hypotheses={hypotheses}
+            diagnosis={diagnosis}
+            treatmentPlan={treatmentPlan}
+            onAddToRequests={(items) => setRequests((prev) => [...prev, ...items])}
+            onUpdateTreatmentPlan={setTreatmentPlan}
+          />
           <FollowUpBlock
             treatmentPlan={treatmentPlan}
             setTreatmentPlan={setTreatmentPlan}

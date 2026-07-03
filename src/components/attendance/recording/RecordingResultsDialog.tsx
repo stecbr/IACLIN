@@ -57,6 +57,7 @@ export function RecordingResultsDialog({ open, onOpenChange, result, onApply }: 
             <TabsTrigger value="soap">SOAP</TabsTrigger>
             <TabsTrigger value="anamnesis">Anamnese</TabsTrigger>
             <TabsTrigger value="vitals">Sinais Vitais</TabsTrigger>
+            <TabsTrigger value="prescriptions">Receitas</TabsTrigger>
             <TabsTrigger value="procedures">Procedimentos</TabsTrigger>
           </TabsList>
 
@@ -147,6 +148,113 @@ export function RecordingResultsDialog({ open, onOpenChange, result, onApply }: 
                 </div>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="prescriptions" className="space-y-3">
+            <p className="text-xs text-muted-foreground">Medicamentos mencionados/prescritos durante a consulta. Serão adicionados à aba Receitas do atendimento.</p>
+            {(!data.prescriptions || data.prescriptions.length === 0) ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum medicamento identificado na gravação.</p>
+            ) : (
+              <div className="space-y-2">
+                {(data.prescriptions as Array<{ medication: string; concentration?: string; dosage?: string; duration?: string; route?: string; controlled?: boolean; notes?: string }>).map((p, i) => (
+                  <div key={i} className="rounded-md border border-border/40 bg-muted/20 px-3 py-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Medicamento</label>
+                        <input
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={p.medication}
+                          onChange={(e) => {
+                            const next = [...(data.prescriptions || [])];
+                            next[i] = { ...next[i], medication: e.target.value };
+                            update(['prescriptions'], next);
+                          }}
+                          placeholder="Nome do medicamento"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Concentração</label>
+                        <input
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={p.concentration || ''}
+                          onChange={(e) => {
+                            const next = [...(data.prescriptions || [])];
+                            next[i] = { ...next[i], concentration: e.target.value };
+                            update(['prescriptions'], next);
+                          }}
+                          placeholder="ex: 500mg"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Posologia</label>
+                        <input
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={p.dosage || ''}
+                          onChange={(e) => {
+                            const next = [...(data.prescriptions || [])];
+                            next[i] = { ...next[i], dosage: e.target.value };
+                            update(['prescriptions'], next);
+                          }}
+                          placeholder="ex: 1 comp 8/8h"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Duração</label>
+                        <input
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={p.duration || ''}
+                          onChange={(e) => {
+                            const next = [...(data.prescriptions || [])];
+                            next[i] = { ...next[i], duration: e.target.value };
+                            update(['prescriptions'], next);
+                          }}
+                          placeholder="ex: 7 dias"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Via</label>
+                        <input
+                          className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={p.route || ''}
+                          onChange={(e) => {
+                            const next = [...(data.prescriptions || [])];
+                            next[i] = { ...next[i], route: e.target.value };
+                            update(['prescriptions'], next);
+                          }}
+                          placeholder="oral / tópico / inalatório"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pt-4">
+                        <input
+                          type="checkbox"
+                          id={`controlled-${i}`}
+                          checked={!!p.controlled}
+                          onChange={(e) => {
+                            const next = [...(data.prescriptions || [])];
+                            next[i] = { ...next[i], controlled: e.target.checked };
+                            update(['prescriptions'], next);
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <label htmlFor={`controlled-${i}`} className="text-xs text-muted-foreground">Receita controlada</label>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = (data.prescriptions || []).filter((_: any, idx: number) => idx !== i);
+                          update(['prescriptions'], next);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="procedures" className="space-y-3">

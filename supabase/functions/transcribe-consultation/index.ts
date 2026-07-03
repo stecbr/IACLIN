@@ -40,13 +40,28 @@ const STRUCTURED_SCHEMA = {
         social_history: { type: 'string' },
       },
     },
+    prescriptions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          medication:    { type: 'string' },
+          concentration: { type: 'string' },
+          dosage:        { type: 'string' },
+          duration:      { type: 'string' },
+          route:         { type: 'string' },
+          controlled:    { type: 'boolean' },
+          notes:         { type: 'string' },
+        },
+        required: ['medication'],
+      },
+    },
     requests: {
       type: 'object',
       properties: {
-        prescription: { type: 'object', additionalProperties: { type: 'string' } },
-        exam: { type: 'object', additionalProperties: { type: 'string' } },
+        exam:        { type: 'object', additionalProperties: { type: 'string' } },
         certificate: { type: 'object', additionalProperties: { type: 'string' } },
-        referral: { type: 'object', additionalProperties: { type: 'string' } },
+        referral:    { type: 'object', additionalProperties: { type: 'string' } },
       },
     },
     vital_signs: {
@@ -117,7 +132,8 @@ Deno.serve(async (req) => {
 4) Para "soap": S=subjetivo, O=objetivo, A=avaliação, P=plano.
 5) NÃO invente dados que não estejam no áudio.
 6) Para "vital_signs": extraia APENAS valores mencionados explicitamente. Exemplos: "pressão 120 por 80" → bp_sys="120", bp_dia="80"; "frequência cardíaca 72" → hr="72"; "temperatura 36.5" → temp="36.5"; "saturação 98" → spo2="98"; "peso 70 quilos" → weight="70"; "altura 1 metro 70" → height="170"; "glicemia 90" → glycemia="90". Deixe vazio se não mencionado.
-7) Para "procedures_mentioned": liste procedimentos realizados ou citados durante a consulta (ex: "consulta de retorno", "extração do dente 26", "limpeza dental", "curativo"). Se um preço/valor for mencionado pelo profissional, inclua em "price". Deixe o array vazio se nenhum procedimento específico for citado além da consulta em si.`;
+7) Para "procedures_mentioned": liste procedimentos realizados ou citados durante a consulta (ex: "consulta de retorno", "extração do dente 26", "limpeza dental", "curativo"). Se um preço/valor for mencionado pelo profissional, inclua em "price". Deixe o array vazio se nenhum procedimento específico for citado além da consulta em si.
+8) Para "prescriptions": se forem mencionados medicamentos prescritos, liste CADA medicamento com os campos: medication (nome genérico ou comercial), concentration (ex: "500mg"), dosage (posologia, ex: "1 cápsula de 8/8h"), duration (ex: "7 dias"), route (via: "oral", "tópico", "inalatório", "sublingual", "IV"), controlled (true se for receita especial/controlada), notes (orientações adicionais ao paciente). Ex: "vou prescrever Amoxicilina 500mg, uma cápsula de 8 em 8 horas por 7 dias" → { medication: "Amoxicilina", concentration: "500mg", dosage: "1 cápsula de 8/8h", duration: "7 dias", route: "oral" }. Deixe o array vazio se nenhum medicamento for prescrito.`;
 
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
