@@ -56,6 +56,8 @@ export function RecordingResultsDialog({ open, onOpenChange, result, onApply }: 
             <TabsTrigger value="hypotheses">Hipóteses</TabsTrigger>
             <TabsTrigger value="soap">SOAP</TabsTrigger>
             <TabsTrigger value="anamnesis">Anamnese</TabsTrigger>
+            <TabsTrigger value="vitals">Sinais Vitais</TabsTrigger>
+            <TabsTrigger value="procedures">Procedimentos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="summary" className="space-y-3">
@@ -118,6 +120,84 @@ export function RecordingResultsDialog({ open, onOpenChange, result, onApply }: 
                 <Textarea rows={2} value={data.anamnesis?.[k] || ''} onChange={(e) => update(['anamnesis', k], e.target.value)} />
               </div>
             ))}
+          </TabsContent>
+
+          <TabsContent value="vitals" className="space-y-3">
+            <p className="text-xs text-muted-foreground">Apenas valores mencionados em voz alta durante a consulta são extraídos. Edite conforme necessário.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ['bp_sys',   'Sistólica (mmHg)'],
+                ['bp_dia',   'Diastólica (mmHg)'],
+                ['hr',       'FC (bpm)'],
+                ['rr',       'FR (rpm)'],
+                ['temp',     'Temperatura (°C)'],
+                ['spo2',     'SpO₂ (%)'],
+                ['weight',   'Peso (kg)'],
+                ['height',   'Altura (cm)'],
+                ['glycemia', 'Glicemia (mg/dL)'],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="text-xs text-muted-foreground">{label}</label>
+                  <input
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={data.vital_signs?.[key] || ''}
+                    onChange={(e) => update(['vital_signs', key], e.target.value)}
+                    placeholder="—"
+                  />
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="procedures" className="space-y-3">
+            <p className="text-xs text-muted-foreground">Procedimentos mencionados durante a consulta. Serão adicionados como entradas manuais — ajuste nome e valor antes de salvar.</p>
+            {(!data.procedures_mentioned || data.procedures_mentioned.length === 0) ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum procedimento identificado na gravação.</p>
+            ) : (
+              <div className="space-y-2">
+                {(data.procedures_mentioned as Array<{ name: string; price?: number }>).map((p: { name: string; price?: number }, i: number) => (
+                  <div key={i} className="flex gap-2 items-center rounded-md border border-border/40 bg-muted/20 px-3 py-2">
+                    <input
+                      className="flex h-8 flex-1 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={p.name}
+                      onChange={(e) => {
+                        const next = [...(data.procedures_mentioned || [])];
+                        next[i] = { ...next[i], name: e.target.value };
+                        update(['procedures_mentioned'], next);
+                      }}
+                      placeholder="Nome do procedimento"
+                    />
+                    <div className="relative w-28 shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                      <input
+                        className="flex h-8 w-full rounded-md border border-input bg-transparent pl-7 pr-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={p.price ?? 0}
+                        onChange={(e) => {
+                          const next = [...(data.procedures_mentioned || [])];
+                          next[i] = { ...next[i], price: parseFloat(e.target.value) || 0 };
+                          update(['procedures_mentioned'], next);
+                        }}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = (data.procedures_mentioned || []).filter((_: any, idx: number) => idx !== i);
+                        update(['procedures_mentioned'], next);
+                      }}
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      aria-label="Remover"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

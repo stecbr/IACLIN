@@ -796,6 +796,21 @@ export default function Attendance() {
               setPhysicalExam, setHypotheses, setDiagnosis, setSeverity,
               setTreatmentPlan, setFollowUpReason, setRequests, setSoap,
               setClinicalNotes,
+              setVitalSigns,
+              addManualProcedure: (name: string, price: number) =>
+                setProcedures((prev) => [
+                  ...prev,
+                  {
+                    tempId: crypto.randomUUID(),
+                    procedure_id: '',
+                    custom_name: name,
+                    is_manual: true,
+                    tooth_number: null,
+                    surface: '',
+                    notes: '',
+                    price,
+                  },
+                ]),
             }}
           />
           <Button variant="outline" onClick={() => void handleSave()} disabled={saving} className="gap-2">

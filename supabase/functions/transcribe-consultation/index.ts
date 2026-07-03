@@ -49,6 +49,31 @@ const STRUCTURED_SCHEMA = {
         referral: { type: 'object', additionalProperties: { type: 'string' } },
       },
     },
+    vital_signs: {
+      type: 'object',
+      properties: {
+        bp_sys:   { type: 'string' },
+        bp_dia:   { type: 'string' },
+        hr:       { type: 'string' },
+        rr:       { type: 'string' },
+        temp:     { type: 'string' },
+        spo2:     { type: 'string' },
+        weight:   { type: 'string' },
+        height:   { type: 'string' },
+        glycemia: { type: 'string' },
+      },
+    },
+    procedures_mentioned: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name:  { type: 'string' },
+          price: { type: 'number' },
+        },
+        required: ['name'],
+      },
+    },
   },
 };
 
@@ -90,7 +115,9 @@ Deno.serve(async (req) => {
 2) Gere os demais campos clínicos com base no que foi dito. Se algo não foi mencionado, deixe vazio.
 3) Para "hypotheses", use frases curtas (ex: "Cefaleia tensional"). Se conhecer, inclua "cid10".
 4) Para "soap": S=subjetivo, O=objetivo, A=avaliação, P=plano.
-5) NÃO invente dados que não estejam no áudio.`;
+5) NÃO invente dados que não estejam no áudio.
+6) Para "vital_signs": extraia APENAS valores mencionados explicitamente. Exemplos: "pressão 120 por 80" → bp_sys="120", bp_dia="80"; "frequência cardíaca 72" → hr="72"; "temperatura 36.5" → temp="36.5"; "saturação 98" → spo2="98"; "peso 70 quilos" → weight="70"; "altura 1 metro 70" → height="170"; "glicemia 90" → glycemia="90". Deixe vazio se não mencionado.
+7) Para "procedures_mentioned": liste procedimentos realizados ou citados durante a consulta (ex: "consulta de retorno", "extração do dente 26", "limpeza dental", "curativo"). Se um preço/valor for mencionado pelo profissional, inclua em "price". Deixe o array vazio se nenhum procedimento específico for citado além da consulta em si.`;
 
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

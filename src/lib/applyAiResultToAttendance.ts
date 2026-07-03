@@ -1,6 +1,7 @@
 import type { Hypothesis } from '@/components/attendance/HypothesesEditor';
 import type { RequestItem, RequestKind } from '@/components/attendance/RequestsEditor';
 import type { SoapSession } from '@/components/attendance/SoapSessionForm';
+import type { VitalSigns } from '@/components/attendance/VitalSignsForm';
 
 export interface AiAttendanceResult {
   transcript?: string;
@@ -18,6 +19,8 @@ export interface AiAttendanceResult {
   requests?: Partial<Record<RequestKind, Record<string, string>>>;
   soap?: SoapSession;
   anamnesis?: Record<string, unknown>;
+  vital_signs?: VitalSigns;
+  procedures_mentioned?: Array<{ name: string; price?: number }>;
 }
 
 export interface AttendanceSetters {
@@ -34,6 +37,8 @@ export interface AttendanceSetters {
   setRequests: (updater: (prev: RequestItem[]) => RequestItem[]) => void;
   setSoap: (s: SoapSession) => void;
   setClinicalNotes: (v: string) => void;
+  setVitalSigns?: (v: VitalSigns) => void;
+  addManualProcedure?: (name: string, price: number) => void;
 }
 
 function nonEmpty(s?: string | null) {
@@ -75,5 +80,21 @@ export function applyAiResultToAttendance(result: AiAttendanceResult, setters: A
       }
     });
     if (newReqs.length) setters.setRequests((prev) => [...prev, ...newReqs]);
+  }
+
+  // Vital signs — only apply fields that were actually extracted (non-empty strings)
+  if (result.vital_signs && setters.setVitalSigns) {
+    const vs = result.vital_signs;
+    const hasAny = Object.values(vs).some((v) => nonEmpty(String(v ?? '')));
+    if (hasAny) setters.setVitalSigns(vs);
+  }
+
+  // Procedures — add each as a manual entry; doctor adjusts price/name before saving
+  if (Array.isArray(result.procedures_mentioned) && result.procedures_mentioned.length > 0 && setters.addManualProcedure) {
+    for (const p of result.procedures_mentioned) {
+      if (nonEmpty(p.name)) {
+        setters.addManualProcedure(p.name, p.price ?? 0);
+      }
+    }
   }
 }
