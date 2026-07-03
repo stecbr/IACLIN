@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   MessageSquare,
   Table2,
+  Plug,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
@@ -65,6 +66,10 @@ const navGroups: NavGroup[] = [
   {
     label: "Suporte",
     items: [{ to: "/operadora/chamados", label: "Chamados", icon: MessageSquare }],
+  },
+  {
+    label: "Integração",
+    items: [{ to: "/operadora/integracao", label: "Integração / API", icon: Plug }],
   },
   {
     label: "Conta",

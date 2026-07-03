@@ -64,6 +64,7 @@ import OperatorNetwork from "./pages/operadora/OperatorNetwork";
 import OperatorRequests from "./pages/operadora/OperatorRequests";
 import OperatorAgenda from "./pages/operadora/OperatorAgenda";
 import OperatorSettings from "./pages/operadora/OperatorSettings";
+import OperatorIntegration from "./pages/operadora/OperatorIntegration";
 import OperatorAttendances from "./pages/operadora/OperatorAttendances";
 import OperatorBilling from "./pages/operadora/OperatorBilling";
 import OperatorInvites from "./pages/operadora/OperatorInvites";
@@ -294,6 +295,7 @@ const AppRoutes = () => (
       <Route path="tabela-valores" element={<OperatorPriceTable />} />
       <Route path="beneficiarios" element={<OperatorBeneficiaries />} />
       <Route path="configuracoes" element={<OperatorSettings />} />
+      <Route path="integracao" element={<OperatorIntegration />} />
     </Route>
     <Route path="/" element={<HomeRoute />} />
     <Route path="/chamados" element={<ProtectedRoute><SupportTickets /></ProtectedRoute>} />
