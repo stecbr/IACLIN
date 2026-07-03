@@ -59,6 +59,7 @@ export default function OperatorAgenda() {
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   // Credenciamentos aprovados desta operadora. O credenciamento é por CLÍNICA
   // (uma linha por operador+clínica — ver migration operator_credentialings_clinic_level),
@@ -331,10 +332,17 @@ export default function OperatorAgenda() {
         <MonthCalendar
           days={monthDays}
           appointments={filtered}
-          dentistMap={dentistMap}
-          onAppointmentClick={setSelectedAppointment}
+          onDayClick={setSelectedDay}
         />
       )}
+
+      <DayAppointmentsDialog
+        day={selectedDay}
+        appointments={selectedDay ? filtered.filter((a: any) => isSameDay(parseISO(a.start_time), selectedDay)) : []}
+        dentistMap={dentistMap}
+        onOpenChange={(open) => !open && setSelectedDay(null)}
+        onAppointmentClick={(a) => { setSelectedDay(null); setSelectedAppointment(a); }}
+      />
 
       <AppointmentDetailDialog
         appointment={selectedAppointment}
@@ -372,16 +380,16 @@ function EmptyAppointments({ noCredentialing }: { noCredentialing?: boolean }) {
   );
 }
 
+const DEFAULT_PROCEDURE_COLOR = '#3B82F6';
+
 function MonthCalendar({
   days,
   appointments,
-  dentistMap,
-  onAppointmentClick,
+  onDayClick,
 }: {
   days: Date[];
   appointments: any[];
-  dentistMap: Map<string, string>;
-  onAppointmentClick: (a: any) => void;
+  onDayClick: (d: Date) => void;
 }) {
   const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const firstDay = days[0];
@@ -403,35 +411,108 @@ function MonthCalendar({
           if (!day) return <div key={i} className="min-h-[100px] border-b border-r border-border bg-muted/10" />;
           const dayApts = appointments.filter((a: any) => isSameDay(parseISO(a.start_time), day));
           return (
-            <div
+            <button
+              type="button"
               key={i}
-              className={`min-h-[100px] p-1.5 border-b border-r border-border ${isToday(day) ? 'bg-primary/5' : ''}`}
+              onClick={() => dayApts.length > 0 && onDayClick(day)}
+              className={`min-h-[100px] p-1.5 border-b border-r border-border text-left transition-colors ${
+                isToday(day) ? 'bg-primary/5' : ''
+              } ${dayApts.length > 0 ? 'hover:bg-muted/40 cursor-pointer' : 'cursor-default'}`}
             >
               <div className={`inline-flex items-center justify-center w-6 h-6 rounded-full mb-0.5 ${isToday(day) ? 'bg-primary text-primary-foreground' : ''}`}>
                 <span className="text-xs font-medium">{format(day, 'd')}</span>
               </div>
               {dayApts.slice(0, 3).map((a: any) => {
-                const color = a.procedures?.color ?? 'hsl(var(--primary))';
+                const color = a.procedures?.color ?? DEFAULT_PROCEDURE_COLOR;
                 return (
-                  <button
+                  <div
                     key={a.id}
-                    type="button"
-                    onClick={() => onAppointmentClick(a)}
-                    className="w-full text-left text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium hover:opacity-80 transition-opacity"
+                    className="text-[10px] px-1.5 py-0.5 rounded-md mb-0.5 truncate font-medium"
                     style={{ backgroundColor: `${color}15`, color }}
                   >
                     {format(parseISO(a.start_time), 'HH:mm')} {a.patients?.full_name?.split(' ')[0] ?? 'Paciente'}
-                  </button>
+                  </div>
                 );
               })}
               {dayApts.length > 3 && (
                 <p className="text-[10px] text-muted-foreground pl-1">+{dayApts.length - 3} mais</p>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
     </Card>
+  );
+}
+
+function DayAppointmentsDialog({
+  day,
+  appointments,
+  dentistMap,
+  onOpenChange,
+  onAppointmentClick,
+}: {
+  day: Date | null;
+  appointments: any[];
+  dentistMap: Map<string, string>;
+  onOpenChange: (open: boolean) => void;
+  onAppointmentClick: (a: any) => void;
+}) {
+  return (
+    <Dialog open={!!day} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="capitalize">
+            {day ? format(day, "EEEE, dd 'de' MMMM", { locale: ptBR }) : ''}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          {appointments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Nenhuma consulta neste dia.</p>
+          ) : (
+            appointments.map((a: any) => {
+              const color = a.procedures?.color ?? DEFAULT_PROCEDURE_COLOR;
+              const meta = STATUS_META[a.status] ?? STATUS_META.scheduled;
+              const Icon = meta.icon;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onAppointmentClick(a)}
+                  className="w-full flex items-start gap-3 rounded-xl border border-border bg-card p-3 text-left hover:shadow-md transition-shadow"
+                  style={{ borderLeft: `3px solid ${color}` }}
+                >
+                  <div className="min-w-[52px] text-center shrink-0">
+                    <p className="text-sm font-semibold">{format(parseISO(a.start_time), 'HH:mm')}</p>
+                    <p className="text-[10px] text-muted-foreground">{format(parseISO(a.end_time), 'HH:mm')}</p>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium truncate">{a.patients?.full_name ?? 'Paciente'}</p>
+                      <Badge variant="outline" className={`gap-1 text-[10px] ${meta.className}`}>
+                        <Icon className="h-3 w-3" />
+                        {meta.label}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {a.procedures?.name && (
+                        <span className="inline-flex items-center gap-1"><Stethoscope className="h-3 w-3" />{a.procedures.name}</span>
+                      )}
+                      {a.dentist_id && (
+                        <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{dentistMap.get(a.dentist_id) ?? '—'}</span>
+                      )}
+                      {a.clinics?.name && (
+                        <span className="inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{a.clinics.name}</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

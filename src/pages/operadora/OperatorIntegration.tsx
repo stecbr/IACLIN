@@ -65,7 +65,7 @@ export default function OperatorIntegration() {
       <div>
         <h1 className="text-2xl font-semibold">Integração / API</h1>
         <p className="text-sm text-muted-foreground">
-          Conecte seus próprios sistemas à IACLIN para consultar beneficiários, rede credenciada e tabela de valores.
+          Conecte seus próprios sistemas à IACLIN para consultar a rede credenciada e a rede de busca.
         </p>
       </div>
 
@@ -316,19 +316,6 @@ function DocsSection() {
         </CardHeader>
         <CardContent className="space-y-6">
           <ResourceDoc
-            title="Beneficiários"
-            resource="beneficiaries"
-            description="Lista os beneficiários ativos cadastrados na sua operadora."
-            example={`{
-  "data": [
-    { "id": "...", "full_name": "Maria Silva", "cpf": "...",
-      "card_number": "...", "plan_name": "...", "plan_type": "...",
-      "status": "active", "enrolled_at": "...", "next_due_date": "..." }
-  ],
-  "meta": { "count": 120, "limit": 50, "offset": 0 }
-}`}
-          />
-          <ResourceDoc
             title="Rede credenciada"
             resource="network"
             description="Lista profissionais e clínicas credenciados (status aprovado)."
@@ -343,16 +330,21 @@ function DocsSection() {
 }`}
           />
           <ResourceDoc
-            title="Tabela de valores"
-            resource="price-table"
-            description="Retorna os procedimentos da tabela de valores vigente."
+            title="Rede de busca"
+            resource="search-network"
+            description="Lista clínicas e profissionais disponíveis para busca, o mesmo conjunto de dados exibido em Rede de Busca."
             example={`{
   "data": [
-    { "procedure_name": "Consulta", "tuss_code": "...", "category": "...",
-      "charge_type": "Geral", "value_brl": 150.0 }
+    { "clinic_id": "...", "clinic_name": "Clínica Sorriso", "category": "odonto",
+      "cnpj": "...", "city": "...", "state": "...", "phone": "...", "email": "...",
+      "address": "...", "address_number": "...", "neighborhood": "...", "zip_code": "...",
+      "specialties": ["Ortodontia", "Clínico Geral"],
+      "professionals": [
+        { "professional_id": "...", "professional_name": "Dr. João",
+          "phone": "...", "specialties": ["Ortodontia"] }
+      ] }
   ],
-  "meta": { "count": 40, "limit": 50, "offset": 0,
-    "table": { "id": "...", "name": "Tabela 2026" } }
+  "meta": { "count": 30, "limit": 50, "offset": 0 }
 }`}
           />
         </CardContent>

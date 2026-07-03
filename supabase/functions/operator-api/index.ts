@@ -56,18 +56,6 @@ Deno.serve(async (req) => {
       return json({ ok: true, operator: op });
     }
 
-    if (resource === 'beneficiaries') {
-      const { limit, offset } = pagination(url);
-      const { data, error, count } = await admin
-        .from('operator_beneficiaries')
-        .select('id, full_name, cpf, card_number, plan_name, plan_type, status, enrolled_at, next_due_date', { count: 'exact' })
-        .eq('operator_id', operatorId)
-        .order('full_name')
-        .range(offset, offset + limit - 1);
-      if (error) return json({ error: error.message }, 500);
-      return json({ data, meta: { count, limit, offset } });
-    }
-
     if (resource === 'network') {
       const { limit, offset } = pagination(url);
       const { data: creds, error, count } = await admin
@@ -104,29 +92,74 @@ Deno.serve(async (req) => {
       return json({ data, meta: { count, limit, offset } });
     }
 
-    if (resource === 'price-table') {
-      const today = new Date().toISOString().slice(0, 10);
-      const { data: tables } = await admin
-        .from('operator_price_tables')
-        .select('id, name, valid_from, valid_until')
-        .eq('operator_id', operatorId)
-        .lte('valid_from', today)
-        .order('valid_from', { ascending: false });
-      const activeTable = (tables ?? []).find((t: any) => !t.valid_until || t.valid_until >= today) ?? (tables ?? [])[0];
-      if (!activeTable) return json({ data: [], meta: { count: 0, limit: 0, offset: 0, table: null } });
+    if (resource === 'search-network') {
+      const { data: memberships, error: memErr } = await admin
+        .from('clinic_members')
+        .select('clinic_id, user_id, specialty')
+        .in('role', ['dentist', 'admin']);
+      if (memErr) return json({ error: memErr.message }, 500);
+
+      const clinicIds = [...new Set((memberships ?? []).map((m: any) => m.clinic_id))];
+      const userIds = [...new Set((memberships ?? []).map((m: any) => m.user_id))];
 
       const { limit, offset } = pagination(url);
-      const { data, error, count } = await admin
-        .from('operator_price_items')
-        .select('procedure_name, tuss_code, category, charge_type, value_brl', { count: 'exact' })
-        .eq('table_id', activeTable.id)
-        .order('sort_order')
+      const { data: clinicsPage, error: clinicsErr, count } = await admin
+        .from('clinics')
+        .select('id, name, city, state, cnpj, phone, email, category, address, address_number, neighborhood, zip_code', { count: 'exact' })
+        .in('id', clinicIds.length ? clinicIds : ['00000000-0000-0000-0000-000000000000'])
+        .order('name')
         .range(offset, offset + limit - 1);
-      if (error) return json({ error: error.message }, 500);
-      return json({ data, meta: { count, limit, offset, table: { id: activeTable.id, name: activeTable.name } } });
+      if (clinicsErr) return json({ error: clinicsErr.message }, 500);
+
+      const [{ data: profiles }, { data: specs }] = await Promise.all([
+        userIds.length ? admin.from('profiles').select('id, full_name, phone').in('id', userIds) : Promise.resolve({ data: [] as any[] }),
+        userIds.length ? admin.from('professional_specialties').select('user_id, specialty').in('user_id', userIds) : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+      const specMap = new Map<string, string[]>();
+      (specs ?? []).forEach((s: any) => {
+        const prev = specMap.get(s.user_id) ?? [];
+        if (!prev.includes(s.specialty)) specMap.set(s.user_id, [...prev, s.specialty]);
+      });
+      const membersByClinic = new Map<string, any[]>();
+      (memberships ?? []).forEach((m: any) => {
+        const prev = membersByClinic.get(m.clinic_id) ?? [];
+        membersByClinic.set(m.clinic_id, [...prev, m]);
+      });
+
+      const data = (clinicsPage ?? []).map((clinic: any) => {
+        const members = membersByClinic.get(clinic.id) ?? [];
+        const professionals = members.map((m: any) => {
+          const p = profileMap.get(m.user_id);
+          const specialties = specMap.get(m.user_id) ?? (m.specialty ? [m.specialty] : []);
+          return {
+            professional_id: m.user_id,
+            professional_name: p?.full_name ?? null,
+            phone: p?.phone ?? null,
+            specialties,
+          };
+        });
+        return {
+          clinic_id: clinic.id,
+          clinic_name: clinic.name,
+          category: clinic.category,
+          cnpj: clinic.cnpj,
+          city: clinic.city,
+          state: clinic.state,
+          phone: clinic.phone,
+          email: clinic.email,
+          address: clinic.address,
+          address_number: clinic.address_number,
+          neighborhood: clinic.neighborhood,
+          zip_code: clinic.zip_code,
+          specialties: [...new Set(professionals.flatMap((p) => p.specialties).filter(Boolean))],
+          professionals,
+        };
+      });
+      return json({ data, meta: { count, limit, offset } });
     }
 
-    return json({ error: 'unknown resource. use one of: ping, beneficiaries, network, price-table' }, 400);
+    return json({ error: 'unknown resource. use one of: ping, network, search-network' }, 400);
   } catch (err) {
     console.error('operator-api error', err);
     return json({ error: (err as Error).message }, 500);
