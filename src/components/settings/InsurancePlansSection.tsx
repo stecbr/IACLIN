@@ -136,24 +136,19 @@ function InsurancePlanDialog({ open, onOpenChange, plan, clinicId, onSuccess }: 
   const [ansCode, setAnsCode] = useState<string>(plan?.ans_code ?? '');
   const [isActive, setIsActive] = useState<boolean>(plan?.is_active ?? true);
 
-  // Busca catálogo para preencher metadados (tipo, ANS) ao escolher
-  const { data: catalog = [] } = useQuery({
-    queryKey: ['insurance-plans-catalog-meta'],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('insurance_plans_catalog')
-        .select('operator_name, plan_name, type, ans_code')
-        .eq('is_active', true);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const handleCatalogChange = (op: string, pl: string) => {
+  // Busca pontual no catálogo (não dá para baixar tudo: dezenas de milhares
+  // de linhas estouram o limite padrão de 1000 do Supabase e o match falha
+  // silenciosamente para planos "fora dos primeiros 1000", deixando o ANS vazio).
+  const handleCatalogChange = async (op: string, pl: string) => {
     setOperator(op);
     setPlanName(pl);
-    const match = catalog.find((c: any) => c.operator_name === op && c.plan_name === pl);
+    if (!op || !pl) return;
+    const { data: match } = await supabase
+      .from('insurance_plans_catalog')
+      .select('type, ans_code')
+      .eq('operator_name', op)
+      .eq('plan_name', pl)
+      .maybeSingle();
     if (match) {
       setPlanType(match.type ?? defaultPlanType);
       setAnsCode(match.ans_code ?? '');

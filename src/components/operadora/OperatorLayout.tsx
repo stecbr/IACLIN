@@ -15,7 +15,6 @@ import {
   Send,
   ClipboardCheck,
   Wallet,
-  ShieldCheck,
   MessageSquare,
   Table2,
   Plug,
@@ -58,7 +57,6 @@ const navGroups: NavGroup[] = [
     label: "Atendimentos",
     items: [
       { to: "/operadora/atendimentos", label: "Confirmações", icon: ClipboardCheck },
-      { to: "/operadora/beneficiarios", label: "Beneficiários", icon: ShieldCheck },
       { to: "/operadora/faturamento", label: "Faturamento", icon: Wallet },
       { to: "/operadora/tabela-valores", label: "Tabela de Valores", icon: Table2 },
     ],

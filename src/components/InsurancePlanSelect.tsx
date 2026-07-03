@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Search, X } from 'lucide-react';
+import { Check, Loader2, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -107,8 +107,8 @@ export function InsurancePlanSelect({
             id={id}
             ref={inputRef}
             value={query}
-            disabled={disabled || isLoading}
-            placeholder={isLoading ? 'Carregando...' : placeholder}
+            disabled={disabled}
+            placeholder={placeholder}
             onFocus={() => {
               setOpen(true);
               if (query === selectedLabel) setQuery('');
@@ -131,16 +131,21 @@ export function InsurancePlanSelect({
             className="pl-9 pr-9"
             autoComplete="off"
           />
-          {(query || selectedLabel) && !disabled && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSelect('', '')}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+          {isLoading ? (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            (query || selectedLabel) &&
+            !disabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSelect('', '')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )
           )}
         </div>
       </PopoverAnchor>

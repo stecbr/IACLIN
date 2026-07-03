@@ -72,7 +72,6 @@ import OperatorTickets from "./pages/operadora/OperatorTickets";
 import SupportTickets from "./pages/SupportTickets";
 import OperatorProfessionals from "./pages/operadora/OperatorProfessionals";
 import OperatorPriceTable from "./pages/operadora/OperatorPriceTable";
-import OperatorBeneficiaries from "./pages/operadora/OperatorBeneficiaries";
 import { SuperAdminLayout } from "./components/superadmin/SuperAdminLayout";
 import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import SuperAdminClinics from "./pages/superadmin/SuperAdminClinics";
@@ -293,7 +292,6 @@ const AppRoutes = () => (
       <Route path="faturamento" element={<OperatorBilling />} />
       <Route path="chamados" element={<OperatorTickets />} />
       <Route path="tabela-valores" element={<OperatorPriceTable />} />
-      <Route path="beneficiarios" element={<OperatorBeneficiaries />} />
       <Route path="configuracoes" element={<OperatorSettings />} />
       <Route path="integracao" element={<OperatorIntegration />} />
     </Route>
