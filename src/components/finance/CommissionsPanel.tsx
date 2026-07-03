@@ -56,6 +56,7 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
   const [configOpen, setConfigOpen] = useState(false);
   const [editingPro, setEditingPro] = useState<{ id: string; name: string; isDefault?: boolean } | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  const [recalcPro, setRecalcPro] = useState<string | null>(null);
 
   const [draftTrigger, setDraftTrigger] = useState('after_procedure');
   const [draftType, setDraftType] = useState('percentage');
@@ -250,6 +251,38 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
       toast.error(e.message ?? 'Erro ao recalcular comissões');
     } finally {
       setRecalculating(false);
+    }
+  };
+
+  const handleRecalcPro = async (dentistId: string, dentistName: string) => {
+    setRecalcPro(dentistId);
+    try {
+      const { data: incomeTxs } = await supabase
+        .from('financial_transactions')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('dentist_id', dentistId)
+        .eq('type', 'income')
+        .or('approval_status.is.null,approval_status.eq.approved');
+      if (!incomeTxs?.length) {
+        toast.info('Nenhuma transação encontrada para este profissional.');
+        return;
+      }
+      let created = 0;
+      for (const tx of incomeTxs) {
+        created += await generateCommissionsForTransaction(tx.id, 'after_procedure');
+        created += await generateCommissionsForTransaction(tx.id, 'after_payment');
+      }
+      if (created > 0) {
+        toast.success(`${created} comissão(ões) gerada(s) para ${dentistName}.`);
+      } else {
+        toast.info('Comissões já estão em dia ou nenhuma regra aplicável encontrada.');
+      }
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
+    } catch (e: any) {
+      toast.error(e.message ?? 'Erro ao recalcular comissões');
+    } finally {
+      setRecalcPro(null);
     }
   };
 
@@ -458,6 +491,19 @@ export function CommissionsPanel({ clinicId, transactions }: Props) {
                       <Badge variant="secondary" className="text-[10px] hidden sm:flex">
                         {pro.rulesCount} regra{pro.rulesCount > 1 ? 's' : ''}
                       </Badge>
+                    )}
+                    {pro.commission > pro.posted && pro.rulesCount > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-xs h-8 border-amber-400/60 text-amber-700 hover:bg-amber-500/10"
+                        onClick={() => handleRecalcPro(pro.id, pro.name)}
+                        disabled={recalcPro === pro.id}
+                        title="Gerar comissões pendentes"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${recalcPro === pro.id ? 'animate-spin' : ''}`} />
+                        {recalcPro === pro.id ? 'Gerando...' : 'Gerar'}
+                      </Button>
                     )}
                     <Button
                       size="sm"
