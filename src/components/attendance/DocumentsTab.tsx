@@ -247,9 +247,10 @@ interface DocumentsTabProps {
   appointmentId?: string;
   appointmentStartTime?: string;
   onDraftChange?: (draft: MedicalDocumentsDraft) => void;
+  initialRxItems?: PrescriptionItem[];
 }
 
-export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime, onDraftChange }: DocumentsTabProps) {
+export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointmentId, appointmentStartTime, onDraftChange, initialRxItems }: DocumentsTabProps) {
   const { user, currentClinicId } = useAuth();
   const [step, setStep] = useState(0);
   const [printing, setPrinting] = useState(false);
@@ -330,6 +331,15 @@ export function DocumentsTab({ patientId, hypotheses, clinicalRecordId, appointm
     }, 600);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [draftKey, exams, examIndication, rxItems, rxNotes, refSpecialty, refUrgency, refReason, refSummary, emitCert, certMode, certDate, certStart, certEnd, leaveStart, leaveDays, certCid, certCidEdited, certNotes, onDraftChange]);
+
+  // Pre-populate receituário from AI result (recording or on-demand) when field still empty
+  useEffect(() => {
+    if (!initialRxItems || initialRxItems.length === 0) return;
+    setRxItems((prev) => {
+      const isEmpty = prev.length === 1 && !prev[0].medication.trim();
+      return isEmpty ? initialRxItems : prev;
+    });
+  }, [initialRxItems]);
 
   // Sync CID from hypotheses
   useEffect(() => {

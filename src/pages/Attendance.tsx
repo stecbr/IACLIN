@@ -1216,6 +1216,15 @@ export default function Attendance() {
               appointmentId={appointment.id}
               appointmentStartTime={(appointment as any).start_time}
               onDraftChange={(draft) => { documentsDraftRef.current = draft; }}
+              initialRxItems={requests
+                .filter((r) => r.kind === 'prescription' && r.payload.medication?.trim())
+                .map((r) => ({
+                  medication: [r.payload.medication, r.payload.concentration].filter(Boolean).join(' '),
+                  dosage: r.payload.dosage || '',
+                  frequency: '',
+                  duration: r.payload.duration || '',
+                  instructions: r.payload.route ? `Via ${r.payload.route}` : '',
+                }))}
             />
           </TabsContent>
         )}
