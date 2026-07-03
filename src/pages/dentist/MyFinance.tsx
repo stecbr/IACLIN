@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Wallet, Clock, CheckCircle2, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Wallet, Clock, CheckCircle2, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMyPayouts } from '@/hooks/usePayouts';
@@ -110,19 +110,20 @@ export default function MyFinance() {
     },
   });
 
-  // Income transactions in the selected period (for ticket médio)
+  // Income transactions in the selected period (for minha produção)
   const { data: myIncomePeriod = [] } = useQuery({
     queryKey: ['my-income-period', user?.id, currentClinicId, period.start.toISOString(), period.end.toISOString()],
     enabled: !!user && !!currentClinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from('financial_transactions')
-        .select('amount, status, paid_date')
+        .select('amount, status')
         .eq('clinic_id', currentClinicId!)
         .eq('dentist_id', user!.id)
         .eq('type', 'income')
-        .gte('paid_date', format(period.start, 'yyyy-MM-dd'))
-        .lte('paid_date', format(period.end, 'yyyy-MM-dd'));
+        .or('approval_status.is.null,approval_status.eq.approved')
+        .gte('created_at', period.start.toISOString())
+        .lte('created_at', period.end.toISOString());
       return data ?? [];
     },
   });
@@ -174,19 +175,16 @@ export default function MyFinance() {
     return ids.size || (myPeriodApts as any[]).length;
   }, [commissions, myPeriodApts, period]);
 
-  const ticket = useMemo(() => {
-    const paidIncome = (myIncomePeriod as any[])
-      .filter((t) => t.status === 'paid')
-      .reduce((s, t) => s + Number(t.amount), 0);
-    const n = (myPeriodApts as any[]).length;
-    return n > 0 ? paidIncome / n : 0;
-  }, [myIncomePeriod, myPeriodApts]);
+  const producao = useMemo(
+    () => (myIncomePeriod as any[]).reduce((s, t) => s + Number(t.amount), 0),
+    [myIncomePeriod]
+  );
 
   const kpis = [
     { label: 'A receber',              value: fmt(toReceive),       icon: Clock,        color: 'text-warning',   bg: 'bg-warning/10' },
     { label: 'Recebido no período',    value: fmt(receivedPeriod),  icon: CheckCircle2, color: 'text-success',   bg: 'bg-success/10' },
     { label: 'Atendimentos no período',value: String(apptCountPeriod), icon: Wallet,   color: 'text-primary',   bg: 'bg-primary/10' },
-    { label: 'Ticket médio',           value: fmt(ticket),          icon: Receipt,      color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10' },
+    { label: 'Minha produção',         value: fmt(producao),        icon: TrendingUp,   color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10' },
   ];
 
   return (
