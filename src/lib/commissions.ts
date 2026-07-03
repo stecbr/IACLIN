@@ -103,6 +103,7 @@ export async function generateCommissionsForTransaction(
       status: 'pending',
       due_date: today,
       payment_method: null,
+      card_fee_amount: 0,
       approval_status: 'approved',
       notes:
         `${ruleTag} Origem tx ${tx.id} · ` +

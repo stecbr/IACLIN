@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -26,7 +25,6 @@ import { FinishPaymentDialog, type FinishProcedure } from '@/components/attendan
 export default function WaitingRoom() {
   const { currentClinicId, clinicRole, isClinicOwner } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [doctorFilter, setDoctorFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -424,11 +422,17 @@ export default function WaitingRoom() {
           patientInsuranceProvider={paymentApt.patientInsuranceProvider}
           appointmentDentistId={paymentApt.dentistId}
           procedures={paymentApt.procedures}
-          onCompleted={() => {
+          onCompleted={async () => {
+            if (paymentApt) {
+              await supabase
+                .from('appointments')
+                .update({ presence_status: 'finished', status: 'completed' })
+                .eq('id', paymentApt.id);
+            }
             setPaymentApt(null);
+            toast.success('Pagamento registrado. Atendimento concluído!');
             queryClient.invalidateQueries({ queryKey: ['financial-transactions'] });
             queryClient.invalidateQueries({ queryKey: ['waiting-room'] });
-            navigate('/agenda');
           }}
         />
       )}

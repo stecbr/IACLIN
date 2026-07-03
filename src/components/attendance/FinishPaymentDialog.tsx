@@ -219,6 +219,7 @@ export function FinishPaymentDialog({
       clinic_id: clinicId ?? null,
       type: 'income',
       description: desc,
+      card_fee_amount: 0,
       approval_status: needsApproval ? 'awaiting_approval' : 'approved',
       approval_requested_by: needsApproval ? user!.id : null,
       approval_decided_by: needsApproval ? null : user!.id,
@@ -303,7 +304,7 @@ export function FinishPaymentDialog({
         status: 'paid',
         due_date: today,
         paid_date: today,
-        card_fee_amount: fee > 0 ? fee : null,
+        card_fee_amount: fee > 0 ? fee : 0,
         notes: 'Pago pelo paciente (registrado pela clínica)',
       });
       toast.success(
