@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Wallet, Clock, CheckCircle2, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Wallet, Clock, CheckCircle2, TrendingUp, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMyPayouts } from '@/hooks/usePayouts';
