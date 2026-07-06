@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { format, setHours, setMinutes, addDays, startOfDay, endOfDay, differenceInYears, parseISO } from 'date-fns';
+import { format, setHours, setMinutes, addDays, differenceInYears, parseISO } from 'date-fns';
+import { useAvailableTimeSlots } from '@/hooks/useAvailableTimeSlots';
 import { ptBR } from 'date-fns/locale';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -32,7 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Command, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
-import { Clock, Search, CalendarPlus, MessageCircle, Armchair, ChevronsUpDown, Check, UserPlus, Info, ExternalLink } from 'lucide-react';
+import { Clock, Search, CalendarPlus, MessageCircle, Armchair, ChevronsUpDown, Check, UserPlus, Info, ExternalLink, Pencil, ChevronLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { checkAppointmentConflicts } from '@/lib/appointmentConflicts';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
@@ -68,7 +69,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState('');
   const [label, setLabel] = useState('');
-  const [showFreeSlots, setShowFreeSlots] = useState(false);
+  const [timeMode, setTimeMode] = useState<'select' | 'manual'>('select');
+  const [manualError, setManualError] = useState<string | null>(null);
   const [returnDays, setReturnDays] = useState<number | null>(null);
   const [roomId, setRoomId] = useState('');
   const [sendConfirmation, setSendConfirmation] = useState(false);
@@ -83,14 +85,44 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     return setMinutes(setHours(new Date(year, month - 1, day), hours), minutes);
   };
 
+  // ── Available time slots hook ──────────────────────────────────────────
+  const {
+    availableSlots,
+    isLoading: slotsLoading,
+    emptyMessage,
+    clinicHoursLabel,
+    findNextSlot,
+    validateTime,
+  } = useAvailableTimeSlots({
+    date,
+    duration,
+    dentistId: user?.id,
+    clinicId: currentClinicId,
+    enabled: open,
+  });
+
+  // On open: reset time mode and set sensible default time
   useEffect(() => {
     if (open) {
       setDate(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
-      setStartTime(defaultHour != null ? `${String(defaultHour).padStart(2, '0')}:00` : '09:00');
-      setShowFreeSlots(false);
+      setTimeMode('select');
+      setManualError(null);
       setReturnDays(null);
     }
-  }, [open, defaultDate, defaultHour]);
+  }, [open, defaultDate]);
+
+  // When slots load or date/duration changes: auto-select the requested hour or first available
+  useEffect(() => {
+    if (!open || timeMode !== 'select') return;
+    if (slotsLoading) return;
+    if (defaultHour != null) {
+      const requested = `${String(defaultHour).padStart(2, '0')}:00`;
+      if (availableSlots.includes(requested)) { setStartTime(requested); return; }
+    }
+    const next = findNextSlot();
+    if (next) setStartTime(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, date, duration, slotsLoading, availableSlots.join(','), defaultHour]);
 
   const { data: patients = [] } = useQuery({
     queryKey: ['patients-list', currentClinicId],
@@ -134,44 +166,6 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     enabled: open && !!currentClinicId,
   });
 
-  // Fetch appointments for the selected date to find free slots
-  const { data: dayAppointments = [] } = useQuery({
-    queryKey: ['day-appointments-slots', date, currentClinicId],
-    queryFn: async () => {
-      const dayStart = startOfDay(new Date(date + 'T00:00:00'));
-      const dayEnd = endOfDay(dayStart);
-      let query = supabase.from('appointments').select('start_time, end_time, status')
-        .gte('start_time', dayStart.toISOString())
-        .lte('start_time', dayEnd.toISOString())
-        .neq('status', 'cancelled');
-      if (currentClinicId) query = query.eq('clinic_id', currentClinicId);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-    enabled: open && showFreeSlots,
-  });
-
-  const freeSlots = useMemo(() => {
-    if (!showFreeSlots) return [];
-    const slots: string[] = [];
-    const occupied = dayAppointments.map(a => ({
-      start: new Date(a.start_time).getHours() * 60 + new Date(a.start_time).getMinutes(),
-      end: new Date(a.end_time).getHours() * 60 + new Date(a.end_time).getMinutes(),
-    }));
-
-    // Check slots from 8:00 to 18:00 in 30min increments
-    for (let min = 480; min <= 1080 - duration; min += 30) {
-      const slotEnd = min + duration;
-      const conflict = occupied.some(o => min < o.end && slotEnd > o.start);
-      if (!conflict) {
-        const h = Math.floor(min / 60).toString().padStart(2, '0');
-        const m = (min % 60).toString().padStart(2, '0');
-        slots.push(`${h}:${m}`);
-      }
-    }
-    return slots;
-  }, [dayAppointments, showFreeSlots, duration]);
 
   const filteredPatients = useMemo(() => {
     if (!patientSearch) return patients;
@@ -276,6 +270,16 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId || !user) { toast.error('Selecione um paciente'); return; }
+
+    // Validate time before submitting (catches manual mode errors too)
+    const timeValidation = validateTime(startTime);
+    if (!timeValidation.valid) {
+      setTimeMode('manual');
+      setManualError(timeValidation.reason ?? 'Horário inválido.');
+      toast.error(timeValidation.reason ?? 'Horário inválido.');
+      return;
+    }
+
     setLoading(true);
     try {
       const startDt = buildLocalDateTime(date, startTime);
@@ -569,8 +573,82 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label>Horário</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+              <div className="flex items-center justify-between">
+                <Label>Horário</Label>
+                {timeMode === 'select' ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => { setTimeMode('manual'); setManualError(null); }}
+                  >
+                    <Pencil className="h-3 w-3" /> Inserir manual
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                    onClick={() => { setTimeMode('select'); setManualError(null); }}
+                  >
+                    <ChevronLeft className="h-3 w-3" /> Ver sugestões
+                  </button>
+                )}
+              </div>
+              {timeMode === 'select' ? (
+                slotsLoading ? (
+                  <div className="h-10 flex items-center gap-2 rounded-md border border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Carregando horários…
+                  </div>
+                ) : emptyMessage ? (
+                  <div className="h-10 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 text-xs text-destructive">
+                    <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                    {emptyMessage}
+                  </div>
+                ) : (
+                  <Select value={startTime} onValueChange={setStartTime}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um horário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSlots.map((slot) => (
+                        <SelectItem key={slot} value={slot}>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            {slot}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              ) : (
+                <div className="space-y-1">
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => {
+                      setStartTime(e.target.value);
+                      if (e.target.value) {
+                        const result = validateTime(e.target.value);
+                        setManualError(result.valid ? null : (result.reason ?? null));
+                      } else {
+                        setManualError(null);
+                      }
+                    }}
+                    required
+                    className={manualError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  />
+                  {manualError && (
+                    <p className="flex items-center gap-1 text-xs text-destructive">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {manualError}
+                    </p>
+                  )}
+                  {!manualError && clinicHoursLabel && (
+                    <p className="text-[11px] text-muted-foreground">Expediente: {clinicHoursLabel}</p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Duração (min)</Label>
@@ -578,50 +656,27 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             </div>
           </div>
 
-          {/* Find free slot */}
-          <div className="space-y-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 w-full"
-              onClick={() => setShowFreeSlots(!showFreeSlots)}
-            >
-              <Search className="h-3.5 w-3.5" />
-              {showFreeSlots ? 'Ocultar horários livres' : 'Encontrar horário livre'}
-            </Button>
-            {showFreeSlots && (
-              <div className="rounded-lg border border-border p-3 bg-muted/30">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Horários disponíveis em {format(new Date(date + 'T12:00:00'), "dd/MM/yyyy")} ({duration}min):
-                </p>
-                {freeSlots.length === 0 ? (
-                  <p className="text-xs text-destructive">Nenhum horário livre neste dia.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {freeSlots.slice(0, 12).map(slot => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => { setStartTime(slot); setShowFreeSlots(false); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
-                          startTime === slot
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'border-border hover:bg-muted text-foreground'
-                        }`}
-                      >
-                        <Clock className="h-3 w-3 inline mr-1" />
-                        {slot}
-                      </button>
-                    ))}
-                    {freeSlots.length > 12 && (
-                      <span className="text-xs text-muted-foreground self-center">+{freeSlots.length - 12} mais</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Find next free slot */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 w-full"
+            disabled={slotsLoading}
+            onClick={() => {
+              const next = findNextSlot();
+              if (next) {
+                setStartTime(next);
+                setTimeMode('select');
+                setManualError(null);
+              } else {
+                toast.warning(emptyMessage ?? 'Nenhum horário livre encontrado neste dia.');
+              }
+            }}
+          >
+            {slotsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+            Encontrar próximo horário livre
+          </Button>
 
           {/* Labels */}
           <div className="space-y-2">
