@@ -18,6 +18,7 @@ import {
   UserCog,
   Zap,
   Phone,
+  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -61,6 +62,7 @@ import { OverviewMetrics } from '@/components/secretaria-ia/OverviewMetrics';
 import { KnowledgeShortcuts } from '@/components/secretaria-ia/KnowledgeShortcuts';
 import { AutomationsPanel } from '@/components/secretaria-ia/AutomationsPanel';
 import { NpsPanel } from '@/components/secretaria-ia/NpsPanel';
+import CampaignsPage from '@/components/campaigns/CampaignsPage';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface AiConfigRow {
@@ -879,6 +881,11 @@ export default function SecretariaIA() {
                 <span className="hidden sm:inline">Transferência</span>
                 <span className="sm:hidden">Transfer</span>
               </TabsTrigger>
+              <TabsTrigger value="campanhas" className="gap-1.5">
+                <Mail className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Campanhas</span>
+                <span className="sm:hidden">Camp</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Visão geral */}
@@ -1120,6 +1127,11 @@ export default function SecretariaIA() {
             {/* Transferência para atendente humano */}
             <TabsContent value="transferencia" className="space-y-4">
               <HandoffPanel />
+            </TabsContent>
+
+            {/* Campanhas */}
+            <TabsContent value="campanhas" className="space-y-4">
+              <CampaignsPage clinicId={currentClinicId} />
             </TabsContent>
           </Tabs>
         </div>
