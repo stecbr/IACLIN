@@ -84,6 +84,7 @@ import { SuperAdminOperatorsSection } from "./components/superadmin/SuperAdminOp
 import SuperAdminPlans from "./pages/superadmin/SuperAdminPlans";
 import SuperAdminCoupons from "./pages/superadmin/SuperAdminCoupons";
 import SuperAdminPayments from "./pages/superadmin/SuperAdminPayments";
+import OAuthConsent from "./pages/oauth/OAuthConsent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -268,6 +269,7 @@ const AppRoutes = () => (
 
     <Route path="/auth" element={<Auth />} />
     <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
     <Route path="/onboarding" element={<OnboardingRoute />} />
     <Route path="/aguardando-clinica" element={<Navigate to="/onboarding" replace />} />
     <Route path="/marketplace" element={<Marketplace />} />
