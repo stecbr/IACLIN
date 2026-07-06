@@ -1794,6 +1794,7 @@ export type Database = {
           ans_registered_at: string | null
           approval_status: string
           brand_color: string | null
+          brand_group: string | null
           cnpj: string | null
           contact_email: string | null
           contact_phone: string | null
@@ -1830,6 +1831,7 @@ export type Database = {
           ans_registered_at?: string | null
           approval_status?: string
           brand_color?: string | null
+          brand_group?: string | null
           cnpj?: string | null
           contact_email?: string | null
           contact_phone?: string | null
@@ -1866,6 +1868,7 @@ export type Database = {
           ans_registered_at?: string | null
           approval_status?: string
           brand_color?: string | null
+          brand_group?: string | null
           cnpj?: string | null
           contact_email?: string | null
           contact_phone?: string | null
@@ -1953,34 +1956,88 @@ export type Database = {
       }
       insurance_plans_catalog: {
         Row: {
+          abrangencia_cobertura: string | null
+          acomodacao_hospitalar: string | null
           ans_code: string | null
+          ans_plan_id: number | null
+          cobertura: string | null
+          contratacao: string | null
           created_at: string
+          dt_registro_plano: string | null
+          dt_situacao: string | null
+          fator_moderador: string | null
+          gr_contratacao: string | null
+          gr_segmentacao_assistencial: string | null
+          has_odontologico: boolean | null
           id: string
           is_active: boolean
+          livre_escolha: string | null
+          obstetricia: string | null
           operator_id: string | null
           operator_name: string
           plan_name: string
+          porte_operadora: string | null
+          segmentacao_assistencial: string | null
+          situacao_plano: string | null
+          tipo_financiamento: string | null
           type: string
+          vigencia: string | null
         }
         Insert: {
+          abrangencia_cobertura?: string | null
+          acomodacao_hospitalar?: string | null
           ans_code?: string | null
+          ans_plan_id?: number | null
+          cobertura?: string | null
+          contratacao?: string | null
           created_at?: string
+          dt_registro_plano?: string | null
+          dt_situacao?: string | null
+          fator_moderador?: string | null
+          gr_contratacao?: string | null
+          gr_segmentacao_assistencial?: string | null
+          has_odontologico?: boolean | null
           id?: string
           is_active?: boolean
+          livre_escolha?: string | null
+          obstetricia?: string | null
           operator_id?: string | null
           operator_name: string
           plan_name: string
+          porte_operadora?: string | null
+          segmentacao_assistencial?: string | null
+          situacao_plano?: string | null
+          tipo_financiamento?: string | null
           type?: string
+          vigencia?: string | null
         }
         Update: {
+          abrangencia_cobertura?: string | null
+          acomodacao_hospitalar?: string | null
           ans_code?: string | null
+          ans_plan_id?: number | null
+          cobertura?: string | null
+          contratacao?: string | null
           created_at?: string
+          dt_registro_plano?: string | null
+          dt_situacao?: string | null
+          fator_moderador?: string | null
+          gr_contratacao?: string | null
+          gr_segmentacao_assistencial?: string | null
+          has_odontologico?: boolean | null
           id?: string
           is_active?: boolean
+          livre_escolha?: string | null
+          obstetricia?: string | null
           operator_id?: string | null
           operator_name?: string
           plan_name?: string
+          porte_operadora?: string | null
+          segmentacao_assistencial?: string | null
+          situacao_plano?: string | null
+          tipo_financiamento?: string | null
           type?: string
+          vigencia?: string | null
         }
         Relationships: [
           {
@@ -3831,6 +3888,7 @@ export type Database = {
           priority: string
           status: string
           subject: string
+          ticket_type: string
           updated_at: string
         }
         Insert: {
@@ -3844,6 +3902,7 @@ export type Database = {
           priority?: string
           status?: string
           subject: string
+          ticket_type?: string
           updated_at?: string
         }
         Update: {
@@ -3857,6 +3916,7 @@ export type Database = {
           priority?: string
           status?: string
           subject?: string
+          ticket_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -4129,6 +4189,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_test_plan: {
+        Args: {
+          p_current_period_end?: string
+          p_entity_id: string
+          p_entity_type: string
+          p_plan_id: string
+        }
+        Returns: undefined
+      }
       admin_delete_catalog_plan: { Args: { p_id: string }; Returns: undefined }
       admin_delete_operator: { Args: { p_id: string }; Returns: undefined }
       admin_get_all_operators: { Args: never; Returns: Json[] }
@@ -4163,14 +4232,32 @@ export type Database = {
       admin_get_operator_plans: {
         Args: { p_operator_id: string }
         Returns: {
+          abrangencia_cobertura: string | null
+          acomodacao_hospitalar: string | null
           ans_code: string | null
+          ans_plan_id: number | null
+          cobertura: string | null
+          contratacao: string | null
           created_at: string
+          dt_registro_plano: string | null
+          dt_situacao: string | null
+          fator_moderador: string | null
+          gr_contratacao: string | null
+          gr_segmentacao_assistencial: string | null
+          has_odontologico: boolean | null
           id: string
           is_active: boolean
+          livre_escolha: string | null
+          obstetricia: string | null
           operator_id: string | null
           operator_name: string
           plan_name: string
+          porte_operadora: string | null
+          segmentacao_assistencial: string | null
+          situacao_plano: string | null
+          tipo_financiamento: string | null
           type: string
+          vigencia: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -4196,6 +4283,7 @@ export type Database = {
           ans_registered_at: string | null
           approval_status: string
           brand_color: string | null
+          brand_group: string | null
           cnpj: string | null
           contact_email: string | null
           contact_phone: string | null
@@ -4229,14 +4317,32 @@ export type Database = {
       admin_upsert_catalog_plan: {
         Args: { payload: Json }
         Returns: {
+          abrangencia_cobertura: string | null
+          acomodacao_hospitalar: string | null
           ans_code: string | null
+          ans_plan_id: number | null
+          cobertura: string | null
+          contratacao: string | null
           created_at: string
+          dt_registro_plano: string | null
+          dt_situacao: string | null
+          fator_moderador: string | null
+          gr_contratacao: string | null
+          gr_segmentacao_assistencial: string | null
+          has_odontologico: boolean | null
           id: string
           is_active: boolean
+          livre_escolha: string | null
+          obstetricia: string | null
           operator_id: string | null
           operator_name: string
           plan_name: string
+          porte_operadora: string | null
+          segmentacao_assistencial: string | null
+          situacao_plano: string | null
+          tipo_financiamento: string | null
           type: string
+          vigencia: string | null
         }
         SetofOptions: {
           from: "*"
@@ -4260,6 +4366,7 @@ export type Database = {
           ans_registered_at: string | null
           approval_status: string
           brand_color: string | null
+          brand_group: string | null
           cnpj: string | null
           contact_email: string | null
           contact_phone: string | null
@@ -4338,6 +4445,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
