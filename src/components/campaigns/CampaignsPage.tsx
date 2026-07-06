@@ -1,123 +1,65 @@
 import { useState, useEffect } from 'react';
 import { useApi } from '@/hooks/useApi';
-import CampaignForm from './CampaignForm';
-import CampaignList from './CampaignList';
-import './CampaignsPage.css';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Eye, Copy, X } from 'lucide-react';
+import CampaignsWizard from './CampaignsWizard';
+import CampaignHistory from './CampaignHistory';
 
-interface Campaign {
-  id: string;
-  name: string;
-  description?: string;
-  template: string;
-  channels: string[];
-  status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
-  stats: {
-    total_recipients: number;
-    sent_whatsapp: number;
-    sent_sms: number;
-    failed_whatsapp: number;
-    failed_sms: number;
-  };
-  created_at: string;
-}
-
-interface CampaignsPageProps {
-  clinicId: string;
-}
-
-export default function CampaignsPage({ clinicId }: CampaignsPageProps) {
-  const { request } = useApi();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+export default function CampaignsPage({ clinicId }: { clinicId: string }) {
+  const [activeTab, setActiveTab] = useState('create');
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
   const loadCampaigns = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const data = await request(`/api/clinics/${clinicId}/campaigns`);
-      setCampaigns(data.data || []);
+      // API call here
+      setCampaigns([]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar campanhas');
+      console.error('Erro ao carregar campanhas:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (clinicId) {
-      loadCampaigns();
-    }
+    loadCampaigns();
   }, [clinicId]);
 
-  const handleCreateOrUpdate = async () => {
-    await loadCampaigns();
-    setShowForm(false);
-    setSelectedCampaign(null);
-  };
-
-  const handleDelete = async (campaignId: string) => {
-    if (!window.confirm('Deletar campanha?')) return;
-
-    try {
-      await request(`/api/clinics/${clinicId}/campaigns/${campaignId}`, {
-        method: 'DELETE',
-      });
-      await loadCampaigns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao deletar');
-    }
-  };
-
-  const handleSend = async (campaignId: string) => {
-    if (!window.confirm('Enviar campanha para todos os recipients?')) return;
-
-    try {
-      setLoading(true);
-      await request(`/api/clinics/${clinicId}/campaigns/${campaignId}/send`, {
-        method: 'POST',
-      });
-      await loadCampaigns();
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao enviar');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="campaigns-page">
-      <div className="campaigns-header">
-        <h1>📧 Campanhas</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancelar' : '+ Nova Campanha'}
-        </button>
+    <div className="space-y-6 max-w-6xl">
+      {/* Header */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Campanhas</h1>
+        <p className="text-muted-foreground">
+          Envie mensagens em massa via WhatsApp e mantenha seus pacientes sempre informados.
+        </p>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-none gap-2">
+          <TabsTrigger value="create" className="gap-2">
+            <Plus className="w-4 h-4" />
+            Nova Campanha
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            Histórico
+          </TabsTrigger>
+        </TabsList>
 
-      {showForm && (
-        <CampaignForm
-          clinicId={clinicId}
-          campaign={selectedCampaign || undefined}
-          onSuccess={handleCreateOrUpdate}
-        />
-      )}
+        {/* Create Tab */}
+        <TabsContent value="create" className="py-6">
+          <CampaignsWizard clinicId={clinicId} onComplete={() => setActiveTab('history')} />
+        </TabsContent>
 
-      {loading && <div className="spinner">Carregando...</div>}
-
-      <CampaignList
-        campaigns={campaigns}
-        onDelete={handleDelete}
-        onSend={handleSend}
-        onEdit={(campaign) => {
-          setSelectedCampaign(campaign);
-          setShowForm(true);
-        }}
-      />
+        {/* History Tab */}
+        <TabsContent value="history" className="py-6">
+          <CampaignHistory clinicId={clinicId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
