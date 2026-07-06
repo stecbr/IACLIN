@@ -610,7 +610,6 @@ export default function Financial() {
               clinicId={currentClinicId ?? null}
               periodRange={period}
               onApprovedOutOfRange={() => {
-                setPeriodFilter('all');
                 setActiveTab('transactions');
                 toast.info('Transação aprovada está fora do período atual. Mostrando "Todos os períodos".');
               }}
