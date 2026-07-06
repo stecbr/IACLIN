@@ -75,7 +75,14 @@ export default function SettingsPage() {
   const isStaff = (clinicRole as string) === 'secretary' || (clinicRole as string) === 'auxiliary';
   const canManageClinic = !isStaff && (isClinicOwner || clinicRole === 'admin' || (clinicRole as string) === 'owner');
   const showScopeToggle = canManageClinic;
-  const baseSections = isStaff ? allSections.filter((s) => STAFF_SECTIONS.includes(s.id)) : allSections;
+  // Staff (secretária/auxiliar): só perfil/segurança/aparência
+  // Membro vinculado sem poder de gestão (dentista/médico): só seções pessoais
+  // Owner/admin: todas as seções com toggle Personal ↔ Clínica
+  const baseSections = isStaff
+    ? allSections.filter((s) => STAFF_SECTIONS.includes(s.id))
+    : canManageClinic
+      ? allSections
+      : allSections.filter((s) => PERSONAL_IDS.includes(s.id));
   const requested = searchParams.get('section');
   const requestedValid = requested && baseSections.some((s) => s.id === requested) ? requested : null;
   const initialScope: SettingsScope =
