@@ -64,7 +64,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolved, setTheme } = useTheme();
-  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinicsLoaded, user, clinics } = useAuth();
+  const { currentClinicId, isPersonalMode, clinicRole, isMembershipSuspended, signOut, profile, roles, clinicsLoaded, user, clinics, isClinicOwner } = useAuth();
   const [subOnboardingOpen, setSubOnboardingOpen] = useState(false);
 
   // Whitelist of roles that gate behind a paid plan
@@ -103,12 +103,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
     (clinics?.length ?? 0) === 0 &&
     !isPersonalMode;
 
+  // Membros vinculados que não são owner/admin não podem resolver a assinatura —
+  // mostrar o modal apenas uma vez por sessão para não bloquear o uso.
+  const isLinkedMemberOnly =
+    clinicsLoaded &&
+    (clinics?.length ?? 0) > 0 &&
+    !isClinicOwner &&
+    clinicRole !== 'admin';
+
   useEffect(() => {
     if (!hasProfessionalRole) return;
     if (!clinicsLoaded || subCheckLoading) return;
     if (hasActiveSub) return;
+    // Para membros sem poder de assinar: só mostra uma vez por sessão
+    if (isLinkedMemberOnly) {
+      const sessionKey = `iaclin-sub-modal-seen-${user?.id}`;
+      if (sessionStorage.getItem(sessionKey)) return;
+      sessionStorage.setItem(sessionKey, 'true');
+    }
     setSubOnboardingOpen(true);
-  }, [clinicsLoaded, subCheckLoading, hasActiveSub, hasProfessionalRole]);
+  }, [clinicsLoaded, subCheckLoading, hasActiveSub, hasProfessionalRole, isLinkedMemberOnly]);
   const { effectiveRole, canAccess } = useRoleAccess();
   const { isStaff } = useStaffPermissions();
   const { label: professionalLabel, isOdonto } = useProfessionalLabel();
