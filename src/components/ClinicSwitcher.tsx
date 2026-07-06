@@ -37,9 +37,11 @@ export function ClinicSwitcher() {
             collapsed ? 'justify-center' : ''
           } ${triggerIsPersonal ? 'ring-1 ring-amber-500/40 bg-amber-500/5' : 'bg-sidebar-accent/40 border border-sidebar-border/60'}`}
         >
-          <div className={`h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0 ${triggerIsPersonal ? 'bg-amber-500/15' : 'bg-primary/10'}`}>
+          <div className={`h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden ${triggerIsPersonal ? 'bg-amber-500/15' : 'bg-primary/10'}`}>
             {triggerIsPersonal ? (
               <BadgePlus className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            ) : current?.logo_url ? (
+              <img src={current.logo_url} alt={current.clinic_name} className="h-full w-full object-cover" />
             ) : (
               <Building2 className="h-3.5 w-3.5 text-primary" />
             )}
@@ -89,8 +91,12 @@ export function ClinicSwitcher() {
             onClick={() => switchClinic(c.clinic_id)}
             className="gap-2 focus:bg-accent/60"
           >
-            <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Building2 className="h-3.5 w-3.5 text-primary" />
+            <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {c.logo_url ? (
+                <img src={c.logo_url} alt={c.clinic_name} className="h-full w-full object-cover" />
+              ) : (
+                <Building2 className="h-3.5 w-3.5 text-primary" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate text-foreground">{c.clinic_name}</p>

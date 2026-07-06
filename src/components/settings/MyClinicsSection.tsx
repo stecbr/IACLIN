@@ -98,8 +98,12 @@ export default function MyClinicsSection() {
                     isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border/60 bg-background'
                   }`}
                 >
-                  <div className="h-10 w-10 rounded-lg bg-muted text-muted-foreground flex items-center justify-center font-medium flex-shrink-0">
-                    {c.clinic_name?.[0]?.toUpperCase() ?? 'C'}
+                  <div className="h-10 w-10 rounded-lg bg-muted text-muted-foreground flex items-center justify-center font-medium flex-shrink-0 overflow-hidden">
+                    {c.logo_url ? (
+                      <img src={c.logo_url} alt={c.clinic_name} className="h-full w-full object-cover" />
+                    ) : (
+                      c.clinic_name?.[0]?.toUpperCase() ?? 'C'
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
