@@ -17,6 +17,7 @@ interface ClinicMembership {
   is_owner: boolean;
   category: ClinicCategory;
   is_active: boolean;
+  logo_url?: string | null;
 }
 
 interface AuthContextType {
@@ -103,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const clinicIds = memberRows.map((m) => m.clinic_id);
         const { data: clinicsData } = await supabase
           .from('clinics')
-          .select('id, name, category')
+          .select('id, name, category, logo_url')
           .in('id', clinicIds);
         const clinicMap = new Map((clinicsData ?? []).map((c) => [c.id, c]));
         const memberships: ClinicMembership[] = memberRows.map((m) => ({
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_owner: m.is_owner,
           category: (clinicMap.get(m.clinic_id)?.category ?? 'odonto') as ClinicCategory,
           is_active: m.is_active !== false,
+          logo_url: (clinicMap.get(m.clinic_id) as any)?.logo_url ?? null,
         }));
         if (!mounted) return;
         setClinics(memberships);
