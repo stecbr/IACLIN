@@ -8,7 +8,7 @@ interface Campaign {
   description?: string;
   template: string;
   channels: string[];
-  filters: {
+  filters?: {
     patient_type: 'all' | 'returning' | 'new';
     last_visit_days?: number | null;
     procedures?: string[] | null;
@@ -27,19 +27,21 @@ export default function CampaignForm({ clinicId, campaign, onSuccess }: Campaign
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recipients, setRecipients] = useState<any>(null);
-  const [form, setForm] = useState<Campaign>(
-    campaign || {
+  const [form, setForm] = useState<Required<Pick<Campaign, 'filters'>> & Campaign>(
+    {
+      ...(campaign || {
       name: '',
       description: '',
       template: 'Olá {patient_name}!',
       channels: ['whatsapp'],
-      filters: {
+      }),
+      filters: campaign?.filters || {
         patient_type: 'all',
         last_visit_days: null,
         procedures: null,
         insurance_plan: null,
       },
-    }
+    } as any
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
