@@ -38,6 +38,7 @@ import SecretariaIA from "./pages/SecretariaIA";
 import SecretariaIAPainel from "./pages/SecretariaIAPainel";
 import IaGestor from "./pages/IaGestor";
 import AtendimentosIA from "./pages/AtendimentosIA";
+import CampaignsPageWrapper from "./pages/CampaignsPage";
 import Availability from "./pages/Availability";
 import WaitingRoom from "./pages/WaitingRoom";
 import PatientsOfDay from "./pages/PatientsOfDay";
@@ -335,6 +336,7 @@ const AppRoutes = () => (
     <Route path="/ia-gestor" element={<ProtectedRoute><IaGestor /></ProtectedRoute>} />
     <Route path="/ia-gestor/:threadId" element={<ProtectedRoute><IaGestor /></ProtectedRoute>} />
     <Route path="/atendimentos-ia" element={<ProtectedRoute><AtendimentosIA /></ProtectedRoute>} />
+    <Route path="/campanhas" element={<ProtectedRoute><CampaignsPageWrapper /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/assinatura" element={<Navigate to="/settings" replace />} />
     <Route path="/perfil" element={<Navigate to="/settings" replace />} />
