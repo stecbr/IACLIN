@@ -374,57 +374,82 @@ Deno.serve(async (req) => {
 
     if (insErr) throw insErr;
 
-    // Notifica os admins da clínica por e-mail (best-effort; não bloqueia a resposta).
+    // Notifica admin(s) e secretaria(s) da clínica por e-mail via Resend (best-effort).
     try {
-      const { data: admins } = await admin
-        .from('clinic_members')
-        .select('user_id')
-        .eq('clinic_id', clinicId)
-        .eq('role', 'admin');
+      const [staffRes, clinicRes] = await Promise.all([
+        admin
+          .from('clinic_members')
+          .select('user_id, role')
+          .eq('clinic_id', clinicId)
+          .in('role', ['admin', 'secretary'])
+          .eq('is_active', true),
+        admin.from('clinics').select('name, phone, city, state').eq('id', clinicId).maybeSingle(),
+      ]);
 
-      const adminIds = [...new Set((admins ?? []).map((m: any) => m.user_id as string))];
-      if (adminIds.length > 0) {
-        const emails = (
-          await Promise.all(
-            adminIds.map(async (id) => {
-              const { data } = await admin.auth.admin.getUserById(id);
-              return data?.user?.email ?? null;
-            }),
-          )
-        ).filter((e): e is string => Boolean(e));
+      const staff = (staffRes.data ?? []) as { user_id: string; role: string }[];
+      const uniqueIds = [...new Set(staff.map((s) => s.user_id))];
 
+      const emails = (
+        await Promise.all(
+          uniqueIds.map(async (id) => {
+            const { data } = await admin.auth.admin.getUserById(id);
+            return data?.user?.email ?? null;
+          }),
+        )
+      ).filter((e): e is string => Boolean(e));
+
+      if (emails.length > 0) {
+        const clinicName = (clinicRes.data?.name as string) || 'Sua clínica';
         const patientName = (account.full_name as string) || 'Paciente';
+        const patientPhone = (account.phone as string) || '—';
+        const patientCpf = (account.cpf as string) || '—';
         const dateStr = new Intl.DateTimeFormat('pt-BR', {
+          weekday: 'long',
           day: '2-digit',
-          month: '2-digit',
+          month: 'long',
           year: 'numeric',
           timeZone: 'America/Sao_Paulo',
         }).format(start);
-        const timeStr = fmtHM(startTime);
-        const subject = 'Nova consulta para aprovar';
-        const html = `<p>${patientName} solicitou uma consulta com Dr(a). ${dentistName} em ${dateStr} às ${timeStr}.</p><p>Acesse Aprovações no IACLIN para confirmar ou recusar.</p>`;
-        const text = `${patientName} solicitou uma consulta com Dr(a). ${dentistName} em ${dateStr} às ${timeStr}. Acesse Aprovações no IACLIN para confirmar ou recusar.`;
+        const timeStr = `${fmtHM(startTime)} — ${fmtHM(endTime)}`;
+        const insurance = (account.insurance_provider as string)
+          ? `${account.insurance_provider}${account.insurance_number ? ` (${account.insurance_number})` : ''}`
+          : 'Particular';
 
-        await Promise.all(
-          emails.map((to) =>
-            admin.rpc('enqueue_email', {
-              queue_name: 'transactional_emails',
-              payload: {
-                message_id: crypto.randomUUID(),
-                to,
-                subject,
-                html,
-                text,
-                purpose: 'transactional',
-                label: 'appointment_request_pending',
-                queued_at: new Date().toISOString(),
-              },
-            }),
-          ),
-        );
+        const rows: { label: string; value: string }[] = [
+          { label: 'Paciente', value: patientName },
+          { label: 'Telefone', value: patientPhone },
+          { label: 'CPF', value: patientCpf },
+          { label: 'Profissional', value: `Dr(a). ${dentistName}` },
+        ];
+        if (specialty) rows.push({ label: 'Especialidade', value: specialty });
+        rows.push({ label: 'Convênio', value: insurance });
+        rows.push({ label: 'Solicitado em', value: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) });
+
+        const appUrl = Deno.env.get('APP_PUBLIC_URL') || 'https://iaclin.lovable.app';
+        const html = renderBrandedEmail({
+          preheader: `${patientName} solicitou uma consulta em ${dateStr} às ${fmtHM(startTime)}.`,
+          title: 'Nova solicitação de agendamento',
+          intro: `${patientName} solicitou uma consulta na ${clinicName} e aguarda sua aprovação.`,
+          clinicName,
+          highlightBox: { label: 'Horário solicitado', value: `${dateStr} · ${timeStr}` },
+          rows,
+          notes: notes || undefined,
+          ctaLabel: 'Aprovar no painel',
+          ctaUrl: `${appUrl}/clinica/aprovacoes`,
+          footerNote: 'Você recebeu este e-mail porque é responsável (admin ou secretaria) da clínica. Aprove ou recuse a solicitação diretamente no IACLIN.',
+        });
+        const text = `Nova solicitação de agendamento — ${clinicName}\n\nPaciente: ${patientName}\nTelefone: ${patientPhone}\nProfissional: Dr(a). ${dentistName}\nHorário: ${dateStr} ${timeStr}\n${notes ? `Observações: ${notes}\n` : ''}\nAprove em: ${appUrl}/clinica/aprovacoes`;
+
+        await sendResendEmail({
+          to: emails,
+          subject: `Nova solicitação — ${patientName} · ${fmtHM(startTime)}`,
+          html,
+          text,
+          tags: [{ name: 'type', value: 'appointment_request_pending' }],
+        });
       }
     } catch (notifyErr) {
-      console.error('[request-appointment] failed to enqueue admin email notification', notifyErr);
+      console.error('[request-appointment] failed to send Resend notification', notifyErr);
     }
 
     return new Response(JSON.stringify({ success: true, requestId: created.id }), {
