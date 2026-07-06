@@ -70,7 +70,7 @@ const STEPS_STAFF = [
 ];
 
 export function WelcomeTour() {
-  const { user, isClinicOwner, clinicRole } = useAuth();
+  const { user, isClinicOwner, clinicRole, currentClinicId, clinicsLoaded } = useAuth();
   const { effectiveRole } = useRoleAccess();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -81,21 +81,29 @@ export function WelcomeTour() {
   const steps = isStaff ? STEPS_STAFF : isOwnerOrAdmin ? STEPS_CLINIC : STEPS_DENTIST;
 
   useEffect(() => {
-    if (!user?.id || shown.current) return;
-    // Fast local check first (same device)
+    // Aguarda o contexto carregar clínicas antes de decidir
+    if (!user?.id || !clinicsLoaded || shown.current) return;
+
     const localKey = `iaclin-welcome-seen-${user.id}`;
     if (localStorage.getItem(localKey)) return;
-    // Cross-device check via auth metadata
+
     const meta = user.user_metadata as Record<string, unknown> | undefined;
     if (meta?.welcome_tour_seen) {
-      // Mark locally so we skip the check next time on this device
       localStorage.setItem(localKey, 'true');
       return;
     }
+
+    // Usuário já vinculado a uma clínica não precisa do tour de configuração
+    if (currentClinicId) {
+      localStorage.setItem(localKey, 'true');
+      supabase.auth.updateUser({ data: { welcome_tour_seen: true } });
+      return;
+    }
+
     shown.current = true;
     const timer = setTimeout(() => setOpen(true), 800);
     return () => clearTimeout(timer);
-  }, [user?.id]);
+  }, [user?.id, clinicsLoaded, currentClinicId]);
 
   const handleClose = () => {
     if (user?.id) {
