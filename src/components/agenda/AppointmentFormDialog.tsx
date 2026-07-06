@@ -664,7 +664,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             className="gap-1.5 w-full"
             disabled={slotsLoading}
             onClick={() => {
-              const next = findNextSlot();
+              const next = findNextSlot(startTime);
               if (next) {
                 setStartTime(next);
                 setTimeMode('select');

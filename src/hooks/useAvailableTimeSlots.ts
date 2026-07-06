@@ -30,7 +30,7 @@ export interface UseAvailableTimeSlotsResult {
   emptyMessage: string | null;
   clinicOpen: boolean;
   clinicHoursLabel: string | null; // e.g. "08:00–18:00"
-  findNextSlot: () => string | null;
+  findNextSlot: (afterTime?: string) => string | null;
   validateTime: (time: string) => { valid: boolean; reason?: string };
 }
 
@@ -160,8 +160,12 @@ export function useAvailableTimeSlots({
     return null;
   }, [clinicOpen, availableSlots]);
 
-  // ── findNextSlot: first available slot from now ────────────────────────
-  const findNextSlot = (): string | null => availableSlots[0] ?? null;
+  // ── findNextSlot: first available slot, optionally after a given time ─
+  const findNextSlot = (afterTime?: string): string | null => {
+    if (!afterTime) return availableSlots[0] ?? null;
+    const afterMin = toMin(afterTime);
+    return availableSlots.find(s => toMin(s) > afterMin) ?? availableSlots[0] ?? null;
+  };
 
   // ── validateTime: used for manual input ───────────────────────────────
   const validateTime = (time: string): { valid: boolean; reason?: string } => {
