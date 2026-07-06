@@ -373,6 +373,59 @@ Deno.serve(async (req) => {
 
     if (insErr) throw insErr;
 
+    // Notifica os admins da clínica por e-mail (best-effort; não bloqueia a resposta).
+    try {
+      const { data: admins } = await admin
+        .from('clinic_members')
+        .select('user_id')
+        .eq('clinic_id', clinicId)
+        .eq('role', 'admin');
+
+      const adminIds = [...new Set((admins ?? []).map((m: any) => m.user_id as string))];
+      if (adminIds.length > 0) {
+        const emails = (
+          await Promise.all(
+            adminIds.map(async (id) => {
+              const { data } = await admin.auth.admin.getUserById(id);
+              return data?.user?.email ?? null;
+            }),
+          )
+        ).filter((e): e is string => Boolean(e));
+
+        const patientName = (account.full_name as string) || 'Paciente';
+        const dateStr = new Intl.DateTimeFormat('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          timeZone: 'America/Sao_Paulo',
+        }).format(start);
+        const timeStr = fmtHM(startTime);
+        const subject = 'Nova consulta para aprovar';
+        const html = `<p>${patientName} solicitou uma consulta com Dr(a). ${dentistName} em ${dateStr} às ${timeStr}.</p><p>Acesse Aprovações no IACLIN para confirmar ou recusar.</p>`;
+        const text = `${patientName} solicitou uma consulta com Dr(a). ${dentistName} em ${dateStr} às ${timeStr}. Acesse Aprovações no IACLIN para confirmar ou recusar.`;
+
+        await Promise.all(
+          emails.map((to) =>
+            admin.rpc('enqueue_email', {
+              queue_name: 'transactional_emails',
+              payload: {
+                message_id: crypto.randomUUID(),
+                to,
+                subject,
+                html,
+                text,
+                purpose: 'transactional',
+                label: 'appointment_request_pending',
+                queued_at: new Date().toISOString(),
+              },
+            }),
+          ),
+        );
+      }
+    } catch (notifyErr) {
+      console.error('[request-appointment] failed to enqueue admin email notification', notifyErr);
+    }
+
     return new Response(JSON.stringify({ success: true, requestId: created.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
