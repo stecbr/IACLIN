@@ -115,12 +115,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
     if (!hasProfessionalRole) return;
     if (!clinicsLoaded || subCheckLoading) return;
     if (hasActiveSub) return;
-    // Para membros sem poder de assinar: só mostra uma vez por sessão
-    if (isLinkedMemberOnly) {
-      const sessionKey = `iaclin-sub-modal-seen-${user?.id}`;
-      if (sessionStorage.getItem(sessionKey)) return;
-      sessionStorage.setItem(sessionKey, 'true');
-    }
+    // Membros vinculados a uma clínica não controlam a assinatura — nunca exibir o modal
+    if (isLinkedMemberOnly) return;
     setSubOnboardingOpen(true);
   }, [clinicsLoaded, subCheckLoading, hasActiveSub, hasProfessionalRole, isLinkedMemberOnly]);
   const { effectiveRole, canAccess } = useRoleAccess();
