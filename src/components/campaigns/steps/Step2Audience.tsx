@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CampaignData } from '../CampaignsWizard';
+import { useApi } from '@/hooks/useApi';
 import {
   Select,
   SelectContent,
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Users } from 'lucide-react';
+import { Users, Loader2 } from 'lucide-react';
 
 const AUDIENCE_OPTIONS = [
   { id: 'all', label: 'Todos os pacientes', icon: '👥' },
@@ -35,25 +35,82 @@ export default function Step2Audience({
   data: CampaignData;
   onChange: (data: Partial<CampaignData>) => void;
 }) {
+  const { request } = useApi();
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [specialties, setSpecialties] = useState<any[]>([]);
+  const [procedures, setProcedures] = useState<any[]>([]);
+  const [insurances, setInsurances] = useState<any[]>([]);
 
-  // Simular contagem de pacientes (em produção virá da API)
-  const estimateRecipients = () => {
-    const baseCount: Record<string, number> = {
-      all: 542,
-      active: 437,
-      inactive: 105,
-      scheduled: 23,
-      absent: 198,
-      birthday: 12,
-      private: 234,
-      insurance: 308,
-      manual: 0,
-    };
-    return baseCount[data.audienceType] || 0;
+  // Carregar dados auxiliares
+  useEffect(() => {
+    loadAuxiliaryData();
+  }, [clinicId]);
+
+  const loadAuxiliaryData = async () => {
+    try {
+      // Carregar profissionais
+      // const profResp = await request(`/api/clinics/${clinicId}/professionals`);
+      // setProfessionals(profResp.data || []);
+
+      // Carregar especialidades
+      // const specResp = await request(`/api/clinics/${clinicId}/specialties`);
+      // setSpecialties(specResp.data || []);
+
+      // Carregar procedimentos
+      // const procResp = await request(`/api/clinics/${clinicId}/procedures`);
+      // setProcedures(procResp.data || []);
+
+      // Carregar convênios
+      // const insResp = await request(`/api/clinics/${clinicId}/insurances`);
+      // setInsurances(insResp.data || []);
+    } catch (err) {
+      console.error('Erro ao carregar dados auxiliares:', err);
+    }
   };
 
-  const currentCount = estimateRecipients();
+  // Estimar contagem de pacientes pela API
+  const estimateRecipients = async (audienceType: string, filters?: any) => {
+    try {
+      setLoading(true);
+      const response = await request(
+        `/api/clinics/${clinicId}/campaigns/estimate`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            audience_type: audienceType,
+            filters: filters || {},
+          }),
+        }
+      );
+      return response.data?.count || 0;
+    } catch (err) {
+      console.error('Erro ao estimar recipients:', err);
+      return 0;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAudienceSelect = async (audienceType: string) => {
+    const count = await estimateRecipients(audienceType);
+    onChange({
+      audienceType: audienceType as any,
+      recipientCount: count,
+      filters: {},
+    });
+    setShowFilters(true);
+  };
+
+  const handleFilterChange = async (filterKey: string, filterValue: any) => {
+    const newFilters = { ...data.filters, [filterKey]: filterValue };
+    const count = await estimateRecipients(data.audienceType, newFilters);
+    onChange({
+      filters: newFilters,
+      recipientCount: count,
+    });
+  };
 
   return (
     <div className="space-y-8">
@@ -68,12 +125,10 @@ export default function Step2Audience({
           {AUDIENCE_OPTIONS.map((option) => (
             <button
               key={option.id}
-              onClick={() => {
-                onChange({ audienceType: option.id as any, recipientCount: estimateRecipients() });
-                setShowFilters(true);
-              }}
+              onClick={() => handleAudienceSelect(option.id)}
+              disabled={loading}
               className={cn(
-                'p-3 rounded-lg border-2 text-left transition-all hover:border-blue-400 flex items-center gap-3',
+                'p-3 rounded-lg border-2 text-left transition-all hover:border-blue-400 flex items-center gap-3 disabled:opacity-50',
                 data.audienceType === option.id
                   ? 'border-blue-600 bg-blue-50'
                   : 'border-gray-200 hover:bg-gray-50'
@@ -87,16 +142,26 @@ export default function Step2Audience({
       </div>
 
       {/* Recipient Count */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
-        <Users className="w-5 h-5 text-blue-600" />
-        <div>
-          <p className="font-semibold text-blue-900">
-            {currentCount > 0 ? currentCount : 'Nenhum'} paciente{currentCount !== 1 ? 's' : ''} será{' '}
-            {currentCount !== 1 ? '' : 'á'} impactado{currentCount !== 1 ? 's' : ''}
-          </p>
-          <p className="text-xs text-blue-700">Essa estimativa será atualizada conforme você adiciona filtros</p>
+      {loading ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+          <div>
+            <p className="font-semibold text-blue-900">Contando pacientes...</p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+          <Users className="w-5 h-5 text-blue-600" />
+          <div>
+            <p className="font-semibold text-blue-900">
+              {data.recipientCount > 0
+                ? `${data.recipientCount} paciente${data.recipientCount !== 1 ? 's' : ''} será${data.recipientCount !== 1 ? 'ão' : 'á'} impactado${data.recipientCount !== 1 ? 's' : ''}`
+                : 'Nenhum paciente encontrado'}
+            </p>
+            <p className="text-xs text-blue-700">Essa estimativa será atualizada conforme você adiciona filtros</p>
+          </div>
+        </div>
+      )}
 
       {/* Additional Filters */}
       {showFilters && (
@@ -109,14 +174,20 @@ export default function Step2Audience({
               <Label htmlFor="filter-prof" className="text-sm">
                 Profissional
               </Label>
-              <Select value={data.filters.professional || ''} onValueChange={(v) => onChange({ filters: { ...data.filters, professional: v } })}>
-                <SelectTrigger id="filter-prof">
+              <Select
+                value={data.filters.professional || ''}
+                onValueChange={(v) => handleFilterChange('professional', v || null)}
+              >
+                <SelectTrigger id="filter-prof" disabled={loading}>
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todos</SelectItem>
-                  <SelectItem value="dra-maria">Dra. Maria Silva</SelectItem>
-                  <SelectItem value="dr-joao">Dr. João Costa</SelectItem>
+                  {professionals.map((prof) => (
+                    <SelectItem key={prof.id} value={prof.id}>
+                      {prof.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -126,14 +197,20 @@ export default function Step2Audience({
               <Label htmlFor="filter-spec" className="text-sm">
                 Especialidade
               </Label>
-              <Select value={data.filters.specialty || ''} onValueChange={(v) => onChange({ filters: { ...data.filters, specialty: v } })}>
-                <SelectTrigger id="filter-spec">
+              <Select
+                value={data.filters.specialty || ''}
+                onValueChange={(v) => handleFilterChange('specialty', v || null)}
+              >
+                <SelectTrigger id="filter-spec" disabled={loading}>
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todas</SelectItem>
-                  <SelectItem value="dentistry">Odontologia</SelectItem>
-                  <SelectItem value="orthodontics">Ortodontia</SelectItem>
+                  {specialties.map((spec) => (
+                    <SelectItem key={spec.id} value={spec.id}>
+                      {spec.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -143,14 +220,20 @@ export default function Step2Audience({
               <Label htmlFor="filter-proc" className="text-sm">
                 Procedimento
               </Label>
-              <Select value={data.filters.procedure || ''} onValueChange={(v) => onChange({ filters: { ...data.filters, procedure: v } })}>
-                <SelectTrigger id="filter-proc">
+              <Select
+                value={data.filters.procedure || ''}
+                onValueChange={(v) => handleFilterChange('procedure', v || null)}
+              >
+                <SelectTrigger id="filter-proc" disabled={loading}>
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todos</SelectItem>
-                  <SelectItem value="cleaning">Limpeza</SelectItem>
-                  <SelectItem value="whitening">Clareamento</SelectItem>
+                  {procedures.map((proc) => (
+                    <SelectItem key={proc.id} value={proc.id}>
+                      {proc.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -160,14 +243,20 @@ export default function Step2Audience({
               <Label htmlFor="filter-insurance" className="text-sm">
                 Convênio
               </Label>
-              <Select value={data.filters.insurance || ''} onValueChange={(v) => onChange({ filters: { ...data.filters, insurance: v } })}>
-                <SelectTrigger id="filter-insurance">
+              <Select
+                value={data.filters.insurance || ''}
+                onValueChange={(v) => handleFilterChange('insurance', v || null)}
+              >
+                <SelectTrigger id="filter-insurance" disabled={loading}>
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todos</SelectItem>
-                  <SelectItem value="unimed">Unimed</SelectItem>
-                  <SelectItem value="bradesco">Bradesco Saúde</SelectItem>
+                  {insurances.map((ins) => (
+                    <SelectItem key={ins.id} value={ins.id}>
+                      {ins.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -176,16 +265,17 @@ export default function Step2Audience({
             {data.audienceType === 'absent' && (
               <div className="space-y-2">
                 <Label htmlFor="filter-days" className="text-sm">
-                  Últimas X meses
+                  Últimos X meses
                 </Label>
                 <Input
                   id="filter-days"
                   type="number"
                   placeholder="Ex: 6"
                   min="1"
+                  disabled={loading}
                   value={data.filters.lastConsultDays || ''}
                   onChange={(e) =>
-                    onChange({ filters: { ...data.filters, lastConsultDays: parseInt(e.target.value) || 0 } })
+                    handleFilterChange('lastConsultDays', parseInt(e.target.value) || 0)
                   }
                 />
               </div>
