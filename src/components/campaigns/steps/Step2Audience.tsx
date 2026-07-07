@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { CampaignData } from '../CampaignsWizard';
-import { useApi } from '@/hooks/useApi';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  resolveCampaignAudience,
+  type AudienceType,
+  type AudienceFilters,
+} from '@/hooks/useCampaignAudience';
 import {
   Select,
   SelectContent,
@@ -34,64 +39,47 @@ export default function Step2Audience({
   data: CampaignData;
   onChange: (data: Partial<CampaignData>) => void;
 }) {
-  const { request } = useApi();
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [procedures] = useState<any[]>([
-    { id: 'proc-1', name: 'Limpeza' },
-    { id: 'proc-2', name: 'Clareamento' },
-    { id: 'proc-3', name: 'Restauração' },
-  ]);
-  const [insurances] = useState<any[]>([
-    { id: 'ins-1', name: 'Unimed' },
-    { id: 'ins-2', name: 'Bradesco Saúde' },
-    { id: 'ins-3', name: 'Amil' },
-  ]);
+  const [insurances, setInsurances] = useState<{ id: string; name: string }[]>([]);
 
-  // Carregar dados auxiliares
+  // Carrega os convênios REAIS presentes nos pacientes da clínica (Supabase),
+  // em vez de uma lista fixa. Vira o dropdown de "Por convênio".
   useEffect(() => {
-    loadAuxiliaryData();
+    if (!clinicId) return;
+    (async () => {
+      try {
+        const { data: rows, error } = await supabase
+          .from('patients')
+          .select('insurance_provider')
+          .eq('clinic_id', clinicId)
+          .not('insurance_provider', 'is', null)
+          .limit(5000);
+        if (error) throw error;
+        const unique = Array.from(
+          new Set((rows ?? []).map((r: { insurance_provider: string | null }) => r.insurance_provider).filter(Boolean) as string[]),
+        ).sort();
+        setInsurances(unique.map((name) => ({ id: name, name })));
+      } catch (err) {
+        console.error('Erro ao carregar convênios:', err);
+        setInsurances([]);
+      }
+    })();
   }, [clinicId]);
 
-  const loadAuxiliaryData = async () => {
-    try {
-      // Carregar profissionais
-      // const profResp = await request(`/api/clinics/${clinicId}/professionals`);
-      // setProfessionals(profResp.data || []);
-
-      // Carregar especialidades
-      // const specResp = await request(`/api/clinics/${clinicId}/specialties`);
-      // setSpecialties(specResp.data || []);
-
-      // Carregar procedimentos
-      // const procResp = await request(`/api/clinics/${clinicId}/procedures`);
-      // setProcedures(procResp.data || []);
-
-      // Carregar convênios
-      // const insResp = await request(`/api/clinics/${clinicId}/insurances`);
-      // setInsurances(insResp.data || []);
-    } catch (err) {
-      console.error('Erro ao carregar dados auxiliares:', err);
-    }
-  };
-
-  // Estimar contagem de pacientes pela API
-  const estimateRecipients = async (audienceType: string, filters?: any) => {
+  // Resolve o público na base real (Supabase) e guarda a lista pronta.
+  const resolveAndStore = async (
+    audienceType: AudienceType,
+    filters: AudienceFilters,
+  ) => {
     try {
       setLoading(true);
-      const response = await request(
-        `/api/clinics/${clinicId}/campaigns/estimate`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            audience_type: audienceType,
-            filters: filters || {},
-          }),
-        }
-      );
-      return response.data?.count || 0;
+      const { recipients, count } = await resolveCampaignAudience(clinicId, audienceType, filters);
+      onChange({ recipientCount: count, recipients });
+      return count;
     } catch (err) {
-      console.error('Erro ao estimar recipients:', err);
+      console.error('Erro ao resolver público:', err);
+      onChange({ recipientCount: 0, recipients: [] });
       return 0;
     } finally {
       setLoading(false);
@@ -99,22 +87,20 @@ export default function Step2Audience({
   };
 
   const handleAudienceSelect = async (audienceType: string) => {
-    const count = await estimateRecipients(audienceType);
-    onChange({
-      audienceType: audienceType as any,
-      recipientCount: count,
-      filters: {},
-    });
+    onChange({ audienceType: audienceType as AudienceType, filters: {} });
     setShowFilters(true);
+    await resolveAndStore(audienceType as AudienceType, {});
   };
 
   const handleFilterChange = async (filterKey: string, filterValue: any) => {
     const newFilters = { ...data.filters, [filterKey]: filterValue };
-    const count = await estimateRecipients(data.audienceType, newFilters);
-    onChange({
-      filters: newFilters,
-      recipientCount: count,
-    });
+    onChange({ filters: newFilters });
+    // Traduz os filtros da UI para o shape do resolvedor e re-resolve na base real.
+    const audienceFilters: AudienceFilters = {
+      insurance_plan: newFilters.insurance_plan ?? data.filters.insurance_plan ?? null,
+      last_visit_months: newFilters.last_visit_days ?? data.filters.last_visit_days ?? null,
+    };
+    await resolveAndStore(data.audienceType as AudienceType, audienceFilters);
   };
 
   return (
@@ -174,51 +160,30 @@ export default function Step2Audience({
           <Label className="text-base font-semibold">Filtros adicionais</Label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Procedure - Backend suporta */}
-            <div className="space-y-2">
-              <Label htmlFor="filter-proc" className="text-sm">
-                Procedimento
-              </Label>
-              <Select
-                value={data.filters.procedures?.join(',') || ''}
-                onValueChange={(v) => handleFilterChange('procedures', v ? v.split(',') : null)}
-              >
-                <SelectTrigger id="filter-proc" disabled={loading}>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
-                  {procedures.map((proc) => (
-                    <SelectItem key={proc.id} value={proc.id}>
-                      {proc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Insurance - Backend suporta */}
-            <div className="space-y-2">
-              <Label htmlFor="filter-insurance" className="text-sm">
-                Convênio
-              </Label>
-              <Select
-                value={data.filters.insurance_plan || ''}
-                onValueChange={(v) => handleFilterChange('insurance_plan', v || null)}
-              >
-                <SelectTrigger id="filter-insurance" disabled={loading}>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
-                  {insurances.map((ins) => (
-                    <SelectItem key={ins.id} value={ins.id}>
-                      {ins.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Convênio — só faz sentido para o público "Por convênio" */}
+            {data.audienceType === 'insurance' && (
+              <div className="space-y-2">
+                <Label htmlFor="filter-insurance" className="text-sm">
+                  Convênio
+                </Label>
+                <Select
+                  value={data.filters.insurance_plan || 'all'}
+                  onValueChange={(v) => handleFilterChange('insurance_plan', v && v !== 'all' ? v : null)}
+                >
+                  <SelectTrigger id="filter-insurance" disabled={loading}>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {insurances.map((ins) => (
+                      <SelectItem key={ins.id} value={ins.id}>
+                        {ins.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Last Consult */}
             {data.audienceType === 'absent' && (
@@ -232,9 +197,9 @@ export default function Step2Audience({
                   placeholder="Ex: 6"
                   min="1"
                   disabled={loading}
-                  value={data.filters.lastConsultDays || ''}
+                  value={data.filters.last_visit_days || ''}
                   onChange={(e) =>
-                    handleFilterChange('lastConsultDays', parseInt(e.target.value) || 0)
+                    handleFilterChange('last_visit_days', parseInt(e.target.value) || 0)
                   }
                 />
               </div>

@@ -20,20 +20,30 @@ export default function Step5Review({
   const { request } = useApi();
   const [sending, setSending] = useState(false);
 
+  // Payload comum aos dois fluxos. Inclui os destinatários JÁ resolvidos no
+  // Supabase (base real) — o backend dispara para essa lista direto.
+  const buildPayload = () => ({
+    name: data.name,
+    description: data.description,
+    template: data.customMessage,
+    channels: data.channels,
+    filters: data.filters,
+    audience_type: data.audienceType,
+    recipients: data.recipients ?? [],
+  });
+
   const handleSendNow = async () => {
+    if (!data.recipients || data.recipients.length === 0) {
+      toast.error('Nenhum destinatário selecionado. Volte à etapa de público.');
+      return;
+    }
     try {
       setSending(true);
 
-      // 1. Criar campanha (sempre em draft)
+      // 1. Criar campanha (sempre em draft) com a lista de destinatários
       const createResponse = await request(`/api/clinics/${clinicId}/campaigns`, {
         method: 'POST',
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description,
-          template: data.customMessage,
-          channels: data.channels,
-          filters: data.filters,
-        }),
+        body: JSON.stringify(buildPayload()),
       });
 
       const campaignId = createResponse.data?.id;
@@ -60,14 +70,7 @@ export default function Step5Review({
       setSending(true);
       await request(`/api/clinics/${clinicId}/campaigns`, {
         method: 'POST',
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description,
-          template: data.customMessage,
-          channels: data.channels,
-          filters: data.filters,
-          status: 'draft',
-        }),
+        body: JSON.stringify(buildPayload()),
       });
       toast.success('Campanha salva como rascunho!');
       onComplete?.();

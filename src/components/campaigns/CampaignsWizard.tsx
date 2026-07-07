@@ -25,6 +25,8 @@ export interface CampaignData {
   channels: ('whatsapp' | 'sms')[];
   recipientCount: number;
   selectedPatients?: string[];
+  /** destinatários resolvidos no Supabase (enviados prontos ao backend) */
+  recipients?: { patient_id: string; phone: string; name: string }[];
 }
 
 const STEPS = [
