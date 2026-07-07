@@ -390,6 +390,27 @@ export const aiBackend = {
     ),
 
   // ============================================================
+  // Campanhas — o backend IA dispara em massa via Evolution
+  // (o Supabase só guarda a campanha e a lista de destinatários).
+  // ============================================================
+  sendCampaign: (
+    clinicId: string,
+    payload: {
+      campaign_id: string;
+      template: string;
+      channels: string[];
+      recipients: Array<{ patient_id: string; phone: string; name: string }>;
+    },
+  ) =>
+    request<{ ok: boolean; queued?: number }>(
+      `/api/clinics/${clinicId}/campaigns/${payload.campaign_id}/send`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
+
+  // ============================================================
   // NPS — pesquisas de satisfação enviadas pela IA
   // ============================================================
 
