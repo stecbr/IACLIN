@@ -422,6 +422,132 @@ export type Database = {
           },
         ]
       }
+      campaign_recipients: {
+        Row: {
+          campaign_id: string
+          clinic_id: string
+          created_at: string
+          error: string | null
+          id: string
+          name: string
+          patient_id: string | null
+          phone: string
+          sent_at: string | null
+          sms_status: string | null
+          whatsapp_status: string | null
+        }
+        Insert: {
+          campaign_id: string
+          clinic_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          name: string
+          patient_id?: string | null
+          phone: string
+          sent_at?: string | null
+          sms_status?: string | null
+          whatsapp_status?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          clinic_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          name?: string
+          patient_id?: string | null
+          phone?: string
+          sent_at?: string | null
+          sms_status?: string | null
+          whatsapp_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          audience_type: string
+          channels: string[]
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          filters: Json
+          id: string
+          name: string
+          recipient_count: number
+          scheduled_for: string | null
+          sent_at: string | null
+          stats: Json
+          status: string
+          template: string
+          updated_at: string
+        }
+        Insert: {
+          audience_type: string
+          channels?: string[]
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          recipient_count?: number
+          scheduled_for?: string | null
+          sent_at?: string | null
+          stats?: Json
+          status?: string
+          template: string
+          updated_at?: string
+        }
+        Update: {
+          audience_type?: string
+          channels?: string[]
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          recipient_count?: number
+          scheduled_for?: string | null
+          sent_at?: string | null
+          stats?: Json
+          status?: string
+          template?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_documents: {
         Row: {
           clinic_id: string

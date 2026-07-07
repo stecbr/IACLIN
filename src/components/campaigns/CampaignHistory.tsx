@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useApi } from '@/hooks/useApi';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Copy, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,15 +17,12 @@ import {
 interface Campaign {
   id: string;
   name: string;
-  status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
-  audienceType: string;
-  recipientCount: number;
-  sentWhatsapp: number;
-  sentSms: number;
-  failedWhatsapp: number;
-  failedSms: number;
-  createdAt: string;
-  executedAt?: string;
+  status: string;
+  audience_type: string;
+  channels: string[];
+  recipient_count: number;
+  created_at: string;
+  sent_at: string | null;
 }
 
 const getStatusBadgeClass = (status: string) => {
@@ -42,6 +40,18 @@ const getStatusBadgeClass = (status: string) => {
     default:
       return 'bg-gray-100 text-gray-700';
   }
+};
+
+const AUDIENCE_LABELS: Record<string, string> = {
+  all: 'Todos',
+  active: 'Ativos',
+  inactive: 'Inativos',
+  scheduled: 'Com consulta',
+  absent: 'Sem retorno',
+  birthday: 'Aniversariantes',
+  private: 'Particulares',
+  insurance: 'Convênio',
+  manual: 'Manual',
 };
 
 const getStatusLabel = (status: string) => {
@@ -62,7 +72,6 @@ const getStatusLabel = (status: string) => {
 };
 
 export default function CampaignHistory({ clinicId }: { clinicId: string }) {
-  const { request } = useApi();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -73,8 +82,14 @@ export default function CampaignHistory({ clinicId }: { clinicId: string }) {
   const loadCampaigns = async () => {
     setLoading(true);
     try {
-      const response = await request(`/api/clinics/${clinicId}/campaigns`);
-      setCampaigns(response.data || []);
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('id, name, status, audience_type, channels, recipient_count, created_at, sent_at')
+        .eq('clinic_id', clinicId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setCampaigns((data ?? []) as Campaign[]);
     } catch (err) {
       console.error('Erro ao carregar campanhas:', err);
     } finally {
@@ -82,18 +97,14 @@ export default function CampaignHistory({ clinicId }: { clinicId: string }) {
     }
   };
 
-  const handleDuplicate = (campaign: Campaign) => {
-    console.log('Duplicar campanha:', campaign.id);
-  };
-
-  const handleDelete = (campaignId: string) => {
-    if (window.confirm('Deletar essa campanha?')) {
-      console.log('Deletar:', campaignId);
+  const handleDelete = async (campaignId: string) => {
+    if (!window.confirm('Apagar essa campanha do histórico?')) return;
+    const { error } = await supabase.from('campaigns').delete().eq('id', campaignId);
+    if (error) {
+      toast({ title: 'Erro ao apagar', description: error.message, variant: 'destructive' });
+      return;
     }
-  };
-
-  const handleView = (campaign: Campaign) => {
-    console.log('Ver detalhes:', campaign.id);
+    setCampaigns((c) => c.filter((x) => x.id !== campaignId));
   };
 
   if (loading) {
@@ -110,9 +121,9 @@ export default function CampaignHistory({ clinicId }: { clinicId: string }) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="text-muted-foreground mb-2">Nenhuma campanha criada ainda</p>
+          <p className="text-muted-foreground mb-2">Nenhuma campanha enviada ainda</p>
           <p className="text-sm text-muted-foreground">
-            Crie sua primeira campanha na aba "Nova Campanha"
+            Configure o público e a mensagem acima e clique em "Enviar agora".
           </p>
         </CardContent>
       </Card>
@@ -132,9 +143,8 @@ export default function CampaignHistory({ clinicId }: { clinicId: string }) {
                 <TableHead>Nome</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Público</TableHead>
+                <TableHead>Canais</TableHead>
                 <TableHead className="text-right">Pacientes</TableHead>
-                <TableHead className="text-right">Enviados</TableHead>
-                <TableHead className="text-right">Falhas</TableHead>
                 <TableHead>Criada em</TableHead>
                 <TableHead className="w-20">Ações</TableHead>
               </TableRow>
@@ -149,54 +159,27 @@ export default function CampaignHistory({ clinicId }: { clinicId: string }) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {campaign.audienceType}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {campaign.recipientCount}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {campaign.sentWhatsapp + campaign.sentSms}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {campaign.failedWhatsapp + campaign.failedSms > 0 && (
-                      <span className="text-red-600 font-semibold">
-                        {campaign.failedWhatsapp + campaign.failedSms}
-                      </span>
-                    )}
+                    {AUDIENCE_LABELS[campaign.audience_type] ?? campaign.audience_type}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(campaign.createdAt).toLocaleDateString('pt-BR')}
+                    {(campaign.channels ?? []).join(', ') || '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {campaign.recipient_count}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(campaign.created_at).toLocaleDateString('pt-BR')}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleView(campaign)}
+                        className="h-8 w-8 text-red-600 hover:text-red-700"
+                        onClick={() => handleDelete(campaign.id)}
                       >
-                        <Eye className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
-                      {campaign.status === 'draft' && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleDuplicate(campaign)}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:text-red-700"
-                            onClick={() => handleDelete(campaign.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>
