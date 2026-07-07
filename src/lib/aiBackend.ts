@@ -410,6 +410,20 @@ export const aiBackend = {
       },
     ),
 
+  // Quais destinatários responderam à campanha (inbound após o envio).
+  // Retorna um mapa { [phone]: { replied, reply_count, last_reply_at } }.
+  getCampaignReplies: (
+    clinicId: string,
+    recipients: Array<{ phone: string; sent_at: string | null }>,
+  ) =>
+    request<Record<string, { replied: boolean; reply_count: number; last_reply_at: string | null }>>(
+      `/api/clinics/${clinicId}/campaigns/replies`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ recipients }),
+      },
+    ),
+
   // ============================================================
   // NPS — pesquisas de satisfação enviadas pela IA
   // ============================================================
