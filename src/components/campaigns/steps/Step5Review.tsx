@@ -23,7 +23,9 @@ export default function Step5Review({
   const handleSendNow = async () => {
     try {
       setSending(true);
-      await request(`/api/clinics/${clinicId}/campaigns`, {
+
+      // 1. Criar campanha (sempre em draft)
+      const createResponse = await request(`/api/clinics/${clinicId}/campaigns`, {
         method: 'POST',
         body: JSON.stringify({
           name: data.name,
@@ -31,9 +33,19 @@ export default function Step5Review({
           template: data.customMessage,
           channels: data.channels,
           filters: data.filters,
-          status: 'sending',
         }),
       });
+
+      const campaignId = createResponse.data?.id;
+      if (!campaignId) {
+        throw new Error('Campanha criada mas sem ID retornado');
+      }
+
+      // 2. Enviar a campanha
+      await request(`/api/clinics/${clinicId}/campaigns/${campaignId}/send`, {
+        method: 'POST',
+      });
+
       toast.success('Campanha enviada com sucesso!');
       onComplete?.();
     } catch (err) {

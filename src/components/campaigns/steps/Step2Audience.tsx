@@ -37,10 +37,16 @@ export default function Step2Audience({
   const { request } = useApi();
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [professionals, setProfessionals] = useState<any[]>([]);
-  const [specialties, setSpecialties] = useState<any[]>([]);
-  const [procedures, setProcedures] = useState<any[]>([]);
-  const [insurances, setInsurances] = useState<any[]>([]);
+  const [procedures] = useState<any[]>([
+    { id: 'proc-1', name: 'Limpeza' },
+    { id: 'proc-2', name: 'Clareamento' },
+    { id: 'proc-3', name: 'Restauração' },
+  ]);
+  const [insurances] = useState<any[]>([
+    { id: 'ins-1', name: 'Unimed' },
+    { id: 'ins-2', name: 'Bradesco Saúde' },
+    { id: 'ins-3', name: 'Amil' },
+  ]);
 
   // Carregar dados auxiliares
   useEffect(() => {
@@ -168,60 +174,14 @@ export default function Step2Audience({
           <Label className="text-base font-semibold">Filtros adicionais</Label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Professional */}
-            <div className="space-y-2">
-              <Label htmlFor="filter-prof" className="text-sm">
-                Profissional
-              </Label>
-              <Select
-                value={data.filters.professional || ''}
-                onValueChange={(v) => handleFilterChange('professional', v || null)}
-              >
-                <SelectTrigger id="filter-prof" disabled={loading}>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
-                  {professionals.map((prof) => (
-                    <SelectItem key={prof.id} value={prof.id}>
-                      {prof.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Specialty */}
-            <div className="space-y-2">
-              <Label htmlFor="filter-spec" className="text-sm">
-                Especialidade
-              </Label>
-              <Select
-                value={data.filters.specialty || ''}
-                onValueChange={(v) => handleFilterChange('specialty', v || null)}
-              >
-                <SelectTrigger id="filter-spec" disabled={loading}>
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
-                  {specialties.map((spec) => (
-                    <SelectItem key={spec.id} value={spec.id}>
-                      {spec.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Procedure */}
+            {/* Procedure - Backend suporta */}
             <div className="space-y-2">
               <Label htmlFor="filter-proc" className="text-sm">
                 Procedimento
               </Label>
               <Select
-                value={data.filters.procedure || ''}
-                onValueChange={(v) => handleFilterChange('procedure', v || null)}
+                value={data.filters.procedures?.join(',') || ''}
+                onValueChange={(v) => handleFilterChange('procedures', v ? v.split(',') : null)}
               >
                 <SelectTrigger id="filter-proc" disabled={loading}>
                   <SelectValue placeholder="Todos" />
@@ -237,14 +197,14 @@ export default function Step2Audience({
               </Select>
             </div>
 
-            {/* Insurance */}
+            {/* Insurance - Backend suporta */}
             <div className="space-y-2">
               <Label htmlFor="filter-insurance" className="text-sm">
                 Convênio
               </Label>
               <Select
-                value={data.filters.insurance || ''}
-                onValueChange={(v) => handleFilterChange('insurance', v || null)}
+                value={data.filters.insurance_plan || ''}
+                onValueChange={(v) => handleFilterChange('insurance_plan', v || null)}
               >
                 <SelectTrigger id="filter-insurance" disabled={loading}>
                   <SelectValue placeholder="Todos" />

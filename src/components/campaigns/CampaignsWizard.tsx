@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import Step1InfoCampaign from './steps/Step1InfoCampaign';
@@ -15,14 +15,9 @@ export interface CampaignData {
   description: string;
   audienceType: 'all' | 'active' | 'inactive' | 'scheduled' | 'absent' | 'birthday' | 'private' | 'insurance' | 'manual';
   filters: {
-    professional?: string;
-    specialty?: string;
-    procedure?: string;
-    insurance?: string;
-    lastConsultDays?: number;
-    ageRange?: [number, number];
-    gender?: 'M' | 'F';
-    city?: string;
+    procedures?: string[] | null;
+    insurance_plan?: string | null;
+    last_visit_days?: number | null;
   };
   messageType: 'template' | 'custom' | 'ai';
   templateId?: string;
