@@ -1,274 +1,75 @@
-# Campaigns Components
+# Campanhas — Estado real e briefing para o redesign
 
-Componentes React para gerenciar campanhas de marketing via WhatsApp e SMS no IACLIN.
+> **Leia isto antes de mexer.** Docs antigos (env var, "85% aguardando config",
+> API fake em `localhost:3333`) foram REMOVIDOS por estarem errados. Este é o
+> estado verdadeiro depois do commit `977bd15`.
 
-## 📁 Estrutura
+---
 
-```
-campaigns/
-├── CampaignsPage.tsx       # Página principal (container)
-├── CampaignForm.tsx        # Formulário criar/editar
-├── CampaignList.tsx        # Tabela de campanhas
-├── CampaignsPage.css
-├── CampaignForm.css
-└── CampaignList.css
-```
+## O que já funciona (NÃO refazer do zero — reusar)
 
-## 🚀 Como Usar
+### 1. Segmentação de público — `src/hooks/useCampaignAudience.ts`
+`resolveCampaignAudience(clinicId, audienceType, filters)` resolve os 9 públicos
+direto na base REAL do Supabase e devolve `{ recipients: [{patient_id, phone, name}], count }`.
+Só inclui quem tem telefone.
 
-### 1. Importar no App.tsx
+| Público (`audienceType`) | Como filtra |
+|---|---|
+| `all` | todos da clínica |
+| `active` | `patients.is_active = true` |
+| `inactive` | `is_active = false` |
+| `scheduled` | tem `appointments.start_time` futuro |
+| `absent` | SEM consulta nos últimos X meses (`filters.last_visit_months`) |
+| `birthday` | `date_of_birth` no mês atual |
+| `private` | `insurance_provider` nulo |
+| `insurance` | `insurance_provider = filters.insurance_plan` |
+| `manual` | `filters.patient_ids` (usar `PatientPickerDialog`) |
 
-```typescript
-import CampaignsPage from './components/campaigns/CampaignsPage';
+**Não depende de `VITE_API_BASE_URL`.** É Supabase puro. Se for redesenhar a UI,
+importe esse hook em vez de reescrever a lógica de filtro.
 
-export default function App() {
-  const clinicId = 'seu-clinic-id'; // Pega de contexto ou props
-
-  return (
-    <div>
-      <CampaignsPage clinicId={clinicId} />
-    </div>
-  );
-}
-```
-
-### 2. Configurar .env.local
-
-```env
-VITE_API_BASE_URL=http://localhost:3333
-VITE_API_TOKEN=seu-token-da-api
-```
-
-### 3. Garantir que useApi hook existe
-
-O hook está em: `/src/hooks/useApi.ts`
-
-Se o arquivo de hooks não existir, crie a pasta:
-
-```bash
-mkdir -p src/hooks
-```
-
-## 📦 Componentes
-
-### CampaignsPage
-
-Container principal que gerencia estado global de campanhas.
-
-**Props:**
-- `clinicId: string` - ID da clínica
-
-**Features:**
-- Carrega lista de campanhas ao montar
-- Renderiza formulário ou lista
-- Trata erros e loading
-
-**Exemplo:**
-```typescript
-<CampaignsPage clinicId="clinic-123" />
-```
-
-### CampaignForm
-
-Formulário para criar e editar campanhas.
-
-**Props:**
-- `clinicId: string` - ID da clínica
-- `campaign?: Campaign` - Campanha para editar (optional)
-- `onSuccess: () => void` - Callback após salvar
-
-**Features:**
-- Campos: nome, descrição, template
-- Checkboxes: WhatsApp, SMS
-- Filtros: tipo paciente, dias, procedimentos, plano
-- Preview: quantidade de recipients
-- Validação: nome e template obrigatórios
-
-**Exemplo:**
-```typescript
-<CampaignForm
-  clinicId="clinic-123"
-  onSuccess={() => console.log('Salvo!')}
-/>
-```
-
-### CampaignList
-
-Tabela exibindo campanhas com ações.
-
-**Props:**
-- `campaigns: Campaign[]` - Array de campanhas
-- `onDelete: (id: string) => void` - Handler deletar
-- `onSend: (id: string) => void` - Handler enviar
-- `onEdit: (campaign: Campaign) => void` - Handler editar
-
-**Features:**
-- Exibe nome, status, canais, recipients, enviados, falhas
-- Badges coloridas para status
-- Ações (edit/delete/send) para draft only
-- Amostra de recipients no preview
-- Responsive table
-
-**Exemplo:**
-```typescript
-<CampaignList
-  campaigns={campaigns}
-  onDelete={handleDelete}
-  onSend={handleSend}
-  onEdit={handleEdit}
-/>
-```
-
-## 🔌 Hook useApi
-
-Hook TypeScript para comunicação com API.
-
-**Uso:**
-```typescript
-const { request, loading, error } = useApi();
-
-// GET
-const data = await request('/api/campaigns');
-
-// POST
-const data = await request('/api/campaigns', {
-  method: 'POST',
-  body: JSON.stringify({ name: 'Test' }),
-});
-
-// PATCH
-const data = await request('/api/campaigns/123', {
-  method: 'PATCH',
-  body: JSON.stringify({ name: 'Updated' }),
-});
-
-// DELETE
-await request('/api/campaigns/123', { method: 'DELETE' });
-```
-
-**Returns:**
-- `request: <T>(url, options) => Promise<ApiResponse<T>>` - Faz requisição
-- `loading: boolean` - Flag se está carregando
-- `error: string | null` - Mensagem de erro
-
-## 📊 Tipos de Dados
-
-### Campaign
-
-```typescript
-interface Campaign {
-  id?: string;
-  name: string;
-  description?: string;
-  template: string;
-  channels: string[];
-  status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
-  stats: {
-    total_recipients: number;
-    sent_whatsapp: number;
-    sent_sms: number;
-    failed_whatsapp: number;
-    failed_sms: number;
-  };
-  created_at: string;
-  filters: {
-    patient_type: 'all' | 'returning' | 'new';
-    last_visit_days?: number | null;
-    procedures?: string[] | null;
-    insurance_plan?: string | null;
-  };
-}
-```
-
-## 🎨 Styling
-
-Componentes usam CSS vanilla com variáveis CSS:
-
-- `--text-primary` - Cor de texto primária (default: #000)
-
-Para customizar, sobrescreva em seu CSS global:
-
-```css
-:root {
-  --text-primary: #1a1a1a;
-}
-```
-
-Ou customize os arquivos CSS diretamente:
-
-- `CampaignsPage.css` - Layout geral
-- `CampaignForm.css` - Formulário
-- `CampaignList.css` - Tabela
-
-## 📡 API Backend
-
-Backend precisa ter esses endpoints:
+### 2. Disparo em massa — NÃO é pelo Supabase, é pelo backend IA
+Quem envia WhatsApp é o backend em `https://iaclin.stec-apps.com` (Evolution),
+acessível via `src/lib/aiBackend.ts` (URL já hardcoded lá). Fluxo:
 
 ```
-GET    /api/clinics/{clinicId}/campaigns
-POST   /api/clinics/{clinicId}/campaigns
-GET    /api/clinics/{clinicId}/campaigns/{id}
-PATCH  /api/clinics/{clinicId}/campaigns/{id}
-DELETE /api/clinics/{clinicId}/campaigns/{id}
-POST   /api/clinics/{clinicId}/campaigns/{id}/preview
-POST   /api/clinics/{clinicId}/campaigns/{id}/send
+POST /api/clinics/{clinicId}/campaigns            → cria (body inclui recipients[])
+POST /api/clinics/{clinicId}/campaigns/{id}/send  → dispara em background
 ```
 
-Todos usam header: `x-api-key: token`
+O backend já grava `campaign_sends` e usa `patient_name`/`patient_phone` da lista
+enviada. **Não criar edge function que manda WhatsApp pelo Supabase** — ignoraria
+a conexão Evolution existente e não enviaria nada.
 
-## 🔧 Troubleshooting
+---
 
-**"API não conecta"**
-- Cheque: `VITE_API_BASE_URL` correto?
-- Backend rodando? `npm run dev` na raiz do IA-Atendimento
+## O redesign aprovado (o que fazer)
 
-**"Preview não funciona"**
-- Pacientes cadastrados na base?
-- Filtros muito restritivos?
+**UX:** trocar o wizard de 5 passos por uma tela única (2 colunas: "Para quem" |
+"O que enviar" + rodapé de canal/agendar/enviar). Contador ao vivo de impactados
+e de telefones válidos. Histórico abaixo.
 
-**"Estilos estranhos"**
-- CSS files estão importados?
-- Conflito com styles globais?
+**Persistência (opção B):** criar no Supabase, com RLS por `clinic_id`:
+- `campaigns` (id, clinic_id, name, audience_type, filters jsonb, template,
+  channels, status, scheduled_for, stats jsonb, created_at)
+- `campaign_recipients` (id, campaign_id, patient_id, phone, name,
+  whatsapp_status, sms_status, sent_at) — histórico de destinatários.
 
-**TypeScript errors**
-- Atualize imports se fez lint/prettier
-- Cheque que `useApi.ts` está em `src/hooks/`
+**Contrato do envio (manter):** ao enviar, o front (a) resolve recipients via
+`useCampaignAudience`, (b) grava `campaigns`+`campaign_recipients` no Supabase,
+(c) chama `aiBackend` → `/campaigns/{id}/send` passando os recipients. O backend
+dispara e atualiza status.
 
-## 📝 Exemplo Completo
+---
 
-```typescript
-// App.tsx
-import { useState } from 'react';
-import CampaignsPage from './components/campaigns/CampaignsPage';
+## Correções já aplicadas (não regredir)
+- `SelectItem value=""` crashava o Radix Select → tela branca. Usar sempre
+  `value` não-vazio (sentinel `"all"` + handler converte pra `null`).
+- Campo era `last_visit_days`/`last_visit_months`, NUNCA `lastConsultDays`.
+- "Enviar agora" cria draft → pega `id` → `POST /send` (não manda `status:'sending'`
+  no create; o backend ignora e força `draft`).
 
-export default function App() {
-  const [clinicId] = useState('clinic-001');
-
-  return (
-    <div className="app">
-      <nav>
-        <h1>IACLIN Admin</h1>
-      </nav>
-      <main>
-        <CampaignsPage clinicId={clinicId} />
-      </main>
-    </div>
-  );
-}
-```
-
-## 🚀 Deploy
-
-Quando for fazer deploy no Lovable:
-
-1. Garanta que `.env.local` está com valores corretos
-2. Backend precisa estar acessível da URL configurada
-3. Token de API precisa estar válido
-4. Teste fluxo completo: criar → preview → enviar
-
-## 📞 Suporte
-
-Para dúvidas, cheque:
-- Backend: `/Users/stec/Desktop/IA-Atendimento/README.md`
-- API Docs: `CAMPANHAS-README.md`
-- Exemplos: `CAMPANHAS-TESTE-API.sh`
+## Testar
+Build local do IACLIN NÃO roda (falta dep `@lovable.dev/mcp-js`, só existe no
+Lovable). Validar com `npx tsc --noEmit -p tsconfig.app.json`. Teste real: no
+Lovable + backend `iaclin.stec-apps.com` rodando + WhatsApp conectado.
