@@ -61,6 +61,14 @@ const BRAND = {
   font: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
 };
 
+// Gradient usado no bloco de destaque (ex.: "Horário solicitado").
+const HIGHLIGHT_GRADIENT = 'radial-gradient(circle at 0% 0%, #00b8c4, #0f2d52)';
+// Fallback sólido para clientes de email que não suportam radial-gradient (Outlook).
+const HIGHLIGHT_FALLBACK = '#0f2d52';
+
+// Logo IACLIN hospedada como asset público (usada no cabeçalho do email).
+const LOGO_URL = 'https://iaclin.lovable.app/__l5e/assets-v1/de84c8fb-9c0b-437d-97ea-6373d8cb0bd3/logo-iaclin.png';
+
 export function renderBrandedEmail(opts: {
   preheader?: string;
   title: string;
@@ -98,7 +106,7 @@ export function renderBrandedEmail(opts: {
 
   const highlightHtml = highlightBox
     ? `
-      <div style="margin:22px 0;padding:18px 20px;background:linear-gradient(135deg,${BRAND.primary},${BRAND.primaryDark});border-radius:${BRAND.radius};color:#fff;">
+      <div style="margin:22px 0;padding:18px 20px;background:${HIGHLIGHT_FALLBACK};background-image:${HIGHLIGHT_GRADIENT};border-radius:${BRAND.radius};color:#fff;">
         ${highlightBox.label ? `<div style="font-size:12px;opacity:.85;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(highlightBox.label)}</div>` : ''}
         <div style="font-size:20px;font-weight:600;line-height:1.3;">${escapeHtml(highlightBox.value)}</div>
       </div>`
@@ -133,11 +141,17 @@ export function renderBrandedEmail(opts: {
         <td align="center">
           <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:${BRAND.card};border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,.06);">
             <tr>
-              <td style="padding:26px 32px 0;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,${BRAND.primary},${BRAND.primaryDark});display:inline-block;text-align:center;line-height:34px;color:#fff;font-weight:700;font-size:15px;">IA</div>
-                  <div style="font-weight:700;font-size:15px;letter-spacing:.3px;color:${BRAND.text};">IACLIN</div>
-                </div>
+              <td align="center" style="padding:26px 32px 0;text-align:center;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:10px;">
+                      <img src="${LOGO_URL}" alt="IACLIN" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:10px;" />
+                    </td>
+                    <td style="vertical-align:middle;font-weight:700;font-size:16px;letter-spacing:.3px;color:${BRAND.text};font-family:${BRAND.font};">
+                      IACLIN
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
