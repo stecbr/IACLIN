@@ -123,7 +123,7 @@ export function renderBrandedEmail(opts: {
   const ctaHtml = ctaLabel && ctaUrl
     ? `
       <div style="text-align:center;margin:28px 0 8px;">
-        <a href="${ctaUrl}" style="display:inline-block;background:${BRAND.primary};color:#fff;font-weight:600;font-size:14px;text-decoration:none;padding:13px 26px;border-radius:${BRAND.radius};">${escapeHtml(ctaLabel)}</a>
+        <a href="${ctaUrl}" style="display:inline-block;background:${HIGHLIGHT_FALLBACK};color:#fff;font-weight:600;font-size:14px;text-decoration:none;padding:13px 26px;border-radius:${BRAND.radius};">${escapeHtml(ctaLabel)}</a>
       </div>`
     : '';
 
@@ -142,16 +142,10 @@ export function renderBrandedEmail(opts: {
           <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:${BRAND.card};border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,.06);">
             <tr>
               <td align="center" style="padding:26px 32px 0;text-align:center;">
-                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                  <tr>
-                    <td style="vertical-align:middle;padding-right:10px;">
-                      <img src="${LOGO_URL}" alt="IACLIN" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:10px;" />
-                    </td>
-                    <td style="vertical-align:middle;font-weight:700;font-size:16px;letter-spacing:.3px;color:${BRAND.text};font-family:${BRAND.font};">
-                      IACLIN
-                    </td>
-                  </tr>
-                </table>
+                <img src="${LOGO_URL}" alt="IACLIN" width="36" height="36" style="display:block;margin:0 auto 8px;width:36px;height:36px;border-radius:10px;" />
+                <div style="font-weight:600;font-size:16px;letter-spacing:.12em;font-family:'Jura',${BRAND.font};">
+                  <span style="color:#033563;">IA</span><span style="color:#5b6887;">CLIN</span>
+                </div>
               </td>
             </tr>
             <tr>
