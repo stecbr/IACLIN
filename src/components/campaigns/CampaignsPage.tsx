@@ -65,11 +65,13 @@ const TEMPLATES: Array<{ label: string; body: string }> = [
 // ---- helpers ----------------------------------------------------------------
 
 function renderPreview(template: string, name: string, clinicName: string) {
+  const safeName = name || 'Paciente';
+  const safeClinic = clinicName || 'nossa clínica';
   return template
-    .replaceAll('{nome}', name || 'Paciente')
-    .replaceAll('{patient_name}', name || 'Paciente')
-    .replaceAll('{clinica}', clinicName || 'nossa clínica')
-    .replaceAll('{clinic_name}', clinicName || 'nossa clínica');
+    .replace(/\{nome\}/g, safeName)
+    .replace(/\{patient_name\}/g, safeName)
+    .replace(/\{clinica\}/g, safeClinic)
+    .replace(/\{clinic_name\}/g, safeClinic);
 }
 
 // ---- component --------------------------------------------------------------
