@@ -17,6 +17,7 @@ function fmtHM(iso: string) {
   });
   return fmt.format(d);
 }
+
 /** Returns the local YYYY-MM-DD for an ISO timestamp in America/Sao_Paulo */
 function localDateKey(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
