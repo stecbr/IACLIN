@@ -35,6 +35,10 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
   reauthentication: ReauthenticationEmail,
 }
 
+// "Esqueci minha senha" is sent through Resend directly (transactional_emails
+// queue) instead of the Lovable pipeline used by the other auth emails.
+const RESEND_ROUTED_EMAIL_TYPES = new Set(['recovery'])
+
 // Configuration
 const SITE_NAME = "iaclin"
 const SENDER_DOMAIN = "notify.iaclin.test.ia.br"
@@ -243,6 +247,8 @@ async function handleWebhook(req: Request): Promise<Response> {
   )
 
   const messageId = crypto.randomUUID()
+  const isResendRouted = RESEND_ROUTED_EMAIL_TYPES.has(emailType)
+  const queueName = isResendRouted ? 'transactional_emails' : 'auth_emails'
 
   // Log pending BEFORE enqueue so we have a record even if enqueue crashes
   await supabase.from('email_send_log').insert({
@@ -253,12 +259,14 @@ async function handleWebhook(req: Request): Promise<Response> {
   })
 
   const { error: enqueueError } = await supabase.rpc('enqueue_email', {
-    queue_name: 'auth_emails',
+    queue_name: queueName,
     payload: {
       run_id,
       message_id: messageId,
       to: payload.data.email,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+      // Resend-routed emails fall back to RESEND_FROM_EMAIL (Resend-verified
+      // domain); the notify.* domain below is only used for Lovable sends.
+      ...(isResendRouted ? {} : { from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>` }),
       sender_domain: SENDER_DOMAIN,
       subject: EMAIL_SUBJECTS[emailType] || 'Notification',
       html,
