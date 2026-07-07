@@ -1,1 +1,0 @@
-import { corsHeaders } from '../_shared/cors.ts'
