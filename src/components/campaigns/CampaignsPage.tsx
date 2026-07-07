@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Cake, CalendarClock, Loader2, MessageSquare, Send, Sparkles, Users, UserX } from 'lucide-react';
+import { CalendarClock, Loader2, MessageSquare, Send, Sparkles, Users, UserX } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
@@ -35,7 +35,6 @@ const AUDIENCE_PRESETS: Array<{
 }> = [
   { id: 'all', label: 'Todos os pacientes', hint: 'Toda a base da clínica', icon: Users },
   { id: 'active', label: 'Ativos', hint: 'Marcados como ativos', icon: Users },
-  { id: 'birthday', label: 'Aniversariantes', hint: 'Aniversário neste mês', icon: Cake },
   { id: 'scheduled', label: 'Com consulta futura', hint: 'Já têm consulta marcada', icon: CalendarClock },
   { id: 'absent', label: 'Sem consulta há tempo', hint: 'Sem retorno recente', icon: UserX },
   { id: 'private', label: 'Particulares', hint: 'Sem convênio', icon: Users },
@@ -44,10 +43,6 @@ const AUDIENCE_PRESETS: Array<{
 ];
 
 const TEMPLATES: Array<{ label: string; body: string }> = [
-  {
-    label: 'Aniversário',
-    body: 'Olá {nome}! 🎉 A equipe da {clinica} deseja um feliz aniversário! Que tal comemorar com um sorriso ainda mais bonito? Fale com a gente para agendar uma avaliação.',
-  },
   {
     label: 'Retorno preventivo',
     body: 'Oi {nome}, faz um tempinho que a gente não se vê! Que tal agendar sua consulta de manutenção na {clinica}? É rapidinho — responda este WhatsApp que a gente organiza um horário.',
