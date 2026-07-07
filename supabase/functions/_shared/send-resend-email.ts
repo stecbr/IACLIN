@@ -1,7 +1,7 @@
-// Shared helper to send transactional emails via the Lovable connector gateway (Resend).
-// Uses the "iaclin" API key (domain iaclin.com) with sending-only access.
+// Shared helper to send transactional emails via the Resend API directly.
+// RESEND_API_KEY is the raw Resend API key (domain iaclin.com verified).
 
-const GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend';
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
 export interface SendEmailInput {
   to: string | string[];
@@ -14,22 +14,19 @@ export interface SendEmailInput {
 }
 
 export async function sendResendEmail(input: SendEmailInput): Promise<{ ok: boolean; status: number; body: string }> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
   const FROM = input.from ?? Deno.env.get('RESEND_FROM_EMAIL') ?? 'IACLIN <noreply@iaclin.com>';
 
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
-  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured (Resend connector missing)');
+  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
   const to = Array.isArray(input.to) ? input.to : [input.to];
   if (to.length === 0) return { ok: true, status: 200, body: 'no recipients' };
 
-  const resp = await fetch(`${GATEWAY_URL}/emails`, {
+  const resp = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      'X-Connection-Api-Key': RESEND_API_KEY,
+      Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
       from: FROM,
