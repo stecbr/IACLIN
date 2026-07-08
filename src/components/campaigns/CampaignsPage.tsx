@@ -53,7 +53,7 @@ const TEMPLATES: Array<{ label: string; body: string }> = [
   },
   {
     label: 'Lembrete geral',
-    body: 'Oi {nome}! Passando aqui rapidinho pra lembrar de cuidar do seu sorriso. Qualquer dúvida é só responder este WhatsApp. — Equipe {clinica}',
+    body: 'Oi {nome}! Passando aqui rapidinho pra lembrar de cuidar da sua saúde. Qualquer dúvida é só responder este WhatsApp. — Equipe {clinica}',
   },
 ];
 
