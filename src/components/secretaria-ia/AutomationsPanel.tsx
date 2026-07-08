@@ -48,9 +48,9 @@ const AUTOMATION_DEFS: Array<{
   {
     type: 'appointment_reminder',
     title: 'Lembrete de consulta',
-    description: 'Enviado automaticamente 24h antes da consulta',
+    description: 'Enviado automaticamente 1 hora antes da consulta',
     icon: Bell,
-    defaultMessage: 'Olá! Passando para lembrar da sua próxima consulta. Qualquer dúvida, estamos à disposição.',
+    defaultMessage: 'Olá {patient_name}! Passando para lembrar da sua consulta em {date} às {time} na {clinic_name}. Qualquer dúvida, estamos à disposição.',
   },
   {
     type: 'confirmation',
