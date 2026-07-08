@@ -33,7 +33,7 @@ function silent<T>(p: Promise<T>): Promise<T | null> {
 
 async function buildConfigSnapshot(clinicId: string) {
   const [clinicRes, procRes, plansRes, roomsRes, membersRes, handoffRes, credRes] = await Promise.all([
-    supabase.from('clinics').select('name, business_hours, address, city, state, zip_code, appointment_approval_mode').eq('id', clinicId).maybeSingle(),
+    supabase.from('clinics').select('name, category, category_label, business_hours, address, city, state, zip_code, appointment_approval_mode').eq('id', clinicId).maybeSingle(),
     supabase.from('procedures').select('id, name, default_duration, category').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('insurance_plans').select('id, name, ans_code, operator_id').eq('clinic_id', clinicId).eq('is_active', true),
     supabase.from('clinic_rooms').select('id, name').eq('clinic_id', clinicId).eq('is_active', true),
@@ -105,6 +105,10 @@ async function buildConfigSnapshot(clinicId: string) {
   return {
     clinic_id: clinicId,
     name: c?.name ?? null,
+    // Tipo da clínica (médica, odonto, psi...) — a IA adapta o vocabulário
+    // ("médico" vs "dentista") e nunca assume odontologia por padrão.
+    category: c?.category ?? null,
+    category_label: c?.category_label ?? null,
     address: fullAddress,
     business_hours: (clinicRes.data?.business_hours as Record<string, unknown> | null) ?? null,
     approval_mode: ((c?.appointment_approval_mode as 'clinic' | 'professional' | null) ?? 'clinic'),
