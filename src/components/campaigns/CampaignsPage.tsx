@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CalendarClock, Loader2, MessageSquare, Send, Sparkles, Users, UserX } from 'lucide-react';
+import { CalendarClock, Loader2, MessageSquare, Send, Sparkles, UserPlus, Users, UserX, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { aiBackend, isAiBackendConfigured } from '@/lib/aiBackend';
@@ -80,6 +80,11 @@ export default function CampaignsPage({ clinicId }: { clinicId: string }) {
     sms: false,
   });
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  // Contatos avulsos digitados na hora (nome + telefone) — entram no disparo
+  // junto com o público selecionado, sem precisar de cadastro de paciente.
+  const [extraContacts, setExtraContacts] = useState<{ name: string; phone: string }[]>([]);
+  const [extraName, setExtraName] = useState('');
+  const [extraPhone, setExtraPhone] = useState('');
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [insuranceOptions, setInsuranceOptions] = useState<string[]>([]);
@@ -127,8 +132,42 @@ export default function CampaignsPage({ clinicId }: { clinicId: string }) {
     };
   }, [clinicId, audience, filters]);
 
-  const validPhoneCount = recipients.length;
-  const previewRecipient = recipients[0];
+  // Público resolvido + contatos avulsos (dedupe por telefone).
+  const allRecipients = useMemo(() => {
+    const seen = new Set(recipients.map((r) => r.phone.replace(/\D/g, '')));
+    const extras = extraContacts
+      .filter((c) => !seen.has(c.phone.replace(/\D/g, '')))
+      .map((c) => ({ patient_id: null as string | null, name: c.name, phone: c.phone }));
+    return [
+      ...recipients.map((r) => ({ ...r, patient_id: r.patient_id as string | null })),
+      ...extras,
+    ];
+  }, [recipients, extraContacts]);
+
+  const addExtraContact = () => {
+    const name = extraName.trim();
+    let digits = extraPhone.replace(/\D/g, '');
+    if (!name || digits.length < 10) {
+      toast({
+        title: 'Contato incompleto',
+        description: 'Informe o nome e um telefone com DDD (ex: 92 98888-7777).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // Sem código do país: assume Brasil (55) — a Evolution precisa do formato completo.
+    if (digits.length <= 11) digits = `55${digits}`;
+    if (extraContacts.some((c) => c.phone === digits) || allRecipients.some((r) => r.phone.replace(/\D/g, '') === digits)) {
+      toast({ title: 'Telefone já está na lista', variant: 'destructive' });
+      return;
+    }
+    setExtraContacts((list) => [...list, { name, phone: digits }]);
+    setExtraName('');
+    setExtraPhone('');
+  };
+
+  const validPhoneCount = allRecipients.length;
+  const previewRecipient = allRecipients[0];
   const previewText = useMemo(
     () => renderPreview(template, previewRecipient?.name ?? 'Maria Silva', clinicName),
     [template, previewRecipient, clinicName],
@@ -178,16 +217,16 @@ export default function CampaignsPage({ clinicId }: { clinicId: string }) {
           template,
           channels: chosenChannels,
           status: 'sending',
-          recipient_count: recipients.length,
+          recipient_count: allRecipients.length,
           sent_at: new Date().toISOString(),
         })
         .select('id')
         .single();
       if (cErr || !campaign) throw cErr ?? new Error('Falha ao criar campanha');
 
-      // 2) grava a lista de destinatários
-      if (recipients.length > 0) {
-        const rows = recipients.map((r) => ({
+      // 2) grava a lista de destinatários (público + contatos avulsos)
+      if (allRecipients.length > 0) {
+        const rows = allRecipients.map((r) => ({
           campaign_id: campaign.id,
           clinic_id: clinicId,
           patient_id: r.patient_id,
@@ -205,7 +244,7 @@ export default function CampaignsPage({ clinicId }: { clinicId: string }) {
           campaign_id: campaign.id,
           template,
           channels: chosenChannels,
-          recipients,
+          recipients: allRecipients,
         });
       }
 
@@ -216,8 +255,9 @@ export default function CampaignsPage({ clinicId }: { clinicId: string }) {
 
       toast({
         title: 'Campanha disparada',
-        description: `${recipients.length} paciente(s) sendo notificados.`,
+        description: `${allRecipients.length} contato(s) sendo notificados aos poucos (cadência anti-bloqueio).`,
       });
+      setExtraContacts([]);
       setHistoryKey((k) => k + 1);
     } catch (err) {
       console.error('[campaigns] send failed', err);
@@ -334,6 +374,49 @@ export default function CampaignsPage({ clinicId }: { clinicId: string }) {
               Só pacientes com telefone cadastrado entram na campanha.
               {recipients.length > 0 && (
                 <> Exemplo: <span className="text-foreground">{recipients[0].name}</span>.</>
+              )}
+            </div>
+
+            {/* Contato avulso: nome + telefone digitados na hora, sem cadastro */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <Label className="text-xs flex items-center gap-1.5">
+                <UserPlus className="h-3.5 w-3.5" />
+                Adicionar contato avulso (fora da base)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome"
+                  value={extraName}
+                  onChange={(e) => setExtraName(e.target.value)}
+                  className="h-9"
+                />
+                <Input
+                  placeholder="Telefone com DDD"
+                  value={extraPhone}
+                  onChange={(e) => setExtraPhone(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addExtraContact()}
+                  className="h-9"
+                />
+                <Button type="button" variant="secondary" className="h-9 shrink-0" onClick={addExtraContact}>
+                  Adicionar
+                </Button>
+              </div>
+              {extraContacts.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {extraContacts.map((c) => (
+                    <Badge key={c.phone} variant="secondary" className="rounded-full gap-1 pr-1">
+                      {c.name} · {c.phone}
+                      <button
+                        type="button"
+                        onClick={() => setExtraContacts((list) => list.filter((x) => x.phone !== c.phone))}
+                        className="rounded-full hover:bg-muted p-0.5"
+                        aria-label={`Remover ${c.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
               )}
             </div>
           </CardContent>
