@@ -672,27 +672,74 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             </div>
           </div>
 
-          {/* Find next free slot */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5 w-full"
-            disabled={slotsLoading}
-            onClick={() => {
-              const next = findNextSlot(startTime);
-              if (next) {
-                setStartTime(next);
-                setTimeMode('select');
-                setManualError(null);
-              } else {
-                toast.warning(emptyMessage ?? 'Nenhum horário livre encontrado neste dia.');
-              }
-            }}
-          >
-            {slotsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-            Encontrar próximo horário livre
-          </Button>
+          {/* Available slots grid (like a real time picker) */}
+          {timeMode === 'select' && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Horários disponíveis em {format(buildLocalDateTime(date, '12:00'), 'dd/MM/yyyy')} ({duration}min):
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                  disabled={slotsLoading || availableSlots.length === 0}
+                  onClick={() => {
+                    const next = findNextSlot(startTime);
+                    if (next) { setStartTime(next); setManualError(null); }
+                    else toast.warning(emptyMessage ?? 'Nenhum horário livre encontrado.');
+                  }}
+                >
+                  <Search className="h-3 w-3" /> Próximo livre
+                </button>
+              </div>
+              {slotsLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…
+                </div>
+              ) : availableSlots.length === 0 ? (
+                <div className="flex items-center gap-2 text-xs text-destructive py-1">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  {emptyMessage ?? 'Sem horários disponíveis. Escolha outro dia.'}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {(showAllSlots ? availableSlots : availableSlots.slice(0, 12)).map((slot) => {
+                    const active = slot === startTime;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => { setStartTime(slot); setManualError(null); }}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                            : 'bg-background border-border text-foreground hover:border-primary/50 hover:bg-primary/5'
+                        )}
+                      >
+                        <Clock className={cn('h-3 w-3', active ? 'text-primary-foreground' : 'text-muted-foreground')} />
+                        {slot}
+                      </button>
+                    );
+                  })}
+                  {!showAllSlots && availableSlots.length > 12 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSlots(true)}
+                      className="inline-flex items-center rounded-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      +{availableSlots.length - 12} mais
+                    </button>
+                  )}
+                </div>
+              )}
+              {autoAdvanced === date && (
+                <p className="text-[11px] text-muted-foreground">
+                  Sem horários no dia anterior — avançamos automaticamente para esta data.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Labels */}
           <div className="space-y-2">
