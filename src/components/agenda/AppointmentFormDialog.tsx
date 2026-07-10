@@ -808,7 +808,15 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !patientId ||
+                (timeMode === 'select' && !availableSlots.includes(startTime)) ||
+                (timeMode === 'manual' && !!manualError)
+              }
+            >
               {loading ? 'Agendando...' : returnDays ? 'Agendar + Retorno' : 'Agendar'}
             </Button>
           </div>
