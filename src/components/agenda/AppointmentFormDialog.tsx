@@ -71,6 +71,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [label, setLabel] = useState('');
   const [timeMode, setTimeMode] = useState<'select' | 'manual'>('select');
   const [manualError, setManualError] = useState<string | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState(false);
+  const [autoAdvanced, setAutoAdvanced] = useState<string | null>(null);
   const [returnDays, setReturnDays] = useState<number | null>(null);
   const [roomId, setRoomId] = useState('');
   const [sendConfirmation, setSendConfirmation] = useState(false);
@@ -108,6 +110,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       setTimeMode('select');
       setManualError(null);
       setReturnDays(null);
+      setShowAllSlots(false);
+      setAutoAdvanced(null);
     }
   }, [open, defaultDate]);
 
@@ -123,6 +127,32 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     if (next) setStartTime(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, date, duration, slotsLoading, availableSlots.join(','), defaultHour]);
+
+  // Auto-advance to next day with availability when current date has no slots.
+  // Only triggers when user didn't explicitly pass a defaultDate/defaultHour.
+  useEffect(() => {
+    if (!open || timeMode !== 'select' || slotsLoading) return;
+    if (defaultHour != null) return;
+    if (availableSlots.length > 0) return;
+    if (!emptyMessage) return;
+    // avoid infinite loop: cap at 30 forward attempts
+    const [y, m, d] = date.split('-').map(Number);
+    const current = new Date(y, m - 1, d);
+    const startStr = format(new Date(), 'yyyy-MM-dd');
+    // don't advance past 30 days from today
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysAhead = Math.round((current.getTime() - today.getTime()) / 86400000);
+    if (daysAhead >= 30) return;
+    const next = addDays(current, 1);
+    const nextStr = format(next, 'yyyy-MM-dd');
+    if (nextStr === date) return;
+    setDate(nextStr);
+    setAutoAdvanced(nextStr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, date, timeMode, slotsLoading, emptyMessage, availableSlots.length]);
+
+  // Reset "show more" when list of slots changes
+  useEffect(() => { setShowAllSlots(false); }, [date, duration]);
 
   const { data: patients = [] } = useQuery({
     queryKey: ['patients-list', currentClinicId],
