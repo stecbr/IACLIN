@@ -629,27 +629,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Carregando horários…
                   </div>
-                ) : emptyMessage ? (
-                  <div className="h-10 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 text-xs text-destructive">
-                    <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                    {emptyMessage}
-                  </div>
                 ) : (
-                  <Select value={startTime} onValueChange={setStartTime}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um horário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSlots.map((slot) => (
-                        <SelectItem key={slot} value={slot}>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            {slot}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="h-10 flex items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className={availableSlots.includes(startTime) ? 'font-medium' : 'text-muted-foreground'}>
+                      {availableSlots.includes(startTime) ? startTime : 'Selecione um horário abaixo'}
+                    </span>
+                  </div>
                 )
               ) : (
                 <div className="space-y-1">
