@@ -71,6 +71,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [label, setLabel] = useState('');
   const [timeMode, setTimeMode] = useState<'select' | 'manual'>('select');
   const [manualError, setManualError] = useState<string | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState(false);
+  const [autoAdvanced, setAutoAdvanced] = useState<string | null>(null);
   const [returnDays, setReturnDays] = useState<number | null>(null);
   const [roomId, setRoomId] = useState('');
   const [sendConfirmation, setSendConfirmation] = useState(false);
@@ -108,6 +110,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       setTimeMode('select');
       setManualError(null);
       setReturnDays(null);
+      setShowAllSlots(false);
+      setAutoAdvanced(null);
     }
   }, [open, defaultDate]);
 
@@ -123,6 +127,32 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     if (next) setStartTime(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, date, duration, slotsLoading, availableSlots.join(','), defaultHour]);
+
+  // Auto-advance to next day with availability when current date has no slots.
+  // Only triggers when user didn't explicitly pass a defaultDate/defaultHour.
+  useEffect(() => {
+    if (!open || timeMode !== 'select' || slotsLoading) return;
+    if (defaultHour != null) return;
+    if (availableSlots.length > 0) return;
+    if (!emptyMessage) return;
+    // avoid infinite loop: cap at 30 forward attempts
+    const [y, m, d] = date.split('-').map(Number);
+    const current = new Date(y, m - 1, d);
+    const startStr = format(new Date(), 'yyyy-MM-dd');
+    // don't advance past 30 days from today
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysAhead = Math.round((current.getTime() - today.getTime()) / 86400000);
+    if (daysAhead >= 30) return;
+    const next = addDays(current, 1);
+    const nextStr = format(next, 'yyyy-MM-dd');
+    if (nextStr === date) return;
+    setDate(nextStr);
+    setAutoAdvanced(nextStr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, date, timeMode, slotsLoading, emptyMessage, availableSlots.length]);
+
+  // Reset "show more" when list of slots changes
+  useEffect(() => { setShowAllSlots(false); }, [date, duration]);
 
   const { data: patients = [] } = useQuery({
     queryKey: ['patients-list', currentClinicId],
@@ -599,27 +629,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Carregando horários…
                   </div>
-                ) : emptyMessage ? (
-                  <div className="h-10 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 text-xs text-destructive">
-                    <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                    {emptyMessage}
-                  </div>
                 ) : (
-                  <Select value={startTime} onValueChange={setStartTime}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um horário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSlots.map((slot) => (
-                        <SelectItem key={slot} value={slot}>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            {slot}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="h-10 flex items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className={availableSlots.includes(startTime) ? 'font-medium' : 'text-muted-foreground'}>
+                      {availableSlots.includes(startTime) ? startTime : 'Selecione um horário abaixo'}
+                    </span>
+                  </div>
                 )
               ) : (
                 <div className="space-y-1">
@@ -656,27 +672,74 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             </div>
           </div>
 
-          {/* Find next free slot */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5 w-full"
-            disabled={slotsLoading}
-            onClick={() => {
-              const next = findNextSlot(startTime);
-              if (next) {
-                setStartTime(next);
-                setTimeMode('select');
-                setManualError(null);
-              } else {
-                toast.warning(emptyMessage ?? 'Nenhum horário livre encontrado neste dia.');
-              }
-            }}
-          >
-            {slotsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-            Encontrar próximo horário livre
-          </Button>
+          {/* Available slots grid (like a real time picker) */}
+          {timeMode === 'select' && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Horários disponíveis em {format(buildLocalDateTime(date, '12:00'), 'dd/MM/yyyy')} ({duration}min):
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
+                  disabled={slotsLoading || availableSlots.length === 0}
+                  onClick={() => {
+                    const next = findNextSlot(startTime);
+                    if (next) { setStartTime(next); setManualError(null); }
+                    else toast.warning(emptyMessage ?? 'Nenhum horário livre encontrado.');
+                  }}
+                >
+                  <Search className="h-3 w-3" /> Próximo livre
+                </button>
+              </div>
+              {slotsLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…
+                </div>
+              ) : availableSlots.length === 0 ? (
+                <div className="flex items-center gap-2 text-xs text-destructive py-1">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  {emptyMessage ?? 'Sem horários disponíveis. Escolha outro dia.'}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {(showAllSlots ? availableSlots : availableSlots.slice(0, 12)).map((slot) => {
+                    const active = slot === startTime;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => { setStartTime(slot); setManualError(null); }}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                            : 'bg-background border-border text-foreground hover:border-primary/50 hover:bg-primary/5'
+                        )}
+                      >
+                        <Clock className={cn('h-3 w-3', active ? 'text-primary-foreground' : 'text-muted-foreground')} />
+                        {slot}
+                      </button>
+                    );
+                  })}
+                  {!showAllSlots && availableSlots.length > 12 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSlots(true)}
+                      className="inline-flex items-center rounded-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      +{availableSlots.length - 12} mais
+                    </button>
+                  )}
+                </div>
+              )}
+              {autoAdvanced === date && (
+                <p className="text-[11px] text-muted-foreground">
+                  Sem horários no dia anterior — avançamos automaticamente para esta data.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Labels */}
           <div className="space-y-2">
@@ -745,7 +808,15 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !patientId ||
+                (timeMode === 'select' && !availableSlots.includes(startTime)) ||
+                (timeMode === 'manual' && !!manualError)
+              }
+            >
               {loading ? 'Agendando...' : returnDays ? 'Agendar + Retorno' : 'Agendar'}
             </Button>
           </div>
