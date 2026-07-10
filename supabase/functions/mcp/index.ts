@@ -2,7 +2,115 @@
 // To take ownership, delete this banner line; the plugin then leaves the file alone.
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
+// src/lib/mcp/index.ts
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+
+// src/lib/mcp/tools/whoami.ts
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
+var whoami_default = defineTool({
+  name: "whoami",
+  title: "Who am I",
+  description: "Returns the authenticated IACLIN user's id and email.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: (_input, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const userId = ctx.getUserId();
+    const email = ctx.getUserEmail() ?? null;
+    return {
+      content: [{ type: "text", text: `user_id=${userId} email=${email ?? "(unknown)"}` }],
+      structuredContent: { user_id: userId, email }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-appointments.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.103.0";
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z } from "npm:zod@^4.4.3";
+function supabaseForUser(ctx) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_appointments_default = defineTool2({
+  name: "list_my_appointments",
+  title: "List my upcoming appointments",
+  description: "Lists the signed-in user's upcoming IACLIN appointments (as dentist/doctor or as patient), ordered by start time.",
+  inputSchema: {
+    limit: z.number().int().min(1).max(50).optional().describe("Max rows to return (default 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser(ctx);
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const { data, error } = await supabase.from("appointments").select("id, start_time, end_time, status, procedure, patient_id, dentist_id, clinic_id").gte("start_time", nowIso).order("start_time", { ascending: true }).limit(limit ?? 10);
+    if (error) {
+      return { content: [{ type: "text", text: error.message }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? [], null, 2) }],
+      structuredContent: { appointments: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/search-patients.ts
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.103.0";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z2 } from "npm:zod@^4.4.3";
+function supabaseForUser2(ctx) {
+  return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var search_patients_default = defineTool3({
+  name: "search_patients",
+  title: "Search patients",
+  description: "Searches IACLIN patients accessible to the signed-in user by name or phone. RLS scopes results to their clinic(s).",
+  inputSchema: {
+    query: z2.string().trim().min(1).describe("Name or phone fragment to search."),
+    limit: z2.number().int().min(1).max(50).optional().describe("Max rows to return (default 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ query, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser2(ctx);
+    const escaped = query.replace(/[%_,]/g, (m) => `\\${m}`);
+    const { data, error } = await supabase.from("patients").select("id, full_name, phone, date_of_birth, clinic_id").or(`full_name.ilike.%${escaped}%,phone.ilike.%${escaped}%`).limit(limit ?? 10);
+    if (error) {
+      return { content: [{ type: "text", text: error.message }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? [], null, 2) }],
+      structuredContent: { patients: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/index.ts
+var projectRef = "fwyulywxhjyxdreeuqna";
+var mcp_default = defineMcp({
+  name: "iaclin-mcp",
+  title: "IACLIN",
+  version: "0.1.0",
+  instructions: "Tools for the IACLIN clinic management platform. Use `whoami` to check the connected user, `list_my_appointments` for their upcoming appointments, and `search_patients` to look up patients they have access to.",
+  auth: auth.oauth.issuer({
+    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    acceptedAudiences: "authenticated"
+  }),
+  tools: [whoami_default, list_my_appointments_default, search_patients_default]
+});
+
 // lovable-mcp-supabase-entry.ts
-import mcp from "npm:C:\\Users\\lucas\\Documents\\GitHub\\IACLIN\\src\\lib\\mcp\\index.ts";
 import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.0/stacks/supabase";
-Deno.serve(createSupabaseHandler(mcp, { functionName: "mcp" }));
+Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));
