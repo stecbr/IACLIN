@@ -20,6 +20,7 @@ import {
   ChevronDown,
   MessageSquare,
   Receipt,
+  Megaphone,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -717,6 +718,7 @@ export function AppSidebar() {
                   <SidebarMenu>
                     {automationItems.map((item) => renderNavItem(item))}
                     {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
+                    {renderNavItem({ title: 'Campanhas', url: '/campanhas', icon: Megaphone })}
                   </SidebarMenu>
                 </NavSection>
               )}
@@ -770,6 +772,7 @@ export function AppSidebar() {
               <NavSection id="automacao" label="Automação" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'Secretária IA', url: '/secretaria-ia', icon: Bot })}
+                  {renderNavItem({ title: 'Campanhas', url: '/campanhas', icon: Megaphone })}
                 </SidebarMenu>
               </NavSection>
             )}
@@ -795,6 +798,7 @@ export function AppSidebar() {
               <NavSection id="automacao-dentist" label="Automação" collapsed={collapsed} defaultOpen={false}>
                 <SidebarMenu>
                   {renderNavItem({ title: 'IA Gestor', url: '/ia-gestor', icon: Brain })}
+                  {renderNavItem({ title: 'Campanhas', url: '/campanhas', icon: Megaphone })}
                 </SidebarMenu>
               </NavSection>
             )}
